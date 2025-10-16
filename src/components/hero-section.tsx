@@ -1,36 +1,46 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play } from "lucide-react";
 
 export default function HeroSection() {
+  const [mounted, setMounted] = useState(false);
+  const [certificateId, setCertificateId] = useState("");
+  const router = useRouter();
+  useEffect(() => setMounted(true), []);
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
       {/* Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900">
         {/* Floating Bubbles */}
-        <div className="absolute inset-0">
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-2 h-2 bg-white/20 rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-              }}
-              animate={{
-                y: [0, -20, 0],
-                opacity: [0.2, 0.8, 0.2],
-              }}
-              transition={{
-                duration: 3 + Math.random() * 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
-            />
-          ))}
-        </div>
+        {mounted && (
+          <div className="absolute inset-0">
+            {[...Array(20)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-2 h-2 bg-white/20 rounded-full"
+                style={{
+                  left: `${(i * 37) % 100}%`,
+                  top: `${(i * 53) % 100}%`,
+                }}
+                animate={{
+                  y: [0, -20, 0],
+                  opacity: [0.2, 0.8, 0.2],
+                }}
+                transition={{
+                  duration: 3 + ((i * 13) % 20) / 10,
+                  repeat: Infinity,
+                  delay: ((i * 17) % 20) / 10,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-8">
@@ -54,20 +64,33 @@ export default function HeroSection() {
             and industrial visits with our multilingual platform.
           </p>
 
-          {/* CTA Button */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+          {/* Certificate Search */}
+          <motion.form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = certificateId.trim();
+              if (!q) return;
+              router.push(`/certificates?cert=${encodeURIComponent(q)}`);
+            }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.6 }}
+            className="mx-auto max-w-xl flex items-center gap-3"
           >
+            <Input
+              value={certificateId}
+              onChange={(e) => setCertificateId(e.target.value)}
+              placeholder="Enter Certificate ID (e.g., EC-2025-0001)"
+              className="h-12 bg-white/95 border-white/70 focus-visible:ring-blue-500"
+            />
             <Button
-              size="lg"
-              className="bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white text-lg px-8 py-4 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
+              type="submit"
+              className="h-12 px-6 bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white rounded-lg shadow-2xl hover:shadow-3xl transition-all duration-300"
             >
-              Try Now
+              Search
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
-          </motion.div>
+          </motion.form>
         </motion.div>
 
         {/* Dashboard Mockup */}

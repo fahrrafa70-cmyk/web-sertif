@@ -1,16 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Menu } from "lucide-react";
+import { Menu, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import Sidebar from "./sidebar-compact";
-import FloatingSidebarButton from "./floating-sidebar-button";
+// Floating sidebar button removed; using a header-aligned trigger instead
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Load role on mount to avoid hydration mismatch
+    try {
+      if (typeof window !== "undefined") {
+        const savedRole = window.localStorage.getItem("ecert-role");
+        if (savedRole === "Admin" || savedRole === "Team" || savedRole === "Public") {
+          setRole(savedRole);
+        }
+      }
+    } catch {}
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("ecert-role", role);
+      }
+    } catch {}
+  }, [role]);
+
+  const effectiveRole = mounted ? role : "Public";
 
   return (
     <motion.header
@@ -21,12 +54,22 @@ export default function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 min-h-[4rem] py-3">
-          {/* Sidebar Trigger Button */}
+          {/* Sidebar Trigger Button (Mobile) */}
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="lg:hidden p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center self-center"
           >
             <Menu className="w-6 h-6" />
+          </button>
+
+          {/* Sidebar Trigger Button (Desktop, left of logo) */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="hidden md:inline-flex items-center justify-center mr-2 h-10 w-10 rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-colors duration-200 shadow-sm mt-1"
+            title="Open Menu"
+            aria-label="Open Menu"
+          >
+            <Menu className="w-5 h-5" />
           </button>
 
           {/* Logo */}
@@ -57,19 +100,33 @@ export default function Header() {
             >
               Activities
             </Link>
+            {(role === "Admin" || role === "Team") && (
+              <Link
+                href="/templates"
+                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+              >
+                Templates
+              </Link>
+            )}
+            {effectiveRole === "Public" ? (
+              <Link
+                href="/my-certificates"
+                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+              >
+                My Certificates
+              </Link>
+            ) : (
+              <Link
+                href="/certificates"
+                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+              >
+                Certificates
+              </Link>
+            )}
           </nav>
 
           {/* Desktop Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Desktop Sidebar Trigger */}
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center self-center"
-              title="Open Sidebar"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            
             <Button
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200"
@@ -81,6 +138,35 @@ export default function Header() {
             >
               Register
             </Button>
+
+            {/* Role Switcher (Desktop) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200 flex items-center gap-2 whitespace-nowrap w-40 justify-between h-10"
+                >
+                  <span className="hidden sm:inline">Role:</span> {role}
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuLabel>Select Role</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setRole("Admin")}> 
+                  {role === "Admin" && <Check className="w-4 h-4" />} 
+                  <span>Admin</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setRole("Team")}>
+                  {role === "Team" && <Check className="w-4 h-4" />} 
+                  <span>Team</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setRole("Public")}>
+                  {role === "Public" && <Check className="w-4 h-4" />} 
+                  <span>Public</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Mobile Menu Button */}
@@ -144,6 +230,32 @@ export default function Header() {
               >
                 Activities
               </Link>
+              {(effectiveRole === "Admin" || effectiveRole === "Team") && (
+                <Link
+                  href="/templates"
+                  className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Templates
+                </Link>
+              )}
+              {effectiveRole === "Public" ? (
+                <Link
+                  href="/my-certificates"
+                  className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  My Certificates
+                </Link>
+              ) : (
+                <Link
+                  href="/certificates"
+                  className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Certificates
+                </Link>
+              )}
               <div className="px-3 py-2 space-y-2">
                 <Button
                   variant="outline"
@@ -154,6 +266,35 @@ export default function Header() {
                 <Button className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
                   Register
                 </Button>
+
+                {/* Role Switcher (Mobile) */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-between whitespace-nowrap h-10"
+                    >
+                      <span>Role: {role}</span>
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuLabel>Select Role</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setRole("Admin")}>
+                      {role === "Admin" && <Check className="w-4 h-4" />}
+                      <span>Admin</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setRole("Team")}>
+                      {role === "Team" && <Check className="w-4 h-4" />}
+                      <span>Team</span>
+                    </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setRole("Public")}>
+                      {role === "Public" && <Check className="w-4 h-4" />}
+                      <span>Public</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </motion.div>
@@ -161,13 +302,8 @@ export default function Header() {
       </div>
 
       {/* Sidebar */}
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      
-      {/* Floating Sidebar Button */}
-      <FloatingSidebarButton 
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
-        isOpen={isSidebarOpen} 
-      />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} role={effectiveRole} />
+
     </motion.header>
   );
 }
