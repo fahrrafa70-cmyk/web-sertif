@@ -27,7 +27,7 @@ import { LanguageSwitcher } from "./language-switcher";
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  role?: "Admin" | "Team" | "Public";
+  role?: "admin" | "team" | "user" | null;
 }
 
 export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProps) {
@@ -35,7 +35,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
   // NO SCROLL LOCKING - Use pure overlay approach
   
   // Derive role from prop, then fallback to localStorage for hard reload scenarios
-  const role = roleProp ?? (typeof window !== "undefined" ? (window.localStorage.getItem("ecert-role") as "Admin" | "Team" | "Public" | null) : null) ?? "Public";
+  const role = roleProp ?? null;
   useEffect(() => {
     // keep localStorage in sync if parent sends role
     try {
@@ -66,7 +66,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
   // Removed noninteractive quick actions per request
 
   const roleMenu: { label: string; href: string }[] = (() => {
-    if (role === "Admin") {
+    if (role === "admin") {
       return [
         // Dashboard item removed to avoid duplication and keep focus.
         { label: t('nav.templates'), href: "/templates" },
@@ -77,7 +77,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
         { label: "Settings", href: "/settings" },
       ];
     }
-    if (role === "Team") {
+    if (role === "team") {
       return [
         // Dashboard item removed to avoid duplication and keep focus.
         { label: t('nav.templates'), href: "/templates" },
@@ -199,7 +199,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                   {/* Management / Role Menu */}
                   <div>
                     <h3 className="text-base font-semibold text-gray-600 uppercase tracking-wider mb-4 px-2">
-                      {role === "Public" ? t('nav.explore') : t('nav.management')}
+                      {!role ? t('nav.explore') : t('nav.management')}
                     </h3>
                     <nav className="space-y-1">
                       {roleMenu.map((item, index) => (

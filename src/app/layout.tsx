@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { LayoutStability } from "@/components/layout-stability";
 import { LanguageProvider } from "@/contexts/language-context";
+import { AuthProvider } from "@/contexts/auth-context";
+import { LoginModal } from "@/components/ui/login-modal";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,8 +25,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
         <LanguageProvider>
-          <LayoutStability />
-          {children}
+          <AuthProvider>
+            <LayoutStability />
+            {children}
+            <LoginModal />
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>
