@@ -2,25 +2,27 @@
 
 import { motion } from "framer-motion";
 import { Play, Users, Calendar, Building } from "lucide-react";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function VideoDocumentationSection() {
+  const { t } = useLanguage();
   const stats = [
     {
       icon: <Users className="w-8 h-8" />,
-      number: "6,372",
-      label: "Participants",
+      number: "12,847",
+      label: t('analytics.totalCertificates'),
       gradient: "from-teal-500 to-teal-600"
     },
     {
       icon: <Calendar className="w-8 h-8" />,
-      number: "77",
-      label: "Activities",
+      number: "156",
+      label: t('analytics.totalTemplates'),
       gradient: "from-pink-500 to-pink-600"
     },
     {
       icon: <Building className="w-8 h-8" />,
-      number: "610",
-      label: "Institutions",
+      number: "89",
+      label: t('analytics.totalUsers'),
       gradient: "from-purple-500 to-purple-600"
     }
   ];
@@ -37,7 +39,7 @@ export default function VideoDocumentationSection() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Video Documentation
+            {t('about.title')}
           </h2>
           <div className="w-16 h-1 bg-gradient-to-r from-red-500 to-red-600 mx-auto rounded-full"></div>
         </motion.div>
@@ -56,13 +58,13 @@ export default function VideoDocumentationSection() {
               <div className="bg-gray-800 rounded-xl overflow-hidden shadow-lg">
                 {/* Video Placeholder */}
                 <div className="aspect-video bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center relative">
-                  {/* Receptionist Illustration Placeholder */}
+                  {/* Certificate Management Illustration Placeholder */}
                   <div className="text-center text-white">
                     <div className="w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                      <div className="text-6xl">👩‍💼</div>
+                      <div className="text-6xl">📜</div>
                     </div>
-                    <h3 className="text-xl font-bold mb-2">Receptionist</h3>
-                    <p className="text-blue-200">Professional Support Team</p>
+                    <h3 className="text-xl font-bold mb-2">Certificate Management</h3>
+                    <p className="text-blue-200">Digital Certificate Platform</p>
                   </div>
 
                   {/* Play Button Overlay */}
@@ -84,7 +86,7 @@ export default function VideoDocumentationSection() {
                     <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   </div>
-                  <div className="text-sm text-gray-600">E-Certificate Platform Demo</div>
+                  <div className="text-sm text-gray-600">E-Certificate Management Demo</div>
                   <div className="flex items-center space-x-2">
                     <div className="w-6 h-6 bg-gray-300 rounded flex items-center justify-center">
                       <div className="w-3 h-3 bg-gray-600 rounded-sm"></div>
@@ -114,22 +116,19 @@ export default function VideoDocumentationSection() {
           >
             <div>
               <h3 className="text-3xl font-bold text-gray-900 mb-6">
-                See How Our Platform Works
+                {t('about.title')}
               </h3>
               <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                Watch our comprehensive video documentation to understand how the E-Certificate 
-                Management Platform streamlines certificate creation, management, and verification 
-                processes for organizations worldwide.
+                {t('about.description1')}
               </p>
               <p className="text-lg text-gray-600 leading-relaxed">
-                Learn about our multilingual support, role-based access control, and advanced 
-                features that make certificate management effortless and professional.
+                {t('about.description2')}
               </p>
             </div>
 
             {/* Statistics */}
             <div className="space-y-6">
-              <h4 className="text-xl font-semibold text-gray-900 mb-4">Platform Statistics</h4>
+              <h4 className="text-xl font-semibold text-gray-900 mb-4">{t('analytics.title')}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {stats.map((stat, index) => (
                   <motion.div
@@ -156,23 +155,23 @@ export default function VideoDocumentationSection() {
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                  Multi-language support (English & Indonesian)
+                  {t('about.features.multiUser')}
                 </li>
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                  Role-based access control
+                  {t('about.features.professional')}
                 </li>
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                  Excel import/export functionality
+                  {t('about.features.secure')}
                 </li>
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                  PDF generation and email distribution
+                  {t('about.features.email')}
                 </li>
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                  Public verification system
+                  Public verification system with unique URLs
                 </li>
               </ul>
             </div>

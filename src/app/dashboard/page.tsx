@@ -3,8 +3,10 @@
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function DashboardPage() {
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen">
       <Header />
@@ -17,11 +19,11 @@ export default function DashboardPage() {
               transition={{ duration: 0.5 }}
               className="flex items-center justify-between"
             >
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-500">Overview and quick stats</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+              <p className="text-gray-500">{t('dashboard.overview')}</p>
             </motion.div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-              {["Templates", "Certificates", "Categories", "Members"].map((label, idx) => (
+              {[t('templates.title'), t('certificates.title'), t('categories.title'), "Members"].map((label, idx) => (
                 <motion.div
                   key={label}
                   initial={{ opacity: 0, y: 20 }}

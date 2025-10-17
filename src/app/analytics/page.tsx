@@ -3,8 +3,10 @@
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function AnalyticsPage() {
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen">
       <Header />
@@ -13,8 +15,8 @@ export default function AnalyticsPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics</h1>
-                <p className="text-gray-500 mt-1">Insights and metrics</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('analytics.title')}</h1>
+                <p className="text-gray-500 mt-1">{t('analytics.subtitle')}</p>
               </div>
             </div>
 

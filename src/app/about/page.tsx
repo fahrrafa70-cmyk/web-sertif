@@ -4,28 +4,30 @@ import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { Info, HelpCircle, Users, Award, Shield, Mail } from "lucide-react";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function AboutPage() {
+  const { t } = useLanguage();
   const features = [
     {
       icon: <Users className="w-8 h-8" />,
-      title: "Multi-User Management",
-      description: "Support for Admin, Team, and Public access levels with role-based permissions for secure certificate management."
+      title: t('about.features.multiUser'),
+      description: t('about.features.multiUserDesc')
     },
     {
       icon: <Award className="w-8 h-8" />,
-      title: "Professional Certificates",
-      description: "Create beautiful, verifiable certificates with customizable templates, layouts, and professional designs."
+      title: t('about.features.professional'),
+      description: t('about.features.professionalDesc')
     },
     {
       icon: <Shield className="w-8 h-8" />,
-      title: "Secure Verification",
-      description: "Public verification system with unique URLs for each certificate, ensuring authenticity and security."
+      title: t('about.features.secure'),
+      description: t('about.features.secureDesc')
     },
     {
       icon: <Mail className="w-8 h-8" />,
-      title: "Email Integration",
-      description: "Send certificates via email individually or in bulk with advanced filtering options and automation."
+      title: t('about.features.email'),
+      description: t('about.features.emailDesc')
     }
   ];
 
@@ -43,11 +45,10 @@ export default function AboutPage() {
             >
               <Info className="w-16 h-16 mx-auto mb-6 text-blue-200" />
               <h1 className="text-4xl sm:text-5xl font-bold mb-6">
-                About E-Certificate
+                {t('about.title')}
               </h1>
               <p className="text-xl text-blue-100 max-w-3xl mx-auto">
-                Learn more about our multilingual E-Certificate Management Platform 
-                and how we're revolutionizing certificate management worldwide.
+                {t('about.description1')}
               </p>
             </motion.div>
           </div>
@@ -64,23 +65,16 @@ export default function AboutPage() {
                 viewport={{ once: true }}
               >
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">
-                  Our Mission
+                  {t('about.title')}
                 </h2>
                 <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                  We are committed to providing organizations worldwide with a comprehensive, 
-                  secure, and user-friendly platform for creating, managing, and verifying 
-                  certificates for various programs including trainings, internships, MoUs, 
-                  and industrial visits.
+                  {t('about.description1')}
                 </p>
                 <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                  Our platform supports multiple languages (English and Indonesian) and offers 
-                  role-based access control to ensure that every organization can manage 
-                  their certificates efficiently and securely.
+                  {t('about.description2')}
                 </p>
                 <p className="text-lg text-gray-600 leading-relaxed">
-                  Built with modern technology stack including Next.js, Shadcn UI, Tailwind CSS, 
-                  and Supabase, we ensure scalability, security, and seamless user experience 
-                  across all devices and platforms.
+                  {t('about.description2')}
                 </p>
               </motion.div>
 
@@ -126,11 +120,10 @@ export default function AboutPage() {
               className="text-center mb-16"
             >
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Platform Features
+                {t('about.title')}
               </h2>
               <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                Discover the powerful features that make our E-Certificate Management Platform 
-                the preferred choice for organizations worldwide.
+                {t('about.description1')}
               </p>
             </motion.div>
 
@@ -173,18 +166,17 @@ export default function AboutPage() {
               viewport={{ once: true }}
             >
               <h2 className="text-3xl font-bold mb-6">
-                Ready to Get Started?
+                {t('hero.getStarted')}
               </h2>
               <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-                Join thousands of organizations already using our platform to manage 
-                their certificates efficiently and professionally.
+                {t('about.description1')}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button className="bg-white text-blue-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors duration-200">
-                  Contact Us
+                  {t('nav.contact')}
                 </button>
                 <button className="border-2 border-white text-white px-8 py-3 rounded-full font-semibold hover:bg-white hover:text-blue-600 transition-colors duration-200">
-                  Learn More
+                  {t('hero.learnMore')}
                 </button>
               </div>
             </motion.div>

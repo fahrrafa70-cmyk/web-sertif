@@ -14,26 +14,24 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import Sidebar from "./sidebar-compact";
+import { LanguageSwitcher } from "./language-switcher";
+import { useLanguage } from "@/contexts/language-context";
 // Floating sidebar button removed; using a header-aligned trigger instead
 
 export default function Header() {
+  const { t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    // Load role on mount to avoid hydration mismatch
-    try {
-      if (typeof window !== "undefined") {
-        const savedRole = window.localStorage.getItem("ecert-role");
-        if (savedRole === "Admin" || savedRole === "Team" || savedRole === "Public") {
-          setRole(savedRole);
-        }
-      }
-    } catch {}
-    setMounted(true);
-  }, []);
+  const [role, setRole] = useState<"Admin" | "Team" | "Public">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("ecert-role");
+        if (saved === "Admin" || saved === "Team" || saved === "Public") return saved;
+      } catch {}
+    }
+    return "Public";
+  });
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
@@ -43,7 +41,10 @@ export default function Header() {
     } catch {}
   }, [role]);
 
-  const effectiveRole = mounted ? role : "Public";
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
 
   return (
     <motion.header
@@ -86,84 +87,87 @@ export default function Header() {
               href="/"
               className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
             >
-              Home
+              {t('nav.home')}
             </Link>
             <Link
               href="/about"
               className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
             >
-              About E-Certificate
-            </Link>
-            <Link
-              href="/activities"
-              className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
-            >
-              Activities
+              {t('nav.about')}
             </Link>
             {(role === "Admin" || role === "Team") && (
               <Link
                 href="/templates"
                 className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
               >
-                Templates
+                {t('nav.templates')}
               </Link>
             )}
-            {effectiveRole === "Public" ? (
-              <Link
-                href="/my-certificates"
-                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
-              >
-                My Certificates
-              </Link>
-            ) : (
-              <Link
-                href="/certificates"
-                className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
-              >
-                Certificates
-              </Link>
-            )}
+            <div className="w-[140px]">
+              {hydrated ? (
+                role === "Public" ? (
+                  <Link
+                    href="/my-certificates"
+                    className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+                  >
+                    {t('nav.myCertificates')}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/certificates"
+                    className="text-gray-700 hover:text-blue-600 transition-colors duration-200 font-medium"
+                  >
+                    {t('nav.certificates')}
+                  </Link>
+                )
+              ) : (
+                <span aria-hidden className="inline-block w-[140px]">&nbsp;</span>
+              )}
+            </div>
           </nav>
 
           {/* Desktop Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
             <Button
               variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors duration-200"
             >
-              Login
+              {t('auth.login')}
             </Button>
             <Button
-              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 transition-colors duration-200 shadow-lg hover:shadow-xl"
             >
-              Register
+              {t('auth.register')}
             </Button>
+
+            {/* Language Switcher */}
+            <LanguageSwitcher variant="compact" />
 
             {/* Role Switcher (Desktop) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200 flex items-center gap-2 whitespace-nowrap w-40 justify-between h-10"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center gap-2 whitespace-nowrap w-40 justify-between h-10"
                 >
-                  <span className="hidden sm:inline">Role:</span> {role}
+                  <span className="hidden sm:inline" suppressHydrationWarning>{t('auth.role')}:</span> {t(`auth.${role.toLowerCase()}`)}
                   <ChevronDown className="w-4 h-4 text-gray-500" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuLabel>Select Role</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('auth.selectRole')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setRole("Admin")}> 
                   {role === "Admin" && <Check className="w-4 h-4" />} 
-                  <span>Admin</span>
+                  <span>{t('auth.admin')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setRole("Team")}>
                   {role === "Team" && <Check className="w-4 h-4" />} 
-                  <span>Team</span>
+                  <span>{t('auth.team')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setRole("Public")}>
                   {role === "Public" && <Check className="w-4 h-4" />} 
-                  <span>Public</span>
+                  <span>{t('auth.public')}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -214,58 +218,58 @@ export default function Header() {
                 className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Home
+                {t('nav.home')}
               </Link>
               <Link
                 href="/about"
                 className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
                 onClick={() => setIsMenuOpen(false)}
               >
-                About E-Certificate
+                {t('nav.about')}
               </Link>
-              <Link
-                href="/activities"
-                className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Activities
-              </Link>
-              {(effectiveRole === "Admin" || effectiveRole === "Team") && (
+              {(role === "Admin" || role === "Team") && (
                 <Link
                   href="/templates"
                   className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Templates
+                  {t('nav.templates')}
                 </Link>
               )}
-              {effectiveRole === "Public" ? (
-                <Link
-                  href="/my-certificates"
-                  className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  My Certificates
-                </Link>
+              {hydrated ? (
+                role === "Public" ? (
+                  <Link
+                    href="/my-certificates"
+                    className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {t('nav.myCertificates')}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/certificates"
+                    className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {t('nav.certificates')}
+                  </Link>
+                )
               ) : (
-                <Link
-                  href="/certificates"
-                  className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-colors duration-200"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Certificates
-                </Link>
+                <span aria-hidden className="block px-3 py-2">&nbsp;</span>
               )}
               <div className="px-3 py-2 space-y-2">
                 <Button
                   variant="outline"
                   className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
-                  Login
+                  {t('auth.login')}
                 </Button>
                 <Button className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
-                  Register
+                  {t('auth.register')}
                 </Button>
+
+                {/* Language Switcher (Mobile) */}
+                <LanguageSwitcher variant="default" className="w-full" />
 
                 {/* Role Switcher (Mobile) */}
                 <DropdownMenu>
@@ -274,24 +278,24 @@ export default function Header() {
                       variant="outline"
                       className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-between whitespace-nowrap h-10"
                     >
-                      <span>Role: {role}</span>
+                      <span>{t('auth.role')}: {t(`auth.${role.toLowerCase()}`)}</span>
                       <ChevronDown className="w-4 h-4 text-gray-500" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuLabel>Select Role</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t('auth.selectRole')}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setRole("Admin")}>
                       {role === "Admin" && <Check className="w-4 h-4" />}
-                      <span>Admin</span>
+                      <span>{t('auth.admin')}</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setRole("Team")}>
                       {role === "Team" && <Check className="w-4 h-4" />}
-                      <span>Team</span>
+                      <span>{t('auth.team')}</span>
                     </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setRole("Public")}>
                       {role === "Public" && <Check className="w-4 h-4" />}
-                      <span>Public</span>
+                      <span>{t('auth.public')}</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -302,7 +306,7 @@ export default function Header() {
       </div>
 
       {/* Sidebar */}
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} role={effectiveRole} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} role={role} />
 
     </motion.header>
   );

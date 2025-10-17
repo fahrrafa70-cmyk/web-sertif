@@ -116,10 +116,255 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
+  /* ABSOLUTE NO-SHIFT POLICY - Never change scroll behavior */
+  html {
+    scrollbar-gutter: stable both-edges !important; /* Always reserve scrollbar space */
+    overflow-y: scroll !important; /* NEVER change this - always show scrollbar */
+    height: 100% !important;
+    /* Prevent any height changes */
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    /* Override any Radix UI modifications */
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+  }
+  
   body {
     @apply bg-background text-foreground;
-    padding-top: 4rem; /* Account for fixed header height */
-    overflow-y: scroll; /* Reserve scrollbar to avoid layout shift */
-    scrollbar-gutter: stable both-edges; /* Prevent content from shifting when scrollbars appear */
+    padding-top: 4rem !important; /* Account for fixed header height */
+    overflow-y: scroll !important; /* NEVER change this - always show scrollbar */
+    scrollbar-gutter: stable both-edges !important; /* Prevent content from shifting when scrollbars appear */
+    overscroll-behavior: contain !important; /* Prevent scroll chaining side-effects */
+    height: 100% !important;
+    /* Prevent any layout shifts from scrollbar changes */
+    width: 100% !important;
+    position: relative !important;
+    /* Prevent any height changes */
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    /* Override any Radix UI modifications */
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+    /* Prevent any style mutations */
+    transition: none !important;
+  }
+  
+  /* NO SCROLL LOCKING - Use visual overlay instead */
+  body.scroll-locked {
+    /* DO NOT change overflow - keep scrollbar visible */
+    overflow-y: scroll !important;
+    /* Use visual overlay to prevent scrolling instead */
+    position: relative;
+  }
+  
+  /* Visual scroll prevention overlay */
+  .scroll-prevention-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    pointer-events: auto;
+    background: transparent;
+  }
+  
+  /* Ensure main content never shifts */
+  main {
+    width: 100%;
+    position: relative;
+    /* Prevent any height changes */
+    min-height: calc(100vh - 4rem);
+  }
+  
+  /* Smooth transitions for all overlays - only opacity/transform */
+  [data-radix-dialog-overlay],
+  [data-radix-dropdown-menu-content],
+  [data-radix-sheet-overlay] {
+    transition: opacity 200ms ease-in-out;
+  }
+  
+  [data-radix-dialog-content],
+  [data-radix-dropdown-menu-content],
+  [data-radix-sheet-content] {
+    transition: opacity 200ms ease-in-out, transform 200ms ease-in-out;
+  }
+  
+  /* Prevent layout shifts from dropdown menus */
+  [data-radix-dropdown-menu-content] {
+    position: fixed !important;
+    z-index: 50;
+  }
+  
+  /* Ensure modals and sheets don't affect layout */
+  [data-radix-dialog-overlay],
+  [data-radix-sheet-overlay] {
+    position: fixed !important;
+    inset: 0;
+    z-index: 50;
+  }
+  
+  /* Sidebar overlay positioning - prevent layout shifts */
+  .sidebar-overlay {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 100vw;
+    z-index: 60;
+    pointer-events: none;
+  }
+  
+  .sidebar-overlay .sidebar-content {
+    pointer-events: auto;
+  }
+  
+  /* Prevent any element from affecting page height */
+  [data-radix-portal] {
+    position: fixed !important;
+    z-index: 50;
+  }
+  
+  /* Ensure all overlays are completely isolated */
+  .overlay-container {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 50;
+  }
+  
+  .overlay-container .overlay-content {
+    pointer-events: auto;
+  }
+  
+  /* COMPLETE RADIX UI OVERRIDE - Prevent any body/html modifications */
+  [data-radix-scroll-area-viewport],
+  [data-radix-dialog-content],
+  [data-radix-dropdown-menu-content],
+  [data-radix-sheet-content] {
+    /* Prevent any layout-affecting properties */
+    position: fixed !important;
+    transform: none !important;
+    transition: opacity 200ms ease-in-out, transform 200ms ease-in-out !important;
+  }
+  
+  /* Override any Radix UI body modifications */
+  body[data-scroll-locked],
+  body[data-radix-scroll-locked],
+  html[data-scroll-locked],
+  html[data-radix-scroll-locked] {
+    overflow-y: scroll !important;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+  }
+  
+  /* Prevent any style mutations from Radix UI */
+  *[data-radix-portal] {
+    position: fixed !important;
+    z-index: 50 !important;
+  }
+  
+  /* Ensure main content never shifts regardless of any overlay */
+  main {
+    width: 100% !important;
+    position: relative !important;
+    /* Prevent any height changes */
+    min-height: calc(100vh - 4rem) !important;
+    /* Override any potential modifications */
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+    transition: none !important;
+  }
+  
+  /* PERFECT MODAL CENTERING - Ensure all modals are perfectly centered */
+  [data-radix-dialog-content] {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 51 !important;
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    overflow: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Ensure modal overlay darkens the background and creates focus */
+  [data-radix-dialog-overlay] {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 50 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  
+  /* Darken main content when modal is open */
+  [data-radix-dialog-overlay][data-state="open"] {
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(6px) !important;
+  }
+  
+  /* Additional darkening effect for main content when modal is open */
+  body:has([data-radix-dialog-overlay][data-state="open"]) {
+    filter: brightness(0.7) !important;
+    transition: filter 0.2s ease-in-out !important;
+  }
+  
+  /* Ensure modal content stands out with higher brightness */
+  [data-radix-dialog-content] {
+    filter: brightness(1) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
+  }
+  
+  /* SPECIFIC PREVIEW MODAL CENTERING - Enhanced contrast and focus */
+  .preview-modal-content {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 51 !important;
+    max-width: 60vw !important;
+    max-height: 80vh !important;
+    overflow: auto !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 0.75rem !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    filter: brightness(1) !important;
+  }
+  
+  /* Ensure modal content is properly centered on all screen sizes */
+  @media (max-width: 768px) {
+    [data-radix-dialog-content] {
+      max-width: 90vw !important;
+      max-height: 85vh !important;
+      margin: 0.5rem !important;
+    }
+    
+    .preview-modal-content {
+      max-width: 90vw !important;
+      max-height: 85vh !important;
+      padding: 0.75rem !important;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .preview-modal-content {
+      max-width: 95vw !important;
+      max-height: 90vh !important;
+      padding: 0.5rem !important;
+    }
   }
 }

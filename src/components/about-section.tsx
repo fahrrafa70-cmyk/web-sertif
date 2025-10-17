@@ -2,29 +2,31 @@
 
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/language-context";
 import { Mail, Users, Award, Shield } from "lucide-react";
 
 export default function AboutSection() {
+  const { t } = useLanguage();
   const features = [
     {
       icon: <Users className="w-6 h-6" />,
-      title: "Multi-User Management",
-      description: "Support for Admin, Team, and Public access levels with role-based permissions."
+      title: t('about.features.multiUser'),
+      description: t('about.features.multiUserDesc')
     },
     {
       icon: <Award className="w-6 h-6" />,
-      title: "Professional Certificates",
-      description: "Create beautiful, verifiable certificates with customizable templates and layouts."
+      title: t('about.features.professional'),
+      description: t('about.features.professionalDesc')
     },
     {
       icon: <Shield className="w-6 h-6" />,
-      title: "Secure Verification",
-      description: "Public verification system with unique URLs for each certificate."
+      title: t('about.features.secure'),
+      description: t('about.features.secureDesc')
     },
     {
       icon: <Mail className="w-6 h-6" />,
-      title: "Email Integration",
-      description: "Send certificates via email individually or in bulk with filtering options."
+      title: t('about.features.email'),
+      description: t('about.features.emailDesc')
     }
   ];
 
@@ -42,17 +44,13 @@ export default function AboutSection() {
           >
             <div>
               <h2 className="text-4xl font-bold text-gray-900 mb-6">
-                About E-Certificate
+                {t('about.title')}
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                Our multilingual E-Certificate Management Platform revolutionizes how organizations 
-                create, manage, and verify certificates for various programs including trainings, 
-                internships, MoUs, and industrial visits.
+                {t('about.description1')}
               </p>
               <p className="text-lg text-gray-600 leading-relaxed mb-8">
-                Built with modern technology stack including Next.js, Shadcn UI, Tailwind CSS, 
-                and Supabase, our platform ensures scalability, security, and seamless user experience 
-                across multiple languages.
+                {t('about.description2')}
               </p>
             </div>
 

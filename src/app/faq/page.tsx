@@ -5,8 +5,10 @@ import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function FAQPage() {
+  const { t } = useLanguage();
   const [openItems, setOpenItems] = useState<number[]>([]);
 
   const toggleItem = (index: number) => {
@@ -19,44 +21,28 @@ export default function FAQPage() {
 
   const faqs = [
     {
-      question: "What is the E-Certificate Management Platform?",
-      answer: "The E-Certificate Management Platform is a comprehensive solution for creating, managing, and verifying certificates for various programs including trainings, internships, MoUs, and industrial visits. It supports multiple languages and offers role-based access control."
+      question: t('faq.q1'),
+      answer: t('faq.a1')
     },
     {
-      question: "What languages are supported?",
-      answer: "Our platform currently supports English (default) and Indonesian languages, with seamless switching between them. We're continuously working to add more language support based on user demand."
+      question: t('faq.q2'),
+      answer: t('faq.a2')
     },
     {
-      question: "What are the different access levels?",
-      answer: "We offer three main access levels: Admin (full management access), Team (can add, view, and edit certificates but cannot delete), and Public (can search and view specific certificates via search or direct URL access)."
+      question: t('faq.q3'),
+      answer: t('faq.a3')
     },
     {
-      question: "How do I create a certificate?",
-      answer: "Creating certificates is simple: 1) Choose or create a template, 2) Select a category, 3) Add member information, 4) Generate the certificate as PDF, and 5) Send via email if needed. Our platform guides you through each step."
+      question: t('faq.q4'),
+      answer: t('faq.a4')
     },
     {
-      question: "Can I import data from Excel?",
-      answer: "Yes! Our platform supports Excel import for Templates, Categories, Members, and Certificates. This makes it easy to migrate existing data or bulk upload new information."
+      question: t('faq.q5'),
+      answer: t('faq.a5')
     },
     {
-      question: "How does certificate verification work?",
-      answer: "Each certificate gets a unique verification URL (https://sertifikat.ubig.co.id/cek/{certificate_number}) that allows public verification. Anyone can visit this URL to verify the authenticity of a certificate."
-    },
-    {
-      question: "Can I send certificates via email?",
-      answer: "Absolutely! You can send certificate PDFs by email either individually or in bulk using filters such as category or date range. Our email integration makes distribution efficient and automated."
-    },
-    {
-      question: "Is my data secure?",
-      answer: "Yes, security is our top priority. We use Supabase for secure data management, implement role-based access control, and follow industry best practices for data protection and privacy."
-    },
-    {
-      question: "What file formats are supported?",
-      answer: "Our platform generates certificates as PDF files, which are universally compatible and professional. We also support Excel import/export for data management and CSV for bulk operations."
-    },
-    {
-      question: "How do I get support?",
-      answer: "You can reach our support team through the contact information provided on our website, or use the contact form. We also provide comprehensive documentation and video tutorials to help you get started."
+      question: t('faq.q6'),
+      answer: t('faq.a6')
     }
   ];
 
@@ -74,11 +60,10 @@ export default function FAQPage() {
             >
               <HelpCircle className="w-16 h-16 mx-auto mb-6 text-blue-200" />
               <h1 className="text-4xl sm:text-5xl font-bold mb-6">
-                Frequently Asked Questions
+                {t('faq.title')}
               </h1>
               <p className="text-xl text-blue-100 max-w-3xl mx-auto">
-                Find answers to common questions about our E-Certificate Management Platform. 
-                Can't find what you're looking for? Contact us for personalized assistance.
+                {t('faq.subtitle')}
               </p>
             </motion.div>
           </div>

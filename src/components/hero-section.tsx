@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight} from "lucide-react";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function HeroSection() {
+  const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [certificateId, setCertificateId] = useState("");
   const router = useRouter();
@@ -52,21 +54,20 @@ export default function HeroSection() {
         >
           {/* Main Title */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            <span className="block">Join Online Seminars &</span>
-            <span className="block">Trainings</span>
+            <span className="block">E-Certificate</span>
+            <span className="block">{t('hero.subtitle')}</span>
             <br />
-            <span className="text-blue-200">with Professional Speakers</span>
+            <span className="text-blue-200">{t('hero.subtitle')}</span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-xl sm:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Create, manage, and verify certificates for trainings, internships, MoUs, 
-            and industrial visits with our multilingual platform.
+            {t('hero.description')}
           </p>
 
           {/* Certificate Search */}
           <motion.form
-            onSubmit={(e) => {
+            onSubmit={(e: React.FormEvent) => {
               e.preventDefault();
               const q = certificateId.trim();
               if (!q) return;
@@ -80,14 +81,14 @@ export default function HeroSection() {
             <Input
               value={certificateId}
               onChange={(e) => setCertificateId(e.target.value)}
-              placeholder="Enter Certificate ID (e.g., EC-2025-0001)"
+              placeholder={t('hero.searchPlaceholder')}
               className="h-12 bg-white/95 border-white/70 focus-visible:ring-blue-500"
             />
             <Button
               type="submit"
               className="h-12 px-6 bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white rounded-lg shadow-2xl hover:shadow-3xl transition-all duration-300"
             >
-              Search
+              {t('hero.searchButton')}
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </motion.form>
@@ -121,20 +122,20 @@ export default function HeroSection() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     {/* Stats Cards */}
                     <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg p-4 text-white">
-                      <div className="text-2xl font-bold">6,372</div>
-                      <div className="text-sm opacity-90">Participants</div>
+                      <div className="text-2xl font-bold">12,847</div>
+                      <div className="text-sm opacity-90">Certificates Issued</div>
                     </div>
                     <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-lg p-4 text-white">
-                      <div className="text-2xl font-bold">77</div>
-                      <div className="text-sm opacity-90">Activities</div>
+                      <div className="text-2xl font-bold">156</div>
+                      <div className="text-sm opacity-90">Templates</div>
                     </div>
                     <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-white">
-                      <div className="text-2xl font-bold">610</div>
-                      <div className="text-sm opacity-90">Institutions</div>
+                      <div className="text-2xl font-bold">89</div>
+                      <div className="text-sm opacity-90">Organizations</div>
                     </div>
                     <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-4 text-white">
-                      <div className="text-2xl font-bold">98%</div>
-                      <div className="text-sm opacity-90">Satisfaction</div>
+                      <div className="text-2xl font-bold">99.8%</div>
+                      <div className="text-sm opacity-90">Verification Rate</div>
                     </div>
                   </div>
 
@@ -142,10 +143,10 @@ export default function HeroSection() {
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border-2 border-dashed border-blue-200">
                     <div className="text-center">
                       <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full mx-auto mb-4 flex items-center justify-center">
-                        <span className="text-white text-2xl font-bold">C</span>
+                        <span className="text-white text-2xl font-bold">✓</span>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">Certificate Generated</h3>
-                      <p className="text-gray-600">Professional certificates ready for download</p>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">Certificate Verified</h3>
+                      <p className="text-gray-600">Digital certificates with secure verification</p>
                     </div>
                   </div>
                 </div>

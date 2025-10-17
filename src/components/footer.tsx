@@ -3,9 +3,11 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Mail, Phone, MapPin, ArrowUp } from "lucide-react";
+import { useLanguage } from "@/contexts/language-context";
 import { Button } from "@/components/ui/button";
 
 export default function Footer() {
+  const { t } = useLanguage();
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -80,26 +82,26 @@ export default function Footer() {
             transition={{ duration: 0.8, delay: 0.1 }}
             viewport={{ once: true }}
           >
-            <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
+            <h4 className="text-lg font-semibold mb-4">{t('footer.quickLinks')}</h4>
             <ul className="space-y-2">
               <li>
                 <Link href="/" className="text-blue-100 hover:text-white transition-colors duration-200">
-                  Home
+                  {t('nav.home')}
                 </Link>
               </li>
               <li>
                 <Link href="/about" className="text-blue-100 hover:text-white transition-colors duration-200">
-                  About
+                  {t('nav.about')}
                 </Link>
               </li>
               <li>
                 <Link href="/faq" className="text-blue-100 hover:text-white transition-colors duration-200">
-                  FAQ
+                  {t('nav.faq')}
                 </Link>
               </li>
               <li>
                 <Link href="/contact" className="text-blue-100 hover:text-white transition-colors duration-200">
-                  Contact
+                  {t('nav.contact')}
                 </Link>
               </li>
             </ul>
@@ -112,16 +114,16 @@ export default function Footer() {
             transition={{ duration: 0.8, delay: 0.2 }}
             viewport={{ once: true }}
           >
-            <h4 className="text-lg font-semibold mb-4">Legal</h4>
+            <h4 className="text-lg font-semibold mb-4">{t('footer.legal')}</h4>
             <ul className="space-y-2">
               <li>
                 <Link href="/terms" className="text-blue-100 hover:text-white transition-colors duration-200">
-                  Terms & Conditions
+                  {t('footer.terms')}
                 </Link>
               </li>
               <li>
                 <Link href="/privacy" className="text-blue-100 hover:text-white transition-colors duration-200">
-                  Privacy Policy
+                  {t('footer.privacy')}
                 </Link>
               </li>
               <li>
@@ -144,7 +146,7 @@ export default function Footer() {
               viewport={{ once: true }}
               className="text-blue-100 text-center md:text-left"
             >
-              <p>&copy; 2024 E-Certificate Management Platform. All rights reserved.</p>
+              <p>{t('footer.copyright')}</p>
               <p className="text-sm mt-1">Developed by NURTIYAS</p>
             </motion.div>
 
