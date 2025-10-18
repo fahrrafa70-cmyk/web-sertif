@@ -16,6 +16,7 @@ type AuthState = {
   setOpenLogin: (open: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  localSignOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -38,9 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const fetchedRole = await getUserRoleByEmail(normalized);
           setRole(fetchedRole);
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error("Role fetch error on session change", err);
+        } catch {
           setRole(null);
         }
       }
@@ -57,11 +56,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const normalized = rawEmail.toLowerCase().trim();
       const { user } = await signInWithEmailPassword(normalized, password);
-      // eslint-disable-next-line no-console
       console.log("Auth success", user?.id);
       setEmail(normalized);
       const fetchedRole = await getUserRoleByEmail(normalized);
-      // eslint-disable-next-line no-console
       console.log("Role fetch success", fetchedRole);
       if (!fetchedRole) {
         setRole(null);
@@ -69,11 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       setRole(fetchedRole);
-      // eslint-disable-next-line no-console
       console.log("Role:", fetchedRole.charAt(0).toUpperCase() + fetchedRole.slice(1));
       setOpenLogin(false);
-    } catch (err: any) {
-      setError(err?.message ?? "Unexpected error");
+    } catch (err: unknown) {
+      const message = typeof err === 'object' && err && 'message' in err ? String((err as { message?: string }).message) : 'Unexpected error';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -81,6 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabaseClient.auth.signOut();
+    setRole(null);
+    setEmail(null);
+  }, []);
+
+  const localSignOut = useCallback(async () => {
+    // Sign out of Supabase to clear persisted session and then clear UI state
+    try {
+      await supabaseClient.auth.signOut();
+    } catch {}
+    try {
+      window.localStorage.removeItem("ecert-role");
+    } catch {}
     setRole(null);
     setEmail(null);
   }, []);
@@ -95,7 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setOpenLogin,
     signIn,
     signOut,
-  }), [role, email, loading, error, openLogin, signIn, signOut]);
+    localSignOut,
+  }), [role, email, loading, error, openLogin, signIn, signOut, localSignOut]);
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -44,6 +44,7 @@ export default function CertificateGeneratorPage() {
   
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateItem | null>(null);
+  const [templateImage, setTemplateImage] = useState<string | null>(null);
   const [certificateData, setCertificateData] = useState<CertificateData>({
     recipientName: "John Doe",
     organization: "Example Organization",
@@ -62,9 +63,11 @@ export default function CertificateGeneratorPage() {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("ecert-role");
-      if (saved === "Admin" || saved === "Team" || saved === "Public") {
-        setRole(saved);
-        if (saved === "Public") {
+      const normalized = (saved || "").toLowerCase();
+      if (["admin","team","public"].includes(normalized)) {
+        const mapped = normalized === "admin" ? "Admin" : normalized === "team" ? "Team" : "Public";
+        setRole(mapped);
+        if (mapped === "Public") {
           router.push("/templates");
           return;
         }
@@ -94,6 +97,22 @@ export default function CertificateGeneratorPage() {
     // Simulate preview generation
     console.log("Generating preview with data:", certificateData);
   };
+  const onUploadTemplate = (file: File | null) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setTemplateImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+  };
+
+  const removeTemplateImage = () => {
+    setTemplateImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
 
   const saveCertificate = () => {
     // Simulate saving certificate
@@ -148,8 +167,8 @@ export default function CertificateGeneratorPage() {
             </div>
           </div>
 
-          {/* Dual Pane Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 min-h-[600px]">
+          {/* Dual Pane Layout - wider left preview (landscape) */}
+          <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] lg:grid-cols-[1.7fr_1fr] gap-8 min-h-[720px]">
             {/* Left Section - Certificate Preview */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -169,24 +188,31 @@ export default function CertificateGeneratorPage() {
                 </Button>
               </div>
               
-              {/* Certificate Display */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-8 border-2 border-dashed border-blue-200 min-h-[500px] flex items-center justify-center">
-                <div className="bg-white rounded-xl p-8 shadow-lg relative overflow-hidden max-w-full w-full">
+              {/* Certificate Display - landscape canvas */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 xl:p-6 border-2 border-dashed border-blue-200 min-h-[560px] xl:min-h-[680px] flex items-center justify-center">
+                <div className="bg-white rounded-xl shadow-lg relative overflow-hidden max-w-full w-full aspect-[16/9]">
+                  {templateImage ? (
+                    <img src={templateImage} alt="Certificate Template" className="absolute inset-0 w-full h-full object-cover" />
+                  ) : null}
                   {/* Decorative Corners */}
-                  <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
-                  <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
-                  <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-tr-2xl"></div>
-                  <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-yellow-400 to-orange-500 rounded-tl-2xl"></div>
+                  {!templateImage && (
+                    <>
+                      <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
+                      <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-tr-2xl"></div>
+                      <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-yellow-400 to-orange-500 rounded-tl-2xl"></div>
+                    </>
+                  )}
 
                   {/* Certificate Content */}
-                  <div className="relative z-10 text-center">
-                    <div className="mb-6">
-                      <h3 className="text-2xl font-bold text-gray-800 mb-2">CERTIFICATE</h3>
-                      <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
+                  <div className="relative z-10 text-center p-6 xl:p-10">
+                    <div className="mb-4 xl:mb-6">
+                      <h3 className="text-2xl xl:text-3xl font-bold text-gray-800 mb-2">CERTIFICATE</h3>
+                      <div className="w-16 xl:w-20 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
                     </div>
 
-                    <p className="text-gray-600 mb-4">This is to certify that</p>
-                    <h4 className="text-xl font-bold text-gray-800 mb-4">{certificateData.recipientName}</h4>
+                    <p className="text-gray-600 mb-3 xl:mb-4">This is to certify that</p>
+                    <h4 className="text-xl xl:text-2xl font-bold text-gray-800 mb-3 xl:mb-4">{certificateData.recipientName}</h4>
                     <p className="text-gray-600 mb-6">
                       has successfully completed the<br />
                       <span className="font-semibold">{certificateData.program}</span>
@@ -228,6 +254,25 @@ export default function CertificateGeneratorPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-6">{t('generator.recipient')}</h2>
               
               <div className="space-y-4">
+                {/* Template Image Uploader */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Template Image</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => onUploadTemplate(e.target.files?.[0] ?? null)}
+                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                  </div>
+                  {templateImage && (
+                    <div className="flex items-center gap-3">
+                      <img src={templateImage} alt="Template preview" className="w-24 h-16 object-cover rounded border" />
+                      <Button variant="outline" className="border-gray-300" onClick={removeTemplateImage}>Remove</Button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">{t('generator.recipientName')}</label>
                   <Input
