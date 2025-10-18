@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Plus, Search, Eye, Edit, Trash2, Palette, Layout, X } from "lucide-react";
 import { staggerContainer } from "@/components/page-transition";
 import { useTemplates } from "@/hooks/use-templates";
-import { Template, CreateTemplateData, UpdateTemplateData } from "@/lib/supabase/templates";
+import { Template, CreateTemplateData, UpdateTemplateData, getTemplateImageUrl } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
 
 export default function TemplatesPage() {
@@ -24,7 +24,7 @@ export default function TemplatesPage() {
   const [query, setQuery] = useState("");
 
   // Use templates hook for Supabase integration
-  const { templates, loading, error, create, update, delete: deleteTemplate } = useTemplates();
+  const { templates, loading, error, create, update, delete: deleteTemplate, refresh } = useTemplates();
 
   // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
@@ -49,18 +49,16 @@ export default function TemplatesPage() {
   const [draft, setDraft] = useState<Partial<Template> | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [cleaningUp, setCleaningUp] = useState(false);
   
   // Preview modal state
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   
-  const canDelete = role === "Admin"; // Team cannot delete
+  const canDelete = role === "Admin" || role === "Team"; // Both Admin and Team can delete
 
-  // Helper function to get image URL for template
-  function getTemplateImageUrl(): string | null {
-    // For local storage, we'll use a placeholder or try to find the image by template name
-    // Since we don't store image_url in database anymore, we'll show placeholder
-    return null; // Will show placeholder instead
-  }
+  // Helper function to get image URL for template (now using the imported function)
+  // This function is kept for backward compatibility but now uses the proper implementation
 
   function openCreate() {
     setDraft({ name: "", orientation: "Landscape", category: "" });
@@ -97,6 +95,8 @@ export default function TemplatesPage() {
       setImageFile(null);
       setImagePreview(null);
       toast.success("Template created successfully!");
+      // Refresh templates to show the new template immediately
+      refresh();
     } catch (error) {
       console.error('💥 Template creation failed:', error);
       toast.error(error instanceof Error ? error.message : "Failed to create template");
@@ -130,20 +130,36 @@ export default function TemplatesPage() {
       setImageFile(null);
       setImagePreview(null);
       toast.success("Template updated successfully!");
+      // Refresh templates to show the updated template immediately
+      refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update template");
     }
   }
 
   async function requestDelete(id: string) {
-    if (!canDelete) return;
+    if (!canDelete) {
+      toast.error("You don't have permission to delete templates");
+      return;
+    }
     
-    if (confirm("Are you sure you want to delete this template? This action cannot be undone.")) {
+    // Find template name for better confirmation message
+    const template = templates.find(t => t.id === id);
+    const templateName = template?.name || 'this template';
+    
+    if (confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone and will also delete the associated image file.`)) {
       try {
+        console.log('🗑️ User confirmed deletion of template:', templateName);
+        setDeletingTemplateId(id);
         await deleteTemplate(id);
-        toast.success("Template deleted successfully!");
+        toast.success(`Template "${templateName}" deleted successfully!`);
+        // Refresh templates to remove the deleted template immediately
+        refresh();
       } catch (error) {
+        console.error('💥 Delete failed:', error);
         toast.error(error instanceof Error ? error.message : "Failed to delete template");
+      } finally {
+        setDeletingTemplateId(null);
       }
     }
   }
@@ -152,9 +168,56 @@ export default function TemplatesPage() {
     setPreviewTemplate(template);
   }
 
+  // DIAG: Cleanup orphaned image files
+  async function cleanupOrphanedImages() {
+    if (!canDelete) {
+      toast.error("You don't have permission to clean up images");
+      return;
+    }
+    
+    if (confirm("This will delete any image files that don't have corresponding template records. Continue?")) {
+      try {
+        setCleaningUp(true);
+        console.log('🧹 Starting cleanup of orphaned images...');
+        
+        const response = await fetch('/api/cleanup-orphaned-images', {
+          method: 'POST',
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          toast.success(`Cleanup completed! Deleted ${result.stats.successfullyDeleted} orphaned files.`);
+          console.log('✅ Cleanup completed:', result);
+        } else {
+          toast.error(`Cleanup failed: ${result.error}`);
+          console.error('❌ Cleanup failed:', result);
+        }
+      } catch (error) {
+        console.error('💥 Cleanup request failed:', error);
+        toast.error("Failed to clean up orphaned images");
+      } finally {
+        setCleaningUp(false);
+      }
+    }
+  }
+
 
   function handleImageUpload(file: File | null) {
     if (file) {
+      // Validate file type
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!fileExt || !['jpg', 'jpeg', 'png'].includes(fileExt)) {
+        toast.error('Invalid file type. Only JPG, JPEG, and PNG are allowed.');
+        return;
+      }
+      
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size too large. Maximum size is 10MB.');
+        return;
+      }
+      
       setImageFile(file);
       const url = URL.createObjectURL(file);
       setImagePreview(url);
@@ -227,13 +290,35 @@ export default function TemplatesPage() {
                   />
                 </div>
                 {(role === "Admin" || role === "Team") && (
-                  <Button 
-                    onClick={openCreate} 
-                    className="h-12 px-8 gradient-primary text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                  >
-                    <Plus className="w-5 h-5 mr-2" />
-                    {t('templates.create')}
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button 
+                      onClick={openCreate} 
+                      className="h-12 px-8 gradient-primary text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                    >
+                      <Plus className="w-5 h-5 mr-2" />
+                      {t('templates.create')}
+                    </Button>
+                    {role === "Admin" && (
+                      <Button 
+                        onClick={cleanupOrphanedImages}
+                        disabled={cleaningUp}
+                        variant="outline"
+                        className="h-12 px-6 border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400"
+                      >
+                        {cleaningUp ? (
+                          <>
+                            <div className="w-4 h-4 mr-2 border-2 border-orange-300 border-t-orange-600 rounded-full animate-spin"></div>
+                            Cleaning...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Cleanup Images
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </motion.div>
             </motion.div>
@@ -293,11 +378,12 @@ export default function TemplatesPage() {
                   <Card className="h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group overflow-hidden">
                     {/* Template Preview */}
                     <div className="relative aspect-video bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200 overflow-hidden">
-                      {getTemplateImageUrl() ? (
+                      {getTemplateImageUrl(tpl) ? (
                         <img 
-                          src={getTemplateImageUrl()!} 
+                          src={getTemplateImageUrl(tpl)!} 
                           alt={tpl.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
+                          style={{ width: 'auto', height: 'auto', maxWidth: '100%' }}
                         />
                       ) : (
                         <>
@@ -372,10 +458,19 @@ export default function TemplatesPage() {
                               size="sm"
                               className={`flex-1 border-gray-200 ${canDelete ? 'hover:border-red-300 hover:bg-red-50 hover:text-red-600' : 'opacity-50 cursor-not-allowed'}`}
                               onClick={() => canDelete && requestDelete(tpl.id)}
-                              disabled={!canDelete}
+                              disabled={!canDelete || deletingTemplateId === tpl.id}
                             >
-                              <Trash2 className="w-4 h-4 mr-1" />
-                              {t('common.delete')}
+                              {deletingTemplateId === tpl.id ? (
+                                <>
+                                  <div className="w-4 h-4 mr-1 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="w-4 h-4 mr-1" />
+                                  {t('common.delete')}
+                                </>
+                              )}
                             </Button>
                           </div>
                         )}
@@ -445,12 +540,20 @@ export default function TemplatesPage() {
               transition={{ duration: 0.3, delay: 0.1 }}
             >
               <label className="text-sm font-semibold text-gray-700">Category</label>
-              <Input 
+              <select 
                 value={draft?.category ?? ""} 
                 onChange={(e) => setDraft((d) => (d ? { ...d, category: e.target.value } : d))} 
-                placeholder="Enter category"
-                className="rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
-              />
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select category</option>
+                <option value="MoU">MoU</option>
+                <option value="Magang">Magang</option>
+                <option value="Pelatihan">Pelatihan</option>
+                <option value="Kunjungan Industri">Kunjungan Industri</option>
+                <option value="Sertifikat">Sertifikat</option>
+                <option value="Surat">Surat</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
             </motion.div>
             
             <motion.div 
@@ -490,7 +593,7 @@ export default function TemplatesPage() {
               <div className="space-y-3">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept=".png,.jpg,.jpeg"
                   onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
                   className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
@@ -567,11 +670,20 @@ export default function TemplatesPage() {
               transition={{ duration: 0.3, delay: 0.1 }}
             >
               <label className="text-sm font-semibold text-gray-700">Category</label>
-              <Input 
+              <select 
                 value={draft?.category ?? ""} 
                 onChange={(e) => setDraft((d) => (d ? { ...d, category: e.target.value } : d))} 
-                className="rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
-              />
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select category</option>
+                <option value="MoU">MoU</option>
+                <option value="Magang">Magang</option>
+                <option value="Pelatihan">Pelatihan</option>
+                <option value="Kunjungan Industri">Kunjungan Industri</option>
+                <option value="Sertifikat">Sertifikat</option>
+                <option value="Surat">Surat</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
             </motion.div>
             
             <motion.div 
@@ -611,7 +723,7 @@ export default function TemplatesPage() {
               <div className="space-y-3">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept=".png,.jpg,.jpeg"
                   onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
                   className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
@@ -736,11 +848,12 @@ export default function TemplatesPage() {
                     <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('templates.templatePreview')}</label>
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
                       <div className="bg-white rounded-xl p-8 shadow-xl relative overflow-hidden">
-                        {getTemplateImageUrl() ? (
+                        {getTemplateImageUrl(previewTemplate) ? (
                           <img 
-                            src={getTemplateImageUrl()!} 
+                            src={getTemplateImageUrl(previewTemplate)!} 
                             alt={previewTemplate.name}
-                            className="w-full h-full object-cover absolute inset-0"
+                            className="w-full h-full object-contain absolute inset-0"
+                            style={{ width: 'auto', height: 'auto', maxWidth: '100%' }}
                           />
                         ) : (
                           <>

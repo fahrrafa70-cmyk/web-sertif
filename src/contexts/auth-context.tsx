@@ -29,19 +29,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [openLogin, setOpenLogin] = useState(false);
 
   useEffect(() => {
+    // DIAG: Fix 1 - Initialize auth state on app startup using getSession()
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        console.log('Initializing auth state:', { session: !!session, error });
+        
+        if (error) {
+          console.error('Session initialization error:', error);
+          return;
+        }
+        
+        if (session?.user?.email) {
+          const normalized = session.user.email.toLowerCase().trim();
+          setEmail(normalized);
+          try {
+            const fetchedRole = await getUserRoleByEmail(normalized);
+            setRole(fetchedRole);
+            setError(null);
+            console.log('Auth state restored from session:', { email: normalized, role: fetchedRole });
+          } catch (err) {
+            console.error('Error fetching user role on init:', err);
+            setRole(null);
+            setError("Failed to fetch user role. Please try signing in again.");
+          }
+        }
+      } catch (err) {
+        console.error('Auth initialization failed:', err);
+      }
+    };
+
+    // Initialize auth state immediately
+    initializeAuth();
+
+    // Set up auth state change listener
     const { data: authListener } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session?.user?.email);
+      
       if (event === "SIGNED_OUT" || !session) {
         setRole(null);
         setEmail(null);
-      } else if (session?.user?.email) {
+        setError(null);
+      } else if (event === "SIGNED_IN" && session?.user?.email) {
         const normalized = session.user.email.toLowerCase().trim();
         setEmail(normalized);
         try {
           const fetchedRole = await getUserRoleByEmail(normalized);
           setRole(fetchedRole);
-        } catch {
+          setError(null);
+        } catch (err) {
+          console.error('Error fetching user role:', err);
           setRole(null);
+          setError("Failed to fetch user role. Please try signing in again.");
         }
+      } else if (event === "TOKEN_REFRESHED" && session?.user?.email) {
+        // Handle token refresh - just update the session without changing state
+        console.log('Token refreshed for:', session.user.email);
       }
     });
 
@@ -55,21 +98,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       const normalized = rawEmail.toLowerCase().trim();
+      
+      // Check if Supabase is properly configured
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        throw new Error("Supabase is not configured. Please check your environment variables.");
+      }
+      
       const { user } = await signInWithEmailPassword(normalized, password);
       console.log("Auth success", user?.id);
-      setEmail(normalized);
-      const fetchedRole = await getUserRoleByEmail(normalized);
-      console.log("Role fetch success", fetchedRole);
-      if (!fetchedRole) {
-        setRole(null);
-        setError("Account exists but role data is missing.");
-        return;
-      }
-      setRole(fetchedRole);
-      console.log("Role:", fetchedRole.charAt(0).toUpperCase() + fetchedRole.slice(1));
+      
+      // The auth state change listener will handle setting email and role
+      // We just need to close the login modal
       setOpenLogin(false);
     } catch (err: unknown) {
-      const message = typeof err === 'object' && err && 'message' in err ? String((err as { message?: string }).message) : 'Unexpected error';
+      console.error('Sign in error:', err);
+      let message = 'An unexpected error occurred';
+      
+      if (typeof err === 'object' && err && 'message' in err) {
+        const errorMessage = String((err as { message?: string }).message);
+        
+        // Handle specific Supabase auth errors
+        if (errorMessage.includes('Invalid login credentials')) {
+          message = 'Invalid email or password';
+        } else if (errorMessage.includes('Email not confirmed')) {
+          message = 'Please check your email and confirm your account';
+        } else if (errorMessage.includes('Too many requests')) {
+          message = 'Too many login attempts. Please try again later';
+        } else if (errorMessage.includes('Supabase is not configured')) {
+          message = 'Authentication service is not configured. Please contact support';
+        } else {
+          message = errorMessage;
+        }
+      }
+      
       setError(message);
     } finally {
       setLoading(false);

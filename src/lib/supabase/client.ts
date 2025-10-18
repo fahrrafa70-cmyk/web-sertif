@@ -16,16 +16,20 @@ export const supabaseClient = createClient(supabaseUrl ?? "", supabaseAnon ?? ""
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   }
 });
 
-// Test connection on initialization
-supabaseClient.from('templates').select('count').limit(1).then(({ error }) => {
-  if (error) {
-    console.error('Supabase connection test failed:', error);
-  } else {
-    console.log('Supabase connection successful');
-  }
-});
+// Test connection on initialization only if credentials are available
+if (supabaseUrl && supabaseAnon) {
+  supabaseClient.from('templates').select('count').limit(1).then(({ error }) => {
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+    } else {
+      console.log('Supabase connection successful');
+    }
+  });
+}
 
 

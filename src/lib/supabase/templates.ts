@@ -32,6 +32,7 @@ export interface Template {
   category: string;
   orientation: string;
   created_at: string;
+  image_path?: string; // Add image path field
 }
 
 export interface CreateTemplateData {
@@ -49,7 +50,7 @@ export interface UpdateTemplateData {
 }
 
 // Upload image to local public folder
-export async function uploadTemplateImage(file: File): Promise<void> {
+export async function uploadTemplateImage(file: File): Promise<string> {
   console.log('📤 Starting local image upload...', { fileName: file.name, fileSize: file.size });
   
   try {
@@ -60,7 +61,7 @@ export async function uploadTemplateImage(file: File): Promise<void> {
 
     const fileExt = file.name.split('.').pop()?.toLowerCase();
     if (!fileExt || !['jpg', 'jpeg', 'png'].includes(fileExt)) {
-      throw new Error('Invalid file type. Only JPG and PNG are allowed.');
+      throw new Error('Invalid file type. Only JPG, JPEG, and PNG are allowed.');
     }
 
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -94,10 +95,29 @@ export async function uploadTemplateImage(file: File): Promise<void> {
     console.log('✅ Local upload successful:', result);
     console.log('🔗 Local URL generated:', result.url);
 
+    return result.url; // Return the URL for database storage
+
   } catch (error) {
     console.error('💥 Local image upload process failed:', error);
     throw error;
   }
+}
+
+// Helper function to get template image URL with cache busting
+export function getTemplateImageUrl(template: Template): string | null {
+  if (!template.image_path) {
+    return null;
+  }
+  
+  // Add cache busting parameter to ensure fresh images
+  // Use template ID and timestamp for better cache busting
+  const cacheBuster = `?v=${template.id}&t=${Date.now()}`;
+  return `${template.image_path}${cacheBuster}`;
+}
+
+// Helper function to get template image URL without cache busting (for previews)
+export function getTemplateImageUrlStatic(template: Template): string | null {
+  return template.image_path || null;
 }
 
 // Note: Image deletion is handled by the file system cleanup process
@@ -151,12 +171,14 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       console.error('❌ Auth error:', authError);
     }
     
+    let imagePath: string | undefined;
+    
     // Upload image if provided
     if (templateData.image_file) {
       console.log('📤 Image file provided, starting upload...');
       try {
-        await uploadTemplateImage(templateData.image_file);
-        console.log('✅ Image upload completed');
+        imagePath = await uploadTemplateImage(templateData.image_file);
+        console.log('✅ Image upload completed, path:', imagePath);
       } catch (uploadError) {
         console.error('❌ Image upload failed:', uploadError);
         throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
@@ -168,7 +190,8 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
     const insertData = {
       name: templateData.name.trim(),
       category: templateData.category.trim(),
-      orientation: templateData.orientation.trim()
+      orientation: templateData.orientation.trim(),
+      image_path: imagePath // Store the image path
     };
 
     console.log('💾 Inserting template data to database:', insertData);
@@ -228,16 +251,19 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
     throw new Error('Template not found');
   }
 
+  let imagePath: string | undefined = currentTemplate.image_path;
+
   // Handle image update
   if (templateData.image_file) {
-    // Upload new image (old image will be overwritten by filename)
-    await uploadTemplateImage(templateData.image_file);
+    // Upload new image
+    imagePath = await uploadTemplateImage(templateData.image_file);
   }
 
   const updateData: Partial<Template> = {
     name: templateData.name,
     category: templateData.category,
-    orientation: templateData.orientation
+    orientation: templateData.orientation,
+    image_path: imagePath
   };
 
   const { data, error } = await supabaseClient
@@ -256,21 +282,77 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
 
 // Delete template
 export async function deleteTemplate(id: string): Promise<void> {
-  // Get template to check for image
-  const template = await getTemplate(id);
-  if (!template) {
-    throw new Error('Template not found');
-  }
+  console.log('🗑️ Starting template deletion process...', { templateId: id });
+  
+  try {
+    // Get template to check for image
+    const template = await getTemplate(id);
+    if (!template) {
+      throw new Error('Template not found');
+    }
 
-  // Note: Image files are stored locally and will be cleaned up separately
+    console.log('📋 Template found:', { name: template.name, imagePath: template.image_path });
 
-  const { error } = await supabaseClient
-    .from('templates')
-    .delete()
-    .eq('id', id);
+    // Delete image file if it exists
+    if (template.image_path) {
+      try {
+        console.log('🖼️ Deleting associated image file...', template.image_path);
+        
+        // Extract filename from path - handle both relative and absolute paths
+        let fileName = template.image_path.split('/').pop();
+        
+        // If the path contains 'template/' directory, extract just the filename
+        if (template.image_path.includes('template/')) {
+          fileName = template.image_path.split('template/').pop();
+        }
+        
+        if (fileName) {
+          console.log('📁 Extracted filename for deletion:', fileName);
+          
+          const response = await fetch('/api/delete-template', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ fileName }),
+          });
 
-  if (error) {
-    throw new Error(`Failed to delete template: ${error.message}`);
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.warn('⚠️ Failed to delete image file:', errorData.error);
+            // Don't throw error here, continue with template deletion
+          } else {
+            const result = await response.json();
+            console.log('✅ Image file deleted successfully:', result.message);
+          }
+        } else {
+          console.warn('⚠️ Could not extract filename from image path:', template.image_path);
+        }
+      } catch (imageError) {
+        console.warn('⚠️ Error deleting image file:', imageError);
+        // Don't throw error here, continue with template deletion
+      }
+    } else {
+      console.log('ℹ️ No image file associated with this template');
+    }
+
+    // Delete template from database
+    console.log('🗃️ Deleting template from database...');
+    const { error } = await supabaseClient
+      .from('templates')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('❌ Database deletion error:', error);
+      throw new Error(`Failed to delete template: ${error.message}`);
+    }
+
+    console.log('✅ Template deleted successfully from database');
+    
+  } catch (error) {
+    console.error('💥 Template deletion process failed:', error);
+    throw error;
   }
 }
 
