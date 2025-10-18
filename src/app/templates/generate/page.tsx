@@ -7,16 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Download, Eye } from "lucide-react";
+import { ArrowLeft, Download, Eye, FileText } from "lucide-react";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { useLanguage } from "@/contexts/language-context";
-
-type TemplateItem = {
-  id: string;
-  name: string;
-  orientation: "Landscape" | "Portrait";
-  category: string;
-};
+import { getTemplate } from "@/lib/supabase/templates";
+import { Template } from "@/lib/supabase/templates";
 
 type CertificateData = {
   recipientName: string;
@@ -29,13 +24,6 @@ type CertificateData = {
   issuerTitle: string;
 };
 
-const TEMPLATES: TemplateItem[] = [
-  { id: "t1", name: "General Training", orientation: "Landscape", category: "Training" },
-  { id: "t2", name: "Internship", orientation: "Portrait", category: "Internship" },
-  { id: "t3", name: "MoU Certificate", orientation: "Landscape", category: "MoU" },
-  { id: "t4", name: "Industrial Visit", orientation: "Landscape", category: "Visit" },
-];
-
 export default function CertificateGeneratorPage() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -43,8 +31,9 @@ export default function CertificateGeneratorPage() {
   const templateId = searchParams?.get("template");
   
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateItem | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [templateImage, setTemplateImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [certificateData, setCertificateData] = useState<CertificateData>({
     recipientName: "John Doe",
     organization: "Example Organization",
@@ -83,10 +72,27 @@ export default function CertificateGeneratorPage() {
 
   // Find selected template
   useEffect(() => {
-    if (templateId) {
-      const template = TEMPLATES.find(t => t.id === templateId);
-      setSelectedTemplate(template || null);
-    }
+    const loadTemplate = async () => {
+      if (templateId) {
+        try {
+          setLoading(true);
+          const template = await getTemplate(templateId);
+          setSelectedTemplate(template);
+          if (template?.image_url) {
+            setTemplateImage(template.image_url);
+          }
+        } catch (error) {
+          console.error('Failed to load template:', error);
+          setSelectedTemplate(null);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+    
+    loadTemplate();
   }, [templateId]);
 
   const updateCertificateData = (field: keyof CertificateData, value: string) => {
@@ -122,6 +128,26 @@ export default function CertificateGeneratorPage() {
 
   if (role === "Public") {
     return null; // Will redirect
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <main className="pt-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div className="text-center">
+              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                <FileText className="w-12 h-12 text-gray-400" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Loading template...</h1>
+              <p className="text-gray-500">Please wait while we load your template.</p>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   if (!selectedTemplate) {

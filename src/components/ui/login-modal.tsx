@@ -36,7 +36,7 @@ export function LoginModal() {
         >
           {/* Enhanced header with gradient */}
           <motion.div 
-            className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 text-white px-6 py-6 relative overflow-hidden"
+            className="bg-gradient-to-b from-blue-400 via-blue-400 to-blue-500 text-white px-6 py-6 relative overflow-hidden"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}

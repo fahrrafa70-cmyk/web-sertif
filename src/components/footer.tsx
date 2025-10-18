@@ -66,11 +66,11 @@ export default function Footer() {
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-blue-200" />
-                <span className="text-blue-100">@nurtiyas.id</span>
+                <span className="text-blue-100">fahrirafa.rpl1@gmail.com</span>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="w-5 h-5 text-blue-200" />
-                <span className="text-blue-100">Jakarta Timur, Indonesia</span>
+                <span className="text-blue-100">Malang, Indonesia</span>
               </div>
             </div>
           </motion.div>

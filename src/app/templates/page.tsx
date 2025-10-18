@@ -6,34 +6,25 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, Search, Eye, Edit, Trash2, Palette, Layout } from "lucide-react";
-import { staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/components/page-transition";
-
-type TemplateItem = {
-  id: string;
-  name: string;
-  orientation: "Landscape" | "Portrait";
-  category: string;
-};
-
-const INITIAL_TEMPLATES: TemplateItem[] = [
-  { id: "t1", name: "General Training", orientation: "Landscape", category: "Training" },
-  { id: "t2", name: "Internship", orientation: "Portrait", category: "Internship" },
-  { id: "t3", name: "MoU Certificate", orientation: "Landscape", category: "MoU" },
-  { id: "t4", name: "Industrial Visit", orientation: "Landscape", category: "Visit" },
-];
+import { FileText, Plus, Search, Eye, Edit, Trash2, Palette, Layout, X } from "lucide-react";
+import { staggerContainer } from "@/components/page-transition";
+import { useTemplates } from "@/hooks/use-templates";
+import { Template, CreateTemplateData, UpdateTemplateData } from "@/lib/supabase/templates";
+import { toast, Toaster } from "sonner";
 
 export default function TemplatesPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
-  const [items, setItems] = useState<TemplateItem[]>(INITIAL_TEMPLATES);
   const [query, setQuery] = useState("");
+
+  // Use templates hook for Supabase integration
+  const { templates, loading, error, create, update, delete: deleteTemplate } = useTemplates();
 
   // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
@@ -48,57 +39,128 @@ export default function TemplatesPage() {
   }, []);
 
   const filtered = useMemo(
-    () => (query ? items.filter((i) => i.name.toLowerCase().includes(query.toLowerCase())) : items),
-    [items, query]
+    () => (query ? templates.filter((i) => i.name.toLowerCase().includes(query.toLowerCase())) : templates),
+    [templates, query]
   );
 
   // Sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState<null | string>(null);
-  const [draft, setDraft] = useState<TemplateItem | null>(null);
+  const [draft, setDraft] = useState<Partial<Template> | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   // Preview modal state
-  const [previewTemplate, setPreviewTemplate] = useState<TemplateItem | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   
   const canDelete = role === "Admin"; // Team cannot delete
 
+  // Helper function to get image URL for template
+  function getTemplateImageUrl(): string | null {
+    // For local storage, we'll use a placeholder or try to find the image by template name
+    // Since we don't store image_url in database anymore, we'll show placeholder
+    return null; // Will show placeholder instead
+  }
+
   function openCreate() {
-    setDraft({ id: "", name: "", orientation: "Landscape", category: "" });
+    setDraft({ name: "", orientation: "Landscape", category: "" });
+    setImageFile(null);
+    setImagePreview(null);
     setIsCreateOpen(true);
   }
 
-  function submitCreate() {
-    if (!draft) return;
-    const id = `t${Date.now()}`;
-    setItems((prev) => [{ ...draft, id }, ...prev]);
-    setIsCreateOpen(false);
-    setDraft(null);
+  async function submitCreate() {
+    console.log('🚀 Starting template creation...', { draft, imageFile });
+    
+    if (!draft || !draft.name?.trim() || !draft.category?.trim()) {
+      console.log('❌ Validation failed:', { draft });
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const templateData: CreateTemplateData = {
+        name: draft.name.trim(),
+        category: draft.category.trim(),
+        orientation: draft.orientation || "Landscape",
+        image_file: imageFile || undefined
+      };
+
+      console.log('📋 Template data prepared:', templateData);
+      console.log('🔄 Calling create function...');
+      
+      const result = await create(templateData);
+      console.log('✅ Template creation result:', result);
+      
+      setIsCreateOpen(false);
+      setDraft(null);
+      setImageFile(null);
+      setImagePreview(null);
+      toast.success("Template created successfully!");
+    } catch (error) {
+      console.error('💥 Template creation failed:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to create template");
+    }
   }
 
-  function openEdit(item: TemplateItem) {
+  function openEdit(item: Template) {
     setDraft({ ...item });
+    setImageFile(null);
+    setImagePreview(null);
     setIsEditOpen(item.id);
   }
 
-  function submitEdit() {
-    if (!draft || !isEditOpen) return;
-    setItems((prev) => prev.map((it) => (it.id === isEditOpen ? { ...draft } : it)));
-    setIsEditOpen(null);
-    setDraft(null);
+  async function submitEdit() {
+    if (!draft || !isEditOpen || !draft.name || !draft.category) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const templateData: UpdateTemplateData = {
+        name: draft.name,
+        category: draft.category,
+        orientation: draft.orientation,
+        image_file: imageFile || undefined
+      };
+
+      await update(isEditOpen, templateData);
+      setIsEditOpen(null);
+      setDraft(null);
+      setImageFile(null);
+      setImagePreview(null);
+      toast.success("Template updated successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update template");
+    }
   }
 
-  function requestDelete(id: string) {
+  async function requestDelete(id: string) {
     if (!canDelete) return;
-    setItems((prev) => prev.filter((it) => it.id !== id));
+    
+    if (confirm("Are you sure you want to delete this template? This action cannot be undone.")) {
+      try {
+        await deleteTemplate(id);
+        toast.success("Template deleted successfully!");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to delete template");
+      }
+    }
   }
 
-  function openPreview(template: TemplateItem) {
+  function openPreview(template: Template) {
     setPreviewTemplate(template);
   }
 
-  function useTemplate(template: TemplateItem) {
-    if (role === "Admin" || role === "Team") {
-      router.push(`/templates/generate?template=${template.id}`);
+
+  function handleImageUpload(file: File | null) {
+    if (file) {
+      setImageFile(file);
+      const url = URL.createObjectURL(file);
+      setImagePreview(url);
+    } else {
+      setImageFile(null);
+      setImagePreview(null);
     }
   }
 
@@ -131,7 +193,12 @@ export default function TemplatesPage() {
               animate="visible"
               className="text-center mb-16"
             >
-              <motion.div variants={fadeInUp} className="mb-8">
+              <motion.div 
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+                className="mb-8"
+              >
                 <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-6 shadow-lg">
                   <FileText className="w-10 h-10 text-white" />
                 </div>
@@ -145,7 +212,9 @@ export default function TemplatesPage() {
 
               {/* Enhanced Search and Create */}
               <motion.div 
-                variants={fadeInUp}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
                 className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-2xl mx-auto"
               >
                 <div className="relative flex-1 w-full">
@@ -169,30 +238,78 @@ export default function TemplatesPage() {
               </motion.div>
             </motion.div>
 
+            {/* Loading State */}
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-16"
+              >
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                  <FileText className="w-12 h-12 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">Loading templates...</h3>
+                <p className="text-gray-500">Please wait while we fetch your templates.</p>
+              </motion.div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-16"
+              >
+                <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <FileText className="w-12 h-12 text-red-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-red-600 mb-2">Error loading templates</h3>
+                <p className="text-red-500 mb-6">{error}</p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="gradient-primary text-white shadow-lg hover:shadow-xl"
+                >
+                  Try Again
+                </Button>
+              </motion.div>
+            )}
+
             {/* Templates Grid */}
+            {!loading && !error && (
             <motion.div 
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
-              variants={staggerContainer}
-              initial="hidden"
-              animate="visible"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
             >
-              {filtered.map((tpl, idx) => (
+                {filtered.map((tpl) => (
                 <motion.div
                   key={tpl.id}
-                  variants={staggerItem}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
                   whileHover={{ scale: 1.02, y: -5 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
                   <Card className="h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group overflow-hidden">
                     {/* Template Preview */}
                     <div className="relative aspect-video bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200 overflow-hidden">
-                      <div className={`absolute inset-0 bg-gradient-to-br ${getCategoryColor(tpl.category)} opacity-10`}></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                          <Layout className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                          <div className="text-sm font-medium text-gray-600">{tpl.orientation}</div>
-                        </div>
-                      </div>
+                      {getTemplateImageUrl() ? (
+                        <img 
+                          src={getTemplateImageUrl()!} 
+                          alt={tpl.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <>
+                          <div className={`absolute inset-0 bg-gradient-to-br ${getCategoryColor(tpl.category)} opacity-10`}></div>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center">
+                              <Layout className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                              <div className="text-sm font-medium text-gray-600">{tpl.orientation}</div>
+                            </div>
+                          </div>
+                        </>
+                      )}
                       {/* Category Badge */}
                       <div className={`absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white text-xs font-medium shadow-lg`}>
                         {tpl.category}
@@ -229,7 +346,11 @@ export default function TemplatesPage() {
                         {(role === "Admin" || role === "Team") && (
                           <Button 
                             className="w-full gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300" 
-                            onClick={() => useTemplate(tpl)}
+                            onClick={() => {
+                              if (role === "Admin" || role === "Team") {
+                                router.push(`/templates/generate?template=${tpl.id}`);
+                              }
+                            }}
                           >
                             Use This Template
                           </Button>
@@ -262,11 +383,12 @@ export default function TemplatesPage() {
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
-            </motion.div>
+                ))}
+              </motion.div>
+            )}
 
             {/* Empty State */}
-            {filtered.length === 0 && (
+            {!loading && !error && filtered.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -357,12 +479,46 @@ export default function TemplatesPage() {
                 </Button>
               </div>
             </motion.div>
+
+            <motion.div 
+              className="space-y-2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
+            >
+              <label className="text-sm font-semibold text-gray-700">Template Image</label>
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {imagePreview && (
+                  <div className="relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Template preview" 
+                      className="w-full h-32 object-cover rounded-lg border border-gray-200" 
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                      onClick={() => handleImageUpload(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
             
             <motion.div 
               className="flex justify-end gap-3 pt-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
             >
               <Button 
                 variant="outline" 
@@ -444,12 +600,46 @@ export default function TemplatesPage() {
                 </Button>
               </div>
             </motion.div>
+
+            <motion.div 
+              className="space-y-2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
+            >
+              <label className="text-sm font-semibold text-gray-700">Template Image</label>
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {imagePreview && (
+                  <div className="relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Template preview" 
+                      className="w-full h-32 object-cover rounded-lg border border-gray-200" 
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                      onClick={() => handleImageUpload(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
             
             <motion.div 
               className="flex justify-end gap-3 pt-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
             >
               <Button 
                 variant="outline" 
@@ -546,11 +736,21 @@ export default function TemplatesPage() {
                     <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('templates.templatePreview')}</label>
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
                       <div className="bg-white rounded-xl p-8 shadow-xl relative overflow-hidden">
-                        {/* Enhanced Decorative Corners */}
-                        <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
-                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-tr-2xl"></div>
-                        <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-yellow-400 to-orange-500 rounded-tl-2xl"></div>
+                        {getTemplateImageUrl() ? (
+                          <img 
+                            src={getTemplateImageUrl()!} 
+                            alt={previewTemplate.name}
+                            className="w-full h-full object-cover absolute inset-0"
+                          />
+                        ) : (
+                          <>
+                            {/* Enhanced Decorative Corners */}
+                            <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
+                            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-tr-2xl"></div>
+                            <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-yellow-400 to-orange-500 rounded-tl-2xl"></div>
+                          </>
+                        )}
 
                         {/* Enhanced Certificate Content */}
                         <div className="relative z-10 text-center">
@@ -655,7 +855,9 @@ export default function TemplatesPage() {
                       className="gradient-primary text-white shadow-lg hover:shadow-xl px-6" 
                       onClick={() => {
                         setPreviewTemplate(null);
-                        useTemplate(previewTemplate);
+                        if (role === "Admin" || role === "Team") {
+                          router.push(`/templates/generate?template=${previewTemplate.id}`);
+                        }
                       }}
                     >
                       Use This Template
@@ -667,6 +869,9 @@ export default function TemplatesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Toast Notifications */}
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

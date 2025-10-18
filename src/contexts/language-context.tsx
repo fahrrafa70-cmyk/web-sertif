@@ -286,7 +286,7 @@ const translations = {
     // Footer
     'footer.multilingual': 'Platform Multibahasa',
     'footer.phone': '+6281380935185',
-    'footer.email': '@nurtiyas.id',
+    'footer.email': '@nurtiyasah.id',
     'footer.location': 'Jakarta Timur',
     
     // Language

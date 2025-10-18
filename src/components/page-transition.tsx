@@ -71,7 +71,7 @@ export const staggerItem = {
     y: 0,
     transition: {
       duration: 0.5,
-      ease: "easeOut"
+      ease: [0.25, 0.46, 0.45, 0.94]
     }
   }
 };
@@ -84,7 +84,7 @@ export const fadeInUp = {
     y: 0,
     transition: {
       duration: 0.6,
-      ease: "easeOut"
+      ease: [0.25, 0.46, 0.45, 0.94]
     }
   }
 };
@@ -97,7 +97,7 @@ export const scaleIn = {
     scale: 1,
     transition: {
       duration: 0.5,
-      ease: "easeOut"
+      ease: [0.25, 0.46, 0.45, 0.94]
     }
   }
 };
@@ -110,7 +110,7 @@ export const slideInLeft = {
     x: 0,
     transition: {
       duration: 0.6,
-      ease: "easeOut"
+      ease: [0.25, 0.46, 0.45, 0.94]
     }
   }
 };
@@ -123,7 +123,7 @@ export const slideInRight = {
     x: 0,
     transition: {
       duration: 0.6,
-      ease: "easeOut"
+      ease: [0.25, 0.46, 0.45, 0.94]
     }
   }
 };
