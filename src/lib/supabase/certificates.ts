@@ -1,4 +1,4 @@
-import { supabaseClient } from './client';
+import { supabaseClient } from "./client";
 
 export interface Certificate {
   id: string;
@@ -61,8 +61,9 @@ export interface UpdateCertificateData {
 // Get all certificates
 export async function getCertificates(): Promise<Certificate[]> {
   const { data, error } = await supabaseClient
-    .from('certificates')
-    .select(`
+    .from("certificates")
+    .select(
+      `
       *,
       templates (
         id,
@@ -70,8 +71,9 @@ export async function getCertificates(): Promise<Certificate[]> {
         category,
         orientation
       )
-    `)
-    .order('created_at', { ascending: false });
+    `,
+    )
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw new Error(`Failed to fetch certificates: ${error.message}`);
@@ -83,8 +85,9 @@ export async function getCertificates(): Promise<Certificate[]> {
 // Get certificate by ID
 export async function getCertificate(id: string): Promise<Certificate | null> {
   const { data, error } = await supabaseClient
-    .from('certificates')
-    .select(`
+    .from("certificates")
+    .select(
+      `
       *,
       templates (
         id,
@@ -92,12 +95,13 @@ export async function getCertificate(id: string): Promise<Certificate | null> {
         category,
         orientation
       )
-    `)
-    .eq('id', id)
+    `,
+    )
+    .eq("id", id)
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') {
+    if (error.code === "PGRST116") {
       return null; // Certificate not found
     }
     throw new Error(`Failed to fetch certificate: ${error.message}`);
@@ -107,10 +111,13 @@ export async function getCertificate(id: string): Promise<Certificate | null> {
 }
 
 // Get certificate by certificate number
-export async function getCertificateByNumber(certificate_no: string): Promise<Certificate | null> {
+export async function getCertificateByNumber(
+  certificate_no: string,
+): Promise<Certificate | null> {
   const { data, error } = await supabaseClient
-    .from('certificates')
-    .select(`
+    .from("certificates")
+    .select(
+      `
       *,
       templates (
         id,
@@ -118,12 +125,13 @@ export async function getCertificateByNumber(certificate_no: string): Promise<Ce
         category,
         orientation
       )
-    `)
-    .eq('certificate_no', certificate_no)
+    `,
+    )
+    .eq("certificate_no", certificate_no)
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') {
+    if (error.code === "PGRST116") {
       return null; // Certificate not found
     }
     throw new Error(`Failed to fetch certificate: ${error.message}`);
@@ -133,19 +141,31 @@ export async function getCertificateByNumber(certificate_no: string): Promise<Ce
 }
 
 // Create new certificate
-export async function createCertificate(certificateData: CreateCertificateData): Promise<Certificate> {
-  console.log('🚀 Starting certificate creation process...', certificateData);
-  
+export async function createCertificate(
+  certificateData: CreateCertificateData,
+): Promise<Certificate> {
+  console.log("🚀 Starting certificate creation process...", certificateData);
+
   try {
     // Validate required fields
-    if (!certificateData.certificate_no?.trim() || !certificateData.name?.trim() || !certificateData.issue_date) {
-      throw new Error('Missing required fields: certificate_no, name, and issue_date are required');
+    if (
+      !certificateData.certificate_no?.trim() ||
+      !certificateData.name?.trim() ||
+      !certificateData.issue_date
+    ) {
+      throw new Error(
+        "Missing required fields: certificate_no, name, and issue_date are required",
+      );
     }
 
     // Check if certificate number already exists
-    const existingCertificate = await getCertificateByNumber(certificateData.certificate_no);
+    const existingCertificate = await getCertificateByNumber(
+      certificateData.certificate_no,
+    );
     if (existingCertificate) {
-      throw new Error(`Certificate with number ${certificateData.certificate_no} already exists`);
+      throw new Error(
+        `Certificate with number ${certificateData.certificate_no} already exists`,
+      );
     }
 
     const insertData = {
@@ -157,17 +177,21 @@ export async function createCertificate(certificateData: CreateCertificateData):
       qr_code: certificateData.qr_code?.trim() || null,
       category: certificateData.category?.trim() || null,
       template_id: certificateData.template_id || null,
-      certificate_image_url: certificateData.merged_image || certificateData.certificate_image_url || null, // FIX: Use merged image if available
-      text_layers: certificateData.text_layers || []
+      certificate_image_url:
+        certificateData.merged_image ||
+        certificateData.certificate_image_url ||
+        null, // FIX: Use merged image if available
+      text_layers: certificateData.text_layers || [],
     };
 
-    console.log('💾 Inserting certificate data to database:', insertData);
+    console.log("💾 Inserting certificate data to database:", insertData);
 
     // Insert data into certificates table
     const { data, error } = await supabaseClient
-      .from('certificates')
+      .from("certificates")
       .insert([insertData])
-      .select(`
+      .select(
+        `
         *,
         templates (
           id,
@@ -175,36 +199,46 @@ export async function createCertificate(certificateData: CreateCertificateData):
           category,
           orientation
         )
-      `)
+      `,
+      )
       .single();
 
     if (error) {
-      console.error('❌ Database insert error:', error);
+      console.error("❌ Database insert error:", error);
       throw new Error(`Failed to create certificate: ${error.message}`);
     }
 
-    console.log('✅ Certificate created successfully in database:', data);
+    console.log("✅ Certificate created successfully in database:", data);
     return data;
-
   } catch (error) {
-    console.error('💥 Certificate creation process failed:', error);
+    console.error("💥 Certificate creation process failed:", error);
     throw error;
   }
 }
 
 // Update certificate
-export async function updateCertificate(id: string, certificateData: UpdateCertificateData): Promise<Certificate> {
+export async function updateCertificate(
+  id: string,
+  certificateData: UpdateCertificateData,
+): Promise<Certificate> {
   // Check if certificate exists
   const currentCertificate = await getCertificate(id);
   if (!currentCertificate) {
-    throw new Error('Certificate not found');
+    throw new Error("Certificate not found");
   }
 
   // If updating certificate_no, check for duplicates
-  if (certificateData.certificate_no && certificateData.certificate_no !== currentCertificate.certificate_no) {
-    const existingCertificate = await getCertificateByNumber(certificateData.certificate_no);
+  if (
+    certificateData.certificate_no &&
+    certificateData.certificate_no !== currentCertificate.certificate_no
+  ) {
+    const existingCertificate = await getCertificateByNumber(
+      certificateData.certificate_no,
+    );
     if (existingCertificate && existingCertificate.id !== id) {
-      throw new Error(`Certificate with number ${certificateData.certificate_no} already exists`);
+      throw new Error(
+        `Certificate with number ${certificateData.certificate_no} already exists`,
+      );
     }
   }
 
@@ -218,21 +252,22 @@ export async function updateCertificate(id: string, certificateData: UpdateCerti
     category: certificateData.category,
     template_id: certificateData.template_id,
     certificate_image_url: certificateData.certificate_image_url,
-    text_layers: certificateData.text_layers
+    text_layers: certificateData.text_layers,
   };
 
   // Remove undefined values
-  Object.keys(updateData).forEach(key => {
+  Object.keys(updateData).forEach((key) => {
     if (updateData[key as keyof Certificate] === undefined) {
       delete updateData[key as keyof Certificate];
     }
   });
 
   const { data, error } = await supabaseClient
-    .from('certificates')
+    .from("certificates")
     .update(updateData)
-    .eq('id', id)
-    .select(`
+    .eq("id", id)
+    .select(
+      `
       *,
       templates (
         id,
@@ -240,7 +275,8 @@ export async function updateCertificate(id: string, certificateData: UpdateCerti
         category,
         orientation
       )
-    `)
+    `,
+    )
     .single();
 
   if (error) {
@@ -252,42 +288,73 @@ export async function updateCertificate(id: string, certificateData: UpdateCerti
 
 // Delete certificate
 export async function deleteCertificate(id: string): Promise<void> {
-  console.log('🗑️ Starting certificate deletion process...', { certificateId: id });
-  
+  console.log("🗑️ Starting certificate deletion process...", {
+    certificateId: id,
+  });
+
   try {
     // Check if certificate exists
     const certificate = await getCertificate(id);
     if (!certificate) {
-      throw new Error('Certificate not found');
+      throw new Error("Certificate not found");
     }
 
-    console.log('📋 Certificate found:', { certificate_no: certificate.certificate_no, name: certificate.name });
+    console.log("📋 Certificate found:", {
+      certificate_no: certificate.certificate_no,
+      name: certificate.name,
+    });
+
+    // Check current user session
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    console.log("🔐 Current session:", { 
+      hasSession: !!session, 
+      userId: session?.user?.id,
+      email: session?.user?.email,
+      sessionError 
+    });
+
+    if (sessionError) {
+      console.error("❌ Session error:", sessionError);
+      throw new Error(`Authentication error: ${sessionError.message}`);
+    }
+
+    if (!session) {
+      throw new Error("No active session. Please sign in again.");
+    }
 
     // Delete certificate from database
-    console.log('🗃️ Deleting certificate from database...');
+    console.log("🗃️ Deleting certificate from database...");
     const { error } = await supabaseClient
-      .from('certificates')
+      .from("certificates")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
 
     if (error) {
-      console.error('❌ Database deletion error:', error);
+      console.error("❌ Database deletion error:", error);
+      console.error("❌ Error details:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
       throw new Error(`Failed to delete certificate: ${error.message}`);
     }
 
-    console.log('✅ Certificate deleted successfully from database');
-    
+    console.log("✅ Certificate deleted successfully from database");
   } catch (error) {
-    console.error('💥 Certificate deletion process failed:', error);
+    console.error("💥 Certificate deletion process failed:", error);
     throw error;
   }
 }
 
 // Search certificates
-export async function searchCertificates(query: string): Promise<Certificate[]> {
+export async function searchCertificates(
+  query: string,
+): Promise<Certificate[]> {
   const { data, error } = await supabaseClient
-    .from('certificates')
-    .select(`
+    .from("certificates")
+    .select(
+      `
       *,
       templates (
         id,
@@ -295,9 +362,12 @@ export async function searchCertificates(query: string): Promise<Certificate[]> 
         category,
         orientation
       )
-    `)
-    .or(`certificate_no.ilike.%${query}%,name.ilike.%${query}%,description.ilike.%${query}%`)
-    .order('created_at', { ascending: false });
+    `,
+    )
+    .or(
+      `certificate_no.ilike.%${query}%,name.ilike.%${query}%,description.ilike.%${query}%`,
+    )
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw new Error(`Failed to search certificates: ${error.message}`);
@@ -307,10 +377,13 @@ export async function searchCertificates(query: string): Promise<Certificate[]> 
 }
 
 // Get certificates by category
-export async function getCertificatesByCategory(category: string): Promise<Certificate[]> {
+export async function getCertificatesByCategory(
+  category: string,
+): Promise<Certificate[]> {
   const { data, error } = await supabaseClient
-    .from('certificates')
-    .select(`
+    .from("certificates")
+    .select(
+      `
       *,
       templates (
         id,
@@ -318,22 +391,28 @@ export async function getCertificatesByCategory(category: string): Promise<Certi
         category,
         orientation
       )
-    `)
-    .eq('category', category)
-    .order('created_at', { ascending: false });
+    `,
+    )
+    .eq("category", category)
+    .order("created_at", { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to fetch certificates by category: ${error.message}`);
+    throw new Error(
+      `Failed to fetch certificates by category: ${error.message}`,
+    );
   }
 
   return data || [];
 }
 
 // Get certificates by template
-export async function getCertificatesByTemplate(templateId: string): Promise<Certificate[]> {
+export async function getCertificatesByTemplate(
+  templateId: string,
+): Promise<Certificate[]> {
   const { data, error } = await supabaseClient
-    .from('certificates')
-    .select(`
+    .from("certificates")
+    .select(
+      `
       *,
       templates (
         id,
@@ -341,12 +420,15 @@ export async function getCertificatesByTemplate(templateId: string): Promise<Cer
         category,
         orientation
       )
-    `)
-    .eq('template_id', templateId)
-    .order('created_at', { ascending: false });
+    `,
+    )
+    .eq("template_id", templateId)
+    .order("created_at", { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to fetch certificates by template: ${error.message}`);
+    throw new Error(
+      `Failed to fetch certificates by template: ${error.message}`,
+    );
   }
 
   return data || [];
