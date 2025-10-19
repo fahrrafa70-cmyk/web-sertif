@@ -5,9 +5,54 @@ import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { Info, HelpCircle, Users, Award, Shield, Mail } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { useEffect, useState } from "react";
+import { supabaseClient } from "@/lib/supabase/client";
 
 export default function AboutPage() {
   const { t } = useLanguage();
+  const [stats, setStats] = useState({
+    certificates: 0,
+    templates: 0,
+    members: 0,
+    categories: 0
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Load real statistics from database
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        setStatsLoading(true);
+        const [certificatesResult, templatesResult, membersResult, categoriesResult] = await Promise.all([
+          supabaseClient.from("certificates").select("id", { count: "exact", head: true }),
+          supabaseClient.from("templates").select("id", { count: "exact", head: true }),
+          supabaseClient.from("members").select("id", { count: "exact", head: true }),
+          supabaseClient.from("certificates").select("category", { count: "exact" }).not("category", "is", null)
+        ]);
+        
+        // Count unique categories
+        const uniqueCategories = new Set();
+        if (categoriesResult.data) {
+          categoriesResult.data.forEach(item => {
+            if (item.category) uniqueCategories.add(item.category);
+          });
+        }
+        
+        setStats({
+          certificates: certificatesResult.count || 0,
+          templates: templatesResult.count || 0,
+          members: membersResult.count || 0,
+          categories: uniqueCategories.size || 0
+        });
+      } catch (error) {
+        console.error("Failed to load statistics:", error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    
+    loadStats();
+  }, []);
   const features = [
     {
       icon: <Users className="w-8 h-8" />,
@@ -88,20 +133,28 @@ export default function AboutPage() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-6">Key Statistics</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">6,372+</div>
-                    <div className="text-gray-600">Participants</div>
+                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                      {statsLoading ? "—" : `${stats.certificates.toLocaleString()}+`}
+                    </div>
+                    <div className="text-gray-600">Certificates Issued</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">77+</div>
-                    <div className="text-gray-600">Activities</div>
+                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                      {statsLoading ? "—" : `${stats.templates.toLocaleString()}+`}
+                    </div>
+                    <div className="text-gray-600">Templates Available</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">610+</div>
-                    <div className="text-gray-600">Institutions</div>
+                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                      {statsLoading ? "—" : `${stats.members.toLocaleString()}+`}
+                    </div>
+                    <div className="text-gray-600">Registered Members</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">98%</div>
-                    <div className="text-gray-600">Satisfaction</div>
+                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                      {statsLoading ? "—" : `${stats.categories.toLocaleString()}+`}
+                    </div>
+                    <div className="text-gray-600">Certificate Categories</div>
                   </div>
                 </div>
               </motion.div>

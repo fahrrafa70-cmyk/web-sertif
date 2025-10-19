@@ -7,14 +7,45 @@ export interface Certificate {
   description: string | null;
   issue_date: string;
   expired_date: string | null;
-  qr_code: string | null;
   category: string | null;
   template_id: string | null;
+  member_id: string | null;
   certificate_image_url: string | null;
   text_layers: TextLayer[];
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  members?: any; // joined member row
+}
+
+// Get certificates by member
+export async function getCertificatesByMember(
+  memberId: string,
+): Promise<Certificate[]> {
+  const { data, error } = await supabaseClient
+    .from("certificates")
+    .select(
+      `
+      *,
+      templates (
+        id,
+        name,
+        category,
+        orientation
+      ),
+      members:members(*)
+    `,
+    )
+    .eq("member_id", memberId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(
+      `Failed to fetch certificates by member: ${error.message}`,
+    );
+  }
+
+  return data || [];
 }
 
 export interface TextLayer {
@@ -37,9 +68,9 @@ export interface CreateCertificateData {
   description?: string;
   issue_date: string;
   expired_date?: string;
-  qr_code?: string;
   category?: string;
   template_id?: string;
+  member_id?: string;
   certificate_image_url?: string;
   text_layers?: TextLayer[];
   merged_image?: string; // FIX: Add support for merged image
@@ -51,9 +82,9 @@ export interface UpdateCertificateData {
   description?: string;
   issue_date?: string;
   expired_date?: string;
-  qr_code?: string;
   category?: string;
   template_id?: string;
+  member_id?: string;
   certificate_image_url?: string;
   text_layers?: TextLayer[];
 }
@@ -70,7 +101,8 @@ export async function getCertificates(): Promise<Certificate[]> {
         name,
         category,
         orientation
-      )
+      ),
+      members:members(*)
     `,
     )
     .order("created_at", { ascending: false });
@@ -94,7 +126,8 @@ export async function getCertificate(id: string): Promise<Certificate | null> {
         name,
         category,
         orientation
-      )
+      ),
+      members:members(*)
     `,
     )
     .eq("id", id)
@@ -124,7 +157,8 @@ export async function getCertificateByNumber(
         name,
         category,
         orientation
-      )
+      ),
+      members:members(*)
     `,
     )
     .eq("certificate_no", certificate_no)
@@ -174,13 +208,14 @@ export async function createCertificate(
       description: certificateData.description?.trim() || null,
       issue_date: certificateData.issue_date,
       expired_date: certificateData.expired_date || null,
-      qr_code: certificateData.qr_code?.trim() || null,
       category: certificateData.category?.trim() || null,
       template_id: certificateData.template_id || null,
+      member_id: certificateData.member_id || null,
+      // Prefer public URL if provided; fall back to merged_image (data URL)
       certificate_image_url:
-        certificateData.merged_image ||
         certificateData.certificate_image_url ||
-        null, // FIX: Use merged image if available
+        certificateData.merged_image ||
+        null,
       text_layers: certificateData.text_layers || [],
     };
 
@@ -198,7 +233,8 @@ export async function createCertificate(
           name,
           category,
           orientation
-        )
+        ),
+        members:members(*)
       `,
       )
       .single();
@@ -248,9 +284,9 @@ export async function updateCertificate(
     description: certificateData.description,
     issue_date: certificateData.issue_date,
     expired_date: certificateData.expired_date,
-    qr_code: certificateData.qr_code,
     category: certificateData.category,
     template_id: certificateData.template_id,
+    member_id: certificateData.member_id,
     certificate_image_url: certificateData.certificate_image_url,
     text_layers: certificateData.text_layers,
   };
@@ -274,7 +310,8 @@ export async function updateCertificate(
         name,
         category,
         orientation
-      )
+      ),
+      members:members(*)
     `,
     )
     .single();
@@ -361,7 +398,8 @@ export async function searchCertificates(
         name,
         category,
         orientation
-      )
+      ),
+      members:members(*)
     `,
     )
     .or(
@@ -390,7 +428,8 @@ export async function getCertificatesByCategory(
         name,
         category,
         orientation
-      )
+      ),
+      members:members(*)
     `,
     )
     .eq("category", category)
@@ -419,7 +458,8 @@ export async function getCertificatesByTemplate(
         name,
         category,
         orientation
-      )
+      ),
+      members:members(*)
     `,
     )
     .eq("template_id", templateId)

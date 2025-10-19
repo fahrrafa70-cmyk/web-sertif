@@ -119,7 +119,7 @@ const translations = {
     'footer.legal': 'Legal',
     'footer.privacy': 'Privacy Policy',
     'footer.terms': 'Terms of Service',
-    'footer.copyright': '© 2024 E-Certificate Management Platform. All rights reserved.',
+    'footer.copyright': '© 2025 E-Certificate Management Platform. All rights reserved.',
     
     // FAQ
     'faq.title': 'Frequently Asked Questions',
@@ -321,7 +321,7 @@ const translations = {
     'footer.legal': 'Legal',
     'footer.privacy': 'Kebijakan Privasi',
     'footer.terms': 'Syarat Layanan',
-    'footer.copyright': '© 2024 Platform Manajemen E-Certificate. Semua hak dilindungi.',
+    'footer.copyright': '© 2025 Platform Manajemen E-Certificate. Semua hak dilindungi.',
     
     // FAQ
     'faq.title': 'Pertanyaan yang Sering Diajukan',

@@ -22,6 +22,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { useAuth } from "@/contexts/auth-context";
 import { LanguageSwitcher } from "./language-switcher";
 
 interface SidebarProps {
@@ -32,6 +33,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProps) {
   const { t } = useLanguage();
+  const { isAuthenticated, localSignOut, setOpenLogin } = useAuth();
   // NO SCROLL LOCKING - Use pure overlay approach
   
   // Derive role from prop, then fallback to localStorage for hard reload scenarios
@@ -71,10 +73,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
         // Dashboard item removed to avoid duplication and keep focus.
         { label: t('nav.templates'), href: "/templates" },
         { label: t('nav.certificates'), href: "/certificates" },
-        { label: "Categories", href: "/categories" },
         { label: "Members", href: "/members" },
-        { label: "Analytics", href: "/analytics" },
-        { label: "Settings", href: "/settings" },
       ];
     }
     if (role === "team") {
@@ -82,7 +81,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
         // Dashboard item removed to avoid duplication and keep focus.
         { label: t('nav.templates'), href: "/templates" },
         { label: t('nav.certificates'), href: "/certificates" },
-        { label: "Settings", href: "/settings" },
+        { label: "Members", href: "/members" },
       ];
     }
     return [
@@ -268,23 +267,46 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                 {/* Footer */}
                 <div className="p-6 border-t border-gray-200 bg-gray-50">
                   <div className="space-y-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-base h-10"
-                      onClick={onClose}
-                    >
-                      <LogIn className="w-5 h-5 mr-3" />
-                      {t('auth.login')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="w-full justify-start bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-base h-10"
-                      onClick={onClose}
-                    >
-                      <UserPlus className="w-5 h-5 mr-3" />
-                      {t('auth.register')}
-                    </Button>
+                    {!isAuthenticated ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start text-base h-10"
+                          onClick={() => {
+                            setOpenLogin(true);
+                            onClose();
+                          }}
+                        >
+                          <LogIn className="w-5 h-5 mr-3" />
+                          {t('auth.login')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="w-full justify-start bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-base h-10"
+                          onClick={() => {
+                            window.location.assign('/register');
+                            onClose();
+                          }}
+                        >
+                          <UserPlus className="w-5 h-5 mr-3" />
+                          {t('auth.register')}
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-base h-10 text-red-600 border-red-300 hover:bg-red-50"
+                        onClick={async () => {
+                          await localSignOut();
+                          onClose();
+                        }}
+                      >
+                        <LogIn className="w-5 h-5 mr-3" />
+                        {t('auth.logout') || 'Log Out'}
+                      </Button>
+                    )}
                   </div>
                   
                   <div className="mt-3 text-center">

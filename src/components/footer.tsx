@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Mail, Phone, MapPin, ArrowUp } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
 
 export default function Footer() {
   const { t } = useLanguage();
@@ -12,27 +13,33 @@ export default function Footer() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Generate decorative bubbles only on client after mount to avoid hydration mismatch
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const bubbles = useMemo(
+    () =>
+      mounted
+        ? Array.from({ length: 15 }).map(() => ({
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            duration: 4 + Math.random() * 2,
+            delay: Math.random() * 3,
+          }))
+        : ([] as Array<{ left: string; top: string; duration: number; delay: number }>),
+    [mounted]
+  );
+
   return (
     <footer className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white overflow-hidden">
       {/* Background Decorations */}
       <div className="absolute inset-0">
-        {[...Array(15)].map((_, i) => (
+        {bubbles.map((b, i) => (
           <motion.div
             key={i}
             className="absolute w-2 h-2 bg-white/20 rounded-full"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              y: [0, -20, 0],
-              opacity: [0.2, 0.8, 0.2],
-            }}
-            transition={{
-              duration: 4 + Math.random() * 2,
-              repeat: Infinity,
-              delay: Math.random() * 3,
-            }}
+            style={{ left: b.left, top: b.top }}
+            animate={{ y: [0, -20, 0], opacity: [0.2, 0.8, 0.2] }}
+            transition={{ duration: b.duration, repeat: Infinity, delay: b.delay }}
           />
         ))}
       </div>
@@ -147,7 +154,7 @@ export default function Footer() {
               className="text-blue-100 text-center md:text-left"
             >
               <p>{t('footer.copyright')}</p>
-              <p className="text-sm mt-1">Developed by NURTIYAS</p>
+              <p className="text-sm mt-1">Developed by Fahri Raffa</p>
             </motion.div>
 
             {/* Scroll to Top Button */}

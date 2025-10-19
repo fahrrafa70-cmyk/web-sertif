@@ -14,14 +14,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Plus, Search, Eye, Edit, Trash2, Palette, Layout, X } from "lucide-react";
 import { staggerContainer } from "@/components/page-transition";
 import { useTemplates } from "@/hooks/use-templates";
-import { Template, CreateTemplateData, UpdateTemplateData, getTemplateImageUrl } from "@/lib/supabase/templates";
+import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
+import { confirmToast } from "@/lib/ui/confirm";
 
 export default function TemplatesPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   // Use templates hook for Supabase integration
   const { templates, loading, error, create, update, delete: deleteTemplate, refresh } = useTemplates();
@@ -38,10 +40,17 @@ export default function TemplatesPage() {
     } catch {}
   }, []);
 
-  const filtered = useMemo(
-    () => (query ? templates.filter((i) => i.name.toLowerCase().includes(query.toLowerCase())) : templates),
-    [templates, query]
-  );
+  const filtered = useMemo(() => {
+    let list = templates;
+    if (query) {
+      const q = query.toLowerCase();
+      list = list.filter((i) => i.name.toLowerCase().includes(q));
+    }
+    if (categoryFilter) {
+      list = list.filter((i) => i.category === categoryFilter);
+    }
+    return list;
+  }, [templates, query, categoryFilter]);
 
   // Sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -49,13 +58,15 @@ export default function TemplatesPage() {
   const [draft, setDraft] = useState<Partial<Template> | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [previewImageFile, setPreviewImageFile] = useState<File | null>(null);
+  const [previewImagePreview, setPreviewImagePreview] = useState<string | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [cleaningUp, setCleaningUp] = useState(false);
   
   // Preview modal state
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   
-  const canDelete = role === "Admin" || role === "Team"; // Both Admin and Team can delete
+  const canDelete = role === "Admin"; // Only Admin can delete
 
   // Helper function to get image URL for template (now using the imported function)
   // This function is kept for backward compatibility but now uses the proper implementation
@@ -64,6 +75,8 @@ export default function TemplatesPage() {
     setDraft({ name: "", orientation: "Landscape", category: "" });
     setImageFile(null);
     setImagePreview(null);
+    setPreviewImageFile(null);
+    setPreviewImagePreview(null);
     setIsCreateOpen(true);
   }
 
@@ -75,13 +88,19 @@ export default function TemplatesPage() {
       toast.error("Please fill in all required fields");
       return;
     }
+    // Require Template Image on create
+    if (!imageFile) {
+      toast.error("Template Image is required");
+      return;
+    }
 
     try {
       const templateData: CreateTemplateData = {
         name: draft.name.trim(),
         category: draft.category.trim(),
         orientation: draft.orientation || "Landscape",
-        image_file: imageFile || undefined
+        image_file: imageFile || undefined,
+        preview_image_file: previewImageFile || undefined
       };
 
       console.log('📋 Template data prepared:', templateData);
@@ -94,6 +113,8 @@ export default function TemplatesPage() {
       setDraft(null);
       setImageFile(null);
       setImagePreview(null);
+      setPreviewImageFile(null);
+      setPreviewImagePreview(null);
       toast.success("Template created successfully!");
       // Refresh templates to show the new template immediately
       refresh();
@@ -107,6 +128,8 @@ export default function TemplatesPage() {
     setDraft({ ...item });
     setImageFile(null);
     setImagePreview(null);
+    setPreviewImageFile(null);
+    setPreviewImagePreview(null);
     setIsEditOpen(item.id);
   }
 
@@ -121,7 +144,8 @@ export default function TemplatesPage() {
         name: draft.name,
         category: draft.category,
         orientation: draft.orientation,
-        image_file: imageFile || undefined
+        image_file: imageFile || undefined,
+        preview_image_file: previewImageFile || undefined
       };
 
       await update(isEditOpen, templateData);
@@ -129,6 +153,8 @@ export default function TemplatesPage() {
       setDraft(null);
       setImageFile(null);
       setImagePreview(null);
+      setPreviewImageFile(null);
+      setPreviewImagePreview(null);
       toast.success("Template updated successfully!");
       // Refresh templates to show the updated template immediately
       refresh();
@@ -147,7 +173,8 @@ export default function TemplatesPage() {
     const template = templates.find(t => t.id === id);
     const templateName = template?.name || 'this template';
     
-    if (confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone and will also delete the associated image file.`)) {
+    const ok = await confirmToast(`Are you sure you want to delete "${templateName}"? This action cannot be undone and will also delete the associated image file.`, { confirmText: "Delete", tone: "destructive" });
+  if (ok) {
       try {
         console.log('🗑️ User confirmed deletion of template:', templateName);
         setDeletingTemplateId(id);
@@ -175,7 +202,8 @@ export default function TemplatesPage() {
       return;
     }
     
-    if (confirm("This will delete any image files that don't have corresponding template records. Continue?")) {
+    const ok = await confirmToast("This will delete any image files that don't have corresponding template records. Continue?", { confirmText: "Clean up", tone: "destructive" });
+    if (ok) {
       try {
         setCleaningUp(true);
         console.log('🧹 Starting cleanup of orphaned images...');
@@ -224,6 +252,26 @@ export default function TemplatesPage() {
     } else {
       setImageFile(null);
       setImagePreview(null);
+    }
+  }
+
+  function handlePreviewImageUpload(file: File | null) {
+    if (file) {
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!fileExt || !['jpg', 'jpeg', 'png'].includes(fileExt)) {
+        toast.error('Invalid file type. Only JPG, JPEG, and PNG are allowed.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size too large. Maximum size is 10MB.');
+        return;
+      }
+      setPreviewImageFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewImagePreview(url);
+    } else {
+      setPreviewImageFile(null);
+      setPreviewImagePreview(null);
     }
   }
 
@@ -278,7 +326,7 @@ export default function TemplatesPage() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-2xl mx-auto"
+                className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-3xl mx-auto"
               >
                 <div className="relative flex-1 w-full">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -289,6 +337,20 @@ export default function TemplatesPage() {
                     onChange={(e) => setQuery(e.target.value)} 
                   />
                 </div>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full sm:w-56 h-12 px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">All Categories</option>
+                  <option value="MoU">MoU</option>
+                  <option value="Magang">Magang</option>
+                  <option value="Pelatihan">Pelatihan</option>
+                  <option value="Kunjungan Industri">Kunjungan Industri</option>
+                  <option value="Sertifikat">Sertifikat</option>
+                  <option value="Surat">Surat</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
                 {(role === "Admin" || role === "Team") && (
                   <div className="flex gap-3">
                     <Button 
@@ -376,14 +438,13 @@ export default function TemplatesPage() {
                   whileHover={{ scale: 1.02, y: -5 }}
                 >
                   <Card className="h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group overflow-hidden">
-                    {/* Template Preview */}
+                    {/* Template Preview (uniform 16:9 frame so cards have equal height) */}
                     <div className="relative aspect-video bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200 overflow-hidden">
-                      {getTemplateImageUrl(tpl) ? (
+                      {getTemplatePreviewUrl(tpl) ? (
                         <img 
-                          src={getTemplateImageUrl(tpl)!} 
+                          src={getTemplatePreviewUrl(tpl)!} 
                           alt={tpl.name}
                           className="w-full h-full object-contain"
-                          style={{ width: 'auto', height: 'auto', maxWidth: '100%' }}
                         />
                       ) : (
                         <>
@@ -583,13 +644,17 @@ export default function TemplatesPage() {
               </div>
             </motion.div>
 
+            {/* Template Image (Required) */}
             <motion.div 
               className="space-y-2"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.3 }}
             >
-              <label className="text-sm font-semibold text-gray-700">Template Image</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-gray-700">Template Image (Required)</label>
+                <span className="text-xs text-red-500 font-medium">Required</span>
+              </div>
               <div className="space-y-3">
                 <input
                   type="file"
@@ -609,6 +674,43 @@ export default function TemplatesPage() {
                       size="sm"
                       className="absolute top-2 right-2 bg-white/90 hover:bg-white"
                       onClick={() => handleImageUpload(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            
+
+            {/* Preview Image Upload */}
+            <motion.div 
+              className="space-y-2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.35 }}
+            >
+              <label className="text-sm font-semibold text-gray-700">Preview Image (Thumbnail)</label>
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={(e) => handlePreviewImageUpload(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                />
+                {previewImagePreview && (
+                  <div className="relative">
+                    <img 
+                      src={previewImagePreview} 
+                      alt="Preview image" 
+                      className="w-full h-24 object-cover rounded-lg border border-gray-200" 
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                      onClick={() => handlePreviewImageUpload(null)}
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -649,6 +751,75 @@ export default function TemplatesPage() {
             <SheetDescription>Update template details.</SheetDescription>
           </SheetHeader>
           <div className="p-4 space-y-6">
+            {/* Current Preview Image */}
+            <motion.div 
+              className="space-y-2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <label className="text-sm font-semibold text-gray-700">Current Preview Image</label>
+              <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                {previewImagePreview ? (
+                  <img
+                    src={previewImagePreview}
+                    alt="Preview image"
+                    className="w-full h-40 object-contain bg-gray-50"
+                  />
+                ) : (
+                  <>
+                    {draft && getTemplatePreviewUrl(draft as Template) ? (
+                      <img
+                        src={getTemplatePreviewUrl(draft as Template)!}
+                        alt="Current preview"
+                        className="w-full h-40 object-contain bg-gray-50"
+                      />
+                    ) : (
+                      <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                        <Layout className="w-6 h-6 mr-2" />
+                        No preview image
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Change Preview Image */}
+            <motion.div 
+              className="space-y-2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.05 }}
+            >
+              <label className="text-sm font-semibold text-gray-700">Change Preview Image</label>
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={(e) => handlePreviewImageUpload(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                />
+                {previewImagePreview && (
+                  <div className="relative">
+                    <img 
+                      src={previewImagePreview} 
+                      alt="Preview image" 
+                      className="w-full h-24 object-cover rounded-lg border border-gray-200" 
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                      onClick={() => handlePreviewImageUpload(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
             <motion.div 
               className="space-y-2"
               initial={{ opacity: 0, x: 20 }}
@@ -712,40 +883,7 @@ export default function TemplatesPage() {
                 </Button>
               </div>
             </motion.div>
-
-            <motion.div 
-              className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-            >
-              <label className="text-sm font-semibold text-gray-700">Template Image</label>
-              <div className="space-y-3">
-                <input
-                  type="file"
-                  accept=".png,.jpg,.jpeg"
-                  onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {imagePreview && (
-                  <div className="relative">
-                    <img 
-                      src={imagePreview} 
-                      alt="Template preview" 
-                      className="w-full h-32 object-cover rounded-lg border border-gray-200" 
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white"
-                      onClick={() => handleImageUpload(null)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+            
             
             <motion.div 
               className="flex justify-end gap-3 pt-6"
@@ -838,7 +976,7 @@ export default function TemplatesPage() {
                     </motion.div>
                   </div>
                   
-                  {/* Enhanced Template Preview */}
+                  {/* Template Preview Image Only (no dummy text overlay) */}
                   <motion.div 
                     className="space-y-4"
                     initial={{ opacity: 0, x: 20 }}
@@ -847,103 +985,24 @@ export default function TemplatesPage() {
                   >
                     <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('templates.templatePreview')}</label>
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
-                      <div className="bg-white rounded-xl p-8 shadow-xl relative overflow-hidden">
-                        {getTemplateImageUrl(previewTemplate) ? (
-                          <img 
-                            src={getTemplateImageUrl(previewTemplate)!} 
+                      <div
+                        className="bg-white rounded-xl p-2 shadow-xl relative overflow-hidden"
+                        style={{ aspectRatio: previewTemplate.orientation === 'Portrait' ? '3 / 4' : '16 / 9' }}
+                      >
+                        {getTemplatePreviewUrl(previewTemplate) ? (
+                          <img
+                            src={getTemplatePreviewUrl(previewTemplate)!}
                             alt={previewTemplate.name}
-                            className="w-full h-full object-contain absolute inset-0"
-                            style={{ width: 'auto', height: 'auto', maxWidth: '100%' }}
+                            className="w-full h-full object-contain"
                           />
                         ) : (
-                          <>
-                            {/* Enhanced Decorative Corners */}
-                            <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
-                            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-tr-2xl"></div>
-                            <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-yellow-400 to-orange-500 rounded-tl-2xl"></div>
-                          </>
+                          <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                            <div className="text-center text-gray-400">
+                              <Layout className="w-12 h-12 mx-auto mb-2" />
+                              <div>No preview image</div>
+                            </div>
+                          </div>
                         )}
-
-                        {/* Enhanced Certificate Content */}
-                        <div className="relative z-10 text-center">
-                          <motion.div 
-                            className="mb-6"
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.6, delay: 0.5 }}
-                          >
-                            <h3 className="text-2xl font-bold text-gray-800 mb-2">CERTIFICATE</h3>
-                            <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
-                          </motion.div>
-
-                          <motion.p 
-                            className="text-gray-600 mb-4 text-lg"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.6, delay: 0.7 }}
-                          >
-                            This is to certify that
-                          </motion.p>
-                          
-                          <motion.h4 
-                            className="text-2xl font-bold text-gray-800 mb-4"
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.6, delay: 0.8 }}
-                          >
-                            Sample Recipient
-                          </motion.h4>
-                          
-                          <motion.p 
-                            className="text-gray-600 mb-6 text-lg"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.6, delay: 0.9 }}
-                          >
-                            has successfully completed the<br />
-                            <span className="font-bold text-xl">{previewTemplate.name}</span>
-                          </motion.p>
-
-                          <motion.div 
-                            className="grid grid-cols-2 gap-6 text-sm text-gray-600 mb-6"
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.6, delay: 1.0 }}
-                          >
-                            <div className="bg-gray-50 rounded-lg p-3">
-                              <p className="font-semibold text-gray-800">Date:</p>
-                              <p>December 15, 2024</p>
-                            </div>
-                            <div className="bg-gray-50 rounded-lg p-3">
-                              <p className="font-semibold text-gray-800">Category:</p>
-                              <p>{previewTemplate.category}</p>
-                            </div>
-                          </motion.div>
-
-                          {/* Enhanced QR Code Placeholder */}
-                          <motion.div 
-                            className="w-16 h-16 bg-gray-200 rounded-xl mx-auto mb-4 flex items-center justify-center"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.6, delay: 1.1 }}
-                          >
-                            <div className="w-12 h-12 bg-gray-300 rounded grid grid-cols-2 gap-1 p-1">
-                              {[...Array(4)].map((_, i) => (
-                                <div key={i} className="bg-gray-600 rounded-sm"></div>
-                              ))}
-                            </div>
-                          </motion.div>
-
-                          <motion.p 
-                            className="text-sm text-gray-500"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.6, delay: 1.2 }}
-                          >
-                            Verify at: e-certificate.my.id/verify
-                          </motion.p>
-                        </div>
                       </div>
                     </div>
                   </motion.div>

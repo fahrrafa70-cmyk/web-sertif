@@ -5,6 +5,14 @@ import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import * as XLSX from "xlsx";
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Eye, FileText } from "lucide-react";
@@ -17,7 +25,10 @@ import {
   CreateCertificateData,
 } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
+import { confirmToast } from "@/lib/ui/confirm";
 import html2canvas from "html2canvas";
+import GlobalFontSettings from "@/components/GlobalFontSettings";
+import { getMembers, Member } from "@/lib/supabase/members";
 
 type CertificateData = {
   certificate_no: string;
@@ -25,8 +36,9 @@ type CertificateData = {
   description: string;
   issue_date: string;
   expired_date: string;
-  qr_code: string;
 };
+
+// Helper to compute selected style object from current selection
 
 type TextLayer = {
   id: string;
@@ -57,6 +69,7 @@ export default function CertificateGeneratorPage() {
   const [draggingLayer, setDraggingLayer] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   // FIX: Standard canvas dimensions for consistent positioning
   const STANDARD_CANVAS_WIDTH = 800;
@@ -67,22 +80,171 @@ export default function CertificateGeneratorPage() {
   });
   const [snapGridEnabled, setSnapGridEnabled] = useState(false);
   const gridSize = 20; // Grid spacing in pixels
+
+  // Refs to right-panel inputs so we can focus them when clicking canvas text
+  const certNoRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  const issueRef = useRef<HTMLInputElement>(null);
+  const expiryRef = useRef<HTMLInputElement>(null);
+  const qrRef = useRef<HTMLInputElement>(null);
+  const suppressSyncRef = useRef(false);
+
+  // Track click vs drag to avoid focusing inputs during drag
+  const lastDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const lastDownLayerRef = useRef<string | null>(null);
+  const didMoveRef = useRef<boolean>(false);
+  const candidateLayerRef = useRef<string | null>(null);
+  const downOffsetRef = useRef<{ x: number; y: number } | null>(null);
+
+  function focusFieldForLayer(id: string, scroll: boolean = true) {
+    setFocusedField(id);
+    let el: HTMLInputElement | HTMLTextAreaElement | null = null;
+    switch (id) {
+      case "certificate_no":
+        el = certNoRef.current;
+        break;
+      case "name":
+        el = nameRef.current;
+        break;
+      case "description":
+        el = descRef.current;
+        break;
+      case "issue_date":
+        el = issueRef.current;
+        break;
+      case "expired_date":
+        el = expiryRef.current;
+        break;
+    }
+    if (el) {
+      el.focus();
+      if (scroll) {
+        try { el.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch {}
+      }
+    }
+  }
+  // Default dates: issue today, expiry +5 years
+  const __nowForDefaults = new Date();
+  const __expiryForDefaults = new Date(__nowForDefaults);
+  __expiryForDefaults.setFullYear(__expiryForDefaults.getFullYear() + 5);
+  const __fmt = (d: Date) => d.toISOString().split("T")[0];
+
   const [certificateData, setCertificateData] = useState<CertificateData>({
     certificate_no: "CERT-2024-001",
     name: "John Doe",
     description:
       "This certificate is awarded for successful completion of the program.",
-    issue_date: new Date().toISOString().split("T")[0],
-    expired_date: "",
-    qr_code: "https://e-certificate.my.id/verify/CERT-2024-001",
+    issue_date: __fmt(__nowForDefaults),
+    expired_date: __fmt(__expiryForDefaults),
   });
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
   const [imageDimensions, setImageDimensions] = useState<{
     width: number;
     height: number;
     aspectRatio: number;
   } | null>(null);
+
+  // Global font settings
+  const [globalFontSettings, setGlobalFontSettings] = useState({
+    fontSize: 16,
+    fontFamily: "Arial",
+    color: "#000000",
+    fontWeight: "normal",
+  });
+
+  // Import Excel instruction modal state
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [excelRows, setExcelRows] = useState<any[]>([]);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<{[k:string]: string}>({
+    certificate_no: "",
+    name: "",
+    description: "",
+    issue_date: "",
+    expired_date: "",
+  });
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
+
+  // Excel helpers
+  const excelDateToISO = useCallback((val: any): string => {
+    try {
+      if (val == null || val === "") return "";
+      if (typeof val === "number") {
+        const epoch = new Date(Date.UTC(1899, 11, 30));
+        const ms = val * 86400000;
+        const d = new Date(epoch.getTime() + ms);
+        return d.toISOString().slice(0, 10);
+      }
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+      return String(val);
+    } catch { return String(val || ""); }
+  }, []);
+
+  const handleExcelFile = useCallback(async (file: File) => {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    const headers = rows.length > 0 ? Object.keys(rows[0] as any) : [];
+    setExcelRows(rows as any[]);
+    setExcelHeaders(headers);
+    setSelectedRowIndex(0);
+    setMapping((m) => ({ ...m }));
+  }, []);
+
+  const applyRowToPreview = useCallback((idx: number) => {
+    if (!excelRows.length) return;
+    const row = excelRows[idx] || {};
+    const get = (key: string) => (mapping[key] ? row[mapping[key]] : "");
+    suppressSyncRef.current = true;
+    // Use functional set to avoid depending on outer certificateData
+    setCertificateData((prev) => {
+      const nextData: CertificateData = {
+        certificate_no: String(get("certificate_no") || prev.certificate_no || ""),
+        name: String(get("name") || prev.name || ""),
+        description: String(get("description") || prev.description || ""),
+        issue_date: excelDateToISO(get("issue_date") || prev.issue_date || ""),
+        expired_date: excelDateToISO(get("expired_date") || prev.expired_date || ""),
+      };
+
+      // Immediately sync text layers so canvas uses Excel data
+      setTextLayers((layers) =>
+        layers.map((layer) => {
+          switch (layer.id) {
+            case "certificate_no":
+              return { ...layer, text: nextData.certificate_no };
+            case "name":
+              return { ...layer, text: nextData.name };
+            case "description":
+              return { ...layer, text: nextData.description };
+            case "issue_date":
+              return { ...layer, text: nextData.issue_date };
+            case "expired_date":
+              return { ...layer, text: nextData.expired_date };
+          }
+          return layer;
+        })
+      );
+      return nextData;
+    });
+    setTimeout(() => { suppressSyncRef.current = false; }, 0);
+  }, [excelRows, mapping, excelDateToISO]);
+
+  // Auto-apply current preview row when Excel data/mapping/index change
+  useEffect(() => {
+    if (excelRows.length > 0) {
+      const idx = Math.max(0, Math.min(selectedRowIndex, Math.max(0, excelRows.length - 1)));
+      applyRowToPreview(idx);
+    }
+    // Intentionally exclude applyRowToPreview to avoid effect re-run on each render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [excelRows, mapping, selectedRowIndex]);
 
   // Prevent body scroll when page loads (optional - for consistency)
   useBodyScrollLock(false);
@@ -167,6 +329,25 @@ export default function CertificateGeneratorPage() {
     }
   }, [router]);
 
+  // Load members for selection (Admin/Team only)
+  useEffect(() => {
+    const load = async () => {
+      if (role === "Admin" || role === "Team") {
+        try {
+          setMembersLoading(true);
+          const data = await getMembers();
+          setMembers(data);
+        } catch (e) {
+          console.error(e);
+          toast.error(e instanceof Error ? e.message : "Failed to load members");
+        } finally {
+          setMembersLoading(false);
+        }
+      }
+    };
+    load();
+  }, [role]);
+
   // Find selected template
   useEffect(() => {
     const loadTemplate = async () => {
@@ -226,22 +407,17 @@ export default function CertificateGeneratorPage() {
               return { ...layer, text: value };
             }
             break;
-          case "qr_code":
-            if (layer.id === "qr_code") {
-              return { ...layer, text: value };
-            }
-            break;
         }
         return layer;
-      })
+      }),
     );
   };
 
   // SYNC ON LOAD: Ensure form data is synced with text layers when template loads
   const syncFormWithTextLayers = useCallback(() => {
+    if (suppressSyncRef.current) return;
     if (textLayers.length > 0) {
       const updatedData: Partial<CertificateData> = {};
-      
       textLayers.forEach((layer) => {
         switch (layer.id) {
           case "certificate_no":
@@ -259,13 +435,21 @@ export default function CertificateGeneratorPage() {
           case "expired_date":
             updatedData.expired_date = layer.text;
             break;
-          case "qr_code":
-            updatedData.qr_code = layer.text;
-            break;
         }
       });
-      
-      setCertificateData((prev) => ({ ...prev, ...updatedData }));
+      setCertificateData((prev) => {
+        const next = { ...prev, ...updatedData } as CertificateData;
+        if (
+          next.certificate_no === prev.certificate_no &&
+          next.name === prev.name &&
+          next.description === prev.description &&
+          next.issue_date === prev.issue_date &&
+          next.expired_date === prev.expired_date
+        ) {
+          return prev;
+        }
+        return next;
+      });
     }
   }, [textLayers]);
 
@@ -299,9 +483,6 @@ export default function CertificateGeneratorPage() {
       case "expired_date":
         setCertificateData((prev) => ({ ...prev, expired_date: newText }));
         break;
-      case "qr_code":
-        setCertificateData((prev) => ({ ...prev, qr_code: newText }));
-        break;
     }
   };
 
@@ -317,6 +498,20 @@ export default function CertificateGeneratorPage() {
       )
     );
   };
+
+  // Apply global font settings to all text layers
+  const applyGlobalFontSettings = useCallback(() => {
+    setTextLayers((prev) =>
+      prev.map((layer) => ({
+        ...layer,
+        fontSize: globalFontSettings.fontSize,
+        fontFamily: globalFontSettings.fontFamily,
+        color: globalFontSettings.color,
+        fontWeight: globalFontSettings.fontWeight,
+      })),
+    );
+    toast.success("Global font settings applied to all text elements!");
+  }, [globalFontSettings]);
 
   // FIX: Utility functions for normalized coordinates using standard canvas size
   const getNormalizedPosition = useCallback((x: number, y: number) => {
@@ -377,10 +572,10 @@ export default function CertificateGeneratorPage() {
         y: STANDARD_CANVAS_HEIGHT * 0.1, // 10% from top
         xPercent: 0.1,
         yPercent: 0.1,
-        fontSize: 16,
-        color: "#374151",
-        fontWeight: "normal",
-        fontFamily: "Arial",
+        fontSize: globalFontSettings.fontSize,
+        color: globalFontSettings.color,
+        fontWeight: globalFontSettings.fontWeight,
+        fontFamily: globalFontSettings.fontFamily,
       },
       {
         id: "name",
@@ -389,10 +584,10 @@ export default function CertificateGeneratorPage() {
         y: STANDARD_CANVAS_HEIGHT * 0.45, // 45% from top
         xPercent: 0.5,
         yPercent: 0.45,
-        fontSize: 28,
-        color: "#1f2937",
-        fontWeight: "bold",
-        fontFamily: "Arial",
+        fontSize: globalFontSettings.fontSize + 8, // Slightly larger for name
+        color: globalFontSettings.color,
+        fontWeight: "bold", // Keep name bold
+        fontFamily: globalFontSettings.fontFamily,
       },
       {
         id: "description",
@@ -401,10 +596,10 @@ export default function CertificateGeneratorPage() {
         y: STANDARD_CANVAS_HEIGHT * 0.55, // 55% from top
         xPercent: 0.5,
         yPercent: 0.55,
-        fontSize: 14,
-        color: "#374151",
-        fontWeight: "normal",
-        fontFamily: "Arial",
+        fontSize: globalFontSettings.fontSize,
+        color: globalFontSettings.color,
+        fontWeight: globalFontSettings.fontWeight,
+        fontFamily: globalFontSettings.fontFamily,
       },
       {
         id: "issue_date",
@@ -413,10 +608,10 @@ export default function CertificateGeneratorPage() {
         y: STANDARD_CANVAS_HEIGHT * 0.85, // 85% from top
         xPercent: 0.1,
         yPercent: 0.85,
-        fontSize: 14,
-        color: "#6b7280",
-        fontWeight: "normal",
-        fontFamily: "Arial",
+        fontSize: globalFontSettings.fontSize,
+        color: globalFontSettings.color,
+        fontWeight: globalFontSettings.fontWeight,
+        fontFamily: globalFontSettings.fontFamily,
       },
       {
         id: "expired_date",
@@ -425,26 +620,14 @@ export default function CertificateGeneratorPage() {
         y: STANDARD_CANVAS_HEIGHT * 0.85, // 85% from top
         xPercent: 0.3,
         yPercent: 0.85,
-        fontSize: 14,
-        color: "#6b7280",
-        fontWeight: "normal",
-        fontFamily: "Arial",
-      },
-      {
-        id: "qr_code",
-        text: certificateData.qr_code,
-        x: STANDARD_CANVAS_WIDTH * 0.1, // 10% from left
-        y: STANDARD_CANVAS_HEIGHT * 0.75, // 75% from top
-        xPercent: 0.1,
-        yPercent: 0.75,
-        fontSize: 12,
-        color: "#9ca3af",
-        fontWeight: "normal",
-        fontFamily: "Arial",
+        fontSize: globalFontSettings.fontSize,
+        color: globalFontSettings.color,
+        fontWeight: globalFontSettings.fontWeight,
+        fontFamily: globalFontSettings.fontFamily,
       },
     ];
     setTextLayers(layers);
-  }, [certificateData]);
+  }, [certificateData, globalFontSettings]);
 
   // FIX: Update description text layer when certificate data changes
   useEffect(() => {
@@ -490,6 +673,34 @@ export default function CertificateGeneratorPage() {
     }
   }, [canvasDimensions, getAbsolutePosition, textLayers.length]);
 
+  // Define editing helpers BEFORE effects that reference them
+  const startEditingText = useCallback((id: string) => {
+    setTextLayers((prev) =>
+      prev.map((layer) =>
+        layer.id === id
+          ? { ...layer, isEditing: true }
+          : { ...layer, isEditing: false },
+      ),
+    );
+  // FIX: Dragging functionality with proper coordinate handling
+  }, []);
+
+  const stopEditingText = useCallback((id: string) => {
+    setTextLayers((prev) =>
+      prev.map((layer) => (layer.id === id ? { ...layer, isEditing: false } : layer)),
+    );
+  }, []);
+
+  // Update selection handler for member -> sync recipient name field and canvas text layer
+  const handleSelectMember = useCallback((memberId: string) => {
+    setSelectedMemberId(memberId);
+    const selected = members.find((m) => m.id === memberId);
+    if (selected) {
+      setCertificateData((prev) => ({ ...prev, name: selected.name }));
+      setTextLayers((prev) => prev.map((l) => (l.id === "name" ? { ...l, text: selected.name } : l)));
+    }
+  }, [members]);
+
   // FIX: Dragging functionality with proper coordinate handling
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, layerId: string) => {
@@ -497,72 +708,76 @@ export default function CertificateGeneratorPage() {
       const layer = textLayers.find((l) => l.id === layerId);
       if (!layer || layer.isEditing) return;
 
-      setDraggingLayer(layerId);
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        // SAMAKAN SATUAN: Gunakan consistentDims untuk koordinat yang sama (tanpa offset)
-        const consistentDims = getConsistentDimensions;
-        const actualX = layer.xPercent * consistentDims.width;
-        const actualY = layer.yPercent * consistentDims.height;
-
-        setDragOffset({
+      // Do NOT start dragging immediately; wait until the cursor moves past a small threshold
+      candidateLayerRef.current = layerId;
+      lastDownLayerRef.current = layerId;
+      lastDownPosRef.current = { x: e.clientX, y: e.clientY };
+      didMoveRef.current = false;
+      // Compute offset relative to canvas and current layer absolute position to avoid drift
+      if (canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const dims = getConsistentDimensions;
+        // Derive the absolute position used in render for this layer
+        const isActiveDragging = draggingLayer === layer.id || candidateLayerRef.current === layer.id;
+        const actualX = isActiveDragging && typeof layer.x === "number" ? layer.x : (layer.xPercent * dims.width);
+        const actualY = isActiveDragging && typeof layer.y === "number" ? layer.y : (layer.yPercent * dims.height);
+        downOffsetRef.current = {
           x: e.clientX - rect.left - actualX,
           y: e.clientY - rect.top - actualY,
-        });
+        };
+      } else {
+        downOffsetRef.current = { x: 0, y: 0 };
       }
     },
-    [textLayers, getConsistentDimensions],
+    [textLayers],
   );
 
   // FIX: Handle mouse move with proper coordinate normalization
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!draggingLayer || !canvasRef.current) return;
+      if (!canvasRef.current) return;
+
+      // Determine if we should start dragging based on threshold
+      if (!draggingLayer && candidateLayerRef.current && lastDownPosRef.current) {
+        const dx = Math.abs(e.clientX - lastDownPosRef.current.x);
+        const dy = Math.abs(e.clientY - lastDownPosRef.current.y);
+        if (dx > 1 || dy > 1) {
+          setDraggingLayer(candidateLayerRef.current);
+          didMoveRef.current = true;
+        }
+      }
+
+      if (!draggingLayer) return;
 
       const rect = canvasRef.current.getBoundingClientRect();
-      const newX = e.clientX - rect.left - dragOffset.x;
-      const newY = e.clientY - rect.top - dragOffset.y;
+      const offset = downOffsetRef.current || { x: 0, y: 0 };
+      const newX = e.clientX - rect.left - offset.x;
+      const newY = e.clientY - rect.top - offset.y;
 
-      // SAMAKAN SATUAN: Gunakan consistentDims untuk koordinat yang sama
       const consistentDims = getConsistentDimensions;
-      
-      // Convert to consistent canvas coordinates
       const scaleX = rect.width / consistentDims.width;
       const scaleY = rect.height / consistentDims.height;
       const standardX = newX / scaleX;
       const standardY = newY / scaleY;
 
-      // Constrain to consistent canvas bounds
-      const constrainedX = Math.max(
-        0,
-        Math.min(standardX, consistentDims.width - 100),
-      );
-      const constrainedY = Math.max(
-        0,
-        Math.min(standardY, consistentDims.height - 50),
-      );
+      // Clamp to canvas bounds first
+      let clampedX = Math.max(0, Math.min(standardX, consistentDims.width));
+      let clampedY = Math.max(0, Math.min(standardY, consistentDims.height));
 
-      // Apply snap grid if enabled
-      const snappedPos = snapToGrid(constrainedX, constrainedY);
-
-      // Calculate normalized position
-      const normalizedPos = getNormalizedPosition(snappedPos.x, snappedPos.y);
+      // Apply snap-to-grid DURING drag if enabled
+      if (snapGridEnabled) {
+        const snapped = snapToGrid(clampedX, clampedY);
+        clampedX = snapped.x;
+        clampedY = snapped.y;
+      }
 
       setTextLayers((prev) =>
         prev.map((layer) =>
-          layer.id === draggingLayer
-            ? {
-                ...layer,
-                x: snappedPos.x,
-                y: snappedPos.y,
-                xPercent: normalizedPos.xPercent,
-                yPercent: normalizedPos.yPercent,
-              }
-            : layer,
+          layer.id === draggingLayer ? { ...layer, x: clampedX, y: clampedY } : layer,
         ),
       );
     },
-    [draggingLayer, dragOffset, getNormalizedPosition, snapToGrid, getConsistentDimensions],
+    [draggingLayer, snapToGrid, snapGridEnabled, getConsistentDimensions],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -572,10 +787,21 @@ export default function CertificateGeneratorPage() {
   // Add event listeners for mouse events
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
+      // If we haven't started dragging yet, but a candidate exists, start when threshold passed
+      if (!draggingLayer && candidateLayerRef.current && lastDownPosRef.current) {
+        const dx = Math.abs(e.clientX - lastDownPosRef.current.x);
+        const dy = Math.abs(e.clientY - lastDownPosRef.current.y);
+        if (dx > 1 || dy > 1) {
+          setDraggingLayer(candidateLayerRef.current);
+          didMoveRef.current = true;
+        }
+      }
+
       if (draggingLayer && canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
-        const newX = e.clientX - rect.left - dragOffset.x;
-        const newY = e.clientY - rect.top - dragOffset.y;
+        const offset = downOffsetRef.current || { x: 0, y: 0 };
+        const newX = e.clientX - rect.left - offset.x;
+        const newY = e.clientY - rect.top - offset.y;
 
         // SAMAKAN SATUAN: Gunakan consistentDims untuk koordinat yang sama
         const consistentDims = getConsistentDimensions;
@@ -595,22 +821,13 @@ export default function CertificateGeneratorPage() {
           Math.min(standardY, consistentDims.height - 50),
         );
 
-        // Apply snap grid if enabled
-        const snappedPos = snapToGrid(constrainedX, constrainedY);
-
-        // Calculate normalized position
-        const normalizedPos = getNormalizedPosition(snappedPos.x, snappedPos.y);
-
+        // Tanpa snap saat drag; clamp ke batas kanvas penuh
+        const clampedX = Math.max(0, Math.min(standardX, consistentDims.width));
+        const clampedY = Math.max(0, Math.min(standardY, consistentDims.height));
         setTextLayers((prev) =>
           prev.map((layer) =>
             layer.id === draggingLayer
-              ? {
-                  ...layer,
-                  x: snappedPos.x,
-                  y: snappedPos.y,
-                  xPercent: normalizedPos.xPercent,
-                  yPercent: normalizedPos.yPercent,
-                }
+              ? { ...layer, x: clampedX, y: clampedY }
               : layer,
           ),
         );
@@ -618,10 +835,36 @@ export default function CertificateGeneratorPage() {
     };
 
     const handleGlobalMouseUp = () => {
+      const layerId = lastDownLayerRef.current;
+      const moved = didMoveRef.current;
+      lastDownLayerRef.current = null;
+      lastDownPosRef.current = null;
+      didMoveRef.current = false;
+      candidateLayerRef.current = null;
+      downOffsetRef.current = null;
       setDraggingLayer(null);
+      // Commit normalized coordinates from final absolute x/y (no extra snap here)
+      if (layerId) {
+        setTextLayers((prev) =>
+          prev.map((layer) => {
+            if (layer.id !== layerId || layer.x === undefined || layer.y === undefined) return layer;
+            const normalizedPos = getNormalizedPosition(layer.x, layer.y);
+            return {
+              ...layer,
+              xPercent: normalizedPos.xPercent,
+              yPercent: normalizedPos.yPercent,
+            };
+          }),
+        );
+      }
+      // If it was just a click (no drag), enter editing and focus the right panel
+      if (layerId && !moved) {
+        startEditingText(layerId);
+        focusFieldForLayer(layerId, true);
+      }
     };
 
-    if (draggingLayer) {
+    if (draggingLayer || candidateLayerRef.current) {
       document.addEventListener("mousemove", handleGlobalMouseMove);
       document.addEventListener("mouseup", handleGlobalMouseUp);
     }
@@ -630,7 +873,7 @@ export default function CertificateGeneratorPage() {
       document.removeEventListener("mousemove", handleGlobalMouseMove);
       document.removeEventListener("mouseup", handleGlobalMouseUp);
     };
-  }, [draggingLayer, dragOffset, snapToGrid, getNormalizedPosition, getConsistentDimensions]);
+  }, [draggingLayer, snapToGrid, getNormalizedPosition, getConsistentDimensions, startEditingText]);
 
   // FIX: Add new text using standard canvas dimensions
   const addNewText = useCallback(() => {
@@ -747,23 +990,6 @@ export default function CertificateGeneratorPage() {
     setSelectedLayerId(id);
   }, []);
 
-  const startEditingText = useCallback((id: string) => {
-    setTextLayers((prev) =>
-      prev.map((layer) =>
-        layer.id === id
-          ? { ...layer, isEditing: true }
-          : { ...layer, isEditing: false },
-      ),
-    );
-  }, []);
-
-  const stopEditingText = useCallback((id: string) => {
-    setTextLayers((prev) =>
-      prev.map((layer) =>
-        layer.id === id ? { ...layer, isEditing: false } : layer,
-      ),
-    );
-  }, []);
 
   // Safe text update function is now handled by the new updateTextContent above
 
@@ -827,7 +1053,9 @@ export default function CertificateGeneratorPage() {
   };
 
   // PERBAIKAN SISTEM RENDER: Capture dengan dimensi visual yang sama persis
-  const createMergedCertificateImage = async (): Promise<string> => {
+  const createMergedCertificateImage = async (customTextLayers?: TextLayer[]): Promise<string> => {
+    // Use custom textLayers if provided (for batch generation)
+    const layersToUse = customTextLayers || textLayers;
     try {
       console.log('🎨 Starting improved html2canvas capture...');
       
@@ -887,14 +1115,31 @@ export default function CertificateGeneratorPage() {
       const canvas = await html2canvas(previewElement, {
         useCORS: true,
         allowTaint: true,
-        background: '#ffffff',
+        backgroundColor: '#ffffff',
         // Gunakan dimensi visual yang sama persis
         width: Math.round(consistentDims.width),
         height: Math.round(consistentDims.height),
         // Pastikan tidak ada scaling ganda
         // Nonaktifkan style yang dapat menyebabkan perubahan layout
         // Pastikan scroll dan overflow tidak memotong template
-        logging: false
+        logging: false,
+        // SANITIZE: Hilangkan background CSS kompleks (gradients/lab/oklch) pada subtree agar parser tidak error
+        onclone: (doc) => {
+          const root = doc.getElementById('certificate-preview');
+          if (!root) return;
+          // Pertahankan background putih pada root
+          (root as HTMLElement).style.backgroundColor = '#ffffff';
+          // Bersihkan background pada semua child agar tidak ada fungsi warna yang tidak didukung
+          root.querySelectorAll('*').forEach((node) => {
+            const el = node as HTMLElement;
+            if (!el || el.id === 'certificate-preview') return;
+            el.style.background = 'transparent';
+            el.style.backgroundImage = 'none';
+            // Hindari filter/boxShadow kompleks yang dapat memicu parsing warna
+            el.style.boxShadow = 'none';
+            el.style.filter = 'none';
+          });
+        }
       });
       
       console.log('✅ html2canvas capture completed:', {
@@ -913,12 +1158,14 @@ export default function CertificateGeneratorPage() {
       
       // Fallback to original canvas method if html2canvas fails
       console.log('🔄 Falling back to canvas method...');
-      return createMergedCertificateImageFallback();
+      return createMergedCertificateImageFallback(layersToUse);
     }
   };
 
   // Fallback method using canvas (original implementation)
-  const createMergedCertificateImageFallback = async (): Promise<string> => {
+  const createMergedCertificateImageFallback = async (customTextLayers?: TextLayer[]): Promise<string> => {
+    // Use custom textLayers if provided (for batch generation)
+    const layersToUse = customTextLayers || textLayers;
     return new Promise((resolve, reject) => {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
@@ -961,7 +1208,7 @@ export default function CertificateGeneratorPage() {
           ctx.drawImage(img, 0, 0, consistentDims.width, consistentDims.height);
 
           // PERBAIKAN: Draw text layers dengan koordinat yang sama dengan preview
-          textLayers.forEach((layer) => {
+          layersToUse.forEach((layer) => {
             if (layer.text && layer.text.trim()) {
               ctx.font = `${layer.fontWeight} ${layer.fontSize * (consistentDims.scale || 1)}px ${layer.fontFamily}`;
               ctx.fillStyle = layer.color;
@@ -981,7 +1228,7 @@ export default function CertificateGeneratorPage() {
         };
         img.onerror = () => {
           // PERBAIKAN: Fallback text only dengan koordinat yang sama
-          textLayers.forEach((layer) => {
+          layersToUse.forEach((layer) => {
             if (layer.text && layer.text.trim()) {
               ctx.font = `${layer.fontWeight} ${layer.fontSize * (consistentDims.scale || 1)}px ${layer.fontFamily}`;
               ctx.fillStyle = layer.color;
@@ -1002,7 +1249,7 @@ export default function CertificateGeneratorPage() {
         img.src = getTemplateImageUrl(selectedTemplate)!;
       } else {
         // PERBAIKAN: No template image dengan koordinat yang sama
-        textLayers.forEach((layer) => {
+        layersToUse.forEach((layer) => {
           if (layer.text && layer.text.trim()) {
             ctx.font = `${layer.fontWeight} ${layer.fontSize}px ${layer.fontFamily}`;
             ctx.fillStyle = layer.color;
@@ -1047,6 +1294,12 @@ export default function CertificateGeneratorPage() {
         return;
       }
 
+      // Require member selection for Admin/Team
+      if ((role === "Admin" || role === "Team") && !selectedMemberId) {
+        toast.error("Please select a member before creating the certificate");
+        return;
+      }
+
       // FIX: Create merged certificate image
       console.log("🎨 Creating merged certificate image...");
       const mergedImageDataUrl = await createMergedCertificateImage();
@@ -1055,13 +1308,21 @@ export default function CertificateGeneratorPage() {
         mergedImageDataUrl.substring(0, 50) + "...",
       );
 
-      // Save PNG to local storage
-      console.log("💾 Saving PNG to local storage...");
-      const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl);
-      console.log("✅ PNG saved locally:", localImageUrl);
+      // Siapkan URL final untuk preview dan penyimpanan DB
+      let finalPreviewUrl: string = mergedImageDataUrl;
 
-      // Update preview to show generated PNG
-      setGeneratedImageUrl(localImageUrl);
+      // Coba simpan PNG ke local storage (best-effort). Jika gagal, gunakan dataURL sebagai fallback
+      try {
+        console.log("💾 Saving PNG to local storage...");
+        const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl);
+        console.log("✅ PNG saved locally:", localImageUrl);
+        finalPreviewUrl = localImageUrl;
+      } catch (e) {
+        console.warn("⚠️ Save to local failed, keep dataURL preview.", e);
+      }
+
+      // Tampilkan preview dengan URL final
+      setGeneratedImageUrl(finalPreviewUrl);
 
       // Prepare certificate data for database
       const certificateDataToSave: CreateCertificateData = {
@@ -1070,11 +1331,12 @@ export default function CertificateGeneratorPage() {
         description: certificateData.description.trim() || undefined,
         issue_date: certificateData.issue_date,
         expired_date: certificateData.expired_date || undefined,
-        qr_code: certificateData.qr_code.trim() || undefined,
         category: selectedTemplate?.category || undefined,
         template_id: selectedTemplate?.id || undefined,
+        member_id: selectedMemberId || undefined,
         text_layers: textLayers,
-        merged_image: mergedImageDataUrl, // FIX: Include merged image
+        merged_image: mergedImageDataUrl, // Keep data URL as fallback
+        certificate_image_url: finalPreviewUrl || undefined, // Prefer saved public URL for previews
       };
 
       // Save certificate to database
@@ -1084,12 +1346,12 @@ export default function CertificateGeneratorPage() {
       toast.success("Certificate generated and saved successfully!");
 
       // Ask user if they want to view the certificates page
-      if (
-        confirm(
-          "Certificate saved successfully! Would you like to view all certificates?",
-        )
-      ) {
-        router.push("/certificates");
+      const go = await confirmToast(
+        "Certificate saved successfully! Would you like to view all certificates?",
+        { confirmText: "View Certificates", tone: "success" }
+      );
+      if (go) {
+        window.location.href = "/certificates";
       }
     } catch (error) {
       console.error("❌ Failed to generate certificate:", error);
@@ -1102,6 +1364,119 @@ export default function CertificateGeneratorPage() {
       setIsGenerating(false);
     }
   };
+
+  // Generate all certificates from loaded Excel rows (hoisted declaration)
+  async function generateAllFromExcel() {
+    if (!excelRows.length) { toast.error("No Excel data loaded"); return; }
+    if (!mapping.name || !mapping.certificate_no) {
+      toast.error("Please map at least 'name' and 'certificate_no'");
+      return;
+    }
+    try {
+      setIsGenerating(true);
+      console.log(`🚀 Starting batch generation for ${excelRows.length} rows`);
+      for (let i = 0; i < excelRows.length; i++) {
+        const row = excelRows[i] || {};
+        const get = (key: string) => (mapping[key] ? row[mapping[key]] : "");
+        const data: CertificateData = {
+          certificate_no: String(get("certificate_no") || ""),
+          name: String(get("name") || ""),
+          description: String(get("description") || ""),
+          issue_date: excelDateToISO(get("issue_date") || ""),
+          expired_date: excelDateToISO(get("expired_date") || ""),
+        };
+        
+        console.log(`📝 Processing row ${i + 1}/${excelRows.length}:`, {
+          certificate_no: data.certificate_no,
+          name: data.name,
+          description: data.description?.substring(0, 50) + '...'
+        });
+
+        // Prevent sync effects from overwriting our row updates
+        suppressSyncRef.current = true;
+        
+        // Reflect current row index (optional UI feedback)
+        setSelectedRowIndex(i);
+        
+        // Update form data
+        setCertificateData(data);
+        
+        // Create isolated textLayers for this specific row
+        const updatedTextLayers = textLayers.map((layer) => {
+          switch (layer.id) {
+            case "certificate_no":
+              return { ...layer, text: data.certificate_no };
+            case "name":
+              return { ...layer, text: data.name };
+            case "description":
+              return { ...layer, text: data.description };
+            case "issue_date":
+              return { ...layer, text: data.issue_date };
+            case "expired_date":
+              return { ...layer, text: data.expired_date };
+            default:
+              return layer;
+          }
+        });
+        
+        // Update canvas layers to reflect Excel data
+        setTextLayers(updatedTextLayers);
+        
+        // Allow React/DOM to update completely before capture
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 100)); // Increased delay
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => requestAnimationFrame(() => r(undefined))); // Double RAF
+        
+        console.log(`🎨 Capturing image for row ${i + 1} with data:`, {
+          layers: updatedTextLayers.map(l => ({ id: l.id, text: l.text }))
+        });
+        
+        // Validate that we have the correct data before capture
+        const currentName = updatedTextLayers.find(l => l.id === 'name')?.text;
+        if (currentName !== data.name) {
+          console.warn(`⚠️ Text layer mismatch for row ${i + 1}! Expected: ${data.name}, Got: ${currentName}`);
+        }
+        
+        // Create merged image with the specific textLayers for this row
+        // eslint-disable-next-line no-await-in-loop
+        const mergedImageDataUrl = await createMergedCertificateImage(updatedTextLayers);
+        
+        // Release suppression after this row is captured
+        suppressSyncRef.current = false;
+        
+        const certificateDataToSave: CreateCertificateData = {
+          certificate_no: data.certificate_no.trim(),
+          name: data.name.trim(),
+          description: data.description.trim() || undefined,
+          issue_date: data.issue_date,
+          expired_date: data.expired_date || undefined,
+          category: selectedTemplate?.category || undefined,
+          template_id: selectedTemplate?.id || undefined,
+          member_id: selectedMemberId || undefined,
+          text_layers: updatedTextLayers, // Use the isolated textLayers for this row
+          merged_image: mergedImageDataUrl,
+          certificate_image_url: undefined,
+        };
+        
+        // eslint-disable-next-line no-await-in-loop
+        await createCertificate(certificateDataToSave);
+        
+        console.log(`✅ Row ${i + 1} completed and saved`);
+      }
+      console.log(`🎉 All ${excelRows.length} certificates generated successfully`);
+      toast.success("All rows generated and saved");
+      setImportModalOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to generate from Excel");
+    } finally {
+      setIsGenerating(false);
+      suppressSyncRef.current = false; // Ensure suppression is released
+    }
+  }
 
   if (role === "Public") {
     return null; // Will redirect
@@ -1156,10 +1531,11 @@ export default function CertificateGeneratorPage() {
     );
   }
 
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <Header />
-      <main className="pt-16">
+      <main className="pt-16 overflow-x-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
@@ -1183,14 +1559,14 @@ export default function CertificateGeneratorPage() {
             </div>
           </div>
 
-          {/* Dual Pane Layout - wider left preview (landscape) */}
-          <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] lg:grid-cols-[1.7fr_1fr] gap-8 min-h-[720px]">
+          {/* Dual Pane Layout - centered */}
+          <div className="flex flex-col xl:flex-row gap-8 min-h-[720px] w-full mx-auto justify-center items-start">
             {/* Left Section - Certificate Preview */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6"
+              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 mx-auto xl:mx-0 shrink-0"
             >
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1283,8 +1659,6 @@ export default function CertificateGeneratorPage() {
                       // Pastikan aspect ratio tetap konsisten
                       aspectRatio: imageDimensions ? `${imageDimensions.width}/${imageDimensions.height}` : "800/600",
                     }}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
                     onClick={(e) => {
                       // Deselect text if clicking on empty area
                       if (e.target === e.currentTarget) {
@@ -1311,6 +1685,7 @@ export default function CertificateGeneratorPage() {
                       <img
                         src={getTemplateImageUrl(selectedTemplate)!}
                         alt="Certificate Template"
+                        crossOrigin="anonymous"
                         style={{ 
                           // PERBAIKAN: Gunakan dimensi yang sama persis dengan container
                           width: `${getConsistentDimensions.width}px`,
@@ -1363,10 +1738,16 @@ export default function CertificateGeneratorPage() {
 
                   {/* FIX: Draggable text layers with consistent positioning */}
                   {textLayers.map((layer) => {
-                    // Calculate actual position using consistent dimensions (tanpa offset karena container sudah sama)
+                    // Calculate actual position using absolute x/y while dragging for smooth visual,
+                    // otherwise use normalized coordinates for stable layout
                     const consistentDims = getConsistentDimensions;
-                    const actualX = layer.xPercent * consistentDims.width;
-                    const actualY = layer.yPercent * consistentDims.height;
+                    const isActiveDragging = draggingLayer === layer.id || candidateLayerRef.current === layer.id;
+                    const actualX = isActiveDragging && typeof layer.x === "number"
+                      ? layer.x
+                      : layer.xPercent * consistentDims.width;
+                    const actualY = isActiveDragging && typeof layer.y === "number"
+                      ? layer.y
+                      : layer.yPercent * consistentDims.height;
                     
                     // Debug log untuk melihat perbedaan dimensi
                     if (layer.id === "name") { // Log hanya untuk layer name untuk menghindari spam
@@ -1381,6 +1762,15 @@ export default function CertificateGeneratorPage() {
                         offsetY: consistentDims.offsetY
                       });
                     }
+
+                    // Prevent deletion for system-generated layers
+                    const __isSystemLayer = [
+                      "certificate_no",
+                      "name",
+                      "description",
+                      "issue_date",
+                      "expired_date",
+                    ].includes(layer.id);
 
                     return (
                       <div
@@ -1398,6 +1788,9 @@ export default function CertificateGeneratorPage() {
                           fontFamily: layer.fontFamily,
                           // Pastikan tidak ada transform atau scaling
                           transform: "none",
+                          // Hindari animasi/transition saat drag
+                          transition: "none",
+                          willChange: "left, top",
                           // Pastikan tidak ada margin atau padding yang mempengaruhi posisi
                           margin: "0",
                           padding: "0",
@@ -1414,11 +1807,21 @@ export default function CertificateGeneratorPage() {
                           } : {})
                         }}
                         onMouseDown={(e) => {
+                          // Only handle left-click for drag/select
+                          if (e.button !== 0) return;
                           e.preventDefault();
                           selectTextLayer(layer.id);
                           handleMouseDown(e, layer.id);
+                          focusFieldForLayer(layer.id, false);
+                        }}
+                        onContextMenu={(e) => {
+                          // Disable context menu to avoid accidental mode changes on right-click
+                          e.preventDefault();
+                          e.stopPropagation();
                         }}
                         onDoubleClick={(e) => {
+                          // Only left double-click should enter edit mode
+                          if ((e as any).button !== undefined && (e as any).button !== 0) return;
                           e.preventDefault();
                           startEditingText(layer.id);
                         }}
@@ -1484,21 +1887,23 @@ export default function CertificateGeneratorPage() {
                             >
                               {layer.text || "Click to edit"}
                             </span>
-                            {/* Delete button - only show on hover or when selected */}
-                            <button
-                              className={`absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs transition-opacity duration-200 flex items-center justify-center ${
-                                selectedLayerId === layer.id
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover:opacity-100"
-                              }`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteTextLayer(layer.id);
-                              }}
-                              title="Delete text"
-                            >
-                              ×
-                            </button>
+                            {/* Delete button - hidden for system layers */}
+                            {!__isSystemLayer && (
+                              <button
+                                className={`absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs transition-opacity duration-200 flex items-center justify-center ${
+                                  selectedLayerId === layer.id
+                                    ? "opacity-100"
+                                    : "opacity-0 group-hover:opacity-100"
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteTextLayer(layer.id);
+                                }}
+                                title="Delete text"
+                              >
+                                ×
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1590,13 +1995,43 @@ export default function CertificateGeneratorPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6"
+              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 mx-auto xl:mx-0 w-[520px] md:w-[560px] shrink-0 overflow-y-auto"
             >
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                {t("generator.recipient")}
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {t("generator.recipient")}
+                </h2>
+                <Button
+                  variant="outline"
+                  className="border-gray-300"
+                  onClick={() => setImportModalOpen(true)}
+                  size="sm"
+                >
+                  Import Excel
+                </Button>
+              </div>
 
               <div className="space-y-4">
+                {(role === "Admin" || role === "Team") && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Select Member
+                    </label>
+                    <select
+                      className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={selectedMemberId}
+                      onChange={(e) => handleSelectMember(e.target.value)}
+                      disabled={membersLoading}
+                    >
+                      <option value="">{membersLoading ? 'Loading members...' : '— Select a member —'}</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}{m.organization ? ` — ${m.organization}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
                     Certificate Number
@@ -1606,42 +2041,30 @@ export default function CertificateGeneratorPage() {
                     onChange={(e) =>
                       updateCertificateData("certificate_no", e.target.value)
                     }
+                    onFocus={() => setFocusedField("certificate_no")}
+                    ref={certNoRef}
                     placeholder="Enter certificate number"
                     className="border-gray-300"
                   />
-                  {/* Style Controls for Certificate Number */}
-                  <div className="flex gap-2 mt-2">
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Size:</label>
-                      <input
-                        type="number"
-                        min="8"
-                        max="72"
-                        value={textLayers.find(l => l.id === "certificate_no")?.fontSize || 16}
-                        onChange={(e) => updateTextStyle("certificate_no", "fontSize", parseInt(e.target.value) || 16)}
-                        className="w-16 px-1 py-1 text-xs border border-gray-300 rounded"
+                  {focusedField === "certificate_no" && (
+                    <div className="pt-3">
+                      <GlobalFontSettings
+                        selectedLayerId="certificate_no"
+                        selectedStyle={(() => {
+                          const l = textLayers.find((x) => x.id === "certificate_no");
+                          return l
+                            ? {
+                                fontSize: l.fontSize,
+                                fontFamily: l.fontFamily,
+                                color: l.color,
+                                fontWeight: l.fontWeight,
+                              }
+                            : null;
+                        })()}
+                        onChange={(prop, value) => updateTextStyle("certificate_no", prop, value)}
                       />
                     </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Color:</label>
-                      <input
-                        type="color"
-                        value={textLayers.find(l => l.id === "certificate_no")?.color || "#000000"}
-                        onChange={(e) => updateTextStyle("certificate_no", "color", e.target.value)}
-                        className="w-8 h-6 border border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Font:</label>
-                      <input
-                        type="text"
-                        value={textLayers.find(l => l.id === "certificate_no")?.fontFamily || "Arial"}
-                        onChange={(e) => updateTextStyle("certificate_no", "fontFamily", e.target.value)}
-                        placeholder="Font family"
-                        className="w-24 px-1 py-1 text-xs border border-gray-300 rounded"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1653,52 +2076,30 @@ export default function CertificateGeneratorPage() {
                     onChange={(e) =>
                       updateCertificateData("name", e.target.value)
                     }
+                    onFocus={() => setFocusedField("name")}
+                    ref={nameRef}
                     placeholder="Enter recipient name"
                     className="border-gray-300"
                   />
-                  {/* Style Controls for Recipient Name */}
-                  <div className="flex gap-2 mt-2">
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Size:</label>
-                      <input
-                        type="number"
-                        min="8"
-                        max="72"
-                        value={textLayers.find(l => l.id === "name")?.fontSize || 24}
-                        onChange={(e) => updateTextStyle("name", "fontSize", parseInt(e.target.value) || 24)}
-                        className="w-16 px-1 py-1 text-xs border border-gray-300 rounded"
+                  {focusedField === "name" && (
+                    <div className="pt-3">
+                      <GlobalFontSettings
+                        selectedLayerId="name"
+                        selectedStyle={(() => {
+                          const l = textLayers.find((x) => x.id === "name");
+                          return l
+                            ? {
+                                fontSize: l.fontSize,
+                                fontFamily: l.fontFamily,
+                                color: l.color,
+                                fontWeight: l.fontWeight,
+                              }
+                            : null;
+                        })()}
+                        onChange={(prop, value) => updateTextStyle("name", prop, value)}
                       />
                     </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Color:</label>
-                      <input
-                        type="color"
-                        value={textLayers.find(l => l.id === "name")?.color || "#000000"}
-                        onChange={(e) => updateTextStyle("name", "color", e.target.value)}
-                        className="w-8 h-6 border border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Font:</label>
-                      <input
-                        type="text"
-                        value={textLayers.find(l => l.id === "name")?.fontFamily || "Arial"}
-                        onChange={(e) => updateTextStyle("name", "fontFamily", e.target.value)}
-                        placeholder="Font family"
-                        className="w-24 px-1 py-1 text-xs border border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Weight:</label>
-                      <input
-                        type="text"
-                        value={textLayers.find(l => l.id === "name")?.fontWeight || "bold"}
-                        onChange={(e) => updateTextStyle("name", "fontWeight", e.target.value)}
-                        placeholder="normal, bold, 600, 800"
-                        className="w-20 px-1 py-1 text-xs border border-gray-300 rounded"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1710,43 +2111,31 @@ export default function CertificateGeneratorPage() {
                     onChange={(e) =>
                       updateCertificateData("description", e.target.value)
                     }
+                    onFocus={() => setFocusedField("description")}
+                    ref={descRef}
                     placeholder="Enter certificate description"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                   />
-                  {/* Style Controls for Description */}
-                  <div className="flex gap-2 mt-2">
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Size:</label>
-                      <input
-                        type="number"
-                        min="8"
-                        max="72"
-                        value={textLayers.find(l => l.id === "description")?.fontSize || 16}
-                        onChange={(e) => updateTextStyle("description", "fontSize", parseInt(e.target.value) || 16)}
-                        className="w-16 px-1 py-1 text-xs border border-gray-300 rounded"
+                  {focusedField === "description" && (
+                    <div className="pt-3">
+                      <GlobalFontSettings
+                        selectedLayerId="description"
+                        selectedStyle={(() => {
+                          const l = textLayers.find((x) => x.id === "description");
+                          return l
+                            ? {
+                                fontSize: l.fontSize,
+                                fontFamily: l.fontFamily,
+                                color: l.color,
+                                fontWeight: l.fontWeight,
+                              }
+                            : null;
+                        })()}
+                        onChange={(prop, value) => updateTextStyle("description", prop, value)}
                       />
                     </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Color:</label>
-                      <input
-                        type="color"
-                        value={textLayers.find(l => l.id === "description")?.color || "#000000"}
-                        onChange={(e) => updateTextStyle("description", "color", e.target.value)}
-                        className="w-8 h-6 border border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Font:</label>
-                      <input
-                        type="text"
-                        value={textLayers.find(l => l.id === "description")?.fontFamily || "Arial"}
-                        onChange={(e) => updateTextStyle("description", "fontFamily", e.target.value)}
-                        placeholder="Font family"
-                        className="w-24 px-1 py-1 text-xs border border-gray-300 rounded"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1760,31 +2149,10 @@ export default function CertificateGeneratorPage() {
                       onChange={(e) =>
                         updateCertificateData("issue_date", e.target.value)
                       }
+                      onFocus={() => setFocusedField("issue_date")}
+                      ref={issueRef}
                       className="border-gray-300"
                     />
-                    {/* Style Controls for Issue Date */}
-                    <div className="flex gap-2 mt-2">
-                      <div className="flex items-center gap-1">
-                        <label className="text-xs text-gray-600">Size:</label>
-                        <input
-                          type="number"
-                          min="8"
-                          max="72"
-                          value={textLayers.find(l => l.id === "issue_date")?.fontSize || 14}
-                          onChange={(e) => updateTextStyle("issue_date", "fontSize", parseInt(e.target.value) || 14)}
-                          className="w-16 px-1 py-1 text-xs border border-gray-300 rounded"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <label className="text-xs text-gray-600">Color:</label>
-                        <input
-                          type="color"
-                          value={textLayers.find(l => l.id === "issue_date")?.color || "#000000"}
-                          onChange={(e) => updateTextStyle("issue_date", "color", e.target.value)}
-                          className="w-8 h-6 border border-gray-300 rounded"
-                        />
-                      </div>
-                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">
@@ -1796,97 +2164,46 @@ export default function CertificateGeneratorPage() {
                       onChange={(e) =>
                         updateCertificateData("expired_date", e.target.value)
                       }
+                      onFocus={() => setFocusedField("expired_date")}
+                      ref={expiryRef}
                       className="border-gray-300"
                     />
-                    {/* Style Controls for Expired Date */}
-                    <div className="flex gap-2 mt-2">
-                      <div className="flex items-center gap-1">
-                        <label className="text-xs text-gray-600">Size:</label>
-                        <input
-                          type="number"
-                          min="8"
-                          max="72"
-                          value={textLayers.find(l => l.id === "expired_date")?.fontSize || 14}
-                          onChange={(e) => updateTextStyle("expired_date", "fontSize", parseInt(e.target.value) || 14)}
-                          className="w-16 px-1 py-1 text-xs border border-gray-300 rounded"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <label className="text-xs text-gray-600">Color:</label>
-                        <input
-                          type="color"
-                          value={textLayers.find(l => l.id === "expired_date")?.color || "#000000"}
-                          onChange={(e) => updateTextStyle("expired_date", "color", e.target.value)}
-                          className="w-8 h-6 border border-gray-300 rounded"
-                        />
-                      </div>
-                    </div>
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    QR Code Data
-                  </label>
-                  <Input
-                    value={certificateData.qr_code}
-                    onChange={(e) =>
-                      updateCertificateData("qr_code", e.target.value)
-                    }
-                    placeholder="Enter QR code data or URL"
-                    className="border-gray-300"
-                  />
-                  {/* Style Controls for QR Code */}
-                  <div className="flex gap-2 mt-2">
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Size:</label>
-                      <input
-                        type="number"
-                        min="8"
-                        max="72"
-                        value={textLayers.find(l => l.id === "qr_code")?.fontSize || 12}
-                        onChange={(e) => updateTextStyle("qr_code", "fontSize", parseInt(e.target.value) || 12)}
-                        className="w-16 px-1 py-1 text-xs border border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Color:</label>
-                      <input
-                        type="color"
-                        value={textLayers.find(l => l.id === "qr_code")?.color || "#000000"}
-                        onChange={(e) => updateTextStyle("qr_code", "color", e.target.value)}
-                        className="w-8 h-6 border border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-gray-600">Font:</label>
-                      <input
-                        type="text"
-                        value={textLayers.find(l => l.id === "qr_code")?.fontFamily || "Arial"}
-                        onChange={(e) => updateTextStyle("qr_code", "fontFamily", e.target.value)}
-                        placeholder="Font family"
-                        className="w-24 px-1 py-1 text-xs border border-gray-300 rounded"
-                      />
-                    </div>
+                {(focusedField === "issue_date" || focusedField === "expired_date") && (
+                  <div className="pt-3 w-full">
+                    <GlobalFontSettings
+                      selectedLayerId={focusedField!}
+                      selectedStyle={(() => {
+                        const l = textLayers.find((x) => x.id === focusedField);
+                        return l
+                          ? {
+                              fontSize: l.fontSize,
+                              fontFamily: l.fontFamily,
+                              color: l.color,
+                              fontWeight: l.fontWeight,
+                            }
+                          : null;
+                      })()}
+                      onChange={(prop, value) => updateTextStyle(focusedField!, prop, value)}
+                    />
                   </div>
-                </div>
+                )}
+              </div>
 
-                {/* Text Editing Controls */}
-                {selectedLayerId &&
-                  (() => {
-                    const selectedLayer = textLayers.find(
-                      (layer) => layer.id === selectedLayerId,
-                    );
-                    if (!selectedLayer) return null;
+              <div className="space-y-4">
+                {/* Text Layer Editor */}
+                {selectedLayerId && (() => {
+                const selectedLayer = textLayers.find((l) => l.id === selectedLayerId);
+                if (!selectedLayer) return null;
 
-                    // FIX: Only show editing controls for custom text layers, not system-generated ones
-                    const isSystemLayer = [
+                // FIX: Only show editing controls for custom text layers, not system-generated ones
+                const isSystemLayer = [
                       "certificate_no",
                       "name",
                       "description",
                       "issue_date",
                       "expired_date",
-                      "qr_code",
                     ].includes(selectedLayerId);
 
                     if (isSystemLayer) {
@@ -1926,7 +2243,7 @@ export default function CertificateGeneratorPage() {
                           <h3 className="text-sm font-semibold text-gray-700">
                             Edit Selected Text
                           </h3>
-                          {selectedLayer?.isEditing ? (
+                          {textLayers.find(l => l.id === selectedLayerId)?.isEditing ? (
                             <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
                               Editing...
                             </span>
@@ -1938,9 +2255,9 @@ export default function CertificateGeneratorPage() {
                             Text Content
                           </label>
                           <Input
-                            value={selectedLayer.text || ""}
+                            value={textLayers.find(l => l.id === selectedLayerId)?.text || ""}
                             onChange={(e) =>
-                              updateTextContent(selectedLayerId, e.target.value)
+                              updateTextContent(selectedLayerId!, e.target.value)
                             }
                             onKeyDown={(e) => {
                               // Stop event propagation to prevent global handlers
@@ -1958,9 +2275,9 @@ export default function CertificateGeneratorPage() {
                               Font Family
                             </label>
                             <select
-                              value={selectedLayer.fontFamily}
+                              value={textLayers.find(l => l.id === selectedLayerId)?.fontFamily}
                               onChange={(e) =>
-                                updateTextLayer(selectedLayerId, {
+                                updateTextLayer(selectedLayerId!, {
                                   fontFamily: e.target.value,
                                 })
                               }
@@ -1983,9 +2300,9 @@ export default function CertificateGeneratorPage() {
                               Font Weight
                             </label>
                             <select
-                              value={selectedLayer.fontWeight}
+                              value={textLayers.find(l => l.id === selectedLayerId)?.fontWeight}
                               onChange={(e) =>
-                                updateTextLayer(selectedLayerId, {
+                                updateTextLayer(selectedLayerId!, {
                                   fontWeight: e.target.value,
                                 })
                               }
@@ -2006,9 +2323,9 @@ export default function CertificateGeneratorPage() {
                             </label>
                             <Input
                               type="number"
-                              value={selectedLayer.fontSize}
+                              value={textLayers.find(l => l.id === selectedLayerId)?.fontSize}
                               onChange={(e) =>
-                                updateTextLayer(selectedLayerId, {
+                                updateTextLayer(selectedLayerId!, {
                                   fontSize: parseInt(e.target.value) || 16,
                                 })
                               }
@@ -2025,18 +2342,18 @@ export default function CertificateGeneratorPage() {
                             <div className="flex items-center gap-2">
                               <input
                                 type="color"
-                                value={selectedLayer.color}
+                                value={textLayers.find(l => l.id === selectedLayerId)?.color}
                                 onChange={(e) =>
-                                  updateTextLayer(selectedLayerId, {
+                                  updateTextLayer(selectedLayerId!, {
                                     color: e.target.value,
                                   })
                                 }
                                 className="w-10 h-8 border border-gray-300 rounded cursor-pointer"
                               />
                               <Input
-                                value={selectedLayer.color}
+                                value={textLayers.find(l => l.id === selectedLayerId)?.color}
                                 onChange={(e) =>
-                                  updateTextLayer(selectedLayerId, {
+                                  updateTextLayer(selectedLayerId!, {
                                     color: e.target.value,
                                   })
                                 }
@@ -2057,7 +2374,7 @@ export default function CertificateGeneratorPage() {
                             Edit Text
                           </Button>
                           <Button
-                            onClick={() => centerTextLayer(selectedLayerId)}
+                            onClick={() => centerTextLayer(selectedLayerId!)}
                             variant="outline"
                             size="sm"
                             className="flex-1 text-blue-600 border-blue-300 hover:bg-blue-50"
@@ -2065,7 +2382,7 @@ export default function CertificateGeneratorPage() {
                             Center
                           </Button>
                           <Button
-                            onClick={() => deleteTextLayer(selectedLayerId)}
+                            onClick={() => deleteTextLayer(selectedLayerId!)}
                             variant="outline"
                             size="sm"
                             className="flex-1 text-red-600 border-red-300 hover:bg-red-50"
@@ -2077,8 +2394,8 @@ export default function CertificateGeneratorPage() {
                     );
                   })()}
 
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-3 pt-4">
+                  {/* Action Buttons */}
+                  <div className="flex flex-col gap-3 pt-4">
                   <Button
                     className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
                     onClick={(e) => {
@@ -2100,13 +2417,122 @@ export default function CertificateGeneratorPage() {
                     <FileText className="w-4 h-4 mr-2" />
                     View Saved Certificates
                   </Button>
-                </div>
+                  </div>
               </div>
             </motion.div>
           </div>
         </div>
       </main>
       <Footer />
+
+      {/* Import Excel Modal with upload, mapping, and preview */}
+      <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
+        <DialogContent className="max-w-3xl w-full">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Import Data dari Excel</DialogTitle>
+            <DialogDescription>
+              Sesuaikan header agar data dapat dipetakan ke field template. Anda dapat melakukan preview baris dan generate semua data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-sm text-gray-700 font-semibold">Header yang disarankan:</p>
+              <ul className="list-disc pl-5 text-sm text-gray-700">
+                <li><code>certificate_no</code></li>
+                <li><code>name</code></li>
+                <li><code>description</code></li>
+                <li><code>issue_date</code> (YYYY-MM-DD)</li>
+                <li><code>expired_date</code> (opsional, YYYY-MM-DD)</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-gray-700 font-semibold">Upload Excel/CSV</label>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleExcelFile(f);
+                }}
+                className="block w-full text-sm"
+              />
+              {!excelRows.length && (
+                <p className="text-xs text-gray-500">Belum ada file terunggah. Contoh CSV:
+                </p>
+              )}
+              {!excelRows.length && (
+                <pre className="bg-gray-50 border border-gray-200 rounded p-3 text-xs overflow-auto">
+{`certificate_no,name,description,issue_date,expired_date
+CERT-001,John Doe,Completed Training,2024-01-10,2029-01-10`}
+                </pre>
+              )}
+            </div>
+            {excelRows.length > 0 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {(["certificate_no","name","description","issue_date","expired_date"]).map((field) => (
+                    <div key={field} className="space-y-1">
+                      <label className="text-xs text-gray-600">Map {field}</label>
+                      <select
+                        className="w-full h-9 px-2 border border-gray-300 rounded-md text-sm"
+                        value={mapping[field] || ""}
+                        onChange={(e) => setMapping((m) => ({ ...m, [field]: e.target.value }))}
+                      >
+                        <option value="">— pilih kolom —</option>
+                        {excelHeaders.map((h) => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-600">Preview Row Index</label>
+                    <Input
+                      type="number"
+                      value={selectedRowIndex}
+                      onChange={(e) => setSelectedRowIndex(Math.max(0, Math.min(Number(e.target.value) || 0, Math.max(0, excelRows.length - 1))))}
+                      className="w-32"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" className="border-gray-300" onClick={() => applyRowToPreview(selectedRowIndex)}>
+                      Apply to Preview
+                    </Button>
+                    <Button className="bg-gradient-to-r from-blue-500 to-blue-600 text-white" onClick={() => generateAllFromExcel()} disabled={isGenerating}>
+                      {isGenerating ? "Generating..." : "Generate All"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="overflow-auto border rounded">
+                  <table className="min-w-full text-xs">
+                    <thead>
+                      <tr>
+                        {excelHeaders.map((h) => (
+                          <th key={h} className="px-2 py-1 text-left border-b bg-gray-50">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {excelRows.slice(0, 5).map((r, i) => (
+                        <tr key={i} className="odd:bg-white even:bg-gray-50">
+                          {excelHeaders.map((h) => (
+                            <td key={h} className="px-2 py-1 border-b">{String((r as any)[h])}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" className="border-gray-300" onClick={() => setImportModalOpen(false)}>Tutup</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Toast Notifications */}
       <Toaster position="top-right" richColors />

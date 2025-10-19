@@ -33,6 +33,7 @@ export interface Template {
   orientation: string;
   created_at: string;
   image_path?: string; // Add image path field
+  preview_image_path?: string; // Optional preview (thumbnail) image
 }
 
 export interface CreateTemplateData {
@@ -40,6 +41,7 @@ export interface CreateTemplateData {
   category: string;
   orientation: string;
   image_file?: File;
+  preview_image_file?: File;
 }
 
 export interface UpdateTemplateData {
@@ -47,6 +49,7 @@ export interface UpdateTemplateData {
   category?: string;
   orientation?: string;
   image_file?: File;
+  preview_image_file?: File;
 }
 
 // Upload image to local public folder
@@ -120,6 +123,14 @@ export function getTemplateImageUrlStatic(template: Template): string | null {
   return template.image_path || null;
 }
 
+// Helper function: get preview image URL (preferred), fallback to template image
+export function getTemplatePreviewUrl(template: Template): string | null {
+  const src = template.preview_image_path || template.image_path;
+  if (!src) return null;
+  const cacheBuster = `?v=${template.id}&t=${Date.now()}`;
+  return `${src}${cacheBuster}`;
+}
+
 // Note: Image deletion is handled by the file system cleanup process
 
 // Get all templates
@@ -172,6 +183,7 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
     }
     
     let imagePath: string | undefined;
+    let previewImagePath: string | undefined;
     
     // Upload image if provided
     if (templateData.image_file) {
@@ -187,31 +199,60 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       console.log('ℹ️ No image file provided');
     }
 
-    const insertData = {
+    // Upload preview image if provided
+    if (templateData.preview_image_file) {
+      try {
+        previewImagePath = await uploadTemplateImage(templateData.preview_image_file);
+        console.log('✅ Preview image upload completed, path:', previewImagePath);
+      } catch (uploadError) {
+        console.error('❌ Preview image upload failed:', uploadError);
+        // Do not block creation if preview upload fails
+      }
+    }
+
+    const insertData: Record<string, any> = {
       name: templateData.name.trim(),
       category: templateData.category.trim(),
       orientation: templateData.orientation.trim(),
       image_path: imagePath // Store the image path
     };
 
+    // Only include preview_image_path if we actually have it
+    if (previewImagePath) {
+      insertData.preview_image_path = previewImagePath;
+    }
+
     console.log('💾 Inserting template data to database:', insertData);
 
     // Insert data into templates table
-    const { data, error } = await supabaseClient
+    let { data, error } = await supabaseClient
       .from('templates')
       .insert([insertData]) // Wrap in array for proper insert
       .select()
       .single();
 
     if (error) {
-      console.error('❌ Database insert error:', error);
-      console.error('Error details:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
-      throw new Error(`Failed to create template: ${error.message}`);
+      // Backward compatibility: retry without preview_image_path if column doesn't exist
+      const columnMissing = typeof error.message === 'string' && error.message.includes('preview_image_path');
+      if (columnMissing && previewImagePath) {
+        console.warn('⚠️ preview_image_path column missing. Retrying insert without it.');
+        delete insertData.preview_image_path;
+        ({ data, error } = await supabaseClient
+          .from('templates')
+          .insert([insertData])
+          .select()
+          .single());
+      }
+      if (error) {
+        console.error('❌ Database insert error:', error);
+        console.error('Error details:', {
+          code: (error as any).code,
+          message: error.message,
+          details: (error as any).details,
+          hint: (error as any).hint
+        });
+        throw new Error(`Failed to create template: ${error.message}`);
+      }
     }
 
     console.log('✅ Template created successfully in database:', data);
@@ -252,6 +293,7 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
   }
 
   let imagePath: string | undefined = currentTemplate.image_path;
+  let previewImagePath: string | undefined = currentTemplate.preview_image_path;
 
   // Handle image update
   if (templateData.image_file) {
@@ -259,14 +301,27 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
     imagePath = await uploadTemplateImage(templateData.image_file);
   }
 
-  const updateData: Partial<Template> = {
+  // Handle preview image update
+  if (templateData.preview_image_file) {
+    try {
+      previewImagePath = await uploadTemplateImage(templateData.preview_image_file);
+    } catch (e) {
+      console.warn('⚠️ Preview image upload failed:', e);
+    }
+  }
+
+  const updateData: Record<string, any> = {
     name: templateData.name,
     category: templateData.category,
     orientation: templateData.orientation,
     image_path: imagePath
   };
 
-  const { data, error } = await supabaseClient
+  if (typeof previewImagePath !== 'undefined') {
+    updateData.preview_image_path = previewImagePath;
+  }
+
+  let { data, error } = await supabaseClient
     .from('templates')
     .update(updateData)
     .eq('id', id)
@@ -274,7 +329,20 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
     .single();
 
   if (error) {
-    throw new Error(`Failed to update template: ${error.message}`);
+    const columnMissing = typeof error.message === 'string' && error.message.includes('preview_image_path');
+    if (columnMissing && 'preview_image_path' in updateData) {
+      console.warn('⚠️ preview_image_path column missing. Retrying update without it.');
+      delete updateData.preview_image_path;
+      ({ data, error } = await supabaseClient
+        .from('templates')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single());
+    }
+    if (error) {
+      throw new Error(`Failed to update template: ${error.message}`);
+    }
   }
 
   return data;

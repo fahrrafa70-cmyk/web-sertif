@@ -81,7 +81,8 @@ export default function Header() {
               { 
                 href: hydrated ? (!isAuthenticated ? "/my-certificates" : "/certificates") : "#", 
                 label: hydrated ? (!isAuthenticated ? t('nav.myCertificates') : t('nav.certificates')) : ""
-              }
+              },
+              ...((role === "admin" || role === "team") ? [{ href: "/members", label: "Members" }] : [])
             ].map((item, index) => (
               <motion.div
                 key={item.href}
@@ -189,7 +190,8 @@ export default function Header() {
                   { 
                     href: hydrated ? (!isAuthenticated ? "/my-certificates" : "/certificates") : "#", 
                     label: hydrated ? (!isAuthenticated ? t('nav.myCertificates') : t('nav.certificates')) : ""
-                  }
+                  },
+                  ...((role === "admin" || role === "team") ? [{ href: "/members", label: "Members" }] : [])
                 ].map((item, index) => (
                   <motion.div
                     key={item.href}

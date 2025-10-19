@@ -199,3 +199,5 @@ All text positions now use a dual coordinate system:
 The certificate editor now provides a stable, intuitive, and visually precise text editing experience with professional-grade alignment tools and consistent layout rendering.
 
 
+
+

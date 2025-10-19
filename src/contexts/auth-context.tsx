@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabase/client";
 import { getUserRoleByEmail, signInWithEmailPassword } from "@/lib/supabase/auth";
 
@@ -22,6 +23,7 @@ type AuthState = {
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [role, setRole] = useState<Role>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Auth state change:', event, session?.user?.email);
       
       if (event === "SIGNED_OUT" || !session) {
+        // Clear localStorage when signed out
+        try {
+          window.localStorage.removeItem("ecert-role");
+        } catch {}
+        
         setRole(null);
         setEmail(null);
         setError(null);
@@ -76,6 +83,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const fetchedRole = await getUserRoleByEmail(normalized);
           setRole(fetchedRole);
+          
+          // Update localStorage with role
+          try {
+            window.localStorage.setItem("ecert-role", fetchedRole || "public");
+          } catch {}
+          
           setError(null);
         } catch (err) {
           console.error('Error fetching user role:', err);
@@ -138,22 +151,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabaseClient.auth.signOut();
-    setRole(null);
-    setEmail(null);
-  }, []);
+    try {
+      // Clear Supabase session
+      await supabaseClient.auth.signOut();
+      
+      // Clear local storage
+      try {
+        window.localStorage.removeItem("ecert-role");
+      } catch {}
+      
+      // Clear state
+      setRole(null);
+      setEmail(null);
+      setError(null);
+      
+      // Redirect to home
+      router.push("/");
+    } catch (error) {
+      console.error("Error during sign out:", error);
+      // Even if there's an error, clear local state and redirect
+      setRole(null);
+      setEmail(null);
+      setError(null);
+      router.push("/");
+    }
+  }, [router]);
 
   const localSignOut = useCallback(async () => {
-    // Sign out of Supabase to clear persisted session and then clear UI state
     try {
+      // Sign out of Supabase to clear persisted session
       await supabaseClient.auth.signOut();
-    } catch {}
-    try {
-      window.localStorage.removeItem("ecert-role");
-    } catch {}
-    setRole(null);
-    setEmail(null);
-  }, []);
+      
+      // Clear local storage
+      try {
+        window.localStorage.removeItem("ecert-role");
+      } catch {}
+      
+      // Clear state
+      setRole(null);
+      setEmail(null);
+      setError(null);
+      
+      // Redirect to home
+      router.push("/");
+    } catch (error) {
+      console.error("Error during local sign out:", error);
+      // Even if there's an error, clear local state and redirect
+      setRole(null);
+      setEmail(null);
+      setError(null);
+      router.push("/");
+    }
+  }, [router]);
 
   const value = useMemo<AuthState>(() => ({
     role,

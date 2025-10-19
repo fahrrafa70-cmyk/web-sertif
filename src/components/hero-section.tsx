@@ -4,16 +4,47 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import { getCertificateByNumber, Certificate } from "@/lib/supabase/certificates";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Search, Shield, Award, Users, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { supabaseClient } from "@/lib/supabase/client";
 
 export default function HeroSection() {
   const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [certificateId, setCertificateId] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewCert, setPreviewCert] = useState<Certificate | null>(null);
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
   const router = useRouter();
   useEffect(() => setMounted(true), []);
+
+  // Live stats for the dashboard mockup
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [counts, setCounts] = useState({ certificates: 0, templates: 0, members: 0 });
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setStatsLoading(true);
+        const [{ count: certs }, { count: tmpls }, { count: membs }] = await Promise.all([
+          supabaseClient.from("certificates").select("id", { count: "exact", head: true }),
+          supabaseClient.from("templates").select("id", { count: "exact", head: true }),
+          supabaseClient.from("members").select("id", { count: "exact", head: true }),
+        ]);
+        if (mounted) setCounts({ certificates: certs || 0, templates: tmpls || 0, members: membs || 0 });
+      } catch (e) {
+        console.error("Failed to load landing stats", e);
+      } finally {
+        if (mounted) setStatsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -39,6 +70,7 @@ export default function HeroSection() {
   };
 
   return (
+    <>
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
       {/* Enhanced Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800">
@@ -131,11 +163,36 @@ export default function HeroSection() {
             className="mx-auto max-w-2xl"
           >
             <form
-              onSubmit={(e: React.FormEvent) => {
+              onSubmit={async (e: React.FormEvent) => {
                 e.preventDefault();
-                const q = certificateId.trim();
+                let q = certificateId.trim();
                 if (!q) return;
-                router.push(`/certificates?cert=${encodeURIComponent(q)}`);
+                
+                // Extract certificate number from link format
+                // Support formats: /certificate/CERT-XXX, certificate/CERT-XXX, or just CERT-XXX
+                const linkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
+                if (linkMatch) {
+                  q = linkMatch[1]; // Extract the certificate number from the link
+                  console.log('Extracted certificate number from link:', q);
+                }
+                
+                try {
+                  setSearching(true);
+                  const cert = await getCertificateByNumber(q);
+                  if (!cert) {
+                    toast.error("Certificate not found");
+                    setPreviewCert(null);
+                    setPreviewOpen(false);
+                    return;
+                  }
+                  setPreviewCert(cert);
+                  setPreviewOpen(true);
+                } catch (err) {
+                  console.error(err);
+                  toast.error(err instanceof Error ? err.message : "Search failed");
+                } finally {
+                  setSearching(false);
+                }
               }}
               className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-2 border border-white/20"
             >
@@ -144,7 +201,7 @@ export default function HeroSection() {
                 <Input
                   value={certificateId}
                   onChange={(e) => setCertificateId(e.target.value)}
-                  placeholder={t('hero.searchPlaceholder')}
+                  placeholder="Enter certificate number or certificate link..."
                   className="h-14 pl-12 bg-transparent border-0 text-white placeholder:text-white/70 focus-visible:ring-0 text-lg"
                 />
               </div>
@@ -152,7 +209,7 @@ export default function HeroSection() {
                 type="submit"
                 className="h-14 px-8 gradient-primary text-white rounded-xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105"
               >
-                {t('hero.searchButton')}
+                {searching ? "Searching..." : t('hero.searchButton')}
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </form>
@@ -214,30 +271,30 @@ export default function HeroSection() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 1.2 }}
                   >
-                    {/* Enhanced Stats Cards */}
-                    {[
-                      { value: "12,847", label: "Certificates Issued", color: "from-teal-500 to-emerald-600", icon: Award },
-                      { value: "156", label: "Templates", color: "from-pink-500 to-rose-600", icon: Shield },
-                      { value: "89", label: "Organizations", color: "from-purple-500 to-violet-600", icon: Users },
-                      { value: "99.8%", label: "Verification Rate", color: "from-orange-500 to-amber-600", icon: CheckCircle }
-                    ].map((stat, index) => (
-                      <motion.div
-                        key={stat.label}
-                        className={`bg-gradient-to-br ${stat.color} rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300`}
-                        whileHover={{ scale: 1.05, y: -5 }}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 1.4 + index * 0.1 }}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <stat.icon className="w-8 h-8 opacity-90" />
-                          <div className="text-right">
-                            <div className="text-3xl font-bold">{stat.value}</div>
-                            <div className="text-sm opacity-90">{stat.label}</div>
-                          </div>
+                    {/* Enhanced Stats Cards (live) */}
+                  {[
+                    { value: statsLoading ? "—" : counts.certificates.toLocaleString(), label: "Certificates Issued", color: "from-teal-500 to-emerald-600", icon: Award },
+                    { value: statsLoading ? "—" : counts.templates.toLocaleString(), label: "Templates", color: "from-pink-500 to-rose-600", icon: Shield },
+                    { value: statsLoading ? "—" : counts.members.toLocaleString(), label: "Members", color: "from-purple-500 to-violet-600", icon: Users },
+                    { value: "—", label: "Verification Rate", color: "from-orange-500 to-amber-600", icon: CheckCircle }
+                  ].map((stat, index) => (
+                    <motion.div
+                      key={stat.label}
+                      className={`bg-gradient-to-br ${stat.color} rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300`}
+                      whileHover={{ scale: 1.05, y: -5 }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 1.4 + index * 0.1 }}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <stat.icon className="w-8 h-8 opacity-90" />
+                        <div className="text-right">
+                          <div className="text-3xl font-bold">{stat.value}</div>
+                          <div className="text-sm opacity-90">{stat.label}</div>
                         </div>
-                      </motion.div>
-                    ))}
+                      </div>
+                    </motion.div>
+                  ))}
                   </motion.div>
 
                   {/* Enhanced Certificate Preview */}
@@ -286,5 +343,75 @@ export default function HeroSection() {
         </motion.div>
       </motion.div>
     </section>
+    {previewOpen && previewCert && (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-4" onClick={() => setPreviewOpen(false)}>
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-6 py-4 border-b">
+            <div>
+              <div className="text-lg font-semibold">Certificate Preview</div>
+              <div className="text-sm text-gray-500">{previewCert!.certificate_no} · {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
+            </div>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+            <div className="p-4 bg-gray-50">
+              {previewCert!.certificate_image_url ? (
+                <img src={previewCert!.certificate_image_url ?? undefined} alt="Certificate" className="w-full h-auto rounded-lg border" />
+              ) : (
+                <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">No preview image</div>
+              )}
+            </div>
+            <div className="p-6">
+              <div className="space-y-2">
+                <div className="text-sm text-gray-500">Recipient</div>
+                <div className="text-base font-medium">{previewCert!.members?.name || previewCert!.name}</div>
+                {previewCert!.members?.organization && (
+                  <div className="text-sm text-gray-600">{previewCert!.members.organization}</div>
+                )}
+              </div>
+              <div className="mt-4 space-y-1 text-sm">
+                <div><span className="text-gray-500">Category:</span> {previewCert!.category || "—"}</div>
+                <div><span className="text-gray-500">Template:</span> {(previewCert as any).templates?.name || "—"}</div>
+                <div><span className="text-gray-500">Issued:</span> {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
+                {previewCert!.expired_date && (
+                  <div><span className="text-gray-500">Expires:</span> {new Date(previewCert!.expired_date as string).toLocaleDateString()}</div>
+                )}
+              </div>
+              <div className="mt-6 flex gap-3">
+                <Button
+                  onClick={() => {
+                    if (previewCert!.certificate_image_url) {
+                      setImagePreviewUrl(previewCert!.certificate_image_url);
+                      setImagePreviewOpen(true);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white"
+                >
+                  View Full Image
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    {imagePreviewOpen && (
+      <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={() => setImagePreviewOpen(false)}>
+        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <div className="text-sm text-gray-600">Certificate Image</div>
+            <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>Close</Button>
+          </div>
+          <div className="p-4 bg-gray-50">
+            {imagePreviewUrl ? (
+              <img src={imagePreviewUrl} alt="Certificate" className="w-full h-auto rounded-lg border" />
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">No image</div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }

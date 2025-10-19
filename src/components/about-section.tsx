@@ -93,7 +93,7 @@ export default function AboutSection() {
             </motion.div>
           </motion.div>
 
-          {/* Right Column - Certificate Sample */}
+          {/* Right Column - Real Certificate Images */}
           <motion.div
             initial={{ opacity: 0, x: 50 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -101,65 +101,24 @@ export default function AboutSection() {
             viewport={{ once: true }}
             className="relative"
           >
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-8 shadow-2xl">
-              {/* Certificate Design */}
-              <div className="bg-white rounded-xl p-8 shadow-lg relative overflow-hidden">
-                {/* Decorative Corners */}
-                <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
-                <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
-                <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-tr-2xl"></div>
-                <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-yellow-400 to-orange-500 rounded-tl-2xl"></div>
-
-                {/* Certificate Content */}
-                <div className="relative z-10 text-center">
-                  <div className="mb-6">
-                    <h3 className="text-2xl font-bold text-gray-800 mb-2">CERTIFICATE</h3>
-                    <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
-                  </div>
-
-                  <p className="text-gray-600 mb-4">This is to certify that</p>
-                  <h4 className="text-xl font-bold text-gray-800 mb-4">John Doe</h4>
-                  <p className="text-gray-600 mb-6">
-                    has successfully completed the<br />
-                    <span className="font-semibold">Professional Training Program</span>
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-6">
-                    <div>
-                      <p className="font-semibold">Date:</p>
-                      <p>December 15, 2024</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold">Program ID:</p>
-                      <p>EC-2024-001</p>
-                    </div>
-                  </div>
-
-                  {/* QR Code Placeholder */}
-                  <div className="w-16 h-16 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-gray-300 rounded grid grid-cols-3 gap-1 p-1">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="bg-gray-600 rounded-sm"></div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-gray-500">Verify at: e-certificate.my.id/verify</p>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-4 sm:p-6 shadow-2xl">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="bg-white rounded-xl p-2 shadow-md">
+                  <img
+                    src="/template/1760879828593-hylf7mf2w36.png"
+                    alt="Certificate preview 1"
+                    className="w-full h-auto rounded-md border"
+                  />
+                </div>
+                <div className="bg-white rounded-xl p-2 shadow-md">
+                  <img
+                    src="/template/1760848158433-h665mi1gvba.png"
+                    alt="Certificate preview 2"
+                    className="w-full h-auto rounded-md border"
+                  />
                 </div>
               </div>
             </div>
-
-            {/* Floating Elements */}
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="absolute -top-4 -right-4 w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-lg"
-            />
-            <motion.div
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 3, repeat: Infinity, delay: 1 }}
-              className="absolute -bottom-4 -left-4 w-6 h-6 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full shadow-lg"
-            />
           </motion.div>
         </div>
       </div>

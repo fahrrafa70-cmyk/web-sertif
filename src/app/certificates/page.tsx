@@ -30,10 +30,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate } from "@/lib/supabase/certificates";
-import { Eye, Edit, Trash2, FileText } from "lucide-react";
+import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -41,6 +47,7 @@ import {
   Template,
 } from "@/lib/supabase/templates";
 import Image from "next/image";
+import { confirmToast } from "@/lib/ui/confirm";
 
 export default function CertificatesPage() {
   const { t } = useLanguage();
@@ -61,22 +68,228 @@ export default function CertificatesPage() {
     refresh,
   } = useCertificates();
 
+  // Send Email Modal state
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendForm, setSendForm] = useState<{ email: string; subject: string; message: string }>({
+    email: "",
+    subject: "",
+    message: "",
+  });
+  const [sendPreviewSrc, setSendPreviewSrc] = useState<string | null>(null);
+  const [sendCert, setSendCert] = useState<Certificate | null>(null);
+
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem("ecert-role");
-      console.log("🔍 Checking role from localStorage:", saved);
-      if (saved === "Admin" || saved === "Team" || saved === "Public") {
-        setRole(saved);
-        console.log("✅ Role set to:", saved);
-      } else {
-        console.log("⚠️ Invalid role in localStorage:", saved);
-        setRole("Public");
-      }
+      const raw = window.localStorage.getItem("ecert-role") || "";
+      console.log("🔍 Checking role from localStorage:", raw);
+      const normalized = raw.toLowerCase();
+      const mapped = normalized === "admin" ? "Admin" : normalized === "team" ? "Team" : normalized === "public" ? "Public" : "Public";
+      setRole(mapped);
+      console.log("✅ Role set to:", mapped);
     } catch (error) {
       console.error("❌ Error reading role from localStorage:", error);
       setRole("Public");
     }
   }, []);
+
+  // Export certificate to PDF using its generated image
+  async function exportToPDF(certificate: Certificate) {
+    try {
+      if (!certificate.certificate_image_url) {
+        toast.error("Certificate image not available to export");
+        return;
+      }
+
+      const mod = await import("jspdf").catch(() => null as any);
+      if (!mod || !("jsPDF" in mod)) {
+        toast.error("PDF library missing. Please install 'jspdf' dependency.");
+        console.error("jspdf not found. Run: npm i jspdf");
+        return;
+      }
+      const { jsPDF } = mod as any;
+
+      // Normalize URL (local relative -> absolute) similar to preview logic
+      let srcRaw = certificate.certificate_image_url || "";
+      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+        srcRaw = `/${srcRaw}`;
+      }
+      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+      const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
+      const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+        ? `${window.location.origin}${localWithBust}`
+        : localWithBust;
+
+      // Fetch image as blob to avoid CORS addImage issues
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+      const blob = await resp.blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Create PDF sized to A4, fit image preserving aspect ratio
+      const isPNG = blob.type.includes('png');
+      const imgType = isPNG ? 'PNG' : 'JPEG';
+
+      const imgBitmap = await createImageBitmap(blob);
+      const imgW = imgBitmap.width;
+      const imgH = imgBitmap.height;
+      imgBitmap.close();
+
+      // Decide orientation based on image
+      const orientation = imgW >= imgH ? 'l' : 'p';
+      const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      // Fit image into page while preserving aspect ratio with small margin
+      const margin = 8; // mm
+      const maxW = pageW - margin * 2;
+      const maxH = pageH - margin * 2;
+      const scale = Math.min(maxW / imgW, maxH / imgH);
+      const drawW = imgW * scale;
+      const drawH = imgH * scale;
+      const x = (pageW - drawW) / 2;
+      const y = (pageH - drawH) / 2;
+
+      doc.addImage(dataUrl, imgType, x, y, drawW, drawH, undefined, 'FAST');
+      const fileName = `${certificate.certificate_no || 'certificate'}.pdf`;
+      doc.save(fileName);
+      toast.success("PDF exported");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to export PDF");
+    }
+  }
+
+  // Download generated certificate image directly
+  async function downloadImage(certificate: Certificate) {
+    try {
+      if (!certificate.certificate_image_url) {
+        toast.error("Certificate image not available");
+        return;
+      }
+      let srcRaw = certificate.certificate_image_url || "";
+      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+        srcRaw = `/${srcRaw}`;
+      }
+      const src = srcRaw.startsWith('/') && typeof window !== 'undefined'
+        ? `${window.location.origin}${srcRaw}`
+        : srcRaw;
+
+      // Replaced by send email feature
+      console.warn('downloadImage is deprecated; use sendCertificateEmail instead');
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to download image");
+    }
+  }
+
+  // Generate certificate link
+  async function generateCertificateLink(certificate: Certificate) {
+    try {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const certificateLink = `${baseUrl}/certificate/${certificate.certificate_no}`;
+      
+      // Copy to clipboard
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(certificateLink);
+        toast.success(`Certificate link copied to clipboard!\n${certificateLink}`);
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = certificateLink;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        toast.success(`Certificate link copied to clipboard!\n${certificateLink}`);
+      }
+      
+      console.log('Generated certificate link:', certificateLink);
+    } catch (err) {
+      console.error('Failed to generate certificate link:', err);
+      toast.error('Failed to generate certificate link');
+    }
+  }
+
+  // Open modal to send certificate via email
+  async function openSendEmailModal(certificate: Certificate) {
+    try {
+      if (!certificate.certificate_image_url) {
+        toast.error("Certificate image not available");
+        return;
+      }
+
+      // Try to read recipient email from joined member if present
+      // @ts-expect-error allow optional nested member
+      const guessedEmail: string | undefined = certificate?.members?.email || certificate?.member?.email || undefined;
+
+      // Normalize image URL (local public path -> absolute), similar to preview
+      let srcRaw = certificate.certificate_image_url || "";
+      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+        srcRaw = `/${srcRaw}`;
+      }
+      const src = srcRaw.startsWith('/') && typeof window !== 'undefined'
+        ? `${window.location.origin}${srcRaw}`
+        : srcRaw;
+      setSendCert(certificate);
+      setSendPreviewSrc(src);
+      setSendForm({
+        email: guessedEmail || "",
+        subject: certificate.certificate_no ? `Certificate #${certificate.certificate_no}` : "Your Certificate",
+        message: `Attached is your certificate${certificate.certificate_no ? ` (No: ${certificate.certificate_no})` : ''}.`,
+      });
+      setSendModalOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Failed to prepare email');
+    }
+  }
+
+  // Confirm and send from modal
+  async function confirmSendEmail() {
+    if (!sendCert || !sendPreviewSrc) return;
+    const recipientEmail = (sendForm.email || '').trim();
+    if (!recipientEmail) {
+      toast.error('Recipient email is required');
+      return;
+    }
+    try {
+      const payload = {
+        recipientEmail,
+        recipientName: sendCert.name,
+        imageUrl: sendPreviewSrc,
+        certificateNo: sendCert.certificate_no,
+        subject: (sendForm.subject || '').trim(),
+        message: (sendForm.message || '').trim(),
+      };
+      const res = await fetch('/api/send-certificate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.error || `Failed to send email (status ${res.status})`);
+      }
+      if (json.previewUrl) {
+        toast.success('Email queued (dev preview opened in new tab)');
+        try { window.open(json.previewUrl, '_blank'); } catch {}
+      } else {
+        toast.success('Email sent to recipient');
+      }
+      setSendModalOpen(false);
+      setSendCert(null);
+      setSendPreviewSrc(null);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Failed to send email');
+    }
+  }
 
   const filtered = useMemo(() => {
     let filteredCerts = certificates;
@@ -118,7 +331,21 @@ export default function CertificatesPage() {
   const [deletingCertificateId, setDeletingCertificateId] = useState<
     string | null
   >(null);
-  const canDelete = role === "Admin"; // Team cannot delete
+  const canDelete = role === "Admin"; // Only Admin can delete
+  
+  // Disable any emergency override for production
+  const forceCanDelete = false;
+  
+  // Debug logging
+  console.log("🔍 Certificates Page Debug:", {
+    role,
+    canDelete,
+    forceCanDelete,
+    localStorageRole:
+      typeof window !== "undefined" ? window.localStorage.getItem("ecert-role") : null,
+    certificatesCount: certificates.length,
+    deletingCertificateId
+  });
 
   function openEdit(certificate: Certificate) {
     setDraft({ ...certificate });
@@ -135,7 +362,6 @@ export default function CertificatesPage() {
         description: draft.description || undefined,
         issue_date: draft.issue_date,
         expired_date: draft.expired_date || undefined,
-        qr_code: draft.qr_code || undefined,
         category: draft.category || undefined,
       });
 
@@ -150,10 +376,23 @@ export default function CertificatesPage() {
   }
 
   async function requestDelete(id: string) {
-    console.log("🗑️ Delete request initiated:", { id, role, canDelete });
+    console.log("🗑️ Delete request initiated:", { 
+      id, 
+      role, 
+      canDelete,
+      localStorageRole:
+        typeof window !== "undefined" ? window.localStorage.getItem("ecert-role") : null,
+      timestamp: new Date().toISOString()
+    });
     
-    if (!canDelete) {
-      console.log("❌ Delete blocked: User doesn't have permission");
+    if (!canDelete && !forceCanDelete) {
+      console.log("❌ Delete blocked: User doesn't have permission", {
+        role,
+        canDelete,
+        forceCanDelete,
+        localStorageRole:
+          typeof window !== "undefined" ? window.localStorage.getItem("ecert-role") : null
+      });
       toast.error("You don't have permission to delete certificates");
       return;
     }
@@ -167,9 +406,9 @@ export default function CertificatesPage() {
       certificate_no: certificate?.certificate_no
     });
 
-    // Use a more user-friendly confirmation dialog
-    const confirmed = window.confirm(
-      `Are you sure you want to delete certificate for "${certificateName}"?\n\nCertificate Number: ${certificate?.certificate_no}\n\nThis action cannot be undone.`
+    const confirmed = await confirmToast(
+      `Are you sure you want to delete certificate for "${certificateName}"?\n\nCertificate Number: ${certificate?.certificate_no}\n\nThis action cannot be undone.`,
+      { confirmText: "Delete", tone: "destructive" }
     );
 
     if (confirmed) {
@@ -356,6 +595,34 @@ export default function CertificatesPage() {
                               <Eye className="w-4 h-4 mr-1" />
                               {t("common.preview")}
                             </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="border-gray-300"
+                                >
+                                  <Download className="w-4 h-4 mr-1" />
+                                  Export
+                                  <ChevronDown className="w-4 h-4 ml-1" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
+                                  <FileText className="w-4 h-4 mr-2" />
+                                  Export as PDF
+                                </DropdownMenuItem>
+                                {certificate.certificate_image_url && (
+                                  <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Send via Email
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
+                                  <Link className="w-4 h-4 mr-2" />
+                                  Generate Certificate Link
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                             {(role === "Admin" || role === "Team") && (
                               <Button
                                 variant="outline"
@@ -366,13 +633,12 @@ export default function CertificatesPage() {
                                 {t("common.edit")}
                               </Button>
                             )}
-                            {canDelete ? (
-                              <Button
-                                className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
+                            {canDelete && (
+                              <button
+                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 shadow-sm hover:shadow-md"
                                 onClick={() => requestDelete(certificate.id)}
-                                disabled={
-                                  deletingCertificateId === certificate.id
-                                }
+                                disabled={deletingCertificateId === certificate.id}
+                                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                               >
                                 {deletingCertificateId === certificate.id ? (
                                   <>
@@ -385,17 +651,7 @@ export default function CertificatesPage() {
                                     {t("common.delete")}
                                   </>
                                 )}
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                className="border-gray-300 opacity-50 cursor-not-allowed"
-                                disabled
-                                title="Only Admin can delete certificates"
-                              >
-                                <Trash2 className="w-4 h-4 mr-1" />
-                                {t("common.delete")}
-                              </Button>
+                              </button>
                             )}
                           </div>
                         </TableCell>
@@ -534,15 +790,6 @@ export default function CertificatesPage() {
                 }
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600">QR Code</label>
-              <Input
-                value={draft?.qr_code ?? ""}
-                onChange={(e) =>
-                  setDraft((d) => (d ? { ...d, qr_code: e.target.value } : d))
-                }
-              />
-            </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 variant="outline"
@@ -678,22 +925,6 @@ export default function CertificatesPage() {
                         </div>
                       )}
                     </motion.div>
-
-                    {previewCertificate.qr_code && (
-                      <motion.div
-                        className="space-y-3"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: 0.6 }}
-                      >
-                        <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                          QR Code
-                        </label>
-                        <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg break-all">
-                          {previewCertificate.qr_code}
-                        </div>
-                      </motion.div>
-                    )}
                   </div>
 
                   {/* Certificate Preview */}
@@ -712,17 +943,62 @@ export default function CertificatesPage() {
                         style={{
                           width: "100%",
                           maxWidth: "100%",
+                          aspectRatio: "800 / 600",
+                          minHeight: 300,
                         }}
                       >
                         {/* FIX: Show merged certificate image with consistent aspect ratio */}
                         {previewCertificate.certificate_image_url ? (
-                          <Image
-                            src={previewCertificate.certificate_image_url}
-                            alt="Certificate"
-                            fill
-                            className="object-cover absolute inset-0"
-                            style={{ objectFit: "cover" }}
-                          />
+                          (() => {
+                            let srcRaw = previewCertificate.certificate_image_url || "";
+                            // Normalize local relative path like "generate/file.png" => "/generate/file.png"
+                            if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+                              srcRaw = `/${srcRaw}`;
+                            }
+                            const cacheBust = previewCertificate.updated_at
+                              ? `?v=${new Date(previewCertificate.updated_at).getTime()}`
+                              : '';
+                            // Only append cache bust for local public paths. Do NOT append for data URLs.
+                            const localWithBust = srcRaw.startsWith('/')
+                              ? `${srcRaw}${cacheBust}`
+                              : srcRaw;
+                            // Build absolute URL for local paths in the browser
+                            const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+                              ? `${window.location.origin}${localWithBust}`
+                              : localWithBust;
+
+                            // If remote URL or data URL, use <img> to avoid Next/Image constraints
+                            const isRemote = /^https?:\/\//i.test(srcRaw);
+                            const isData = srcRaw.startsWith('data:');
+                            if (isRemote || isData) {
+                              return (
+                                <img
+                                  src={src}
+                                  alt="Certificate"
+                                  crossOrigin="anonymous"
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  style={{ objectFit: 'cover' }}
+                                  onError={(e) => {
+                                    console.warn('Preview image failed to load', src);
+                                  }}
+                                />
+                              );
+                            }
+
+                            return (
+                              <Image
+                                src={src}
+                                alt="Certificate"
+                                fill
+                                className="object-cover absolute inset-0"
+                                style={{ objectFit: 'cover' }}
+                                onError={() => {
+                                  console.warn('Preview image failed to load', src);
+                                }}
+                                priority
+                              />
+                            );
+                          })()
                         ) : (
                           <>
                             {/* FIX: Template Image with consistent aspect ratio */}
@@ -776,6 +1052,7 @@ export default function CertificatesPage() {
                                         fontFamily: layer.fontFamily,
                                         userSelect: "none",
                                         pointerEvents: "none",
+                                        transform: "translate(-50%, -50%)",
                                       }}
                                     >
                                       {layer.text}
@@ -872,14 +1149,15 @@ export default function CertificatesPage() {
                   transition={{ duration: 0.5, delay: 0.6 }}
                 >
                   <div className="flex gap-2">
-                    {canDelete && previewCertificate && (
-                      <Button
-                        className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
+                    {(canDelete || forceCanDelete) && previewCertificate && (
+                      <button
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 shadow-sm hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
                         onClick={() => {
                           setPreviewCertificate(null);
                           requestDelete(previewCertificate.id);
                         }}
                         disabled={deletingCertificateId === previewCertificate.id}
+                        style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                       >
                         {deletingCertificateId === previewCertificate.id ? (
                           <>
@@ -892,7 +1170,7 @@ export default function CertificatesPage() {
                             Delete Certificate
                           </>
                         )}
-                      </Button>
+                      </button>
                     )}
                   </div>
                   <div className="flex gap-2">
@@ -919,6 +1197,64 @@ export default function CertificatesPage() {
                 </motion.div>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Certificate Email Modal */}
+      <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
+        <DialogContent className="max-w-xl w-full">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Send Certificate via Email</DialogTitle>
+            <DialogDescription>Review and customize the email before sending.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-gray-600">Recipient Email</label>
+              <Input
+                value={sendForm.email}
+                onChange={(e) => setSendForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="recipient@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-gray-600">Subject</label>
+              <Input
+                value={sendForm.subject}
+                onChange={(e) => setSendForm((f) => ({ ...f, subject: e.target.value }))}
+                placeholder="Subject"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-gray-600">Message</label>
+              <textarea
+                value={sendForm.message}
+                onChange={(e) => setSendForm((f) => ({ ...f, message: e.target.value }))}
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Message"
+              />
+            </div>
+            {sendPreviewSrc && (
+              <div className="space-y-2">
+                <label className="text-sm text-gray-600">Attachment Preview</label>
+                <div className="border rounded-lg p-2 bg-gray-50">
+                  <img
+                    src={sendPreviewSrc}
+                    alt="Certificate preview"
+                    className="max-h-64 w-auto object-contain mx-auto"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" className="border-gray-300" onClick={() => setSendModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white" onClick={confirmSendEmail}>
+                Send Email
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

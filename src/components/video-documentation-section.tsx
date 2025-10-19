@@ -1,27 +1,53 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Play, Users, Calendar, Building } from "lucide-react";
+import { Users, Calendar, Building } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { useEffect, useState } from "react";
+import { supabaseClient } from "@/lib/supabase/client";
 
 export default function VideoDocumentationSection() {
   const { t } = useLanguage();
+  const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState({ certificates: 0, templates: 0, members: 0 });
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [{ count: certsCount }, { count: tmplCount }, { count: membCount }] = await Promise.all([
+          supabaseClient.from("certificates").select("id", { count: "exact", head: true }),
+          supabaseClient.from("templates").select("id", { count: "exact", head: true }),
+          supabaseClient.from("members").select("id", { count: "exact", head: true }),
+        ]);
+        if (mounted) setCounts({ certificates: certsCount || 0, templates: tmplCount || 0, members: membCount || 0 });
+      } catch (e) {
+        console.error("Failed loading stats", e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
   const stats = [
     {
       icon: <Users className="w-8 h-8" />,
-      number: "12,847",
+      number: loading ? "—" : counts.certificates.toLocaleString(),
       label: t('analytics.totalCertificates'),
       gradient: "from-teal-500 to-teal-600"
     },
     {
       icon: <Calendar className="w-8 h-8" />,
-      number: "156",
+      number: loading ? "—" : counts.templates.toLocaleString(),
       label: t('analytics.totalTemplates'),
       gradient: "from-pink-500 to-pink-600"
     },
     {
       icon: <Building className="w-8 h-8" />,
-      number: "89",
+      number: loading ? "—" : counts.members.toLocaleString(),
       label: t('analytics.totalUsers'),
       gradient: "from-purple-500 to-purple-600"
     }
@@ -45,7 +71,7 @@ export default function VideoDocumentationSection() {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          {/* Left Column - Video Placeholder */}
+          {/* Left Column - Real Images */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -53,54 +79,13 @@ export default function VideoDocumentationSection() {
             viewport={{ once: true }}
             className="relative"
           >
-            <div className="relative bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl p-8 shadow-2xl">
-              {/* Video Frame */}
-              <div className="bg-gray-800 rounded-xl overflow-hidden shadow-lg">
-                {/* Video Placeholder */}
-                <div className="aspect-video bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center relative">
-                  {/* Certificate Management Illustration Placeholder */}
-                  <div className="text-center text-white">
-                    <div className="w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                      <div className="text-6xl">📜</div>
-                    </div>
-                    <h3 className="text-xl font-bold mb-2">Certificate Management</h3>
-                    <p className="text-blue-200">Digital Certificate Platform</p>
-                  </div>
-
-                  {/* Play Button Overlay */}
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors duration-300"
-                  >
-                    <div className="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center shadow-2xl">
-                      <Play className="w-8 h-8 text-blue-600 ml-1" />
-                    </div>
-                  </motion.button>
+            <div className="bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl p-6 shadow-2xl">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="bg-white rounded-xl p-2 shadow-md">
+                  <img src="/template/1760879828593-hylf7mf2w36.png" alt="Certificate image 1" className="w-full h-auto rounded-md border" />
                 </div>
-
-                {/* Video Controls */}
-                <div className="bg-gray-100 px-4 py-3 flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <div className="text-sm text-gray-600">E-Certificate Management Demo</div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-6 h-6 bg-gray-300 rounded flex items-center justify-center">
-                      <div className="w-3 h-3 bg-gray-600 rounded-sm"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Decorative Dots Pattern */}
-              <div className="absolute -bottom-4 -left-4 w-24 h-24 opacity-20">
-                <div className="grid grid-cols-4 gap-2">
-                  {[...Array(16)].map((_, i) => (
-                    <div key={i} className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  ))}
+                <div className="bg-white rounded-xl p-2 shadow-md">
+                  <img src="/template/1760848158433-h665mi1gvba.png" alt="Certificate image 2" className="w-full h-auto rounded-md border" />
                 </div>
               </div>
             </div>

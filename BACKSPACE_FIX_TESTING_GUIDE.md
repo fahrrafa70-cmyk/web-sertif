@@ -162,3 +162,5 @@ const deleteTextLayer = useCallback((id: string) => {
 The certificate editor now behaves like a professional design tool (Figma/Canva) where text editing is safe and intuitive.
 
 
+
+
