@@ -82,9 +82,11 @@ export default function VideoDocumentationSection() {
             <div className="bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl p-6 shadow-2xl">
               <div className="grid grid-cols-1 gap-4">
                 <div className="bg-white rounded-xl p-2 shadow-md">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/template/1760879828593-hylf7mf2w36.png" alt="Certificate image 1" className="w-full h-auto rounded-md border" />
                 </div>
                 <div className="bg-white rounded-xl p-2 shadow-md">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/template/1760848158433-h665mi1gvba.png" alt="Certificate image 2" className="w-full h-auto rounded-md border" />
                 </div>
               </div>

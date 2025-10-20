@@ -13,7 +13,8 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 // Translation data
-const translations = {
+type Translations = Record<Language, Record<string, string>>;
+const translations: Translations = {
   en: {
     // Navigation
     'nav.home': 'Home',
@@ -29,6 +30,7 @@ const translations = {
     // Auth
     'auth.login': 'Login',
     'auth.register': 'Register',
+    'auth.logout': 'Log Out',
     'auth.role': 'Role',
     'auth.selectRole': 'Select Role',
     'auth.admin': 'Admin',
@@ -50,10 +52,14 @@ const translations = {
     'templates.description': 'Description',
     'templates.actions': 'Actions',
     'templates.search': 'Search templates...',
+    'templates.allCategories': 'All Categories',
     'templates.noTemplates': 'No templates found',
     'templates.createNew': 'Create New Template',
     'templates.templatePreview': 'Template Preview',
     'templates.templateDetails': 'Details and preview of the selected template.',
+    'templates.cleanupImages': 'Cleanup Images',
+    'templates.cleaning': 'Cleaning...',
+    'templates.useThisTemplate': 'Use This Template',
     
     // Certificates
     'certificates.title': 'Certificates',
@@ -65,6 +71,10 @@ const translations = {
     'certificates.actions': 'Actions',
     'certificates.search': 'Search certificates...',
     'certificates.noCertificates': 'No certificates found',
+    'certificates.download': 'Download',
+    'certificates.verify': 'Verify',
+    'certificates.edit': 'Edit',
+    'certificates.delete': 'Delete',
     
     // Common
     'common.save': 'Save',
@@ -84,8 +94,8 @@ const translations = {
     // Footer
     'footer.multilingual': 'Multilingual Platform',
     'footer.phone': '+6281380935185',
-    'footer.email': '@nurtiyas.id',
-    'footer.location': 'Jakarta Timur',
+    'footer.email': 'fahrirafa.rpl1@gmail.com',
+    'footer.location': 'Malang',
     
     // Language
     'language.english': 'English',
@@ -119,7 +129,10 @@ const translations = {
     'footer.legal': 'Legal',
     'footer.privacy': 'Privacy Policy',
     'footer.terms': 'Terms of Service',
-    'footer.copyright': '© 2025 E-Certificate Management Platform. All rights reserved.',
+    'footer.contact': 'Contact Us',
+    'footer.cookies': 'Cookie Policy',
+    'footer.developedBy': 'Developed by',
+    
     
     // FAQ
     'faq.title': 'Frequently Asked Questions',
@@ -170,6 +183,54 @@ const translations = {
     'categories.color': 'Color',
     'categories.actions': 'Actions',
     
+    // Members
+    'members.title': 'Members',
+    'members.subtitle': 'Manage members and their certificates',
+    'members.addMember': 'Add Member',
+    'members.viewCertificates': 'View Certificates',
+    'members.loadCertificatesFailed': 'Failed to load certificates',
+    'members.loadMembersFailed': 'Failed to load members',
+    'members.loadingPage': 'Preparing members page...',
+    'members.accessDenied.title': 'Access Denied',
+    'members.accessDenied.message': 'You do not have permission to view this page.',
+    'members.nameRequired': 'Full name is required',
+    'members.updateSuccess': 'Member updated successfully',
+    'members.updateFailed': 'Failed to update member',
+    'members.addSuccess': 'Member added successfully',
+    'members.addFailed': 'Failed to add member',
+    'members.deleteNoPermission': "You don't have permission to delete members",
+    'members.deleteSuccess': 'Member deleted successfully',
+    'members.deleteFailed': 'Failed to delete member',
+    'members.adding': 'Adding...',
+    'members.saving': 'Saving...',
+    'members.saveChanges': 'Save Changes',
+    'members.certificateImagePreview': 'Certificate Image',
+    'members.noImage': 'No image',
+    'members.loadingMembers': 'Loading members...',
+    'members.noMembersTitle': 'No members yet',
+    'members.noMembersMessage': 'Start by adding your first member.',
+    'members.certificates': 'Certificates',
+    'members.noCertificatesForMember': 'No certificates for this member',
+    'members.editMember': 'Edit Member',
+    'members.form.fullName': 'Full Name',
+    'members.form.fullNamePlaceholder': 'e.g. John Doe',
+    'members.form.email': 'Email',
+    'members.form.organization': 'Organization',
+    'members.form.phone': 'Phone',
+    'members.form.job': 'Job',
+    'members.form.dob': 'Date of Birth',
+    'members.form.address': 'Address',
+    'members.form.city': 'City',
+    'members.form.notes': 'Notes',
+    'members.form.optional': 'Optional',
+    'members.table.name': 'Name',
+    'members.table.organization': 'Organization',
+    'members.table.email': 'Email',
+    'members.table.phone': 'Phone',
+    'members.table.job': 'Job',
+    'members.table.city': 'City',
+    'members.table.actions': 'Actions',
+
     // My Certificates
     'myCertificates.title': 'My Certificates',
     'myCertificates.subtitle': 'View and manage your certificates',
@@ -177,21 +238,6 @@ const translations = {
     'myCertificates.noCertificates': 'No certificates found',
     'myCertificates.download': 'Download',
     'myCertificates.verify': 'Verify',
-    
-    // Certificates
-    'certificates.title': 'Certificates',
-    'certificates.subtitle': 'Manage and track certificates',
-    'certificates.create': 'Create Certificate',
-    'certificates.recipient': 'Recipient',
-    'certificates.issuedDate': 'Issued Date',
-    'certificates.status': 'Status',
-    'certificates.actions': 'Actions',
-    'certificates.search': 'Search certificates...',
-    'certificates.noCertificates': 'No certificates found',
-    'certificates.download': 'Download',
-    'certificates.verify': 'Verify',
-    'certificates.edit': 'Edit',
-    'certificates.delete': 'Delete',
     
     // Certificate Generator
     'generator.title': 'Certificate Generator',
@@ -231,6 +277,7 @@ const translations = {
     // Auth
     'auth.login': 'Masuk',
     'auth.register': 'Daftar',
+    'auth.logout': 'Keluar',
     'auth.role': 'Peran',
     'auth.selectRole': 'Pilih Peran',
     'auth.admin': 'Admin',
@@ -252,10 +299,14 @@ const translations = {
     'templates.description': 'Deskripsi',
     'templates.actions': 'Aksi',
     'templates.search': 'Cari template...',
+    'templates.allCategories': 'Semua Kategori',
     'templates.noTemplates': 'Tidak ada template ditemukan',
     'templates.createNew': 'Buat Template Baru',
     'templates.templatePreview': 'Pratinjau Template',
     'templates.templateDetails': 'Detail dan pratinjau template yang dipilih.',
+    'templates.cleanupImages': 'Bersihkan Gambar',
+    'templates.cleaning': 'Membersihkan...',
+    'templates.useThisTemplate': 'Gunakan Template Ini',
     
     // Certificates
     'certificates.title': 'Sertifikat',
@@ -286,8 +337,8 @@ const translations = {
     // Footer
     'footer.multilingual': 'Platform Multibahasa',
     'footer.phone': '+6281380935185',
-    'footer.email': '@nurtiyasah.id',
-    'footer.location': 'Jakarta Timur',
+    'footer.email': 'fahrirafa.rpl1@gmail.com',
+    'footer.location': 'Malang',
     
     // Language
     'language.english': 'English',
@@ -321,7 +372,10 @@ const translations = {
     'footer.legal': 'Legal',
     'footer.privacy': 'Kebijakan Privasi',
     'footer.terms': 'Syarat Layanan',
-    'footer.copyright': '© 2025 Platform Manajemen E-Certificate. Semua hak dilindungi.',
+    'footer.contact': 'Hubungi Kami',
+    'footer.cookies': 'Kebijakan Cookie',
+    'footer.developedBy': 'Dikembangkan oleh',
+    
     
     // FAQ
     'faq.title': 'Pertanyaan yang Sering Diajukan',
@@ -372,6 +426,53 @@ const translations = {
     'categories.color': 'Warna',
     'categories.actions': 'Aksi',
     
+    // Members
+    'members.title': 'Anggota',
+    'members.subtitle': 'Kelola anggota dan sertifikatnya',
+    'members.addMember': 'Tambah Anggota',
+    'members.viewCertificates': 'Lihat Sertifikat',
+    'members.loadCertificatesFailed': 'Gagal memuat sertifikat',
+    'members.loadMembersFailed': 'Gagal memuat data anggota',
+    'members.loadingPage': 'Menyiapkan halaman anggota...',
+    'members.accessDenied.title': 'Akses Ditolak',
+    'members.accessDenied.message': 'Anda tidak memiliki izin untuk melihat halaman ini.',
+    'members.nameRequired': 'Nama lengkap wajib diisi',
+    'members.updateSuccess': 'Data anggota berhasil diperbarui',
+    'members.updateFailed': 'Gagal memperbarui data anggota',
+    'members.addSuccess': 'Anggota berhasil ditambahkan',
+    'members.addFailed': 'Gagal menambahkan anggota',
+    'members.deleteNoPermission': 'Anda tidak memiliki izin untuk menghapus anggota',
+    'members.deleteSuccess': 'Anggota berhasil dihapus',
+    'members.deleteFailed': 'Gagal menghapus anggota',
+    'members.adding': 'Menambahkan...',
+    'members.saving': 'Menyimpan...',
+    'members.saveChanges': 'Simpan Perubahan',
+    'members.certificateImagePreview': 'Gambar Sertifikat',
+    'members.noImage': 'Tidak ada gambar',
+    'members.loadingMembers': 'Memuat data anggota...',
+    'members.noMembersTitle': 'Belum ada anggota',
+    'members.noMembersMessage': 'Mulai dengan menambahkan anggota pertama Anda.',
+    'members.certificates': 'Sertifikat',
+    'members.noCertificatesForMember': 'Tidak ada sertifikat untuk anggota ini',
+    'members.editMember': 'Edit Anggota',
+    'members.form.fullName': 'Nama Lengkap',
+    'members.form.fullNamePlaceholder': 'contoh: Budi Santoso',
+    'members.form.email': 'Email',
+    'members.form.organization': 'Organisasi',
+    'members.form.phone': 'Telepon',
+    'members.form.job': 'Pekerjaan',
+    'members.form.dob': 'Tanggal Lahir',
+    'members.form.address': 'Alamat',
+    'members.form.city': 'Kota',
+    'members.form.notes': 'Catatan',
+    'members.form.optional': 'Opsional',
+    'members.table.name': 'Nama',
+    'members.table.organization': 'Organisasi',
+    'members.table.email': 'Email',
+    'members.table.phone': 'Telepon',
+    'members.table.job': 'Pekerjaan',
+    'members.table.city': 'Kota',
+    'members.table.actions': 'Aksi',
     // My Certificates
     'myCertificates.title': 'Sertifikat Saya',
     'myCertificates.subtitle': 'Lihat dan kelola sertifikat Anda',
@@ -379,21 +480,6 @@ const translations = {
     'myCertificates.noCertificates': 'Tidak ada sertifikat ditemukan',
     'myCertificates.download': 'Unduh',
     'myCertificates.verify': 'Verifikasi',
-    
-    // Certificates
-    'certificates.title': 'Sertifikat',
-    'certificates.subtitle': 'Kelola dan lacak sertifikat',
-    'certificates.create': 'Buat Sertifikat',
-    'certificates.recipient': 'Penerima',
-    'certificates.issuedDate': 'Tanggal Diterbitkan',
-    'certificates.status': 'Status',
-    'certificates.actions': 'Aksi',
-    'certificates.search': 'Cari sertifikat...',
-    'certificates.noCertificates': 'Tidak ada sertifikat ditemukan',
-    'certificates.download': 'Unduh',
-    'certificates.verify': 'Verifikasi',
-    'certificates.edit': 'Edit',
-    'certificates.delete': 'Hapus',
     
     // Certificate Generator
     'generator.title': 'Generator Sertifikat',
@@ -431,11 +517,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return 'en';
   });
 
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  // removed unused hydrated state
 
   useEffect(() => {
     try {
@@ -450,7 +532,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   };
 
   const t = (key: string): string => {
-    return translations[language][key as keyof typeof translations[typeof language]] || key;
+    return translations[language][key] ?? key;
   };
 
   return (

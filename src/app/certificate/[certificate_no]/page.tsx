@@ -9,6 +9,7 @@ import Footer from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye } from "lucide-react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 export default function CertificatePage() {
   const params = useParams();
@@ -85,7 +86,7 @@ export default function CertificatePage() {
                 Certificate Not Found
               </h1>
               <p className="text-gray-500 mb-8">
-                The certificate with number "{certificateNo}" could not be found.
+                {`The certificate with number "${certificateNo}" could not be found.`}
               </p>
               <div className="flex gap-4 justify-center">
                 <Button
@@ -153,12 +154,16 @@ export default function CertificatePage() {
                 <div className="p-6 bg-gray-50">
                   {certificate.certificate_image_url ? (
                     <div className="relative">
-                      <img 
-                        src={certificate.certificate_image_url} 
-                        alt="Certificate" 
-                        className="w-full h-auto rounded-lg border shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => setImagePreviewOpen(true)}
-                      />
+                      <div className="relative w-full" onClick={() => setImagePreviewOpen(true)}>
+                        <Image
+                          src={certificate.certificate_image_url}
+                          alt="Certificate"
+                          width={1200}
+                          height={800}
+                          className="w-full h-auto rounded-lg border shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                          unoptimized
+                        />
+                      </div>
                       <Button
                         onClick={() => setImagePreviewOpen(true)}
                         className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-700 shadow-md"
@@ -222,7 +227,7 @@ export default function CertificatePage() {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Template:</span>
                           <span className="font-medium">
-                            {(certificate as any).templates?.name || "—"}
+                            {certificate.templates?.name || "—"}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -288,11 +293,16 @@ export default function CertificatePage() {
               </Button>
             </div>
             <div className="p-4 bg-gray-50">
-              <img 
-                src={certificate.certificate_image_url} 
-                alt="Certificate" 
-                className="w-full h-auto rounded-lg border" 
-              />
+              <div className="relative w-full">
+                <Image 
+                  src={certificate.certificate_image_url} 
+                  alt="Certificate" 
+                  width={1600} 
+                  height={1000} 
+                  className="w-full h-auto rounded-lg border" 
+                  unoptimized
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -58,7 +58,14 @@ export async function createUser(input: CreateAppUserInput): Promise<AppUser> {
   }
 
   // Attempt insert with role as provided; if enum case mismatch, try fallback Title-case
-  const insertPayload: any = { email, full_name, organization, phone, password, role };
+  const insertPayload: {
+    email: string;
+    full_name: string;
+    organization: string | null;
+    phone: string | null;
+    password: string | null;
+    role: string;
+  } = { email, full_name, organization, phone, password, role };
 
   let { data, error } = await supabaseClient
     .from('users')

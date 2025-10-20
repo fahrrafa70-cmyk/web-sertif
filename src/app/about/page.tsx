@@ -3,7 +3,7 @@
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
-import { Info, HelpCircle, Users, Award, Shield, Mail } from "lucide-react";
+import { Info, Users, Award, Shield, Mail } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { useEffect, useState } from "react";
 import { supabaseClient } from "@/lib/supabase/client";

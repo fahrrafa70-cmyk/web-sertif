@@ -67,7 +67,6 @@ export default function CertificateGeneratorPage() {
   const [loading, setLoading] = useState(true);
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [draggingLayer, setDraggingLayer] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -87,7 +86,7 @@ export default function CertificateGeneratorPage() {
   const descRef = useRef<HTMLTextAreaElement>(null);
   const issueRef = useRef<HTMLInputElement>(null);
   const expiryRef = useRef<HTMLInputElement>(null);
-  const qrRef = useRef<HTMLInputElement>(null);
+  
   const suppressSyncRef = useRef(false);
 
   // Track click vs drag to avoid focusing inputs during drag
@@ -150,16 +149,44 @@ export default function CertificateGeneratorPage() {
   } | null>(null);
 
   // Global font settings
-  const [globalFontSettings, setGlobalFontSettings] = useState({
-    fontSize: 16,
+  const [globalFontSettings] = useState({
+    fontSize: 50,
     fontFamily: "Arial",
     color: "#000000",
     fontWeight: "normal",
   });
 
+  // Single date format applied to both issue and expiry dates (form keeps ISO)
+  const [dateFormat, setDateFormat] = useState<string>("yyyy-mm-dd");
+
+  // Format an ISO date (yyyy-mm-dd) into chosen format for canvas text
+  const formatDateString = useCallback((iso: string, fmt: string): string => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mmm = d.toLocaleString('en-US', { month: 'short' });
+    const mmmm = d.toLocaleString('en-US', { month: 'long' });
+    switch (fmt) {
+      case 'dd-mm-yyyy': return `${dd}-${mm}-${yyyy}`;
+      case 'mm-dd-yyyy': return `${mm}-${dd}-${yyyy}`;
+      case 'yyyy-mm-dd': return `${yyyy}-${mm}-${dd}`;
+      case 'dd-mmm-yyyy': return `${dd} ${mmm} ${yyyy}`;
+      case 'dd-mmmm-yyyy': return `${dd} ${mmmm} ${yyyy}`;
+      case 'mmm-dd-yyyy': return `${mmm} ${dd}, ${yyyy}`;
+      case 'mmmm-dd-yyyy': return `${mmmm} ${dd}, ${yyyy}`;
+      case 'dd/mm/yyyy': return `${dd}/${mm}/${yyyy}`;
+      case 'mm/dd/yyyy': return `${mm}/${dd}/${yyyy}`;
+      case 'yyyy/mm/dd': return `${yyyy}/${mm}/${dd}`;
+      default: return iso;
+    }
+  }, []);
+
   // Import Excel instruction modal state
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [excelRows, setExcelRows] = useState<any[]>([]);
+  const [excelRows, setExcelRows] = useState<Array<Record<string, unknown>>>([]);
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<{[k:string]: string}>({
     certificate_no: "",
@@ -169,30 +196,37 @@ export default function CertificateGeneratorPage() {
     expired_date: "",
   });
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
+  const [selectedFileName, setSelectedFileName] = useState<string>("");
 
   // Excel helpers
-  const excelDateToISO = useCallback((val: any): string => {
+  const excelDateToISO = useCallback((val: unknown): string => {
     try {
-      if (val == null || val === "") return "";
+      if (val == null || (typeof val === "string" && val === "")) return "";
       if (typeof val === "number") {
         const epoch = new Date(Date.UTC(1899, 11, 30));
         const ms = val * 86400000;
         const d = new Date(epoch.getTime() + ms);
         return d.toISOString().slice(0, 10);
       }
-      const d = new Date(val);
-      if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+      if (val instanceof Date) {
+        if (!isNaN(val.getTime())) return val.toISOString().slice(0, 10);
+      }
+      if (typeof val === "string") {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+        return val;
+      }
       return String(val);
-    } catch { return String(val || ""); }
+    } catch { return String(val ?? ""); }
   }, []);
 
   const handleExcelFile = useCallback(async (file: File) => {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array" });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-    const headers = rows.length > 0 ? Object.keys(rows[0] as any) : [];
-    setExcelRows(rows as any[]);
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" }) as Array<Record<string, unknown>>;
+    const headers = rows.length > 0 ? Object.keys(rows[0] as Record<string, unknown>) : [];
+    setExcelRows(rows);
     setExcelHeaders(headers);
     setSelectedRowIndex(0);
     setMapping((m) => ({ ...m }));
@@ -224,9 +258,9 @@ export default function CertificateGeneratorPage() {
             case "description":
               return { ...layer, text: nextData.description };
             case "issue_date":
-              return { ...layer, text: nextData.issue_date };
+              return { ...layer, text: formatDateString(nextData.issue_date, dateFormat) };
             case "expired_date":
-              return { ...layer, text: nextData.expired_date };
+              return { ...layer, text: formatDateString(nextData.expired_date, dateFormat) };
           }
           return layer;
         })
@@ -234,7 +268,7 @@ export default function CertificateGeneratorPage() {
       return nextData;
     });
     setTimeout(() => { suppressSyncRef.current = false; }, 0);
-  }, [excelRows, mapping, excelDateToISO]);
+  }, [excelRows, mapping, excelDateToISO, formatDateString, dateFormat]);
 
   // Auto-apply current preview row when Excel data/mapping/index change
   useEffect(() => {
@@ -399,12 +433,12 @@ export default function CertificateGeneratorPage() {
             break;
           case "issue_date":
             if (layer.id === "issue_date") {
-              return { ...layer, text: value };
+              return { ...layer, text: formatDateString(value, dateFormat) };
             }
             break;
           case "expired_date":
             if (layer.id === "expired_date") {
-              return { ...layer, text: value };
+              return { ...layer, text: formatDateString(value, dateFormat) };
             }
             break;
         }
@@ -429,12 +463,7 @@ export default function CertificateGeneratorPage() {
           case "description":
             updatedData.description = layer.text;
             break;
-          case "issue_date":
-            updatedData.issue_date = layer.text;
-            break;
-          case "expired_date":
-            updatedData.expired_date = layer.text;
-            break;
+          // Do not sync formatted dates back into date inputs
         }
       });
       setCertificateData((prev) => {
@@ -499,19 +528,7 @@ export default function CertificateGeneratorPage() {
     );
   };
 
-  // Apply global font settings to all text layers
-  const applyGlobalFontSettings = useCallback(() => {
-    setTextLayers((prev) =>
-      prev.map((layer) => ({
-        ...layer,
-        fontSize: globalFontSettings.fontSize,
-        fontFamily: globalFontSettings.fontFamily,
-        color: globalFontSettings.color,
-        fontWeight: globalFontSettings.fontWeight,
-      })),
-    );
-    toast.success("Global font settings applied to all text elements!");
-  }, [globalFontSettings]);
+  // Apply global font settings to all text layers - removed unused function
 
   // FIX: Utility functions for normalized coordinates using standard canvas size
   const getNormalizedPosition = useCallback((x: number, y: number) => {
@@ -603,7 +620,7 @@ export default function CertificateGeneratorPage() {
       },
       {
         id: "issue_date",
-        text: certificateData.issue_date,
+        text: formatDateString(certificateData.issue_date, dateFormat),
         x: STANDARD_CANVAS_WIDTH * 0.1, // 10% from left
         y: STANDARD_CANVAS_HEIGHT * 0.85, // 85% from top
         xPercent: 0.1,
@@ -615,7 +632,7 @@ export default function CertificateGeneratorPage() {
       },
       {
         id: "expired_date",
-        text: certificateData.expired_date,
+        text: formatDateString(certificateData.expired_date, dateFormat),
         x: STANDARD_CANVAS_WIDTH * 0.3, // 30% from left
         y: STANDARD_CANVAS_HEIGHT * 0.85, // 85% from top
         xPercent: 0.3,
@@ -627,7 +644,7 @@ export default function CertificateGeneratorPage() {
       },
     ];
     setTextLayers(layers);
-  }, [certificateData, globalFontSettings]);
+  }, [certificateData, globalFontSettings, formatDateString, dateFormat]);
 
   // FIX: Update description text layer when certificate data changes
   useEffect(() => {
@@ -729,60 +746,10 @@ export default function CertificateGeneratorPage() {
         downOffsetRef.current = { x: 0, y: 0 };
       }
     },
-    [textLayers],
+    [textLayers, draggingLayer, getConsistentDimensions],
   );
 
-  // FIX: Handle mouse move with proper coordinate normalization
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!canvasRef.current) return;
-
-      // Determine if we should start dragging based on threshold
-      if (!draggingLayer && candidateLayerRef.current && lastDownPosRef.current) {
-        const dx = Math.abs(e.clientX - lastDownPosRef.current.x);
-        const dy = Math.abs(e.clientY - lastDownPosRef.current.y);
-        if (dx > 1 || dy > 1) {
-          setDraggingLayer(candidateLayerRef.current);
-          didMoveRef.current = true;
-        }
-      }
-
-      if (!draggingLayer) return;
-
-      const rect = canvasRef.current.getBoundingClientRect();
-      const offset = downOffsetRef.current || { x: 0, y: 0 };
-      const newX = e.clientX - rect.left - offset.x;
-      const newY = e.clientY - rect.top - offset.y;
-
-      const consistentDims = getConsistentDimensions;
-      const scaleX = rect.width / consistentDims.width;
-      const scaleY = rect.height / consistentDims.height;
-      const standardX = newX / scaleX;
-      const standardY = newY / scaleY;
-
-      // Clamp to canvas bounds first
-      let clampedX = Math.max(0, Math.min(standardX, consistentDims.width));
-      let clampedY = Math.max(0, Math.min(standardY, consistentDims.height));
-
-      // Apply snap-to-grid DURING drag if enabled
-      if (snapGridEnabled) {
-        const snapped = snapToGrid(clampedX, clampedY);
-        clampedX = snapped.x;
-        clampedY = snapped.y;
-      }
-
-      setTextLayers((prev) =>
-        prev.map((layer) =>
-          layer.id === draggingLayer ? { ...layer, x: clampedX, y: clampedY } : layer,
-        ),
-      );
-    },
-    [draggingLayer, snapToGrid, snapGridEnabled, getConsistentDimensions],
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setDraggingLayer(null);
-  }, []);
+  // Mouse move and mouse up handlers are defined in the useEffect below
 
   // Add event listeners for mouse events
   useEffect(() => {
@@ -812,15 +779,6 @@ export default function CertificateGeneratorPage() {
         const standardX = newX / scaleX;
         const standardY = newY / scaleY;
 
-        const constrainedX = Math.max(
-          0,
-          Math.min(standardX, consistentDims.width - 100),
-        );
-        const constrainedY = Math.max(
-          0,
-          Math.min(standardY, consistentDims.height - 50),
-        );
-
         // Tanpa snap saat drag; clamp ke batas kanvas penuh
         const clampedX = Math.max(0, Math.min(standardX, consistentDims.width));
         const clampedY = Math.max(0, Math.min(standardY, consistentDims.height));
@@ -836,7 +794,6 @@ export default function CertificateGeneratorPage() {
 
     const handleGlobalMouseUp = () => {
       const layerId = lastDownLayerRef.current;
-      const moved = didMoveRef.current;
       lastDownLayerRef.current = null;
       lastDownPosRef.current = null;
       didMoveRef.current = false;
@@ -858,7 +815,7 @@ export default function CertificateGeneratorPage() {
         );
       }
       // If it was just a click (no drag), enter editing and focus the right panel
-      if (layerId && !moved) {
+      if (layerId && !didMoveRef.current) {
         startEditingText(layerId);
         focusFieldForLayer(layerId, true);
       }
@@ -1103,34 +1060,21 @@ export default function CertificateGeneratorPage() {
       // 5. Sinkronkan faktor skala dengan devicePixelRatio untuk hasil yang tajam
       const scale = devicePixelRatio;
       
-      console.log('🔧 Render settings:', {
-        consistentDims,
-        devicePixelRatio,
-        scale,
-        targetWidth: consistentDims.width,
-        targetHeight: consistentDims.height
-      });
-      
-      // 6. Capture dengan pengaturan yang optimal
+      // 6. Capture dengan html2canvas
       const canvas = await html2canvas(previewElement, {
+        width: consistentDims.width,
+        height: consistentDims.height,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
-        // Gunakan dimensi visual yang sama persis
-        width: Math.round(consistentDims.width),
-        height: Math.round(consistentDims.height),
-        // Pastikan tidak ada scaling ganda
-        // Nonaktifkan style yang dapat menyebabkan perubahan layout
-        // Pastikan scroll dan overflow tidak memotong template
         logging: false,
         // SANITIZE: Hilangkan background CSS kompleks (gradients/lab/oklch) pada subtree agar parser tidak error
-        onclone: (doc) => {
+        onclone: (doc: Document) => {
           const root = doc.getElementById('certificate-preview');
           if (!root) return;
           // Pertahankan background putih pada root
           (root as HTMLElement).style.backgroundColor = '#ffffff';
           // Bersihkan background pada semua child agar tidak ada fungsi warna yang tidak didukung
-          root.querySelectorAll('*').forEach((node) => {
+          root.querySelectorAll('*').forEach((node: Element) => {
             const el = node as HTMLElement;
             if (!el || el.id === 'certificate-preview') return;
             el.style.background = 'transparent';
@@ -1140,7 +1084,7 @@ export default function CertificateGeneratorPage() {
             el.style.filter = 'none';
           });
         }
-      });
+      } as unknown as Parameters<typeof html2canvas>[1]);
       
       console.log('✅ html2canvas capture completed:', {
         canvasWidth: canvas.width,
@@ -1423,11 +1367,8 @@ export default function CertificateGeneratorPage() {
         setTextLayers(updatedTextLayers);
         
         // Allow React/DOM to update completely before capture
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 100)); // Increased delay
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => requestAnimationFrame(() => r(undefined)));
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => requestAnimationFrame(() => r(undefined))); // Double RAF
         
         console.log(`🎨 Capturing image for row ${i + 1} with data:`, {
@@ -1441,7 +1382,6 @@ export default function CertificateGeneratorPage() {
         }
         
         // Create merged image with the specific textLayers for this row
-        // eslint-disable-next-line no-await-in-loop
         const mergedImageDataUrl = await createMergedCertificateImage(updatedTextLayers);
         
         // Release suppression after this row is captured
@@ -1461,7 +1401,6 @@ export default function CertificateGeneratorPage() {
           certificate_image_url: undefined,
         };
         
-        // eslint-disable-next-line no-await-in-loop
         await createCertificate(certificateDataToSave);
         
         console.log(`✅ Row ${i + 1} completed and saved`);
@@ -1469,9 +1408,10 @@ export default function CertificateGeneratorPage() {
       console.log(`🎉 All ${excelRows.length} certificates generated successfully`);
       toast.success("All rows generated and saved");
       setImportModalOpen(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      toast.error(e?.message || "Failed to generate from Excel");
+      const msg = e instanceof Error ? e.message : 'Failed to generate from Excel';
+      toast.error(msg);
     } finally {
       setIsGenerating(false);
       suppressSyncRef.current = false; // Ensure suppression is released
@@ -1533,9 +1473,9 @@ export default function CertificateGeneratorPage() {
 
 
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="min-h-screen">
       <Header />
-      <main className="pt-16 overflow-x-hidden">
+      <main className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
@@ -1560,13 +1500,13 @@ export default function CertificateGeneratorPage() {
           </div>
 
           {/* Dual Pane Layout - centered */}
-          <div className="flex flex-col xl:flex-row gap-8 min-h-[720px] w-full mx-auto justify-center items-start">
+          <div className="flex flex-col xl:flex-row gap-8 min-h-[720px] w-full mx-auto justify-center items-start px-2 sm:px-0">
             {/* Left Section - Certificate Preview */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 mx-auto xl:mx-0 shrink-0"
+              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 mx-auto xl:mx-0 shrink-0 max-w-full"
             >
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1614,10 +1554,11 @@ export default function CertificateGeneratorPage() {
               </div>
 
               {/* FIX: Certificate Display with consistent aspect ratio */}
-              <div className="bg-transparent p-0 min-h-[560px] xl:min-h-[680px] flex items-center justify-center">
+              <div className="bg-transparent p-0 min-h-[560px] xl:min-h-[680px] flex items-center justify-center overflow-x-auto">
                 {generatedImageUrl ? (
                   /* Show generated PNG preview */
                   <div className="bg-white rounded-xl shadow-lg relative overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={generatedImageUrl}
                       alt="Generated Certificate"
@@ -1682,6 +1623,7 @@ export default function CertificateGeneratorPage() {
                         backgroundColor: "#ffffff"
                       }}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={getTemplateImageUrl(selectedTemplate)!}
                         alt="Certificate Template"
@@ -1821,7 +1763,7 @@ export default function CertificateGeneratorPage() {
                         }}
                         onDoubleClick={(e) => {
                           // Only left double-click should enter edit mode
-                          if ((e as any).button !== undefined && (e as any).button !== 0) return;
+                          if (typeof e.button === 'number' && e.button !== 0) return;
                           e.preventDefault();
                           startEditingText(layer.id);
                         }}
@@ -1995,7 +1937,7 @@ export default function CertificateGeneratorPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 mx-auto xl:mx-0 w-[520px] md:w-[560px] shrink-0 overflow-y-auto"
+              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 mx-auto xl:mx-0 w-full sm:w-[520px] md:w-[560px] max-w-full shrink-0 overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-gray-900">
@@ -2186,6 +2128,23 @@ export default function CertificateGeneratorPage() {
                           : null;
                       })()}
                       onChange={(prop, value) => updateTextStyle(focusedField!, prop, value)}
+                      dateFormat={dateFormat}
+                      onDateFormatChange={(fmt) => {
+                        setDateFormat(fmt);
+                        setTextLayers((prev) =>
+                          prev.map((l) =>
+                            (l.id === 'issue_date' || l.id === 'expired_date')
+                              ? {
+                                  ...l,
+                                  text: formatDateString(
+                                    certificateData[l.id as 'issue_date' | 'expired_date'],
+                                    fmt,
+                                  ),
+                                }
+                              : l,
+                          ),
+                        );
+                      }}
                     />
                   </div>
                 )}
@@ -2445,23 +2404,39 @@ export default function CertificateGeneratorPage() {
                 <li><code>expired_date</code> (opsional, YYYY-MM-DD)</li>
               </ul>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
               <label className="text-sm text-gray-700 font-semibold">Upload Excel/CSV</label>
               <input
+                id="excel-upload-input"
                 type="file"
                 accept=".xlsx,.xls,.csv"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) handleExcelFile(f);
+                  if (f) {
+                    setSelectedFileName(f.name);
+                    handleExcelFile(f);
+                  }
                 }}
-                className="block w-full text-sm"
+                className="hidden"
               />
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-gray-300"
+                  onClick={() => document.getElementById('excel-upload-input')?.click()}
+                >
+                  Pilih File
+                </Button>
+                <span className="text-sm text-gray-600 truncate">
+                  {selectedFileName || 'Belum ada file dipilih'}
+                </span>
+              </div>
               {!excelRows.length && (
-                <p className="text-xs text-gray-500">Belum ada file terunggah. Contoh CSV:
-                </p>
+                <p className="text-xs text-gray-500">Belum ada file terunggah. Contoh CSV:</p>
               )}
               {!excelRows.length && (
-                <pre className="bg-gray-50 border border-gray-200 rounded p-3 text-xs overflow-auto">
+                <pre className="bg-white border border-gray-200 rounded p-3 text-xs overflow-auto">
 {`certificate_no,name,description,issue_date,expired_date
 CERT-001,John Doe,Completed Training,2024-01-10,2029-01-10`}
                 </pre>
@@ -2517,9 +2492,12 @@ CERT-001,John Doe,Completed Training,2024-01-10,2029-01-10`}
                     <tbody>
                       {excelRows.slice(0, 5).map((r, i) => (
                         <tr key={i} className="odd:bg-white even:bg-gray-50">
-                          {excelHeaders.map((h) => (
-                            <td key={h} className="px-2 py-1 border-b">{String((r as any)[h])}</td>
-                          ))}
+                          {excelHeaders.map((h) => {
+                            const value = (r as Record<string, unknown>)[h];
+                            return (
+                              <td key={h} className="px-2 py-1 border-b">{String(value ?? "")}</td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/language-context";
 import { Mail, Users, Award, Shield } from "lucide-react";
+import Image from "next/image";
 
 export default function AboutSection() {
   const { t } = useLanguage();
@@ -87,7 +88,7 @@ export default function AboutSection() {
                 size="lg"
                 className="bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                Contact Us
+                {t('nav.contact')}
                 <Mail className="ml-2 w-4 h-4" />
               </Button>
             </motion.div>
@@ -104,18 +105,26 @@ export default function AboutSection() {
             <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-4 sm:p-6 shadow-2xl">
               <div className="grid grid-cols-1 gap-4">
                 <div className="bg-white rounded-xl p-2 shadow-md">
-                  <img
-                    src="/template/1760879828593-hylf7mf2w36.png"
-                    alt="Certificate preview 1"
-                    className="w-full h-auto rounded-md border"
-                  />
+                  <div className="relative w-full">
+                    <Image
+                      src="/template/1760879828593-hylf7mf2w36.png"
+                      alt="Certificate preview 1"
+                      width={1200}
+                      height={800}
+                      className="w-full h-auto rounded-md border"
+                    />
+                  </div>
                 </div>
                 <div className="bg-white rounded-xl p-2 shadow-md">
-                  <img
-                    src="/template/1760848158433-h665mi1gvba.png"
-                    alt="Certificate preview 2"
-                    className="w-full h-auto rounded-md border"
-                  />
+                  <div className="relative w-full">
+                    <Image
+                      src="/template/1760848158433-h665mi1gvba.png"
+                      alt="Certificate preview 2"
+                      width={1200}
+                      height={800}
+                      className="w-full h-auto rounded-md border"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

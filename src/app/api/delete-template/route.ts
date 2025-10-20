@@ -38,15 +38,17 @@ export async function DELETE(request: Request) {
       await unlink(filePath);
       console.log('✅ API Route: File deleted successfully:', sanitizedFileName);
       return NextResponse.json({ success: true, message: `File ${sanitizedFileName} deleted successfully.` });
-    } catch (unlinkError: any) {
-      if (unlinkError.code === 'ENOENT') {
+    } catch (unlinkError: unknown) {
+      const code = (unlinkError as { code?: string })?.code;
+      if (code === 'ENOENT') {
         console.log('⚠️ API Route: File not found (already deleted):', sanitizedFileName);
         return NextResponse.json({ success: true, message: `File ${sanitizedFileName} was already deleted.` });
       }
       throw unlinkError;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('💥 API Route: Error deleting file locally:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

@@ -27,7 +27,7 @@ export interface CreateMemberInput {
   notes?: string;
 }
 
-export interface UpdateMemberInput extends Partial<CreateMemberInput> {}
+export type UpdateMemberInput = Partial<CreateMemberInput>;
 
 function sanitize(input: string | undefined | null): string | null {
   const v = (input ?? '').trim();
@@ -57,7 +57,7 @@ export async function createMember(input: CreateMemberInput): Promise<Member> {
     address: sanitize(input.address),
     city: sanitize(input.city),
     notes: sanitize(input.notes),
-  } as Record<string, any>;
+  } as Record<string, unknown>;
 
   // Optional: prevent duplicate email if provided
   if (insertData.email) {
@@ -83,7 +83,7 @@ export async function createMember(input: CreateMemberInput): Promise<Member> {
 }
 
 export async function updateMember(id: string, input: UpdateMemberInput): Promise<Member> {
-  const updateData: Record<string, any> = {};
+  const updateData: Record<string, unknown> = {};
   if (input.name !== undefined) updateData.name = (input.name || '').trim();
   if (input.organization !== undefined) updateData.organization = sanitize(input.organization);
   if (input.phone !== undefined) updateData.phone = sanitize(input.phone);

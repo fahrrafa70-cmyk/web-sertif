@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -100,13 +99,13 @@ export default function CertificatesPage() {
         return;
       }
 
-      const mod = await import("jspdf").catch(() => null as any);
+      const mod = (await import("jspdf").catch(() => null)) as null | typeof import("jspdf");
       if (!mod || !("jsPDF" in mod)) {
         toast.error("PDF library missing. Please install 'jspdf' dependency.");
         console.error("jspdf not found. Run: npm i jspdf");
         return;
       }
-      const { jsPDF } = mod as any;
+      const { jsPDF } = mod;
 
       // Normalize URL (local relative -> absolute) similar to preview logic
       let srcRaw = certificate.certificate_image_url || "";
@@ -165,29 +164,6 @@ export default function CertificatesPage() {
     }
   }
 
-  // Download generated certificate image directly
-  async function downloadImage(certificate: Certificate) {
-    try {
-      if (!certificate.certificate_image_url) {
-        toast.error("Certificate image not available");
-        return;
-      }
-      let srcRaw = certificate.certificate_image_url || "";
-      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
-        srcRaw = `/${srcRaw}`;
-      }
-      const src = srcRaw.startsWith('/') && typeof window !== 'undefined'
-        ? `${window.location.origin}${srcRaw}`
-        : srcRaw;
-
-      // Replaced by send email feature
-      console.warn('downloadImage is deprecated; use sendCertificateEmail instead');
-    } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : "Failed to download image");
-    }
-  }
-
   // Generate certificate link
   async function generateCertificateLink(certificate: Certificate) {
     try {
@@ -225,8 +201,7 @@ export default function CertificatesPage() {
       }
 
       // Try to read recipient email from joined member if present
-      // @ts-expect-error allow optional nested member
-      const guessedEmail: string | undefined = certificate?.members?.email || certificate?.member?.email || undefined;
+      const guessedEmail: string | undefined = certificate.members?.email;
 
       // Normalize image URL (local public path -> absolute), similar to preview
       let srcRaw = certificate.certificate_image_url || "";
@@ -479,7 +454,7 @@ export default function CertificatesPage() {
                   onChange={(e) => setCategoryFilter(e.target.value)}
                   className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">All Categories</option>
+                  <option value="">{t('templates.allCategories')}</option>
                   <option value="MoU">MoU</option>
                   <option value="Magang">Magang</option>
                   <option value="Pelatihan">Pelatihan</option>
@@ -550,9 +525,7 @@ export default function CertificatesPage() {
                 className="mt-8 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden"
               >
                 <Table>
-                  <TableCaption>
-                    Dynamic certificate data from database
-                  </TableCaption>
+                  
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t("certificates.certificateId")}</TableHead>
@@ -967,35 +940,22 @@ export default function CertificatesPage() {
                               ? `${window.location.origin}${localWithBust}`
                               : localWithBust;
 
-                            // If remote URL or data URL, use <img> to avoid Next/Image constraints
+                            // Use Next.js Image for all cases. For remote/data URLs, disable optimization.
                             const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
-                            if (isRemote || isData) {
-                              return (
-                                <img
-                                  src={src}
-                                  alt="Certificate"
-                                  crossOrigin="anonymous"
-                                  className="absolute inset-0 w-full h-full object-cover"
-                                  style={{ objectFit: 'cover' }}
-                                  onError={(e) => {
-                                    console.warn('Preview image failed to load', src);
-                                  }}
-                                />
-                              );
-                            }
-
                             return (
                               <Image
                                 src={src}
                                 alt="Certificate"
                                 fill
+                                sizes="100vw"
                                 className="object-cover absolute inset-0"
                                 style={{ objectFit: 'cover' }}
                                 onError={() => {
                                   console.warn('Preview image failed to load', src);
                                 }}
                                 priority
+                                unoptimized={isRemote || isData}
                               />
                             );
                           })()
@@ -1239,11 +1199,15 @@ export default function CertificatesPage() {
               <div className="space-y-2">
                 <label className="text-sm text-gray-600">Attachment Preview</label>
                 <div className="border rounded-lg p-2 bg-gray-50">
-                  <img
-                    src={sendPreviewSrc}
-                    alt="Certificate preview"
-                    className="max-h-64 w-auto object-contain mx-auto"
-                  />
+                  <div className="relative w-full h-64">
+                    <Image
+                      src={sendPreviewSrc}
+                      alt="Certificate preview"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 640px"
+                      className="object-contain"
+                    />
+                  </div>
                 </div>
               </div>
             )}

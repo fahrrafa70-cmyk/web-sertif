@@ -2,28 +2,66 @@
 
 import Header from "@/components/header";
 import HeroSection from "@/components/hero-section";
-import AboutSection from "@/components/about-section";
-import VideoDocumentationSection from "@/components/video-documentation-section";
-import Footer from "@/components/footer";
 import { useAuth } from "@/contexts/auth-context";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const { role, isAuthenticated } = useAuth();
+  const [headerH, setHeaderH] = useState<number>(64);
+  const [viewportH, setViewportH] = useState<number>(typeof window !== 'undefined' ? window.innerHeight : 0);
 
   useEffect(() => {
     if (!isAuthenticated) return;
     console.log("Rendering UI for role:", role ?? "unknown");
   }, [isAuthenticated, role]);
+
+  // No global scroll lock; height-based approach below prevents scroll
+  useEffect(() => {
+    const measure = () => {
+      try {
+        const el = document.querySelector('header');
+        const h = el ? Math.ceil((el as HTMLElement).getBoundingClientRect().height) : 64;
+        setHeaderH(h > 0 ? h : 64);
+        setViewportH(window.innerHeight || document.documentElement.clientHeight || 0);
+      } catch {
+        setHeaderH(64);
+        setViewportH(window.innerHeight || 0);
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  // Hard lock vertical scroll on landing only
+  useEffect(() => {
+    try {
+      const prevHtmlOverflow = window.getComputedStyle(document.documentElement).overflowY;
+      const prevBodyOverflow = window.getComputedStyle(document.body).overflowY;
+      const prevBodyPaddingTop = window.getComputedStyle(document.body).paddingTop;
+      document.documentElement.style.setProperty('overflow-y', 'hidden', 'important');
+      document.body.style.setProperty('overflow-y', 'hidden', 'important');
+      // Remove global body top padding applied in globals.css for fixed header
+      document.body.style.setProperty('padding-top', '0', 'important');
+      return () => {
+        document.documentElement.style.setProperty('overflow-y', prevHtmlOverflow || 'scroll', 'important');
+        document.body.style.setProperty('overflow-y', prevBodyOverflow || 'scroll', 'important');
+        document.body.style.setProperty('padding-top', prevBodyPaddingTop || '4rem', 'important');
+      };
+    } catch {}
+  }, []);
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <Header />
-      <main>
+      <main
+        className="overflow-hidden flex flex-col flex-1 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800"
+        style={{
+          height: `calc(100svh - ${headerH}px)`,
+          minHeight: `${Math.max(0, Math.ceil(viewportH - headerH) + 2)}px`,
+        }}
+      >
         <HeroSection />
-        <AboutSection />
-        <VideoDocumentationSection />
       </main>
-      <Footer />
     </div>
   );
 }

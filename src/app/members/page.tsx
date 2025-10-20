@@ -6,12 +6,14 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Member, createMember, getMembers, updateMember, deleteMember as deleteMemberService } from "@/lib/supabase/members";
 import { Certificate, getCertificatesByMember } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function MembersPage() {
+  const { t } = useLanguage();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [membersData, setMembersData] = useState<Member[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -64,24 +66,24 @@ export default function MembersPage() {
       setViewerCerts(certs);
     } catch (e) {
       console.error(e);
-      toast.error(e instanceof Error ? e.message : "Failed to load certificates");
+      toast.error(e instanceof Error ? e.message : t('members.loadCertificatesFailed'));
     } finally {
       setViewerLoading(false);
     }
   }
 
-  async function loadMembers() {
+  const loadMembers = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getMembers();
       setMembersData(data);
     } catch (e) {
       console.error(e);
-      toast.error(e instanceof Error ? e.message : "Failed to load members");
+      toast.error(e instanceof Error ? e.message : t('members.loadMembersFailed'));
     } finally {
       setLoading(false);
     }
-  }
+  }, [t]);
 
   // Load role from localStorage and initialize
   useEffect(() => {
@@ -112,7 +114,7 @@ export default function MembersPage() {
     };
     
     initializeComponent();
-  }, []);
+  }, [loadMembers]);
 
   function openEdit(member: Member) {
     setEditingMember(member);
@@ -134,7 +136,7 @@ export default function MembersPage() {
     e.preventDefault();
     if (!editingMember) return;
     if (!editForm.name.trim()) {
-      toast.error("Name is required");
+      toast.error(t('members.nameRequired'));
       return;
     }
     try {
@@ -152,12 +154,12 @@ export default function MembersPage() {
       });
       // Update local list
       setMembersData((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
-      toast.success("Member updated");
+      toast.success(t('members.updateSuccess'));
       setEditOpen(false);
       setEditingMember(null);
     } catch (e) {
       console.error(e);
-      toast.error(e instanceof Error ? e.message : "Failed to update member");
+      toast.error(e instanceof Error ? e.message : t('members.updateFailed'));
     } finally {
       setEditSaving(false);
     }
@@ -166,7 +168,7 @@ export default function MembersPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) {
-      toast.error("Name is required");
+      toast.error(t('members.nameRequired'));
       return;
     }
     try {
@@ -182,14 +184,14 @@ export default function MembersPage() {
         city: form.city || undefined,
         notes: form.notes || undefined,
       });
-      toast.success("Member added successfully");
+      toast.success(t('members.addSuccess'));
       setShowForm(false);
       setForm({ name: "", email: "", organization: "", phone: "", job: "", date_of_birth: "", address: "", city: "", notes: "" });
       // optimistic update
       setMembersData((prev) => [added, ...prev]);
     } catch (e) {
       console.error(e);
-      toast.error(e instanceof Error ? e.message : "Failed to add member");
+      toast.error(e instanceof Error ? e.message : t('members.addFailed'));
     } finally {
       setAdding(false);
     }
@@ -198,7 +200,7 @@ export default function MembersPage() {
   // Delete member function (only for Admin)
   async function deleteMember(id: string) {
     if (role !== "Admin") {
-      toast.error("You don't have permission to delete members");
+      toast.error(t('members.deleteNoPermission'));
       return;
     }
     
@@ -215,10 +217,10 @@ export default function MembersPage() {
       
       // Remove from local state after successful deletion
       setMembersData(prev => prev.filter(m => m.id !== id));
-      toast.success(`Member "${member.name}" deleted successfully`);
+      toast.success(t('members.deleteSuccess'));
     } catch (error) {
       console.error("Failed to delete member:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to delete member");
+      toast.error(error instanceof Error ? error.message : t('members.deleteFailed'));
     } finally {
       setDeleting(null);
     }
@@ -239,10 +241,10 @@ export default function MembersPage() {
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                Loading...
+                {t('common.loading')}
               </h1>
               <p className="text-gray-500">
-                Please wait while we load the members page.
+                {t('members.loadingPage')}
               </p>
             </div>
           </div>
@@ -261,10 +263,10 @@ export default function MembersPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
             <div className="text-center">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                Access Denied
+                {t('members.accessDenied.title')}
               </h1>
               <p className="text-gray-500">
-                You don't have permission to access this page.
+                {t('members.accessDenied.message')}
               </p>
             </div>
           </div>
@@ -282,12 +284,12 @@ export default function MembersPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Members</h1>
-                <p className="text-gray-500 mt-1">Manage platform members</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('members.title')}</h1>
+                <p className="text-gray-500 mt-1">{t('members.subtitle')}</p>
               </div>
               {(role === "Admin" || role === "Team") && (
                 <Button onClick={() => setShowForm((s) => !s)} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                  {showForm ? "Close" : "Add Member"}
+                  {showForm ? t('common.close') : t('members.addMember')}
                 </Button>
               )}
             </div>
@@ -295,47 +297,46 @@ export default function MembersPage() {
             {showForm && (role === "Admin" || role === "Team") && (
               <motion.form onSubmit={onSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 border rounded-xl">
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">Full Name</label>
-                  <Input value={form.name} placeholder="e.g. John Doe" onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  <label className="text-sm text-gray-700">{t('members.form.fullName')}</label>
+                  <Input value={form.name} placeholder={t('members.form.fullNamePlaceholder')} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">Email</label>
+                  <label className="text-sm text-gray-700">{t('members.form.email')}</label>
                   <Input type="email" value={form.email} placeholder="name@example.com" onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">Organization</label>
-                  <Input value={form.organization} placeholder="Optional" onChange={(e) => setForm({ ...form, organization: e.target.value })} />
+                  <label className="text-sm text-gray-700">{t('members.form.organization')}</label>
+                  <Input value={form.organization} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">Phone</label>
-                  <Input value={form.phone} placeholder="Optional" onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <label className="text-sm text-gray-700">{t('members.form.phone')}</label>
+                  <Input value={form.phone} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">Job</label>
-                  <Input value={form.job} placeholder="Optional" onChange={(e) => setForm({ ...form, job: e.target.value })} />
+                  <label className="text-sm text-gray-700">{t('members.form.job')}</label>
+                  <Input value={form.job} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, job: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">Date of Birth</label>
+                  <label className="text-sm text-gray-700">{t('members.form.dob')}</label>
                   <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm text-gray-700">Address</label>
-                  <Input value={form.address} placeholder="Optional" onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                  <label className="text-sm text-gray-700">{t('members.form.address')}</label>
+                  <Input value={form.address} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, address: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">City</label>
-                  <Input value={form.city} placeholder="Optional" onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                  <label className="text-sm text-gray-700">{t('members.form.city')}</label>
+                  <Input value={form.city} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, city: e.target.value })} />
                 </div>
                 <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <label className="text-sm text-gray-700">Notes</label>
-                  <Input value={form.notes} placeholder="Optional" onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                  <label className="text-sm text-gray-700">{t('members.form.notes')}</label>
+                  <Input value={form.notes} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
                 <div className="flex items-end">
                   <Button type="submit" disabled={adding} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                    {adding ? "Adding..." : "Save"}
+                    {adding ? t('members.adding') : t('common.save')}
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 md:col-span-2 lg:col-span-3">Members are recipients (not app users). Use this form to add participants.</p>
               </motion.form>
             )}
 
@@ -343,13 +344,13 @@ export default function MembersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Organization</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Job</TableHead>
-                    <TableHead>City</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('members.table.name')}</TableHead>
+                    <TableHead>{t('members.table.organization')}</TableHead>
+                    <TableHead>{t('members.table.email')}</TableHead>
+                    <TableHead>{t('members.table.phone')}</TableHead>
+                    <TableHead>{t('members.table.job')}</TableHead>
+                    <TableHead>{t('members.table.city')}</TableHead>
+                    <TableHead className="text-right">{t('members.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -363,9 +364,9 @@ export default function MembersPage() {
                       <TableCell>{m.city || "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="secondary" onClick={() => openViewer(m)}>View Certificates</Button>
+                          <Button variant="secondary" onClick={() => openViewer(m)}>{t('members.viewCertificates')}</Button>
                           {(role === "Admin" || role === "Team") && (
-                            <Button variant="outline" className="border-gray-300" onClick={() => openEdit(m)}>Edit</Button>
+                            <Button variant="outline" className="border-gray-300" onClick={() => openEdit(m)}>{t('common.edit')}</Button>
                           )}
                           {canDelete && (
                             <Button 
@@ -373,7 +374,7 @@ export default function MembersPage() {
                               onClick={() => deleteMember(m.id)}
                               disabled={deleting === m.id}
                             >
-                              {deleting === m.id ? "Deleting..." : "Delete"}
+                              {deleting === m.id ? t('members.deleting') : t('common.delete')}
                             </Button>
                           )}
                         </div>
@@ -385,7 +386,7 @@ export default function MembersPage() {
                       <TableCell colSpan={7} className="text-center text-gray-500 py-12">
                         <div className="flex items-center justify-center space-x-2">
                           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                          <span>Loading members...</span>
+                          <span>{t('members.loadingMembers')}</span>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -397,14 +398,14 @@ export default function MembersPage() {
                           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <span className="text-2xl text-gray-400">👥</span>
                           </div>
-                          <h3 className="text-lg font-semibold text-gray-600 mb-2">No members found</h3>
-                          <p className="text-gray-500 mb-4">Get started by adding your first member.</p>
+                          <h3 className="text-lg font-semibold text-gray-600 mb-2">{t('members.noMembersTitle')}</h3>
+                          <p className="text-gray-500 mb-4">{t('members.noMembersMessage')}</p>
                           {(role === "Admin" || role === "Team") && (
                             <button
                               onClick={() => setShowForm(true)}
                               className="text-blue-600 hover:text-blue-700 font-medium"
                             >
-                              Add Member
+                              {t('members.addMember')}
                             </button>
                           )}
                         </div>
@@ -419,13 +420,13 @@ export default function MembersPage() {
               <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center" onClick={() => setViewerOpen(false)}>
                 <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Certificates — {viewerMember?.name}</h3>
-                    <Button variant="outline" onClick={() => setViewerOpen(false)}>Close</Button>
+                    <h3 className="text-lg font-semibold">{t('members.certificates')} — {viewerMember?.name}</h3>
+                    <Button variant="outline" onClick={() => setViewerOpen(false)}>{t('common.close')}</Button>
                   </div>
                   {viewerLoading ? (
-                    <p className="text-gray-500">Loading...</p>
+                    <p className="text-gray-500">{t('common.loading')}</p>
                   ) : viewerCerts.length === 0 ? (
-                    <p className="text-gray-500">No certificates found for this member.</p>
+                    <p className="text-gray-500">{t('members.noCertificatesForMember')}</p>
                   ) : (
                     <div className="space-y-2">
                       {viewerCerts.map((c) => (
@@ -434,7 +435,7 @@ export default function MembersPage() {
                             <div className="font-medium">{c.certificate_no}</div>
                             <div className="text-sm text-gray-500">{c.category || "—"} · Issued {new Date(c.issue_date).toLocaleDateString()}</div>
                           </div>
-                          <Button variant="outline" onClick={() => { if (c.certificate_image_url) { setImagePreviewUrl(c.certificate_image_url); setImagePreviewOpen(true); } }}>Preview</Button>
+                          <Button variant="outline" onClick={() => { if (c.certificate_image_url) { setImagePreviewUrl(c.certificate_image_url); setImagePreviewOpen(true); } }}>{t('common.preview')}</Button>
                         </div>
                       ))}
                     </div>
@@ -447,49 +448,49 @@ export default function MembersPage() {
               <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
                 <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-3xl p-6" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Edit Member</h3>
-                    <Button variant="outline" onClick={() => setEditOpen(false)}>Close</Button>
+                    <h3 className="text-lg font-semibold">{t('members.editMember')}</h3>
+                    <Button variant="outline" onClick={() => setEditOpen(false)}>{t('common.close')}</Button>
                   </div>
                   <form onSubmit={submitEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">Full Name</label>
+                      <label className="text-sm text-gray-700">{t('members.form.fullName')}</label>
                       <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">Email</label>
+                      <label className="text-sm text-gray-700">{t('members.form.email')}</label>
                       <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">Organization</label>
+                      <label className="text-sm text-gray-700">{t('members.form.organization')}</label>
                       <Input value={editForm.organization} onChange={(e) => setEditForm({ ...editForm, organization: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">Phone</label>
+                      <label className="text-sm text-gray-700">{t('members.form.phone')}</label>
                       <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">Job</label>
+                      <label className="text-sm text-gray-700">{t('members.form.job')}</label>
                       <Input value={editForm.job} onChange={(e) => setEditForm({ ...editForm, job: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">Date of Birth</label>
+                      <label className="text-sm text-gray-700">{t('members.form.dob')}</label>
                       <Input type="date" value={editForm.date_of_birth} onChange={(e) => setEditForm({ ...editForm, date_of_birth: e.target.value })} />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm text-gray-700">Address</label>
+                      <label className="text-sm text-gray-700">{t('members.form.address')}</label>
                       <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">City</label>
+                      <label className="text-sm text-gray-700">{t('members.form.city')}</label>
                       <Input value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
                     </div>
                     <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                      <label className="text-sm text-gray-700">Notes</label>
+                      <label className="text-sm text-gray-700">{t('members.form.notes')}</label>
                       <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
                     </div>
                     <div className="flex items-end">
                       <Button type="submit" disabled={editSaving} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                        {editSaving ? "Saving..." : "Save Changes"}
+                        {editSaving ? t('members.saving') : t('members.saveChanges')}
                       </Button>
                     </div>
                   </form>
@@ -501,14 +502,15 @@ export default function MembersPage() {
               <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setImagePreviewOpen(false)}>
                 <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between px-4 py-3 border-b">
-                    <div className="text-sm text-gray-600">Certificate Image Preview</div>
-                    <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>Close</Button>
+                    <div className="text-sm text-gray-600">{t('members.certificateImagePreview')}</div>
+                    <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>{t('common.close')}</Button>
                   </div>
                   <div className="p-4 bg-gray-50">
                     {imagePreviewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={imagePreviewUrl} alt="Certificate" className="w-full h-auto rounded-lg border" />
                     ) : (
-                      <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">No image</div>
+                      <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">{t('members.noImage')}</div>
                     )}
                   </div>
                 </div>

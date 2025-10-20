@@ -17,7 +17,7 @@ export function confirmToast(message: string, options: ConfirmOptions = {}): Pro
   const { confirmText = "Confirm", cancelText = "Cancel", tone = "default" } = options;
 
   return new Promise<boolean>((resolve) => {
-    const id = toast.custom((t) => (
+    toast.custom((t) => (
       <div className="max-w-sm w-[360px] rounded-lg border bg-white shadow-lg p-4 text-gray-800">
         <div className="text-sm font-medium mb-3">{message}</div>
         <div className="flex items-center justify-end gap-2">

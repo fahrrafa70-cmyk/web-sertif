@@ -32,8 +32,8 @@ export async function POST(request: Request) {
     console.log('✅ API Route: File uploaded successfully:', publicUrl);
     
     return NextResponse.json({ success: true, url: publicUrl });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('💥 API Route: Error uploading file locally:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' }, { status: 500 });
   }
 }

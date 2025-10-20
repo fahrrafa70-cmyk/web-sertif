@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readdir, unlink, stat } from 'fs/promises';
+import { readdir, unlink } from 'fs/promises';
 import path from 'path';
 import { supabaseClient } from '@/lib/supabase/client';
 
@@ -79,11 +79,11 @@ export async function POST() {
       }
     });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('💥 Cleanup failed:', error);
     return NextResponse.json({ 
       success: false, 
-      error: error.message 
+      error: error instanceof Error ? error.message : 'Unknown error occurred' 
     }, { status: 500 });
   }
 }

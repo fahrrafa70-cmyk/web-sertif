@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +16,7 @@ import { useTemplates } from "@/hooks/use-templates";
 import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
+import Image from "next/image";
 
 export default function TemplatesPage() {
   const { t } = useLanguage();
@@ -342,7 +342,7 @@ export default function TemplatesPage() {
                   onChange={(e) => setCategoryFilter(e.target.value)}
                   className="w-full sm:w-56 h-12 px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">All Categories</option>
+                  <option value="">{t('templates.allCategories')}</option>
                   <option value="MoU">MoU</option>
                   <option value="Magang">Magang</option>
                   <option value="Pelatihan">Pelatihan</option>
@@ -370,12 +370,12 @@ export default function TemplatesPage() {
                         {cleaningUp ? (
                           <>
                             <div className="w-4 h-4 mr-2 border-2 border-orange-300 border-t-orange-600 rounded-full animate-spin"></div>
-                            Cleaning...
+                            {t('templates.cleaning')}
                           </>
                         ) : (
                           <>
                             <Trash2 className="w-4 h-4 mr-2" />
-                            Cleanup Images
+                            {t('templates.cleanupImages')}
                           </>
                         )}
                       </Button>
@@ -395,8 +395,8 @@ export default function TemplatesPage() {
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
                   <FileText className="w-12 h-12 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">Loading templates...</h3>
-                <p className="text-gray-500">Please wait while we fetch your templates.</p>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">{t('templates.loading')}</h3>
+                <p className="text-gray-500">{t('common.loading')}</p>
               </motion.div>
             )}
 
@@ -410,13 +410,13 @@ export default function TemplatesPage() {
                 <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <FileText className="w-12 h-12 text-red-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-red-600 mb-2">Error loading templates</h3>
+                <h3 className="text-xl font-semibold text-red-600 mb-2">{t('templates.errorLoading')}</h3>
                 <p className="text-red-500 mb-6">{error}</p>
                 <Button 
                   onClick={() => window.location.reload()} 
                   className="gradient-primary text-white shadow-lg hover:shadow-xl"
                 >
-                  Try Again
+                  {t('common.tryAgain')}
                 </Button>
               </motion.div>
             )}
@@ -441,11 +441,16 @@ export default function TemplatesPage() {
                     {/* Template Preview (uniform 16:9 frame so cards have equal height) */}
                     <div className="relative aspect-video bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200 overflow-hidden">
                       {getTemplatePreviewUrl(tpl) ? (
-                        <img 
-                          src={getTemplatePreviewUrl(tpl)!} 
-                          alt={tpl.name}
-                          className="w-full h-full object-contain"
-                        />
+                        <div className="absolute inset-0">
+                          <Image 
+                            src={getTemplatePreviewUrl(tpl)!}
+                            alt={tpl.name}
+                            fill
+                            sizes="(max-width: 1280px) 50vw, 33vw"
+                            className="object-contain"
+                            unoptimized
+                          />
+                        </div>
                       ) : (
                         <>
                           <div className={`absolute inset-0 bg-gradient-to-br ${getCategoryColor(tpl.category)} opacity-10`}></div>
@@ -499,7 +504,7 @@ export default function TemplatesPage() {
                               }
                             }}
                           >
-                            Use This Template
+                            {t('templates.useThisTemplate')}
                           </Button>
                         )}
 
@@ -524,7 +529,7 @@ export default function TemplatesPage() {
                               {deletingTemplateId === tpl.id ? (
                                 <>
                                   <div className="w-4 h-4 mr-1 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
-                                  Deleting...
+                                  {t('templates.deleting')}
                                 </>
                               ) : (
                                 <>
@@ -553,15 +558,15 @@ export default function TemplatesPage() {
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <FileText className="w-12 h-12 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No templates found</h3>
-                <p className="text-gray-500 mb-6">Try adjusting your search criteria or create a new template.</p>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">{t('templates.noTemplates')}</h3>
+                <p className="text-gray-500 mb-6">{t('templates.subtitle')}</p>
                 {(role === "Admin" || role === "Team") && (
                   <Button 
                     onClick={openCreate} 
                     className="gradient-primary text-white shadow-lg hover:shadow-xl"
                   >
                     <Plus className="w-5 h-5 mr-2" />
-                    Create First Template
+                    {t('templates.createNew')}
                   </Button>
                 )}
               </motion.div>
@@ -664,11 +669,15 @@ export default function TemplatesPage() {
                 />
                 {imagePreview && (
                   <div className="relative">
-                    <img 
-                      src={imagePreview} 
-                      alt="Template preview" 
-                      className="w-full h-32 object-cover rounded-lg border border-gray-200" 
-                    />
+                    <div className="relative w-full h-32">
+                      <Image 
+                        src={imagePreview} 
+                        alt="Template preview" 
+                        fill
+                        className="object-cover rounded-lg border border-gray-200"
+                        unoptimized
+                      />
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
@@ -701,11 +710,15 @@ export default function TemplatesPage() {
                 />
                 {previewImagePreview && (
                   <div className="relative">
-                    <img 
-                      src={previewImagePreview} 
-                      alt="Preview image" 
-                      className="w-full h-24 object-cover rounded-lg border border-gray-200" 
-                    />
+                    <div className="relative w-full h-24">
+                      <Image 
+                        src={previewImagePreview} 
+                        alt="Preview image" 
+                        fill
+                        className="object-cover rounded-lg border border-gray-200" 
+                        unoptimized
+                      />
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
@@ -743,272 +756,59 @@ export default function TemplatesPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Enhanced Edit Template Sheet */}
-      <Sheet open={!!isEditOpen} onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle className="text-xl font-bold text-gradient">Edit Template</SheetTitle>
-            <SheetDescription>Update template details.</SheetDescription>
-          </SheetHeader>
-          <div className="p-4 space-y-6">
-            {/* Current Preview Image */}
-            <motion.div 
-              className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <label className="text-sm font-semibold text-gray-700">Current Preview Image</label>
-              <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
-                {previewImagePreview ? (
-                  <img
-                    src={previewImagePreview}
-                    alt="Preview image"
-                    className="w-full h-40 object-contain bg-gray-50"
-                  />
-                ) : (
-                  <>
-                    {draft && getTemplatePreviewUrl(draft as Template) ? (
-                      <img
-                        src={getTemplatePreviewUrl(draft as Template)!}
-                        alt="Current preview"
-                        className="w-full h-40 object-contain bg-gray-50"
-                      />
-                    ) : (
-                      <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
-                        <Layout className="w-6 h-6 mr-2" />
-                        No preview image
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </motion.div>
+      
 
-            {/* Change Preview Image */}
-            <motion.div 
-              className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.05 }}
-            >
-              <label className="text-sm font-semibold text-gray-700">Change Preview Image</label>
-              <div className="space-y-3">
-                <input
-                  type="file"
-                  accept=".png,.jpg,.jpeg"
-                  onChange={(e) => handlePreviewImageUpload(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-                />
-                {previewImagePreview && (
-                  <div className="relative">
-                    <img 
-                      src={previewImagePreview} 
-                      alt="Preview image" 
-                      className="w-full h-24 object-cover rounded-lg border border-gray-200" 
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white"
-                      onClick={() => handlePreviewImageUpload(null)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-
-            <motion.div 
-              className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <label className="text-sm font-semibold text-gray-700">Template Name</label>
-              <Input 
-                value={draft?.name ?? ""} 
-                onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))} 
-                className="rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
-              />
-            </motion.div>
-            
-            <motion.div 
-              className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <label className="text-sm font-semibold text-gray-700">Category</label>
-              <select 
-                value={draft?.category ?? ""} 
-                onChange={(e) => setDraft((d) => (d ? { ...d, category: e.target.value } : d))} 
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select category</option>
-                <option value="MoU">MoU</option>
-                <option value="Magang">Magang</option>
-                <option value="Pelatihan">Pelatihan</option>
-                <option value="Kunjungan Industri">Kunjungan Industri</option>
-                <option value="Sertifikat">Sertifikat</option>
-                <option value="Surat">Surat</option>
-                <option value="Lainnya">Lainnya</option>
-              </select>
-            </motion.div>
-            
-            <motion.div 
-              className="space-y-3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            >
-              <label className="text-sm font-semibold text-gray-700">Orientation</label>
-              <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  variant={draft?.orientation === "Landscape" ? "default" : "outline"} 
-                  onClick={() => setDraft((d) => (d ? { ...d, orientation: "Landscape" } : d))}
-                  className="rounded-lg"
-                >
-                  <Layout className="w-4 h-4 mr-2" />
-                  Landscape
-                </Button>
-                <Button 
-                  variant={draft?.orientation === "Portrait" ? "default" : "outline"} 
-                  onClick={() => setDraft((d) => (d ? { ...d, orientation: "Portrait" } : d))}
-                  className="rounded-lg"
-                >
-                  <Layout className="w-4 h-4 mr-2" />
-                  Portrait
-                </Button>
-              </div>
-            </motion.div>
-            
-            
-            <motion.div 
-              className="flex justify-end gap-3 pt-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.4 }}
-            >
-              <Button 
-                variant="outline" 
-                className="border-gray-300 hover:border-gray-400" 
-                onClick={() => setIsEditOpen(null)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                className="gradient-primary text-white shadow-lg hover:shadow-xl" 
-                onClick={submitEdit}
-              >
-                Save Changes
-              </Button>
-            </motion.div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Enhanced Preview Modal */}
-      <Dialog open={!!previewTemplate} onOpenChange={(o) => setPreviewTemplate(o ? previewTemplate : null)}>
-        <DialogContent className="preview-modal-content max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-gradient">{t('templates.templatePreview')}</DialogTitle>
-            <DialogDescription className="text-lg">{t('templates.templateDetails')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-8">
-            {previewTemplate && (
-              <>
-                {/* Template Info */}
+          {/* Enhanced Edit Template Sheet */}
+          <Sheet open={!!isEditOpen} onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}>
+            <SheetContent side="right" className="w-full sm:max-w-md">
+              <SheetHeader>
+                <SheetTitle className="text-xl font-bold text-gradient">Edit Template</SheetTitle>
+                <SheetDescription>Update template details.</SheetDescription>
+              </SheetHeader>
+              <div className="p-4 space-y-6">
+                {/* Current Preview Image */}
                 <motion.div 
-                  className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <div className="space-y-6">
-                    <motion.div 
-                      className="space-y-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.1 }}
-                    >
-                      <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('templates.name')}</label>
-                      <div className="text-2xl font-bold text-gray-900">{previewTemplate.name}</div>
-                    </motion.div>
-                    
-                    <motion.div 
-                      className="space-y-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.2 }}
-                    >
-                      <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('templates.category')}</label>
-                      <div className={`inline-block px-4 py-2 rounded-full bg-gradient-to-r ${getCategoryColor(previewTemplate.category)} text-white font-medium`}>
-                        {previewTemplate.category}
+                  <label className="text-sm font-semibold text-gray-700">Current Preview Image</label>
+                  <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                    {previewImagePreview ? (
+                      <div className="relative w-full h-40">
+                        <Image
+                          src={previewImagePreview}
+                          alt="Preview image"
+                          fill
+                          className="object-contain bg-gray-50"
+                          unoptimized
+                        />
                       </div>
-                    </motion.div>
-                    
-                    <motion.div 
-                      className="space-y-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.3 }}
-                    >
-                      <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('templates.orientation')}</label>
-                      <div className="text-lg text-gray-700 flex items-center gap-2">
-                        <Layout className="w-5 h-5" />
-                        {previewTemplate.orientation}
-                      </div>
-                    </motion.div>
-                    
-                    <motion.div 
-                      className="space-y-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.4 }}
-                    >
-                      <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('templates.description')}</label>
-                      <div className="text-gray-700 leading-relaxed">
-                        This is a professional {previewTemplate.category.toLowerCase()} certificate template designed for {previewTemplate.orientation.toLowerCase()} orientation. 
-                        Perfect for recognizing achievements, completions, and accomplishments in {previewTemplate.category.toLowerCase()} programs.
-                      </div>
-                    </motion.div>
-                  </div>
-                  
-                  {/* Template Preview Image Only (no dummy text overlay) */}
-                  <motion.div 
-                    className="space-y-4"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                  >
-                    <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('templates.templatePreview')}</label>
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
-                      <div
-                        className="bg-white rounded-xl p-2 shadow-xl relative overflow-hidden"
-                        style={{ aspectRatio: previewTemplate.orientation === 'Portrait' ? '3 / 4' : '16 / 9' }}
-                      >
-                        {getTemplatePreviewUrl(previewTemplate) ? (
-                          <img
-                            src={getTemplatePreviewUrl(previewTemplate)!}
-                            alt={previewTemplate.name}
-                            className="w-full h-full object-contain"
-                          />
+                    ) : (
+                      <>
+                        {draft && getTemplatePreviewUrl(draft as Template) ? (
+                          <div className="relative w-full h-40">
+                            <Image
+                              src={getTemplatePreviewUrl(draft as Template)!}
+                              alt="Current preview"
+                              fill
+                              className="object-contain bg-gray-50"
+                              unoptimized
+                            />
+                          </div>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                            <div className="text-center text-gray-400">
-                              <Layout className="w-12 h-12 mx-auto mb-2" />
-                              <div>No preview image</div>
-                            </div>
+                          <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                            <Layout className="w-6 h-6 mr-2" />
+                            No preview image
                           </div>
                         )}
-                      </div>
-                    </div>
-                  </motion.div>
+                      </>
+                    )}
+                  </div>
                 </motion.div>
 
-                {/* Enhanced Action Buttons */}
+                {/* Change Preview Image */}
                 <motion.div 
                   className="flex justify-end gap-4 pt-6 border-t border-gray-200"
                   initial={{ opacity: 0, y: 20 }}
@@ -1018,33 +818,77 @@ export default function TemplatesPage() {
                   <Button 
                     variant="outline" 
                     className="border-gray-300 hover:border-gray-400 px-6" 
-                    onClick={() => setPreviewTemplate(null)}
+                    onClick={() => setIsEditOpen(null)}
                   >
-                    Close
+                    Cancel
                   </Button>
                   {(role === "Admin" || role === "Team") && (
                     <Button 
                       className="gradient-primary text-white shadow-lg hover:shadow-xl px-6" 
-                      onClick={() => {
-                        setPreviewTemplate(null);
-                        if (role === "Admin" || role === "Team") {
-                          router.push(`/templates/generate?template=${previewTemplate.id}`);
-                        }
-                      }}
+                      onClick={submitEdit}
                     >
-                      Use This Template
+                      Save Changes
                     </Button>
                   )}
                 </motion.div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+              </div>
+            </SheetContent>
+          </Sheet>
 
-      {/* Toast Notifications */}
-      <Toaster position="top-right" richColors />
-    </div>
+          {/* Template Preview Sheet */}
+          <Sheet open={!!previewTemplate} onOpenChange={(o) => setPreviewTemplate(o ? previewTemplate : null)}>
+            <SheetContent side="right" className="w-full sm:max-w-2xl">
+              <SheetHeader>
+                <SheetTitle className="text-xl font-bold text-gradient">{t('templates.preview')}</SheetTitle>
+                <SheetDescription>Preview the selected template.</SheetDescription>
+              </SheetHeader>
+              <div className="p-4 space-y-6">
+                <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                  {previewTemplate && getTemplatePreviewUrl(previewTemplate) ? (
+                    <div className="relative w-full aspect-video">
+                      <Image
+                        src={getTemplatePreviewUrl(previewTemplate)!}
+                        alt={previewTemplate.name}
+                        fill
+                        className="object-contain bg-gray-50"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-video flex items-center justify-center text-gray-400 bg-gray-50">
+                      <Layout className="w-6 h-6 mr-2" />
+                      No preview image
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="border-gray-300 hover:border-gray-400" 
+                    onClick={() => setPreviewTemplate(null)}
+                  >
+                    {t('common.close')}
+                  </Button>
+                  {(role === "Admin" || role === "Team") && previewTemplate && (
+                    <Button 
+                      className="gradient-primary text-white shadow-lg hover:shadow-xl" 
+                      onClick={() => {
+                        router.push(`/templates/generate?template=${previewTemplate.id}`);
+                        setPreviewTemplate(null);
+                      }}
+                    >
+                      {t('templates.useThisTemplate')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+
+    {/* Toast Notifications */}
+    <Toaster position="top-right" richColors />
+  </div>
   );
 }
 

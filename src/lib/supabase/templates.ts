@@ -210,7 +210,7 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       }
     }
 
-    const insertData: Record<string, any> = {
+    const insertData: Record<string, unknown> = {
       name: templateData.name.trim(),
       category: templateData.category.trim(),
       orientation: templateData.orientation.trim(),
@@ -236,7 +236,7 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       const columnMissing = typeof error.message === 'string' && error.message.includes('preview_image_path');
       if (columnMissing && previewImagePath) {
         console.warn('⚠️ preview_image_path column missing. Retrying insert without it.');
-        delete insertData.preview_image_path;
+        delete (insertData as Record<string, unknown>).preview_image_path;
         ({ data, error } = await supabaseClient
           .from('templates')
           .insert([insertData])
@@ -246,10 +246,10 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       if (error) {
         console.error('❌ Database insert error:', error);
         console.error('Error details:', {
-          code: (error as any).code,
+          code: (error as { code?: string }).code,
           message: error.message,
-          details: (error as any).details,
-          hint: (error as any).hint
+          details: (error as { details?: unknown }).details,
+          hint: (error as { hint?: unknown }).hint
         });
         throw new Error(`Failed to create template: ${error.message}`);
       }
@@ -310,7 +310,7 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
     }
   }
 
-  const updateData: Record<string, any> = {
+  const updateData: Record<string, unknown> = {
     name: templateData.name,
     category: templateData.category,
     orientation: templateData.orientation,

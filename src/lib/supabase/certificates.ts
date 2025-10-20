@@ -15,7 +15,22 @@ export interface Certificate {
   created_at: string;
   updated_at: string;
   created_by: string | null;
-  members?: any; // joined member row
+  // Optional joined relations
+  members?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    organization?: string;
+    phone?: string | null;
+    job?: string | null;
+    city?: string | null;
+  } | null;
+  templates?: {
+    id?: string;
+    name?: string;
+    category?: string | null;
+    orientation?: string | null;
+  } | null;
 }
 
 // Get certificates by member

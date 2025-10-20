@@ -33,10 +33,10 @@ export async function POST(request: Request) {
       url: publicUrl 
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error saving generated certificate locally:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' },
       { status: 500 }
     );
   }

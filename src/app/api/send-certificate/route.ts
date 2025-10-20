@@ -125,8 +125,8 @@ export async function POST(req: NextRequest) {
     const previewUrl = nodemailer.getTestMessageUrl?.(info) || undefined;
 
     return NextResponse.json({ ok: true, messageId: info.messageId, previewUrl });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("/api/send-certificate error", err);
-    return NextResponse.json({ error: err?.message || "Failed to send" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to send" }, { status: 500 });
   }
 }

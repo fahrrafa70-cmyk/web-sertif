@@ -2,16 +2,13 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Mail, Phone, MapPin, ArrowUp } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
-import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 
 export default function Footer() {
   const { t } = useLanguage();
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+
 
   // Generate decorative bubbles only on client after mount to avoid hydration mismatch
   const [mounted, setMounted] = useState(false);
@@ -65,19 +62,19 @@ export default function Footer() {
             viewport={{ once: true }}
             className="lg:col-span-2"
           >
-            <h3 className="text-2xl font-bold mb-6">Contact Us</h3>
+            <h3 className="text-2xl font-bold mb-6">{t('footer.contact')}</h3>
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-blue-200" />
-                <span className="text-blue-100">+6281380935185</span>
+                <span className="text-blue-100">{t('footer.phone')}</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-blue-200" />
-                <span className="text-blue-100">fahrirafa.rpl1@gmail.com</span>
+                <span className="text-blue-100">{t('footer.email')}</span>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="w-5 h-5 text-blue-200" />
-                <span className="text-blue-100">Malang, Indonesia</span>
+                <span className="text-blue-100">{t('footer.location')}</span>
               </div>
             </div>
           </motion.div>
@@ -135,7 +132,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/cookies" className="text-blue-100 hover:text-white transition-colors duration-200">
-                  Cookie Policy
+                  {t('footer.cookies')}
                 </Link>
               </li>
             </ul>
@@ -153,19 +150,11 @@ export default function Footer() {
               viewport={{ once: true }}
               className="text-blue-100 text-center md:text-left"
             >
-              <p>{t('footer.copyright')}</p>
-              <p className="text-sm mt-1">Developed by Fahri Raffa</p>
+            
+              <p className="text-sm mt-1">{t('footer.developedBy')} Fahri Raffa</p>
             </motion.div>
 
-            {/* Scroll to Top Button */}
-            <motion.button
-              onClick={scrollToTop}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg p-3 transition-all duration-300"
-            >
-              <ArrowUp className="w-5 h-5" />
-            </motion.button>
+            
           </div>
         </div>
       </div>

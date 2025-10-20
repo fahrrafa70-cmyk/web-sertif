@@ -120,6 +120,8 @@
   /* Smooth scroll behavior */
   html {
     scroll-behavior: smooth;
+    /* Base font size scaled to ~80% to simulate 80% zoom across rem-based sizing */
+    font-size: 14px;
   }
 
   /* Enhanced focus styles */
@@ -145,7 +147,7 @@
   ::-webkit-scrollbar-thumb:hover {
     background: oklch(0.6 0.01 106.423);
   }
-  
+
   /* ABSOLUTE NO-SHIFT POLICY - Never change scroll behavior */
   html {
     scrollbar-gutter: stable both-edges !important; /* Always reserve scrollbar space */
@@ -158,7 +160,16 @@
     padding-right: 0 !important;
     margin-right: 0 !important;
   }
-  
+
+  /* Responsive font size adjustments */
+  @media (min-width: 1280px) {
+    /* Maintain ~80% of previous 18px desktop base */
+    html { font-size: 14.4px; }
+  }
+  @media (max-width: 360px) {
+    html { font-size: 16px; }
+  }
+
   body {
     @apply bg-background text-foreground;
     padding-top: 4rem !important; /* Account for fixed header height */
@@ -514,4 +525,15 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Sembunyikan badge dev/toast dan overlay error Next.js (Turbopack) */
+nextjs-portal [data-nextjs-toast],
+nextjs-portal [data-nextjs-error-overlay] {
+  display: none !important;
+}
+
+/* Jika ingin sekalian menonaktifkan seluruh portal Next.js dev */
+nextjs-portal {
+  display: none !important;
 }

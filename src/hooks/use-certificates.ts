@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   getCertificates, 
-  getCertificate, 
   createCertificate, 
   updateCertificate, 
   deleteCertificate,

@@ -59,7 +59,7 @@ export default function DashboardPage() {
       y: 0,
       transition: {
         duration: 0.5,
-        ease: "easeOut"
+        ease: [0, 0, 0.58, 1] as const // easeOut cubic bezier
       }
     }
   };
@@ -98,7 +98,7 @@ export default function DashboardPage() {
               initial="hidden"
               animate="visible"
             >
-              {stats.map((stat, index) => (
+              {stats.map((stat) => (
                 <motion.div
                   key={stat.label}
                   variants={itemVariants}
@@ -181,7 +181,7 @@ export default function DashboardPage() {
                   color: "from-purple-500 to-violet-600",
                   href: "/members"
                 }
-              ].map((action, index) => (
+              ].map((action) => (
                 <motion.div
                   key={action.title}
                   variants={itemVariants}

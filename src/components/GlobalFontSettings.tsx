@@ -18,12 +18,17 @@ interface GlobalFontSettingsProps {
     styleProperty: "fontSize" | "color" | "fontFamily" | "fontWeight",
     value: number | string,
   ) => void;
+  // Optional: only used for date layers
+  dateFormat?: string;
+  onDateFormatChange?: (format: string) => void;
 }
 
 export default function GlobalFontSettings({
   selectedLayerId,
   selectedStyle,
   onChange,
+  dateFormat,
+  onDateFormatChange,
 }: GlobalFontSettingsProps) {
   const [fontSizeInput, setFontSizeInput] = useState<string>("");
   useEffect(() => {
@@ -188,6 +193,32 @@ export default function GlobalFontSettings({
               />
             </div>
           </div>
+
+          {/* Date Format (only for issue_date / expired_date) */}
+          {(selectedLayerId === "issue_date" || selectedLayerId === "expired_date") && (
+            <div className="space-y-2 md:col-span-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                Date Format
+              </label>
+              <select
+                value={dateFormat ?? "yyyy-mm-dd"}
+                onChange={(e) => onDateFormatChange && onDateFormatChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={!selectedLayerId}
+              >
+                <option value="dd-mm-yyyy">20-10-2026 (dd-mm-yyyy)</option>
+                <option value="mm-dd-yyyy">10-20-2026 (mm-dd-yyyy)</option>
+                <option value="yyyy-mm-dd">2026-10-20 (yyyy-mm-dd)</option>
+                <option value="dd-mmm-yyyy">20 Oct 2026 (dd mmm yyy)</option>
+                <option value="dd-mmmm-yyyy">20 October 2026 (dd mmmm yyyy)</option>
+                <option value="mmm-dd-yyyy">Oct 21, 2026 (mmm dd, yyyy)</option>
+                <option value="mmmm-dd-yyyy">October 21, 2026 (mmmm dd, yyyy)</option>
+                <option value="dd/mm/yyyy">20/10/2026 (dd/mm/yyyy)</option>
+                <option value="mm/dd/yyyy">10/20/2026 (mm/dd/yyyy)</option>
+                <option value="yyyy/mm/dd">2026/10/20 (yyyy/mm/dd)</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
     </div>

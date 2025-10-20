@@ -8,13 +8,9 @@ import {
   X, 
   Home, 
   Info, 
-  HelpCircle, 
-  Users, 
-  Award, 
-  FileText, 
+  HelpCircle,  
   LogIn, 
   UserPlus,
-  Shield,
   Mail,
   Phone,
   MapPin,
@@ -254,11 +250,11 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                       </div>
                       <div className="flex items-center space-x-3 text-sm text-gray-500 px-2">
                         <Mail className="w-4 h-4" />
-                        <span>@nurtiyas.id</span>
+                        <span>fahrirafa.rpl1@gmail.com</span>
                       </div>
                       <div className="flex items-center space-x-3 text-sm text-gray-500 px-2">
                         <MapPin className="w-4 h-4" />
-                        <span>Jakarta Timur</span>
+                        <span>Malang</span>
                       </div>
                     </div>
                   </div>
@@ -297,14 +293,13 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start text-base h-10 text-red-600 border-red-300 hover:bg-red-50"
-                        onClick={async () => {
-                          await localSignOut();
+                        className="w-full justify-start text-base h-10 border-gray-300 text-gray-700 hover:bg-gray-50 hover-lift"
+                        onClick={() => {
+                          localSignOut();
                           onClose();
                         }}
                       >
-                        <LogIn className="w-5 h-5 mr-3" />
-                        {t('auth.logout') || 'Log Out'}
+                        {t('auth.logout')}
                       </Button>
                     )}
                   </div>
