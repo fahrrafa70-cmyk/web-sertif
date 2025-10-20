@@ -32,7 +32,7 @@ export function LoginModal() {
           className="grid grid-cols-1 min-h-[400px]"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+          transition={{ duration: 0.3, ease: "easeOut" as const }}
         >
           {/* Enhanced header with gradient */}
           <motion.div 

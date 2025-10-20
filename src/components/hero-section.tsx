@@ -73,7 +73,7 @@ export default function HeroSection() {
                   duration: 4 + ((i * 17) % 30) / 10,
                   repeat: Infinity,
                   delay: ((i * 23) % 30) / 10,
-                  ease: "easeInOut"
+                  ease: "easeInOut" as const
                 }}
               />
             ))}
@@ -88,7 +88,7 @@ export default function HeroSection() {
               transition={{
                 duration: 8,
                 repeat: Infinity,
-                ease: "easeInOut"
+                ease: "easeInOut" as const
               }}
             />
             <motion.div
@@ -100,7 +100,7 @@ export default function HeroSection() {
               transition={{
                 duration: 10,
                 repeat: Infinity,
-                ease: "easeInOut"
+                ease: "easeInOut" as const
               }}
             />
           </div>

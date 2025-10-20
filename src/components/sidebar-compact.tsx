@@ -115,7 +115,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
+            transition={{ duration: 0.25, ease: "easeOut" as const }}
             className="sidebar-overlay"
             style={{
               position: 'fixed',
