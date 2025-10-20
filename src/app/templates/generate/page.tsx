@@ -13,7 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Eye, FileText } from "lucide-react";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -54,7 +54,7 @@ type TextLayer = {
   isEditing?: boolean;
 };
 
-export default function CertificateGeneratorPage() {
+function CertificateGeneratorContent() {
   const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -2515,5 +2515,20 @@ CERT-001,John Doe,Completed Training,2024-01-10,2029-01-10`}
       {/* Toast Notifications */}
       <Toaster position="top-right" richColors />
     </div>
+  );
+}
+
+export default function CertificateGeneratorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading certificate generator...</p>
+        </div>
+      </div>
+    }>
+      <CertificateGeneratorContent />
+    </Suspense>
   );
 }
