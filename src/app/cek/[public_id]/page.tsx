@@ -198,7 +198,7 @@ export default function PublicCertificatePage() {
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-3">Certificate Not Found</h1>
           <p className="text-gray-600 mb-6">
-            The certificate you're looking for doesn't exist or is no longer publicly available.
+            The certificate you&apos;re looking for doesn&apos;t exist or is no longer publicly available.
           </p>
           <Button
             onClick={() => router.push('/')}
