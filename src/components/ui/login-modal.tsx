@@ -75,20 +75,20 @@ export function LoginModal() {
         >
           {/* Enhanced header with gradient */}
           <motion.div 
-            className="bg-gradient-to-b from-blue-400 via-blue-400 to-blue-500 text-white px-6 py-6 relative overflow-hidden"
+            className="gradient-primary text-white px-6 py-6 relative overflow-hidden"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12"></div>
             <DialogHeader className="relative z-10">
-              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                   <Mail className="w-4 h-4" />
                 </div>
                 Welcome Back
               </DialogTitle>
-              <p className="text-blue-100 text-sm mt-1">Sign in to your account to continue</p>
+              <p className="text-white text-sm mt-1">Sign in to your account to continue</p>
             </DialogHeader>
           </motion.div>
 

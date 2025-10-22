@@ -554,6 +554,45 @@ function CertificateGeneratorContent() {
     );
   };
 
+  // AUTO-SAVE: Save coordinates to localStorage whenever textLayers change
+  useEffect(() => {
+    if (!selectedTemplate || textLayers.length === 0) return;
+    
+    // Skip if we're still loading defaults
+    if (defaultsLoadedForTemplateRef.current !== selectedTemplate.id) return;
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(() => {
+      try {
+        const defaults: TextLayerDefault[] = textLayers.map((layer) => ({
+          id: layer.id,
+          x: layer.x,
+          y: layer.y,
+          xPercent: layer.xPercent,
+          yPercent: layer.yPercent,
+          fontSize: layer.fontSize,
+          color: layer.color,
+          fontWeight: layer.fontWeight,
+          fontFamily: layer.fontFamily,
+        }));
+
+        saveTemplateDefaults({
+          templateId: selectedTemplate.id,
+          templateName: selectedTemplate.name,
+          textLayers: defaults,
+          overlayImages: overlayImages,
+          savedAt: new Date().toISOString(),
+        });
+
+        console.log(`💾 Auto-saved coordinates for template: ${selectedTemplate.name}`);
+      } catch (error) {
+        console.warn("⚠️ Failed to auto-save coordinates:", error);
+      }
+    }, 1000); // Save after 1 second of no changes
+
+    return () => clearTimeout(timeoutId);
+  }, [textLayers, overlayImages, selectedTemplate]);
+
   // TEMPLATE DEFAULTS: Load saved defaults for current template
   const loadSavedDefaults = useCallback(() => {
     if (!selectedTemplate) return;
@@ -735,17 +774,20 @@ function CertificateGeneratorContent() {
   // Auto-load saved defaults after text layers are initialized
   useEffect(() => {
     if (selectedTemplate && textLayers.length > 0) {
-      // Check if we've already loaded defaults for this template
+      // Check if we've already loaded defaults for this template IN THIS SESSION
       if (defaultsLoadedForTemplateRef.current === selectedTemplate.id) {
-        return; // Already loaded, skip
+        return; // Already loaded in this session, skip
       }
 
       const savedDefaults = getTemplateDefaults(selectedTemplate.id);
       if (savedDefaults) {
-        console.log(`🔄 Auto-loading defaults for template: ${selectedTemplate.name}`);
+        console.log(`🔄 Auto-loading saved defaults for template: ${selectedTemplate.name}`);
+        console.log(`📍 Saved coordinates:`, savedDefaults.textLayers.map(l => ({ id: l.id, x: l.x, y: l.y })));
         loadSavedDefaults();
       } else {
-        console.log(`ℹ️ No saved defaults found for template: ${selectedTemplate.name}`);
+        console.log(`ℹ️ No saved defaults found for template: ${selectedTemplate.name}, using initial positions`);
+        // Mark as loaded even if no defaults, to prevent re-checking
+        defaultsLoadedForTemplateRef.current = selectedTemplate.id;
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

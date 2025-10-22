@@ -284,6 +284,21 @@ const translations: Translations = {
     'error.login.invalidEmail': 'Please enter a valid email address.',
     'error.login.invalidPassword': 'Your password must be at least 6 characters long.',
     'error.login.invalidCredentials': 'Invalid email or password.',
+    
+    // Search & Filter
+    'search.filters': 'Filters',
+    'search.category': 'Category',
+    'search.allCategories': 'All Categories',
+    'search.dateRange': 'Date Range',
+    'search.startDate': 'Start Date',
+    'search.endDate': 'End Date',
+    'search.clearFilters': 'Clear Filters',
+    'search.applyFilters': 'Apply Filters',
+    'search.noResults': 'No matching results found for',
+    'search.noResultsGeneral': 'No certificates found',
+    'search.filteredBy': 'Filtered by',
+    'search.showingResults': 'Showing results',
+    'search.searchByName': 'Search by name, ID, or link...',
   },
   id: {
     // Navigation
@@ -549,6 +564,21 @@ const translations: Translations = {
     'error.login.invalidEmail': 'Silakan masukkan alamat email yang valid.',
     'error.login.invalidPassword': 'Kata sandi Anda harus minimal 6 karakter.',
     'error.login.invalidCredentials': 'Email atau kata sandi salah.',
+    
+    // Search & Filter
+    'search.filters': 'Filter',
+    'search.category': 'Kategori',
+    'search.allCategories': 'Semua Kategori',
+    'search.dateRange': 'Rentang Tanggal',
+    'search.startDate': 'Tanggal Mulai',
+    'search.endDate': 'Tanggal Akhir',
+    'search.clearFilters': 'Hapus Filter',
+    'search.applyFilters': 'Terapkan Filter',
+    'search.noResults': 'Tidak ada hasil yang cocok untuk',
+    'search.noResultsGeneral': 'Tidak ada sertifikat ditemukan',
+    'search.filteredBy': 'Difilter berdasarkan',
+    'search.showingResults': 'Menampilkan hasil',
+    'search.searchByName': 'Cari berdasarkan nama, ID, atau link...',
   }
 };
 

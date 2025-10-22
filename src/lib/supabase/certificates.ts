@@ -484,6 +484,148 @@ export async function searchCertificates(
   return data || [];
 }
 
+// Advanced search with filters
+export interface SearchFilters {
+  keyword?: string;
+  category?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export async function advancedSearchCertificates(
+  filters: SearchFilters,
+): Promise<Certificate[]> {
+  // Check if keyword is provided
+  const hasKeyword = filters.keyword && filters.keyword.trim();
+  
+  // MUST have keyword to search - filters only narrow down search results
+  if (!hasKeyword) {
+    return [];
+  }
+
+  let query = supabaseClient
+    .from("certificates")
+    .select(
+      `
+      *,
+      templates (
+        id,
+        name,
+        category,
+        orientation
+      ),
+      members:members(*)
+    `,
+    );
+
+  // Keyword search - search in certificate_no and name (participant name in certificates table)
+  // Note: We'll also filter by member name on client side after fetching
+  const keyword = filters.keyword!.trim();
+  query = query.or(
+    `certificate_no.ilike.%${keyword}%,name.ilike.%${keyword}%`,
+  );
+
+  // Category filter (optional - to narrow down results)
+  if (filters.category && filters.category.trim()) {
+    query = query.eq("category", filters.category);
+  }
+
+  // Date range filter (optional - to narrow down results)
+  if (filters.startDate) {
+    query = query.gte("issue_date", filters.startDate);
+  }
+  if (filters.endDate) {
+    query = query.lte("issue_date", filters.endDate);
+  }
+
+  // Limit results to prevent overwhelming the UI
+  query = query.limit(100);
+
+  // Order by most recent
+  query = query.order("created_at", { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Search error details:', error);
+    throw new Error(`Failed to search certificates: ${error.message}`);
+  }
+
+  // If keyword search, also filter by member name on client side (since we can't do it in SQL with joined tables)
+  let results = data || [];
+  if (hasKeyword) {
+    const keyword = filters.keyword!.trim().toLowerCase();
+    results = results.filter(cert => {
+      const certNo = (cert.certificate_no || '').toLowerCase();
+      const certName = (cert.name || '').toLowerCase();
+      const memberName = (cert.members?.name || '').toLowerCase();
+      
+      return certNo.includes(keyword) || 
+             certName.includes(keyword) || 
+             memberName.includes(keyword);
+    });
+  }
+
+  return results;
+}
+
+// Get unique categories from certificates and templates
+export async function getCertificateCategories(): Promise<string[]> {
+  const categoriesSet = new Set<string>();
+
+  // Fetch categories from certificates table
+  const { data: certData, error: certError } = await supabaseClient
+    .from("certificates")
+    .select("category")
+    .not("category", "is", null)
+    .limit(1000);
+
+  if (certError) {
+    console.error('Failed to fetch certificate categories:', certError);
+  } else if (certData) {
+    console.log('Raw certificate data:', certData);
+    certData.forEach((item) => {
+      if (item.category && item.category.trim()) {
+        categoriesSet.add(item.category.trim());
+      }
+    });
+  }
+
+  // Also fetch categories from templates table (if they exist there)
+  const { data: templateData, error: templateError } = await supabaseClient
+    .from("templates")
+    .select("category")
+    .not("category", "is", null)
+    .limit(1000);
+
+  if (templateError) {
+    console.error('Failed to fetch template categories:', templateError);
+  } else if (templateData) {
+    console.log('Raw template data:', templateData);
+    templateData.forEach((item) => {
+      if (item.category && item.category.trim()) {
+        categoriesSet.add(item.category.trim());
+      }
+    });
+  }
+
+  // Add common categories as fallback if none found
+  const commonCategories = ['Magang', 'Pelatihan', 'MoU', 'Kunjungan Industri', 'Sertifikat', 'Workshop', 'Seminar'];
+  
+  // If we found very few categories, add the common ones
+  if (categoriesSet.size < 3) {
+    console.warn('Only found', categoriesSet.size, 'categories, adding common categories as fallback');
+    commonCategories.forEach(cat => categoriesSet.add(cat));
+  }
+
+  const categories = Array.from(categoriesSet).sort();
+  console.log('Found categories from certificates:', certData?.length || 0, 'records');
+  console.log('Found categories from templates:', templateData?.length || 0, 'records');
+  console.log('Unique categories:', categories);
+  
+  return categories;
+}
+
 // Get certificates by category
 export async function getCertificatesByCategory(
   category: string,

@@ -1,12 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
-import { getCertificateByNumber, getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
+import { getCertificateByNumber, getCertificateByPublicId, Certificate, advancedSearchCertificates, getCertificateCategories, SearchFilters } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Search, Download, ChevronDown, FileText, Link } from "lucide-react";
+import { ArrowRight, Search, Download, ChevronDown, FileText, Link, Filter, X } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import {
   DropdownMenu,
@@ -23,6 +23,18 @@ export default function HeroSection() {
   const [searchError, setSearchError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewCert, setPreviewCert] = useState<Certificate | null>(null);
+  
+  // New states for advanced search
+  const [searchResults, setSearchResults] = useState<Certificate[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [filters, setFilters] = useState<SearchFilters>({
+    keyword: "",
+    category: "",
+    startDate: "",
+    endDate: "",
+  });
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -207,6 +219,72 @@ export default function HeroSection() {
     }
   }
 
+  // Load categories on mount
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const cats = await getCertificateCategories();
+        console.log('Loaded categories in hero-section:', cats);
+        setCategories(cats);
+      } catch (err) {
+        console.error('Failed to load categories:', err);
+        toast.error('Failed to load categories');
+      }
+    }
+    loadCategories();
+  }, []);
+
+  // Debounced search function
+  const performSearch = useCallback(async (searchFilters: SearchFilters) => {
+    try {
+      setSearching(true);
+      setSearchError("");
+      
+      const results = await advancedSearchCertificates(searchFilters);
+      setSearchResults(results);
+      setShowResults(true);
+      
+      if (results.length === 0 && (searchFilters.keyword || searchFilters.category || searchFilters.startDate || searchFilters.endDate)) {
+        setSearchError(searchFilters.keyword ? `${t('search.noResults')} "${searchFilters.keyword}"` : t('search.noResultsGeneral'));
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+      setSearchError(t('error.search.failed'));
+      toast.error(t('error.search.failed'));
+    } finally {
+      setSearching(false);
+    }
+  }, [t]);
+
+  // Debounce effect for keyword search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (filters.keyword || filters.category || filters.startDate || filters.endDate) {
+        performSearch(filters);
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+        setSearchError("");
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [filters, performSearch]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      keyword: "",
+      category: "",
+      startDate: "",
+      endDate: "",
+    });
+    setCertificateId("");
+    setSearchResults([]);
+    setShowResults(false);
+    setSearchError("");
+  };
+
   // Landing stats removed from minimal landing
 
   const containerVariants = {
@@ -250,107 +328,180 @@ export default function HeroSection() {
           </motion.div>
 
 
-          {/* Enhanced Certificate Search */}
+          {/* Enhanced Certificate Search with Filters */}
           <motion.div
             variants={itemVariants}
-            className="mx-auto max-w-xl"
+            className="mx-auto max-w-2xl"
           >
-            <form
-              onSubmit={async (e: React.FormEvent) => {
-                e.preventDefault();
-                let q = certificateId.trim();
-                if (!q) {
-                  setSearchError(t('error.search.empty'));
-                  return;
-                }
-                
-                setSearching(true);
-                setSearchError("");
-                setPreviewCert(null);
-                setPreviewOpen(false);
-                
-                try {
-                  let cert: Certificate | null = null;
-                  
-                  // Check if input is a public link format: /cek/{public_id}
-                  const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
-                  if (publicLinkMatch) {
-                    const publicId = publicLinkMatch[1];
-                    console.log('Searching by public_id:', publicId);
-                    cert = await getCertificateByPublicId(publicId);
-                  } 
-                  // Check if input is old certificate link format: /certificate/CERT-XXX
-                  else {
-                    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
-                    if (oldLinkMatch) {
-                      q = oldLinkMatch[1];
-                      console.log('Extracted certificate number from old link:', q);
-                    }
-                    // Search by certificate number
-                    console.log('Searching by certificate_no:', q);
-                    cert = await getCertificateByNumber(q);
-                  }
-                  
-                  if (!cert) {
-                    const errorMsg = t('error.search.notFound');
-                    setSearchError(errorMsg);
-                    toast.error(errorMsg, {
-                      duration: 5000,
-                      style: {
-                        background: '#FEE2E2',
-                        border: '1px solid #FCA5A5',
-                        color: '#991B1B',
-                      },
-                    });
-                  } else {
-                    setPreviewCert(cert);
-                    setPreviewOpen(true);
-                    setSearchError("");
-                  }
-                } catch (err) {
-                  console.error('Search error:', err);
-                  const errorMsg = err instanceof Error ? err.message : t('error.search.failed');
-                  setSearchError(errorMsg);
-                  toast.error(errorMsg, {
-                    duration: 5000,
-                    style: {
-                      background: '#FEE2E2',
-                      border: '1px solid #FCA5A5',
-                      color: '#991B1B',
-                    },
-                  });
-                } finally {
-                  setSearching(false);
-                }
-              }}
-              className={`flex items-center gap-2.5 bg-gray-50 rounded-2xl p-1.5 border shadow-sm transition-all duration-200 ${
+            {/* Search Bar */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`flex-1 flex items-center gap-2.5 bg-gray-50 rounded-2xl p-1.5 border shadow-sm transition-all duration-200 ${
                 searchError ? 'border-red-300 bg-red-50/50' : 'border-gray-200'
-              }`}
-            >
-              <div className="flex-1 relative">
-                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${
-                  searchError ? 'text-red-400' : 'text-gray-400'
-                }`} />
-                <Input
-                  value={certificateId}
-                  onChange={(e) => {
-                    setCertificateId(e.target.value);
-                    setSearchError("");
+              }`}>
+                <div className="flex-1 relative">
+                  <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${
+                    searchError ? 'text-red-400' : 'text-gray-400'
+                  }`} />
+                  <Input
+                    value={certificateId}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCertificateId(value);
+                      setSearchError("");
+                      
+                      // Check if it's a link or ID (for direct search)
+                      const isLinkOrId = value.match(/(?:\/cek\/|cek\/|\/certificate\/|certificate\/|^CERT-)/i);
+                      if (!isLinkOrId) {
+                        // It's a keyword search, update filters
+                        setFilters(prev => ({ ...prev, keyword: value }));
+                      }
+                    }}
+                    placeholder={t('search.searchByName')}
+                    className={`h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base ${
+                      searchError ? 'text-red-900' : 'text-gray-900'
+                    }`}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    const q = certificateId.trim();
+                    if (!q) return;
+                    
+                    // Check if it's a direct link/ID search
+                    const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
+                    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
+                    const isCertId = q.match(/^CERT-/i);
+                    
+                    if (publicLinkMatch || oldLinkMatch || isCertId) {
+                      // Direct search by ID/link
+                      setSearching(true);
+                      setSearchError("");
+                      try {
+                        let cert: Certificate | null = null;
+                        if (publicLinkMatch) {
+                          cert = await getCertificateByPublicId(publicLinkMatch[1]);
+                        } else {
+                          const certNo = oldLinkMatch ? oldLinkMatch[1] : q;
+                          cert = await getCertificateByNumber(certNo);
+                        }
+                        
+                        if (!cert) {
+                          setSearchError(t('error.search.notFound'));
+                        } else {
+                          setPreviewCert(cert);
+                          setPreviewOpen(true);
+                        }
+                      } catch (err) {
+                        console.error(err);
+                        setSearchError(t('error.search.failed'));
+                      } finally {
+                        setSearching(false);
+                      }
+                    }
                   }}
-                  placeholder={t('hero.searchPlaceholder')}
-                  className={`h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base ${
-                    searchError ? 'text-red-900' : 'text-gray-900'
-                  }`}
-                />
+                  className="h-10 px-4 sm:h-11 sm:px-5 gradient-primary text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]"
+                >
+                  {searching ? "Searching..." : t('hero.searchButton')}
+                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
+                </Button>
               </div>
+              
+              {/* Filter Toggle Button */}
               <Button
-                type="submit"
-                className="h-10 px-4 sm:h-11 sm:px-5 gradient-primary text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]"
+                type="button"
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                className="h-12 px-4 border-gray-300 hover:bg-gray-50"
               >
-                {searching ? "Searching..." : t('hero.searchButton')}
-                <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
+                <Filter className="w-4 h-4" />
               </Button>
-            </form>
+            </div>
+
+            {/* Filters Panel */}
+            {showFilters && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-3 p-4 bg-white border border-gray-200 rounded-xl shadow-sm"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Category Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                      {t('search.category')}
+                    </label>
+                    <select
+                      value={filters.category}
+                      onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-10"
+                    >
+                      <option value="">{t('search.allCategories')}</option>
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Date Range */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                      {t('search.dateRange')}
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <input
+                          type="date"
+                          value={filters.startDate}
+                          onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                          className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer"
+                          placeholder={t('search.startDate')}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="date"
+                          value={filters.endDate}
+                          onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                          className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer"
+                          placeholder={t('search.endDate')}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clear Filters Button */}
+                {(filters.category || filters.startDate || filters.endDate) && (
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="text-gray-600 hover:text-gray-900"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      {t('search.clearFilters')}
+                    </Button>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Active Filters Indicator */}
+            {(filters.category || filters.startDate || filters.endDate) && !showFilters && (
+              <div className="mb-3 flex items-center gap-2 text-sm text-gray-600">
+                <span className="font-medium">{t('search.filteredBy')}:</span>
+                {filters.category && <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md">{filters.category}</span>}
+                {filters.startDate && <span className="px-2 py-1 bg-green-100 text-green-700 rounded-md">{filters.startDate}</span>}
+                {filters.endDate && <span className="px-2 py-1 bg-green-100 text-green-700 rounded-md">{filters.endDate}</span>}
+                <button onClick={clearFilters} className="text-red-600 hover:text-red-800">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             {searchError && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -363,6 +514,74 @@ export default function HeroSection() {
                   </svg>
                   {searchError}
                 </p>
+              </motion.div>
+            )}
+
+            {/* Search Results */}
+            {showResults && searchResults.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4"
+              >
+                <div className="text-sm text-gray-600 mb-3">
+                  {t('search.showingResults')}: {searchResults.length} {searchResults.length === 1 ? 'certificate' : 'certificates'}
+                </div>
+                <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
+                  {searchResults.map((cert) => (
+                    <motion.div
+                      key={cert.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => {
+                        setPreviewCert(cert);
+                        setPreviewOpen(true);
+                      }}
+                    >
+                      <div className="flex items-start gap-4 p-4">
+                        {/* Certificate Thumbnail */}
+                        {cert.certificate_image_url ? (
+                          <div className="flex-shrink-0 w-32 h-24 bg-gray-100 rounded-lg overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img 
+                              src={cert.certificate_image_url} 
+                              alt={cert.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Hide image if failed to load
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex-shrink-0 w-32 h-24 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center">
+                            <FileText className="w-8 h-8 text-blue-400" />
+                          </div>
+                        )}
+                        
+                        {/* Certificate Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-900 truncate">{cert.members?.name || cert.name}</div>
+                          <div className="text-sm text-gray-600 mt-1">{cert.certificate_no}</div>
+                          <div className="flex items-center gap-2 mt-2">
+                            {cert.category && (
+                              <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-md">
+                                {cert.category}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-500">
+                              {new Date(cert.issue_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {cert.members?.organization && (
+                            <div className="mt-1 text-xs text-gray-500 truncate">{cert.members.organization}</div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </motion.div>
             )}
           </motion.div>
