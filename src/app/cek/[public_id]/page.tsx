@@ -213,9 +213,9 @@ export default function PublicCertificatePage() {
 
   // Success state - Display certificate
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+      <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-[100] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -239,23 +239,24 @@ export default function PublicCertificatePage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          {/* Certificate Status Badge */}
-          <div className="flex items-center justify-center mb-6">
-            <div className="inline-flex items-center space-x-2 bg-green-100 text-green-800 px-4 py-2 rounded-full">
-              <CheckCircle2 className="w-5 h-5" />
-              <span className="font-semibold">Verified Certificate</span>
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div className="w-full max-w-6xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {/* Certificate Status Badge */}
+            <div className="flex items-center justify-center mb-6">
+              <div className="inline-flex items-center space-x-2 bg-green-100 text-green-800 px-4 py-2 rounded-full">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="font-semibold">Verified Certificate</span>
+              </div>
             </div>
-          </div>
 
-          {/* Certificate Card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+            {/* Certificate Card */}
+            <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
               {/* Left: Certificate Image */}
               <div className="p-6 bg-gray-50 flex items-center justify-center">
                 {certificate.certificate_image_url ? (
@@ -403,15 +404,16 @@ export default function PublicCertificatePage() {
                   </div>
                 </div>
               </div>
+              </div>
             </div>
-          </div>
 
-          {/* Footer Info */}
-          <div className="mt-8 text-center text-sm text-gray-500">
-            <p>This is an official certificate issued by E-Certificate Platform</p>
-            <p className="mt-1">Certificate ID: {certificate.public_id}</p>
-          </div>
-        </motion.div>
+            {/* Footer Info */}
+            <div className="mt-8 text-center text-sm text-gray-500">
+              <p>This is an official certificate issued by E-Certificate Platform</p>
+              <p className="mt-1">Certificate ID: {certificate.public_id}</p>
+            </div>
+          </motion.div>
+        </div>
       </main>
     </div>
   );
