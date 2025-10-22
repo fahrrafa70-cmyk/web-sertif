@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { useLanguage } from "@/contexts/language-context";
 
 export function LoginModal() {
   const { openLogin, setOpenLogin, signIn, loading } = useAuth();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,12 +27,12 @@ export function LoginModal() {
     let hasError = false;
     
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError("Please enter a valid email address.");
+      setEmailError(t('error.login.invalidEmail'));
       hasError = true;
     }
     
     if (!password || password.length < 6) {
-      setPasswordError("Your password must be at least 6 characters long.");
+      setPasswordError(t('error.login.invalidPassword'));
       hasError = true;
     }
     
@@ -48,16 +50,16 @@ export function LoginModal() {
       if (errorMessage.includes('invalid login') || 
           errorMessage.includes('invalid email') || 
           errorMessage.includes('email not confirmed')) {
-        setEmailError("Invalid email or password.");
-        setPasswordError("Invalid email or password.");
+        setEmailError(t('error.login.invalidCredentials'));
+        setPasswordError(t('error.login.invalidCredentials'));
       } else if (errorMessage.includes('password')) {
-        setPasswordError("Invalid password.");
+        setPasswordError(t('error.login.invalidCredentials'));
       } else if (errorMessage.includes('email') || errorMessage.includes('user')) {
-        setEmailError("Invalid email address.");
+        setEmailError(t('error.login.invalidCredentials'));
       } else {
         // Generic error for both fields
-        setEmailError("Invalid email or password.");
-        setPasswordError("Invalid email or password.");
+        setEmailError(t('error.login.invalidCredentials'));
+        setPasswordError(t('error.login.invalidCredentials'));
       }
     }
   }

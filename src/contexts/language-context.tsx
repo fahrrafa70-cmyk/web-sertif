@@ -274,6 +274,16 @@ const translations: Translations = {
     
     // Navigation
     'nav.menu': 'Menu',
+    
+    // Error Messages - Search
+    'error.search.notFound': 'Certificate not found. Please check the certificate number or link and try again.',
+    'error.search.empty': 'Please enter a certificate number or link',
+    'error.search.failed': 'Search failed. Please try again.',
+    
+    // Error Messages - Login
+    'error.login.invalidEmail': 'Please enter a valid email address.',
+    'error.login.invalidPassword': 'Your password must be at least 6 characters long.',
+    'error.login.invalidCredentials': 'Invalid email or password.',
   },
   id: {
     // Navigation
@@ -529,6 +539,16 @@ const translations: Translations = {
     
     // Navigation
     'nav.menu': 'Menu',
+    
+    // Error Messages - Search
+    'error.search.notFound': 'Sertifikat tidak ditemukan. Silakan periksa nomor sertifikat atau link dan coba lagi.',
+    'error.search.empty': 'Silakan masukkan nomor sertifikat atau link',
+    'error.search.failed': 'Pencarian gagal. Silakan coba lagi.',
+    
+    // Error Messages - Login
+    'error.login.invalidEmail': 'Silakan masukkan alamat email yang valid.',
+    'error.login.invalidPassword': 'Kata sandi Anda harus minimal 6 karakter.',
+    'error.login.invalidCredentials': 'Email atau kata sandi salah.',
   }
 };
 

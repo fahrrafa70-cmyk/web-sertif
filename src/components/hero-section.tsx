@@ -260,7 +260,7 @@ export default function HeroSection() {
                 e.preventDefault();
                 let q = certificateId.trim();
                 if (!q) {
-                  setSearchError("Please enter a certificate number or link");
+                  setSearchError(t('error.search.empty'));
                   return;
                 }
                 
@@ -292,7 +292,7 @@ export default function HeroSection() {
                   }
                   
                   if (!cert) {
-                    const errorMsg = "Certificate not found. Please check the certificate number or link and try again.";
+                    const errorMsg = t('error.search.notFound');
                     setSearchError(errorMsg);
                     toast.error(errorMsg, {
                       duration: 5000,
@@ -309,7 +309,7 @@ export default function HeroSection() {
                   }
                 } catch (err) {
                   console.error('Search error:', err);
-                  const errorMsg = err instanceof Error ? err.message : "Search failed. Please try again.";
+                  const errorMsg = err instanceof Error ? err.message : t('error.search.failed');
                   setSearchError(errorMsg);
                   toast.error(errorMsg, {
                     duration: 5000,
