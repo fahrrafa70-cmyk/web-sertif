@@ -256,20 +256,7 @@ export default function HeroSection() {
     }
   }, [t]);
 
-  // Debounce effect for keyword search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (filters.keyword || filters.category || filters.startDate || filters.endDate) {
-        performSearch(filters);
-      } else {
-        setSearchResults([]);
-        setShowResults(false);
-        setSearchError("");
-      }
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(timer);
-  }, [filters, performSearch]);
+  // Remove auto-search on typing - only search when button clicked
 
   // Clear all filters
   const clearFilters = () => {
@@ -348,13 +335,6 @@ export default function HeroSection() {
                       const value = e.target.value;
                       setCertificateId(value);
                       setSearchError("");
-                      
-                      // Check if it's a link or ID (for direct search)
-                      const isLinkOrId = value.match(/(?:\/cek\/|cek\/|\/certificate\/|certificate\/|^CERT-)/i);
-                      if (!isLinkOrId) {
-                        // It's a keyword search, update filters
-                        setFilters(prev => ({ ...prev, keyword: value }));
-                      }
                     }}
                     placeholder={t('search.searchByName')}
                     className={`h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base ${
@@ -366,7 +346,13 @@ export default function HeroSection() {
                   type="button"
                   onClick={async () => {
                     const q = certificateId.trim();
-                    if (!q) return;
+                    if (!q) {
+                      // Clear results if search is empty
+                      setSearchResults([]);
+                      setShowResults(false);
+                      setSearchError("");
+                      return;
+                    }
                     
                     // Check if it's a direct link/ID search
                     const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
@@ -398,6 +384,15 @@ export default function HeroSection() {
                       } finally {
                         setSearching(false);
                       }
+                    } else {
+                      // Keyword search - perform advanced search
+                      const searchFilters: SearchFilters = {
+                        keyword: q,
+                        category: filters.category,
+                        startDate: filters.startDate,
+                        endDate: filters.endDate,
+                      };
+                      await performSearch(searchFilters);
                     }
                   }}
                   className="h-10 px-4 sm:h-11 sm:px-5 gradient-primary text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]"
@@ -590,7 +585,7 @@ export default function HeroSection() {
     </section>
     {previewOpen && previewCert && (
       <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-4" onClick={() => setPreviewOpen(false)}>
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between px-6 py-4 border-b">
             <div>
               <div className="text-lg font-semibold">Certificate Preview</div>
@@ -671,12 +666,12 @@ export default function HeroSection() {
     )}
     {imagePreviewOpen && (
       <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={() => setImagePreviewOpen(false)}>
-        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
             <div className="text-sm text-gray-600">Certificate Image</div>
             <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>Close</Button>
           </div>
-          <div className="p- bg-gray-50">
+          <div className="p-4 bg-gray-50 overflow-auto flex-1">
             {imagePreviewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imagePreviewUrl} alt="Certificate" className="w-full h-auto rounded-lg border" />

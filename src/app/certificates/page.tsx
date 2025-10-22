@@ -920,7 +920,7 @@ function CertificatesContent() {
                     </label>
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
                       <div
-                        className="bg-white rounded-xl shadow-xl relative overflow-hidden"
+                        className="bg-white rounded-xl shadow-xl relative"
                         style={{
                           width: "100%",
                           maxWidth: "100%",
