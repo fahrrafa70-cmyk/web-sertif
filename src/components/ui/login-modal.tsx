@@ -5,23 +5,60 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export function LoginModal() {
-  const { openLogin, setOpenLogin, signIn, loading, error } = useAuth();
+  const { openLogin, setOpenLogin, signIn, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [roleMissing, setRoleMissing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setRoleMissing(false);
+    setEmailError("");
+    setPasswordError("");
+    
+    // Client-side validation
+    let hasError = false;
+    
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError("Please enter a valid email address.");
+      hasError = true;
+    }
+    
+    if (!password || password.length < 6) {
+      setPasswordError("Your password must be at least 6 characters long.");
+      hasError = true;
+    }
+    
+    if (hasError) return;
+    
     try {
       await signIn(email, password);
-    } catch {
-      // error handled by context, but keep a catch to avoid unhandled promise
+    } catch (err: unknown) {
+      // Check if error is related to invalid credentials
+      const errorMessage = err instanceof Error ? err.message.toLowerCase() : '';
+      
+      console.log('Login error:', errorMessage);
+      
+      // Handle specific error messages from Supabase
+      if (errorMessage.includes('invalid login') || 
+          errorMessage.includes('invalid email') || 
+          errorMessage.includes('email not confirmed')) {
+        setEmailError("Invalid email or password.");
+        setPasswordError("Invalid email or password.");
+      } else if (errorMessage.includes('password')) {
+        setPasswordError("Invalid password.");
+      } else if (errorMessage.includes('email') || errorMessage.includes('user')) {
+        setEmailError("Invalid email address.");
+      } else {
+        // Generic error for both fields
+        setEmailError("Invalid email or password.");
+        setPasswordError("Invalid email or password.");
+      }
     }
   }
 
@@ -75,11 +112,27 @@ export function LoginModal() {
                   type="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailError("");
+                  }}
                   required
-                  className="h-12 rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-200"
+                  className={`h-12 rounded-lg transition-all duration-200 ${
+                    emailError 
+                      ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" 
+                      : "border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+                  }`}
                   placeholder="Enter your email"
                 />
+                {emailError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-sm text-red-600 mt-1"
+                  >
+                    {emailError}
+                  </motion.p>
+                )}
               </motion.div>
               
               <motion.div 
@@ -97,9 +150,16 @@ export function LoginModal() {
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setPasswordError("");
+                    }}
                     required
-                    className="h-12 rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-200 pr-12"
+                    className={`h-12 rounded-lg transition-all duration-200 pr-12 ${
+                      passwordError 
+                        ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" 
+                        : "border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+                    }`}
                     placeholder="Enter your password"
                   />
                   <button
@@ -110,43 +170,16 @@ export function LoginModal() {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                {passwordError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-sm text-red-600 mt-1"
+                  >
+                    {passwordError}
+                  </motion.p>
+                )}
               </motion.div>
-
-              <AnimatePresence>
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="bg-red-50 border border-red-200 rounded-lg p-3"
-                  >
-                    <p className="text-sm text-red-600 flex items-center gap-2">
-                      <div className="w-4 h-4 bg-red-100 rounded-full flex items-center justify-center">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      </div>
-                      {error}
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <AnimatePresence>
-                {roleMissing && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="bg-amber-50 border border-amber-200 rounded-lg p-3"
-                  >
-                    <p className="text-sm text-amber-600 flex items-center gap-2">
-                      <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                      </div>
-                      Account exists but role data is missing.
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -167,23 +200,6 @@ export function LoginModal() {
                     "Sign In"
                   )}
                 </Button>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3, delay: 0.6 }}
-                className="text-center"
-              >
-                <p className="text-xs text-gray-500">
-                  Belum punya akun?{" "}
-                  <a 
-                    href="/register" 
-                    className="text-blue-600 hover:text-blue-700 font-medium hover:underline transition-colors"
-                  >
-                    Register
-                  </a>
-                </p>
               </motion.div>
             </form>
           </motion.div>

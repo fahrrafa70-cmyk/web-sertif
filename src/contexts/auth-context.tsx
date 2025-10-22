@@ -145,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setError(message);
+      throw new Error(message); // Re-throw error so it can be caught by login modal
     } finally {
       setLoading(false);
     }

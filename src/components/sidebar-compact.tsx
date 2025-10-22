@@ -9,8 +9,7 @@ import {
   Home, 
   Info, 
   HelpCircle,  
-  LogIn, 
-  UserPlus,
+  LogIn,
   Mail,
   Phone,
   MapPin,
@@ -264,31 +263,18 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                 <div className="p-6 border-t border-gray-200 bg-gray-50">
                   <div className="space-y-2">
                     {!isAuthenticated ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-start text-base h-10"
-                          onClick={() => {
-                            setOpenLogin(true);
-                            onClose();
-                          }}
-                        >
-                          <LogIn className="w-5 h-5 mr-3" />
-                          {t('auth.login')}
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="w-full justify-start bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-base h-10"
-                          onClick={() => {
-                            window.location.assign('/register');
-                            onClose();
-                          }}
-                        >
-                          <UserPlus className="w-5 h-5 mr-3" />
-                          {t('auth.register')}
-                        </Button>
-                      </>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-base h-10"
+                        onClick={() => {
+                          setOpenLogin(true);
+                          onClose();
+                        }}
+                      >
+                        <LogIn className="w-5 h-5 mr-3" />
+                        {t('auth.login')}
+                      </Button>
                     ) : (
                       <Button
                         variant="outline"

@@ -20,6 +20,7 @@ export default function HeroSection() {
   const { t } = useLanguage();
   const [certificateId, setCertificateId] = useState("");
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewCert, setPreviewCert] = useState<Certificate | null>(null);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
@@ -258,12 +259,18 @@ export default function HeroSection() {
               onSubmit={async (e: React.FormEvent) => {
                 e.preventDefault();
                 let q = certificateId.trim();
-                if (!q) return;
+                if (!q) {
+                  setSearchError("Please enter a certificate number or link");
+                  return;
+                }
                 
-                let cert: Certificate | null = null;
+                setSearching(true);
+                setSearchError("");
+                setPreviewCert(null);
+                setPreviewOpen(false);
                 
                 try {
-                  setSearching(true);
+                  let cert: Certificate | null = null;
                   
                   // Check if input is a public link format: /cek/{public_id}
                   const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
@@ -285,30 +292,55 @@ export default function HeroSection() {
                   }
                   
                   if (!cert) {
-                    toast.error("Certificate not found");
-                    setPreviewCert(null);
-                    setPreviewOpen(false);
-                    return;
+                    const errorMsg = "Certificate not found. Please check the certificate number or link and try again.";
+                    setSearchError(errorMsg);
+                    toast.error(errorMsg, {
+                      duration: 5000,
+                      style: {
+                        background: '#FEE2E2',
+                        border: '1px solid #FCA5A5',
+                        color: '#991B1B',
+                      },
+                    });
+                  } else {
+                    setPreviewCert(cert);
+                    setPreviewOpen(true);
+                    setSearchError("");
                   }
-                  
-                  setPreviewCert(cert);
-                  setPreviewOpen(true);
                 } catch (err) {
-                  console.error(err);
-                  toast.error(err instanceof Error ? err.message : "Search failed");
+                  console.error('Search error:', err);
+                  const errorMsg = err instanceof Error ? err.message : "Search failed. Please try again.";
+                  setSearchError(errorMsg);
+                  toast.error(errorMsg, {
+                    duration: 5000,
+                    style: {
+                      background: '#FEE2E2',
+                      border: '1px solid #FCA5A5',
+                      color: '#991B1B',
+                    },
+                  });
                 } finally {
                   setSearching(false);
                 }
               }}
-              className="flex items-center gap-2.5 bg-gray-50 rounded-2xl p-1.5 border border-gray-200 shadow-sm"
+              className={`flex items-center gap-2.5 bg-gray-50 rounded-2xl p-1.5 border shadow-sm transition-all duration-200 ${
+                searchError ? 'border-red-300 bg-red-50/50' : 'border-gray-200'
+              }`}
             >
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${
+                  searchError ? 'text-red-400' : 'text-gray-400'
+                }`} />
                 <Input
                   value={certificateId}
-                  onChange={(e) => setCertificateId(e.target.value)}
+                  onChange={(e) => {
+                    setCertificateId(e.target.value);
+                    setSearchError("");
+                  }}
                   placeholder={t('hero.searchPlaceholder')}
-                  className="h-10 pl-9 bg-transparent border-0 text-gray-900 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base"
+                  className={`h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base ${
+                    searchError ? 'text-red-900' : 'text-gray-900'
+                  }`}
                 />
               </div>
               <Button
@@ -319,6 +351,20 @@ export default function HeroSection() {
                 <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </form>
+            {searchError && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg"
+              >
+                <p className="text-sm text-red-600 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  {searchError}
+                </p>
+              </motion.div>
+            )}
           </motion.div>
         </motion.div>
       </div>
