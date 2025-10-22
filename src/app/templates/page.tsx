@@ -24,6 +24,7 @@ export default function TemplatesPage() {
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   // Use templates hook for Supabase integration
   const { templates, loading, error, create, update, delete: deleteTemplate, refresh } = useTemplates();
@@ -179,9 +180,18 @@ export default function TemplatesPage() {
         console.log('🗑️ User confirmed deletion of template:', templateName);
         setDeletingTemplateId(id);
         await deleteTemplate(id);
+        
+        // Clear failed image state for deleted template
+        setFailedImages(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
+        
         toast.success(`Template "${templateName}" deleted successfully!`);
-        // Refresh templates to remove the deleted template immediately
-        refresh();
+        
+        // Note: No need to call refresh() here because deleteTemplate already updates state
+        // Calling refresh() can cause race condition if database hasn't propagated the delete yet
       } catch (error) {
         console.error('💥 Delete failed:', error);
         toast.error(error instanceof Error ? error.message : "Failed to delete template");
@@ -440,7 +450,7 @@ export default function TemplatesPage() {
                   <Card className="h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group overflow-hidden">
                     {/* Template Preview (uniform 16:9 frame so cards have equal height) */}
                     <div className="relative aspect-video bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200 overflow-hidden">
-                      {getTemplatePreviewUrl(tpl) ? (
+                      {getTemplatePreviewUrl(tpl) && !failedImages.has(tpl.id) ? (
                         <div className="absolute inset-0">
                           <Image 
                             src={getTemplatePreviewUrl(tpl)!}
@@ -449,6 +459,10 @@ export default function TemplatesPage() {
                             sizes="(max-width: 1280px) 50vw, 33vw"
                             className="object-contain"
                             unoptimized
+                            onError={() => {
+                              // Mark image as failed and show fallback
+                              setFailedImages(prev => new Set(prev).add(tpl.id));
+                            }}
                           />
                         </div>
                       ) : (
@@ -760,26 +774,94 @@ export default function TemplatesPage() {
 
           {/* Enhanced Edit Template Sheet */}
           <Sheet open={!!isEditOpen} onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}>
-            <SheetContent side="right" className="w-full sm:max-w-md">
+            <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
               <SheetHeader>
                 <SheetTitle className="text-xl font-bold text-gradient">Edit Template</SheetTitle>
                 <SheetDescription>Update template details.</SheetDescription>
               </SheetHeader>
               <div className="p-4 space-y-6">
-                {/* Current Preview Image */}
+                {/* Template Name */}
                 <motion.div 
                   className="space-y-2"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Current Preview Image</label>
+                  <label className="text-sm font-semibold text-gray-700">Template Name</label>
+                  <Input 
+                    value={draft?.name ?? ""} 
+                    onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))} 
+                    placeholder="Enter template name"
+                    className="rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+                  />
+                </motion.div>
+
+                {/* Category */}
+                <motion.div 
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700">Category</label>
+                  <select 
+                    value={draft?.category ?? ""} 
+                    onChange={(e) => setDraft((d) => (d ? { ...d, category: e.target.value } : d))} 
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select category</option>
+                    <option value="MoU">MoU</option>
+                    <option value="Magang">Magang</option>
+                    <option value="Pelatihan">Pelatihan</option>
+                    <option value="Kunjungan Industri">Kunjungan Industri</option>
+                    <option value="Sertifikat">Sertifikat</option>
+                    <option value="Surat">Surat</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </motion.div>
+
+                {/* Orientation */}
+                <motion.div 
+                  className="space-y-3"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.2 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700">Orientation</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant={draft?.orientation === "Landscape" ? "default" : "outline"} 
+                      onClick={() => setDraft((d) => (d ? { ...d, orientation: "Landscape" } : d))}
+                      className="rounded-lg"
+                    >
+                      <Layout className="w-4 h-4 mr-2" />
+                      Landscape
+                    </Button>
+                    <Button 
+                      variant={draft?.orientation === "Portrait" ? "default" : "outline"} 
+                      onClick={() => setDraft((d) => (d ? { ...d, orientation: "Portrait" } : d))}
+                      className="rounded-lg"
+                    >
+                      <Layout className="w-4 h-4 mr-2" />
+                      Portrait
+                    </Button>
+                  </div>
+                </motion.div>
+
+                {/* Current Template Image */}
+                <motion.div 
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700">Current Template Image</label>
                   <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
-                    {previewImagePreview ? (
+                    {imagePreview ? (
                       <div className="relative w-full h-40">
                         <Image
-                          src={previewImagePreview}
-                          alt="Preview image"
+                          src={imagePreview}
+                          alt="New template image"
                           fill
                           className="object-contain bg-gray-50"
                           unoptimized
@@ -791,7 +873,7 @@ export default function TemplatesPage() {
                           <div className="relative w-full h-40">
                             <Image
                               src={getTemplatePreviewUrl(draft as Template)!}
-                              alt="Current preview"
+                              alt="Current template"
                               fill
                               className="object-contain bg-gray-50"
                               unoptimized
@@ -799,6 +881,77 @@ export default function TemplatesPage() {
                           </div>
                         ) : (
                           <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                            <Layout className="w-6 h-6 mr-2" />
+                            No template image
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+
+                {/* Upload New Template Image */}
+                <motion.div 
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.4 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700">Change Template Image</label>
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg"
+                      onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {imagePreview && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleImageUpload(null)}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Remove New Image
+                      </Button>
+                    )}
+                  </div>
+                </motion.div>
+
+                {/* Current Preview Image */}
+                <motion.div 
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.5 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700">Current Preview Image (Thumbnail)</label>
+                  <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                    {previewImagePreview ? (
+                      <div className="relative w-full h-32">
+                        <Image
+                          src={previewImagePreview}
+                          alt="New preview image"
+                          fill
+                          className="object-contain bg-gray-50"
+                          unoptimized
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        {draft && (draft as Template).preview_image_path ? (
+                          <div className="relative w-full h-32">
+                            <Image
+                              src={`${(draft as Template).preview_image_path}?v=${Date.now()}`}
+                              alt="Current preview"
+                              fill
+                              className="object-contain bg-gray-50"
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full h-32 flex items-center justify-center text-gray-400 bg-gray-50">
                             <Layout className="w-6 h-6 mr-2" />
                             No preview image
                           </div>
@@ -808,12 +961,41 @@ export default function TemplatesPage() {
                   </div>
                 </motion.div>
 
-                {/* Change Preview Image */}
+                {/* Upload New Preview Image */}
+                <motion.div 
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.6 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700">Change Preview Image</label>
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg"
+                      onChange={(e) => handlePreviewImageUpload(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                    />
+                    {previewImagePreview && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handlePreviewImageUpload(null)}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Remove New Preview
+                      </Button>
+                    )}
+                  </div>
+                </motion.div>
+
+                {/* Action Buttons */}
                 <motion.div 
                   className="flex justify-end gap-4 pt-6 border-t border-gray-200"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.6 }}
+                  transition={{ duration: 0.5, delay: 0.7 }}
                 >
                   <Button 
                     variant="outline" 

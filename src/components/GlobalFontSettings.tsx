@@ -9,13 +9,15 @@ interface SelectedStyle {
   fontFamily: string;
   color: string;
   fontWeight: string;
+  x?: number;
+  y?: number;
 }
 
 interface GlobalFontSettingsProps {
   selectedLayerId: string | null;
   selectedStyle: SelectedStyle | null;
   onChange: (
-    styleProperty: "fontSize" | "color" | "fontFamily" | "fontWeight",
+    styleProperty: "fontSize" | "color" | "fontFamily" | "fontWeight" | "x" | "y",
     value: number | string,
   ) => void;
   // Optional: only used for date layers
@@ -31,6 +33,9 @@ export default function GlobalFontSettings({
   onDateFormatChange,
 }: GlobalFontSettingsProps) {
   const [fontSizeInput, setFontSizeInput] = useState<string>("");
+  const [xInput, setXInput] = useState<string>("");
+  const [yInput, setYInput] = useState<string>("");
+  
   useEffect(() => {
     setFontSizeInput(
       selectedStyle?.fontSize !== undefined && selectedStyle?.fontSize !== null
@@ -38,6 +43,22 @@ export default function GlobalFontSettings({
         : ""
     );
   }, [selectedLayerId, selectedStyle?.fontSize]);
+
+  useEffect(() => {
+    setXInput(
+      selectedStyle?.x !== undefined && selectedStyle?.x !== null
+        ? String(selectedStyle.x)
+        : "0"
+    );
+  }, [selectedLayerId, selectedStyle?.x]);
+
+  useEffect(() => {
+    setYInput(
+      selectedStyle?.y !== undefined && selectedStyle?.y !== null
+        ? String(selectedStyle.y)
+        : "0"
+    );
+  }, [selectedLayerId, selectedStyle?.y]);
   const fontFamilies = [
     "Arial",
     "Helvetica",
@@ -81,7 +102,7 @@ export default function GlobalFontSettings({
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-blue-600" />
           <h3 className="text-lg font-semibold text-gray-900">
-            Global Font Settings
+            Font Settings
           </h3>
         </div>
       </div>
@@ -219,6 +240,72 @@ export default function GlobalFontSettings({
               </select>
             </div>
           )}
+        </div>
+
+        {/* Position X & Y - Separate section below */}
+        <div className="pt-4 border-t border-blue-200">
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">Position</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Position X */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <Type className="w-4 h-4" />
+                Position X
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={xInput}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setXInput(v);
+                    if (v !== "" && !isNaN(Number(v))) {
+                      onChange("x", Number(v));
+                    }
+                  }}
+                  onBlur={() => {
+                    if (xInput === "" || isNaN(Number(xInput))) {
+                      setXInput("0");
+                      onChange("x", 0);
+                    }
+                  }}
+                  className="w-24"
+                  disabled={!selectedLayerId}
+                />
+                <span className="text-xs text-gray-500">px</span>
+              </div>
+            </div>
+
+            {/* Position Y */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <Type className="w-4 h-4" />
+                Position Y
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={yInput}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setYInput(v);
+                    if (v !== "" && !isNaN(Number(v))) {
+                      onChange("y", Number(v));
+                    }
+                  }}
+                  onBlur={() => {
+                    if (yInput === "" || isNaN(Number(yInput))) {
+                      setYInput("0");
+                      onChange("y", 0);
+                    }
+                  }}
+                  className="w-24"
+                  disabled={!selectedLayerId}
+                />
+                <span className="text-xs text-gray-500">px</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

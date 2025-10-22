@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { getCertificateByNumber, getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
@@ -18,7 +18,6 @@ import {
 
 export default function HeroSection() {
   const { t } = useLanguage();
-  const [mounted, setMounted] = useState(false);
   const [certificateId, setCertificateId] = useState("");
   const [searching, setSearching] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -33,8 +32,6 @@ export default function HeroSection() {
   });
   const [sendPreviewSrc, setSendPreviewSrc] = useState<string | null>(null);
   const [sendCert, setSendCert] = useState<Certificate | null>(null);
-  
-  useEffect(() => setMounted(true), []);
 
   // Export certificate to PDF
   async function exportToPDF(certificate: Certificate) {
@@ -236,66 +233,8 @@ export default function HeroSection() {
 
   return (
     <>
-    <section className="relative w-full flex-1 flex items-center justify-center overflow-hidden">
-      {/* Enhanced Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800">
-        {/* Animated Background Pattern */}
-        {mounted && (
-          <div className="absolute inset-0">
-            {/* Floating Geometric Shapes */}
-            {[...Array(15)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute w-3 h-3 bg-white/10 rounded-full"
-                style={{
-                  left: `${(i * 47) % 100}%`,
-                  top: `${(i * 61) % 100}%`,
-                }}
-                animate={{
-                  y: [0, -30, 0],
-                  x: [0, 15, 0],
-                  opacity: [0.1, 0.6, 0.1],
-                  scale: [1, 1.2, 1],
-                }}
-                transition={{
-                  duration: 4 + ((i * 17) % 30) / 10,
-                  repeat: Infinity,
-                  delay: ((i * 23) % 30) / 10,
-                  ease: "easeInOut" as const
-                }}
-              />
-            ))}
-            
-            {/* Gradient Orbs */}
-            <motion.div
-              className="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-full blur-3xl"
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.3, 0.6, 0.3],
-              }}
-              transition={{
-                duration: 8,
-                repeat: Infinity,
-                ease: "easeInOut" as const
-              }}
-            />
-            <motion.div
-              className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-indigo-400/20 to-pink-400/20 rounded-full blur-3xl"
-              animate={{
-                scale: [1.2, 1, 1.2],
-                opacity: [0.2, 0.5, 0.2],
-              }}
-              transition={{
-                duration: 10,
-                repeat: Infinity,
-                ease: "easeInOut" as const
-              }}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-0">
+    <section className="relative w-full flex-1 flex items-center justify-center bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-12 md:py-20">
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -304,10 +243,8 @@ export default function HeroSection() {
         >
           {/* Enhanced Main Title */}
           <motion.div variants={itemVariants} className="mb-5">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-3 leading-tight">
-              <span className="block bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
-                E-Certificate
-              </span>
+            <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold text-gradient mb-3 leading-tight">
+              E-Certificate
             </h1>
           </motion.div>
 
@@ -363,15 +300,15 @@ export default function HeroSection() {
                   setSearching(false);
                 }
               }}
-              className="flex items-center gap-2.5 bg-white/10 backdrop-blur-md rounded-2xl p-1.5 border border-white/20"
+              className="flex items-center gap-2.5 bg-gray-50 rounded-2xl p-1.5 border border-gray-200 shadow-sm"
             >
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   value={certificateId}
                   onChange={(e) => setCertificateId(e.target.value)}
                   placeholder={t('hero.searchPlaceholder')}
-                  className="h-10 pl-9 bg-transparent border-0 text-white placeholder:text-white/70 focus-visible:ring-0 text-sm sm:text-base"
+                  className="h-10 pl-9 bg-transparent border-0 text-gray-900 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base"
                 />
               </div>
               <Button

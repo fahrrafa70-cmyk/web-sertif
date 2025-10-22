@@ -22,7 +22,7 @@ export default function Header() {
           {/* Sidebar Trigger Button (Mobile) */}
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-100 transition-all duration-200 flex items-center justify-center self-center"
+            className="lg:hidden p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-100 flex items-center justify-center self-center"
           >
             <Menu className="w-6 h-6" />
           </button>
@@ -30,7 +30,7 @@ export default function Header() {
           {/* Sidebar Trigger Button (Desktop, left of logo) */}
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="hidden md:inline-flex items-center justify-center mr-2 h-10 w-10 rounded-lg text-white gradient-primary hover:opacity-90 transition-all duration-200 shadow-sm mt-1"
+            className="hidden md:inline-flex items-center justify-center mr-2 h-10 w-10 rounded-lg text-white gradient-primary hover:opacity-90 shadow-sm mt-1"
             title="Open Menu"
             aria-label="Open Menu"
           >
@@ -40,10 +40,10 @@ export default function Header() {
           {/* Enhanced Logo */}
           <div>
             <Link href="/" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-200">
+              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-xl">e</span>
               </div>
-              <span className="text-2xl font-bold text-gradient group-hover:scale-105 transition-transform duration-200">
+              <span className="text-2xl font-bold text-gradient">
                 E-Certificate
               </span>
             </Link>
@@ -61,10 +61,10 @@ export default function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-gray-700 hover:text-blue-600 transition-all duration-200 font-medium relative group"
+                className="text-gray-700 hover:text-blue-600 font-medium relative group"
               >
                 {item.label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200 group-hover:w-full"></span>
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 group-hover:w-full"></span>
               </Link>
             ))}
           </nav>
@@ -75,7 +75,7 @@ export default function Header() {
               <>
                 <Button
                   variant="outline"
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover-lift"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
                   onClick={() => setOpenLogin(true)}
                 >
                   {t('auth.login')}
@@ -91,7 +91,7 @@ export default function Header() {
             ) : (
               <Button
                 variant="outline"
-                className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover-lift"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
                 onClick={localSignOut}
               >
                 Log out
@@ -105,7 +105,7 @@ export default function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100 transition-all duration-200"
+            className="md:hidden p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100"
           >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -113,7 +113,7 @@ export default function Header() {
 
         {/* Enhanced Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 bg-white/95 backdrop-blur-md transition-all duration-300">
+          <div className="md:hidden border-t border-gray-200 bg-white/95 backdrop-blur-md">
             <div className="px-2 pt-2 pb-3 space-y-1">
               {[
                 { href: "/", label: t('nav.home') },
@@ -125,7 +125,7 @@ export default function Header() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md transition-all duration-200"
+                  className="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
@@ -136,7 +136,7 @@ export default function Header() {
                   {!isAuthenticated ? (
                     <Button
                       variant="outline"
-                      className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 hover-lift"
+                      className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
                       onClick={() => setOpenLogin(true)}
                     >
                       {t('auth.login')}
@@ -144,7 +144,7 @@ export default function Header() {
                   ) : (
                     <Button
                       variant="outline"
-                      className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 hover-lift"
+                      className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
                       onClick={localSignOut}
                     >
                       {t('auth.logout')}

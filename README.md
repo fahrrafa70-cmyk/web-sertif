@@ -40,11 +40,26 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 Create a `.env.local` at the project root with:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-# Optional server-only key (do NOT expose to client)
-# SUPABASE_SERVICE_ROLE=
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# REQUIRED: Service Role Key to bypass Row Level Security (RLS)
+# This key is needed for template creation/deletion operations
+# Get this from: Supabase Dashboard > Project Settings > API > service_role key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
+
+### Important: Service Role Key
+
+The `SUPABASE_SERVICE_ROLE_KEY` is **required** for template management operations (create/delete). Without this key, you will encounter RLS policy errors when trying to create or delete templates.
+
+**How to get your Service Role Key:**
+1. Go to your Supabase Dashboard
+2. Navigate to: Project Settings > API
+3. Copy the `service_role` key (keep it secret!)
+4. Add it to your `.env.local` file
+
+**Security Note:** The service role key bypasses all RLS policies. It should ONLY be used in server-side API routes (never exposed to the client).
 
 ## Supabase Client Setup
 

@@ -15,7 +15,7 @@ import {
 import * as XLSX from "xlsx";
 import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Eye, FileText } from "lucide-react";
+import { ArrowLeft, Eye, FileText, Image as ImageIcon } from "lucide-react";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { useLanguage } from "@/contexts/language-context";
 import { getTemplate, getTemplateImageUrl } from "@/lib/supabase/templates";
@@ -29,6 +29,11 @@ import { confirmToast } from "@/lib/ui/confirm";
 import html2canvas from "html2canvas";
 import GlobalFontSettings from "@/components/GlobalFontSettings";
 import { getMembers, Member } from "@/lib/supabase/members";
+import {
+  saveTemplateDefaults,
+  getTemplateDefaults,
+  TextLayerDefault,
+} from "@/lib/storage/template-defaults";
 
 type CertificateData = {
   certificate_no: string;
@@ -79,6 +84,13 @@ function CertificateGeneratorContent() {
   });
   const [snapGridEnabled, setSnapGridEnabled] = useState(false);
   const gridSize = 20; // Grid spacing in pixels
+  const [overlayImages, setOverlayImages] = useState<Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [draggingImage, setDraggingImage] = useState<string | null>(null);
+  const [resizingImage, setResizingImage] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const imageDragStartRef = useRef<{x: number; y: number; imgX: number; imgY: number} | null>(null);
+  const resizeStartRef = useRef<{x: number; y: number; width: number; height: number} | null>(null);
 
   // Refs to right-panel inputs so we can focus them when clicking canvas text
   const certNoRef = useRef<HTMLInputElement>(null);
@@ -88,6 +100,7 @@ function CertificateGeneratorContent() {
   const expiryRef = useRef<HTMLInputElement>(null);
   
   const suppressSyncRef = useRef(false);
+  const defaultsLoadedForTemplateRef = useRef<string | null>(null);
 
   // Track click vs drag to avoid focusing inputs during drag
   const lastDownPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -390,6 +403,8 @@ function CertificateGeneratorContent() {
           setLoading(true);
           const template = await getTemplate(templateId);
           setSelectedTemplate(template);
+          // Reset defaults loaded ref when template changes
+          defaultsLoadedForTemplateRef.current = null;
           // Template loaded successfully
         } catch (error) {
           console.error("Failed to load template:", error);
@@ -518,15 +533,67 @@ function CertificateGeneratorContent() {
   // STYLE CONTROL: Update text layer style properties
   const updateTextStyle = (
     layerId: string,
-    styleProperty: 'fontSize' | 'color' | 'fontFamily' | 'fontWeight',
+    styleProperty: 'fontSize' | 'color' | 'fontFamily' | 'fontWeight' | 'x' | 'y',
     value: string | number
   ) => {
     setTextLayers((prevLayers) =>
-      prevLayers.map((layer) =>
-        layer.id === layerId ? { ...layer, [styleProperty]: value } : layer
-      )
+      prevLayers.map((layer) => {
+        if (layer.id === layerId) {
+          // If updating x or y, also update the percent values
+          if (styleProperty === 'x') {
+            const xPercent = Number(value) / STANDARD_CANVAS_WIDTH;
+            return { ...layer, x: Number(value), xPercent };
+          } else if (styleProperty === 'y') {
+            const yPercent = Number(value) / STANDARD_CANVAS_HEIGHT;
+            return { ...layer, y: Number(value), yPercent };
+          }
+          return { ...layer, [styleProperty]: value };
+        }
+        return layer;
+      })
     );
   };
+
+  // TEMPLATE DEFAULTS: Load saved defaults for current template
+  const loadSavedDefaults = useCallback(() => {
+    if (!selectedTemplate) return;
+
+    const savedDefaults = getTemplateDefaults(selectedTemplate.id);
+    if (!savedDefaults) return;
+
+    // Mark that we've loaded defaults for this template
+    defaultsLoadedForTemplateRef.current = selectedTemplate.id;
+
+    // Apply saved defaults to text layers
+    setTextLayers((prevLayers) =>
+      prevLayers.map((layer) => {
+        const savedLayer = savedDefaults.textLayers.find((d) => d.id === layer.id);
+        if (savedLayer) {
+          return {
+            ...layer,
+            x: savedLayer.x,
+            y: savedLayer.y,
+            xPercent: savedLayer.xPercent,
+            yPercent: savedLayer.yPercent,
+            fontSize: savedLayer.fontSize,
+            color: savedLayer.color,
+            fontWeight: savedLayer.fontWeight,
+            fontFamily: savedLayer.fontFamily,
+          };
+        }
+        return layer;
+      })
+    );
+
+    // Apply saved overlay images if available
+    if (savedDefaults.overlayImages && savedDefaults.overlayImages.length > 0) {
+      setOverlayImages(savedDefaults.overlayImages);
+      console.log(`✅ Loaded ${savedDefaults.overlayImages.length} overlay images`);
+    }
+
+    console.log(`✅ Loaded saved defaults for template: ${selectedTemplate.name}`);
+    toast.success(`Loaded saved defaults for "${selectedTemplate.name}"`);
+  }, [selectedTemplate]);
 
   // Apply global font settings to all text layers - removed unused function
 
@@ -598,9 +665,9 @@ function CertificateGeneratorContent() {
         id: "name",
         text: certificateData.name || "Full Name", // Default centered name
         x: STANDARD_CANVAS_WIDTH * 0.5, // 50% from left (center)
-        y: STANDARD_CANVAS_HEIGHT * 0.45, // 45% from top
+        y: STANDARD_CANVAS_HEIGHT * 0.5, // 50% from top (center)
         xPercent: 0.5,
-        yPercent: 0.45,
+        yPercent: 0.5,
         fontSize: globalFontSettings.fontSize + 8, // Slightly larger for name
         color: globalFontSettings.color,
         fontWeight: "bold", // Keep name bold
@@ -664,6 +731,25 @@ function CertificateGeneratorContent() {
       initializeTextLayers();
     }
   }, [selectedTemplate, initializeTextLayers, textLayers.length]);
+
+  // Auto-load saved defaults after text layers are initialized
+  useEffect(() => {
+    if (selectedTemplate && textLayers.length > 0) {
+      // Check if we've already loaded defaults for this template
+      if (defaultsLoadedForTemplateRef.current === selectedTemplate.id) {
+        return; // Already loaded, skip
+      }
+
+      const savedDefaults = getTemplateDefaults(selectedTemplate.id);
+      if (savedDefaults) {
+        console.log(`🔄 Auto-loading defaults for template: ${selectedTemplate.name}`);
+        loadSavedDefaults();
+      } else {
+        console.log(`ℹ️ No saved defaults found for template: ${selectedTemplate.name}`);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplate?.id, textLayers.length]); // Trigger when template ID or textLayers.length changes
 
   // Update canvas dimensions on mount and resize
   useEffect(() => {
@@ -754,6 +840,63 @@ function CertificateGeneratorContent() {
   // Add event listeners for mouse events
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
+      // Handle image dragging
+      if (draggingImage && imageDragStartRef.current && canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const dx = e.clientX - imageDragStartRef.current.x;
+        const dy = e.clientY - imageDragStartRef.current.y;
+        
+        // Convert to canvas coordinates
+        const scaleX = rect.width / STANDARD_CANVAS_WIDTH;
+        const scaleY = rect.height / STANDARD_CANVAS_HEIGHT;
+        const newX = imageDragStartRef.current.imgX + dx / scaleX;
+        const newY = imageDragStartRef.current.imgY + dy / scaleY;
+
+        setOverlayImages(prev => prev.map(img => 
+          img.id === draggingImage 
+            ? { ...img, x: newX, y: newY }
+            : img
+        ));
+        return;
+      }
+
+      // Handle image resizing
+      if (resizingImage && resizeStartRef.current && canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const dx = e.clientX - resizeStartRef.current.x;
+        const dy = e.clientY - resizeStartRef.current.y;
+        
+        // Convert to canvas coordinates
+        const scaleX = rect.width / STANDARD_CANVAS_WIDTH;
+        const scaleY = rect.height / STANDARD_CANVAS_HEIGHT;
+        
+        // FIX: Preserve aspect ratio during resize
+        const img = overlayImages.find(i => i.id === resizingImage);
+        if (img && img.aspectRatio) {
+          // Use diagonal distance to calculate new size while preserving aspect ratio
+          const diagonal = Math.sqrt(dx * dx + dy * dy);
+          const newWidth = Math.max(50, resizeStartRef.current.width + diagonal / scaleX * Math.sign(dx));
+          const newHeight = newWidth / img.aspectRatio;
+          
+          setOverlayImages(prev => prev.map(img => 
+            img.id === resizingImage 
+              ? { ...img, width: newWidth, height: newHeight }
+              : img
+          ));
+        } else {
+          // Fallback to old behavior if no aspect ratio
+          const newWidth = Math.max(50, resizeStartRef.current.width + dx / scaleX);
+          const newHeight = Math.max(50, resizeStartRef.current.height + dy / scaleY);
+          
+          setOverlayImages(prev => prev.map(img => 
+            img.id === resizingImage 
+              ? { ...img, width: newWidth, height: newHeight }
+              : img
+          ));
+        }
+        return;
+      }
+
       // If we haven't started dragging yet, but a candidate exists, start when threshold passed
       if (!draggingLayer && candidateLayerRef.current && lastDownPosRef.current) {
         const dx = Math.abs(e.clientX - lastDownPosRef.current.x);
@@ -793,6 +936,18 @@ function CertificateGeneratorContent() {
     };
 
     const handleGlobalMouseUp = () => {
+      // Handle image drag/resize end
+      if (draggingImage) {
+        setDraggingImage(null);
+        imageDragStartRef.current = null;
+        return;
+      }
+      if (resizingImage) {
+        setResizingImage(null);
+        resizeStartRef.current = null;
+        return;
+      }
+
       const layerId = lastDownLayerRef.current;
       lastDownLayerRef.current = null;
       lastDownPosRef.current = null;
@@ -821,7 +976,7 @@ function CertificateGeneratorContent() {
       }
     };
 
-    if (draggingLayer || candidateLayerRef.current) {
+    if (draggingLayer || candidateLayerRef.current || draggingImage || resizingImage) {
       document.addEventListener("mousemove", handleGlobalMouseMove);
       document.addEventListener("mouseup", handleGlobalMouseUp);
     }
@@ -830,7 +985,7 @@ function CertificateGeneratorContent() {
       document.removeEventListener("mousemove", handleGlobalMouseMove);
       document.removeEventListener("mouseup", handleGlobalMouseUp);
     };
-  }, [draggingLayer, snapToGrid, getNormalizedPosition, getConsistentDimensions, startEditingText]);
+  }, [draggingLayer, draggingImage, resizingImage, snapToGrid, getNormalizedPosition, getConsistentDimensions, startEditingText, STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT]);
 
   // FIX: Add new text using standard canvas dimensions
   const addNewText = useCallback(() => {
@@ -902,6 +1057,92 @@ function CertificateGeneratorContent() {
     },
     [getNormalizedPosition],
   );
+
+  // IMAGE OVERLAY: Handle image drag start
+  const handleImageDragStart = useCallback((e: React.MouseEvent, imgId: string) => {
+    e.stopPropagation();
+    const img = overlayImages.find(i => i.id === imgId);
+    if (!img) return;
+
+    setDraggingImage(imgId);
+    setSelectedImage(imgId);
+    imageDragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      imgX: img.x,
+      imgY: img.y,
+    };
+  }, [overlayImages]);
+
+  // IMAGE OVERLAY: Handle image resize start
+  const handleImageResizeStart = useCallback((e: React.MouseEvent, imgId: string) => {
+    e.stopPropagation();
+    const img = overlayImages.find(i => i.id === imgId);
+    if (!img) return;
+
+    setResizingImage(imgId);
+    setSelectedImage(imgId);
+    resizeStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      width: img.width,
+      height: img.height,
+    };
+  }, [overlayImages]);
+
+  // IMAGE OVERLAY: Handle image delete
+  const handleImageDelete = useCallback((imgId: string) => {
+    setOverlayImages(prev => prev.filter(img => img.id !== imgId));
+    setSelectedImage(null);
+    toast.success('Image removed');
+  }, []);
+
+  // IMAGE OVERLAY: Handle image upload
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type (support PNG, JPG, JPEG, GIF, WebP)
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (PNG, JPG, GIF, WebP)');
+      return;
+    }
+
+    // Read file as data URL
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageUrl = event.target?.result as string;
+      
+      // Create new image to get dimensions
+      const img = new window.Image();
+      img.onload = () => {
+        // Calculate aspect ratio to preserve it during resize
+        const aspectRatio = img.width / img.height;
+        
+        // Add image to overlay images array
+        const newImage = {
+          id: `img-${Date.now()}`,
+          url: imageUrl,
+          x: STANDARD_CANVAS_WIDTH / 2 - img.width / 4, // Center horizontally
+          y: STANDARD_CANVAS_HEIGHT / 2 - img.height / 4, // Center vertically
+          width: img.width / 2, // 50% of original size
+          height: img.height / 2,
+          aspectRatio: aspectRatio, // Store aspect ratio
+        };
+        
+        setOverlayImages((prev) => [...prev, newImage]);
+        toast.success('Image added successfully! Drag to reposition.');
+      };
+      img.src = imageUrl;
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input value to allow uploading same file again
+    if (imageInputRef.current) {
+      imageInputRef.current.value = '';
+    }
+  }, [STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT]);
 
   // FIX: Center text layer using standard canvas dimensions
   const centerTextLayer = useCallback(
@@ -1055,33 +1296,69 @@ function CertificateGeneratorContent() {
       
       // 4. Gunakan ukuran background template yang sudah difiksasi
       const consistentDims = getConsistentDimensions;
-      const devicePixelRatio = window.devicePixelRatio || 1;
       
-      // 5. Sinkronkan faktor skala dengan devicePixelRatio untuk hasil yang tajam
-      const scale = devicePixelRatio;
+      // 5. Gunakan scale 2 yang konsisten untuk hasil tajam tanpa bergeser
+      const scale = 2;
       
-      // 6. Capture dengan html2canvas
+      // 6. Capture dengan html2canvas dengan options yang optimal
       const canvas = await html2canvas(previewElement, {
         width: consistentDims.width,
         height: consistentDims.height,
+        scale: scale,
         useCORS: true,
         allowTaint: true,
         logging: false,
+        // Prevent text shifting
+        letterRendering: true,
+        // Use exact positioning
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        // Window size for consistent rendering
+        windowWidth: consistentDims.width,
+        windowHeight: consistentDims.height,
         // SANITIZE: Hilangkan background CSS kompleks (gradients/lab/oklch) pada subtree agar parser tidak error
         onclone: (doc: Document) => {
           const root = doc.getElementById('certificate-preview');
           if (!root) return;
+          
           // Pertahankan background putih pada root
           (root as HTMLElement).style.backgroundColor = '#ffffff';
+          
+          // Set exact dimensions to prevent shifting
+          (root as HTMLElement).style.width = `${consistentDims.width}px`;
+          (root as HTMLElement).style.height = `${consistentDims.height}px`;
+          (root as HTMLElement).style.position = 'relative';
+          (root as HTMLElement).style.overflow = 'hidden';
+          (root as HTMLElement).style.transform = 'none';
+          (root as HTMLElement).style.margin = '0';
+          (root as HTMLElement).style.padding = '0';
+          
+          console.log('🔍 onclone: Setting root dimensions:', {
+            width: consistentDims.width,
+            height: consistentDims.height
+          });
+          
           // Bersihkan background pada semua child agar tidak ada fungsi warna yang tidak didukung
+          // KECUALI overlay images yang perlu tetap di-render
           root.querySelectorAll('*').forEach((node: Element) => {
             const el = node as HTMLElement;
             if (!el || el.id === 'certificate-preview') return;
+            
+            // Skip cleaning overlay images and their children
+            if (el.tagName === 'IMG' || el.closest('[data-overlay-image]')) {
+              return;
+            }
+            
             el.style.background = 'transparent';
             el.style.backgroundImage = 'none';
             // Hindari filter/boxShadow kompleks yang dapat memicu parsing warna
             el.style.boxShadow = 'none';
             el.style.filter = 'none';
+            // Remove transform that might cause shifting
+            el.style.transform = 'none';
+            el.style.margin = '0';
           });
         }
       } as unknown as Parameters<typeof html2canvas>[1]);
@@ -1118,28 +1395,19 @@ function CertificateGeneratorContent() {
         return;
       }
 
-      // PERBAIKAN: Gunakan dimensi yang sama dengan preview dan sinkronkan dengan devicePixelRatio
+      // FIX: Use getConsistentDimensions for canvas to match preview exactly
+      // But don't use devicePixelRatio scaling
       const consistentDims = getConsistentDimensions;
-      const devicePixelRatio = window.devicePixelRatio || 1;
-      const canvasWidth = Math.round(consistentDims.width * devicePixelRatio);
-      const canvasHeight = Math.round(consistentDims.height * devicePixelRatio);
+      canvas.width = consistentDims.width;
+      canvas.height = consistentDims.height;
       
-      console.log('🎨 Fallback Canvas Dimensions:', {
-        canvasWidth,
-        canvasHeight,
-        consistentDims,
-        devicePixelRatio,
-        originalWidth: consistentDims.width,
-        originalHeight: consistentDims.height
+      console.log('🎨 Canvas Dimensions (matching preview):', {
+        canvasWidth: consistentDims.width,
+        canvasHeight: consistentDims.height,
+        note: 'No devicePixelRatio scaling, using preview dimensions'
       });
-      
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      
-      // Scale context untuk devicePixelRatio
-      ctx.scale(devicePixelRatio, devicePixelRatio);
 
-      // Create a white background dengan dimensi yang benar
+      // Create a white background
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, consistentDims.width, consistentDims.height);
 
@@ -1147,11 +1415,42 @@ function CertificateGeneratorContent() {
       if (selectedTemplate && getTemplateImageUrl(selectedTemplate)) {
         const img = new Image();
         img.crossOrigin = "anonymous";
-        img.onload = () => {
-          // PERBAIKAN: Draw template image dengan dimensi yang benar
+        img.onload = async () => {
+          // Draw template image at full canvas size
           ctx.drawImage(img, 0, 0, consistentDims.width, consistentDims.height);
 
-          // PERBAIKAN: Draw text layers dengan koordinat yang sama dengan preview
+          // Draw overlay images with correct coordinates
+          for (const overlayImg of overlayImages) {
+            try {
+              const imgElement = new Image();
+              imgElement.crossOrigin = "anonymous";
+              await new Promise<void>((resolveImg, rejectImg) => {
+                imgElement.onload = () => {
+                  // FIX: Use exact coordinates from overlay - NO SCALING
+                  // Canvas is now 1:1 with preview coordinates (STANDARD_CANVAS)
+                  // Draw image at exact position and size as stored
+                  ctx.drawImage(
+                    imgElement,
+                    0, 0, imgElement.naturalWidth, imgElement.naturalHeight, // source (full image)
+                    overlayImg.x, overlayImg.y, overlayImg.width, overlayImg.height // destination (exact position)
+                  );
+                  console.log('✅ Drew overlay image at exact coordinates:', {
+                    position: { x: overlayImg.x, y: overlayImg.y },
+                    size: { w: overlayImg.width, h: overlayImg.height },
+                    naturalSize: { w: imgElement.naturalWidth, h: imgElement.naturalHeight },
+                    note: '1:1 coordinate mapping with preview'
+                  });
+                  resolveImg();
+                };
+                imgElement.onerror = () => rejectImg();
+                imgElement.src = overlayImg.url;
+              });
+            } catch (error) {
+              console.warn('Failed to load overlay image:', error);
+            }
+          }
+
+          // Draw text layers at exact coordinates
           layersToUse.forEach((layer) => {
             if (layer.text && layer.text.trim()) {
               ctx.font = `${layer.fontWeight} ${layer.fontSize * (consistentDims.scale || 1)}px ${layer.fontFamily}`;
@@ -1159,7 +1458,7 @@ function CertificateGeneratorContent() {
               ctx.textAlign = "left";
               ctx.textBaseline = "top";
 
-              // PERBAIKAN: Gunakan koordinat yang sama dengan preview (tanpa offset karena dimensi sudah sama)
+              // Use exact coordinates from xPercent/yPercent with consistentDims
               const x = layer.xPercent * consistentDims.width;
               const y = layer.yPercent * consistentDims.height;
 
@@ -1170,8 +1469,31 @@ function CertificateGeneratorContent() {
           const dataURL = canvas.toDataURL("image/png");
           resolve(dataURL);
         };
-        img.onerror = () => {
-          // PERBAIKAN: Fallback text only dengan koordinat yang sama
+        img.onerror = async () => {
+          // Draw overlay images even if template fails
+          for (const overlayImg of overlayImages) {
+            try {
+              const imgElement = new Image();
+              imgElement.crossOrigin = "anonymous";
+              await new Promise<void>((resolveImg, rejectImg) => {
+                imgElement.onload = () => {
+                  // Use exact coordinates - no scaling
+                  ctx.drawImage(
+                    imgElement,
+                    0, 0, imgElement.naturalWidth, imgElement.naturalHeight,
+                    overlayImg.x, overlayImg.y, overlayImg.width, overlayImg.height
+                  );
+                  resolveImg();
+                };
+                imgElement.onerror = () => rejectImg();
+                imgElement.src = overlayImg.url;
+              });
+            } catch (error) {
+              console.warn('Failed to load overlay image:', error);
+            }
+          }
+
+          // Draw text layers at exact coordinates
           layersToUse.forEach((layer) => {
             if (layer.text && layer.text.trim()) {
               ctx.font = `${layer.fontWeight} ${layer.fontSize * (consistentDims.scale || 1)}px ${layer.fontFamily}`;
@@ -1179,7 +1501,6 @@ function CertificateGeneratorContent() {
               ctx.textAlign = "left";
               ctx.textBaseline = "top";
 
-              // PERBAIKAN: Gunakan koordinat yang sama dengan preview (tanpa offset karena dimensi sudah sama)
               const x = layer.xPercent * consistentDims.width;
               const y = layer.yPercent * consistentDims.height;
 
@@ -1192,24 +1513,48 @@ function CertificateGeneratorContent() {
         };
         img.src = getTemplateImageUrl(selectedTemplate)!;
       } else {
-        // PERBAIKAN: No template image dengan koordinat yang sama
-        layersToUse.forEach((layer) => {
-          if (layer.text && layer.text.trim()) {
-            ctx.font = `${layer.fontWeight} ${layer.fontSize}px ${layer.fontFamily}`;
-            ctx.fillStyle = layer.color;
-            ctx.textAlign = "left";
-            ctx.textBaseline = "top";
-
-            // PERBAIKAN: Gunakan koordinat yang sama dengan preview (tanpa scaling ganda)
-            const x = layer.xPercent * consistentDims.width + consistentDims.offsetX;
-            const y = layer.yPercent * consistentDims.height + consistentDims.offsetY;
-
-            ctx.fillText(layer.text, x, y);
+        // Draw overlay images even without template
+        (async () => {
+          for (const overlayImg of overlayImages) {
+            try {
+              const imgElement = new Image();
+              imgElement.crossOrigin = "anonymous";
+              await new Promise<void>((resolveImg, rejectImg) => {
+                imgElement.onload = () => {
+                  // Use exact coordinates - no scaling
+                  ctx.drawImage(
+                    imgElement,
+                    0, 0, imgElement.naturalWidth, imgElement.naturalHeight,
+                    overlayImg.x, overlayImg.y, overlayImg.width, overlayImg.height
+                  );
+                  resolveImg();
+                };
+                imgElement.onerror = () => rejectImg();
+                imgElement.src = overlayImg.url;
+              });
+            } catch (error) {
+              console.warn('Failed to load overlay image:', error);
+            }
           }
-        });
 
-        const dataURL = canvas.toDataURL("image/png");
-        resolve(dataURL);
+          // Draw text layers at exact coordinates
+          layersToUse.forEach((layer) => {
+            if (layer.text && layer.text.trim()) {
+              ctx.font = `${layer.fontWeight} ${layer.fontSize * (consistentDims.scale || 1)}px ${layer.fontFamily}`;
+              ctx.fillStyle = layer.color;
+              ctx.textAlign = "left";
+              ctx.textBaseline = "top";
+
+              const x = layer.xPercent * consistentDims.width;
+              const y = layer.yPercent * consistentDims.height;
+
+              ctx.fillText(layer.text, x, y);
+            }
+          });
+
+          const dataURL = canvas.toDataURL("image/png");
+          resolve(dataURL);
+        })();
       }
     });
   };
@@ -1252,23 +1597,40 @@ function CertificateGeneratorContent() {
         mergedImageDataUrl.substring(0, 50) + "...",
       );
 
-      // Siapkan URL final untuk preview dan penyimpanan DB
-      let finalPreviewUrl: string = mergedImageDataUrl;
+      // Tampilkan preview dengan dataURL (belum save ke storage)
+      setGeneratedImageUrl(mergedImageDataUrl);
 
-      // Coba simpan PNG ke local storage (best-effort). Jika gagal, gunakan dataURL sebagai fallback
-      try {
-        console.log("💾 Saving PNG to local storage...");
-        const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl);
-        console.log("✅ PNG saved locally:", localImageUrl);
-        finalPreviewUrl = localImageUrl;
-      } catch (e) {
-        console.warn("⚠️ Save to local failed, keep dataURL preview.", e);
+      // AUTO-SAVE: Save current coordinates as default for this template
+      if (selectedTemplate) {
+        try {
+          const defaults: TextLayerDefault[] = textLayers.map((layer) => ({
+            id: layer.id,
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+            fontSize: layer.fontSize,
+            color: layer.color,
+            fontWeight: layer.fontWeight,
+            fontFamily: layer.fontFamily,
+          }));
+
+          saveTemplateDefaults({
+            templateId: selectedTemplate.id,
+            templateName: selectedTemplate.name,
+            textLayers: defaults,
+            overlayImages: overlayImages, // Save overlay images
+            savedAt: new Date().toISOString(),
+          });
+
+          console.log(`💾 Auto-saved coordinates and ${overlayImages.length} overlay images for template: ${selectedTemplate.name}`);
+        } catch (error) {
+          console.warn("⚠️ Failed to auto-save coordinates:", error);
+          // Don't block certificate generation if save fails
+        }
       }
 
-      // Tampilkan preview dengan URL final
-      setGeneratedImageUrl(finalPreviewUrl);
-
-      // Prepare certificate data for database
+      // Prepare certificate data for database (with dataURL only)
       const certificateDataToSave: CreateCertificateData = {
         certificate_no: certificateData.certificate_no.trim(),
         name: certificateData.name.trim(),
@@ -1279,14 +1641,29 @@ function CertificateGeneratorContent() {
         template_id: selectedTemplate?.id || undefined,
         member_id: selectedMemberId || undefined,
         text_layers: textLayers,
-        merged_image: mergedImageDataUrl, // Keep data URL as fallback
-        certificate_image_url: finalPreviewUrl || undefined, // Prefer saved public URL for previews
+        merged_image: mergedImageDataUrl, // Data URL for database
+        certificate_image_url: mergedImageDataUrl, // Use dataURL initially
       };
 
-      // Save certificate to database
+      // Save certificate to database FIRST (will throw error if duplicate)
       const savedCertificate = await createCertificate(certificateDataToSave);
 
-      console.log("✅ Certificate saved successfully:", savedCertificate);
+      console.log("✅ Certificate saved to database successfully:", savedCertificate);
+
+      // Only save PNG to local storage AFTER database save succeeds
+      let finalPreviewUrl: string = mergedImageDataUrl;
+      try {
+        console.log("💾 Saving PNG to local storage...");
+        const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl);
+        console.log("✅ PNG saved locally:", localImageUrl);
+        finalPreviewUrl = localImageUrl;
+        
+        // Update preview with saved URL
+        setGeneratedImageUrl(finalPreviewUrl);
+      } catch (e) {
+        console.warn("⚠️ Save PNG to local failed, keeping dataURL.", e);
+      }
+
       toast.success("Certificate generated and saved successfully!");
 
       // Ask user if they want to view the certificates page
@@ -1475,24 +1852,25 @@ function CertificateGeneratorContent() {
   return (
     <div className="min-h-screen">
       <Header />
-      <main className="pt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="pt-7">
+        <div className="max-w-7xl mx-auto py-1">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between mb-6 -ml-28">
+            <div className="flex items-center gap-3">
               <Button
                 variant="outline"
                 className="border-gray-300"
                 onClick={() => router.push("/templates")}
+                size="sm"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to {t("templates.title")}
               </Button>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   {t("generator.title")}
                 </h1>
-                <p className="text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 mt-0.5">
                   Using template: {selectedTemplate.name}
                 </p>
               </div>
@@ -1500,20 +1878,20 @@ function CertificateGeneratorContent() {
           </div>
 
           {/* Dual Pane Layout - centered */}
-          <div className="flex flex-col xl:flex-row gap-8 min-h-[720px] w-full mx-auto justify-center items-start px-2 sm:px-0">
+          <div className="flex flex-col xl:flex-row gap-6 min-h-[600px] w-full mx-auto justify-center items-start">
             {/* Left Section - Certificate Preview */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 mx-auto xl:mx-0 shrink-0 max-w-full"
+              className="bg-white rounded-lg border border-gray-200 shadow-md p-4 mx-auto xl:mx-0 shrink-0 max-w-full"
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
+                  <h2 className="text-base font-semibold text-gray-900">
                     {t("generator.preview")}
                   </h2>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-0.5">
                     Click &quot;Add Text&quot; to add custom text • Double-click
                     text to edit • Drag to move • Press Delete to remove
                   </p>
@@ -1543,30 +1921,52 @@ function CertificateGeneratorContent() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="border-gray-300"
-                    onClick={generatePreview}
+                    className="border-green-500 text-green-600 hover:bg-green-50"
+                    onClick={() => imageInputRef.current?.click()}
                     size="sm"
                   >
-                    <Eye className="w-4 h-4 mr-2" />
-                    Refresh
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Add Image
                   </Button>
+                  {/* Hidden file input for image upload */}
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
                 </div>
               </div>
 
               {/* FIX: Certificate Display with consistent aspect ratio */}
-              <div className="bg-transparent p-0 min-h-[560px] xl:min-h-[680px] flex items-center justify-center overflow-x-auto">
+              <div className="bg-transparent p-0 min-h-[450px] xl:min-h-[520px] flex items-center justify-center overflow-x-auto">
                 {generatedImageUrl ? (
-                  /* Show generated PNG preview */
-                  <div className="bg-white rounded-xl shadow-lg relative overflow-hidden">
+                  /* Show generated PNG preview - SAME SIZE as live editor */
+                  <div 
+                    className="bg-white relative"
+                    style={{
+                      // PERBAIKAN: Gunakan dimensi yang SAMA PERSIS dengan live editor
+                      width: `${getConsistentDimensions.width}px`,
+                      height: `${getConsistentDimensions.height}px`,
+                      overflow: "hidden",
+                      position: "relative",
+                      margin: "0 auto",
+                      padding: "0",
+                      border: "none",
+                      aspectRatio: imageDimensions ? `${imageDimensions.width}/${imageDimensions.height}` : "800/600",
+                    }}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={generatedImageUrl}
                       alt="Generated Certificate"
-                      className="w-full h-auto"
                       style={{
-                        maxWidth: "100%",
-                        aspectRatio: imageDimensions ? `${imageDimensions.width}/${imageDimensions.height}` : "800/600",
-                        margin: "0 auto",
+                        // PERBAIKAN: Gunakan dimensi exact, bukan w-full h-auto
+                        width: `${getConsistentDimensions.width}px`,
+                        height: `${getConsistentDimensions.height}px`,
+                        objectFit: "cover",
+                        display: "block",
                       }}
                     />
                     <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-medium">
@@ -1643,6 +2043,7 @@ function CertificateGeneratorContent() {
                         }}
                         onLoad={handleImageLoad}
                       />
+                      
                     </div>
                   ) : (
                     <>
@@ -1677,6 +2078,54 @@ function CertificateGeneratorContent() {
                       </svg>
                     </div>
                   )}
+
+                  {/* Overlay Images (support transparent background) */}
+                  {overlayImages.map((img) => (
+                    <div
+                      key={img.id}
+                      data-overlay-image="true"
+                      className={`absolute group ${selectedImage === img.id ? 'ring-2 ring-blue-500' : ''}`}
+                      style={{
+                        left: `${img.x}px`,
+                        top: `${img.y}px`,
+                        width: `${img.width}px`,
+                        height: `${img.height}px`,
+                      }}
+                      onMouseDown={(e) => handleImageDragStart(e, img.id)}
+                      onClick={() => setSelectedImage(img.id)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.url}
+                        alt="Overlay"
+                        className="w-full h-full object-fill cursor-move"
+                        draggable={false}
+                      />
+                      
+                      {/* Resize handle (bottom-right corner) */}
+                      {selectedImage === img.id && (
+                        <>
+                          <div
+                            className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-nwse-resize rounded-tl"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              handleImageResizeStart(e, img.id);
+                            }}
+                          />
+                          {/* Delete button */}
+                          <button
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs font-bold"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleImageDelete(img.id);
+                            }}
+                          >
+                            ×
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
 
                   {/* FIX: Draggable text layers with consistent positioning */}
                   {textLayers.map((layer) => {
@@ -1937,10 +2386,10 @@ function CertificateGeneratorContent() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 mx-auto xl:mx-0 w-full sm:w-[520px] md:w-[560px] max-w-full shrink-0 overflow-y-auto"
+              className="bg-white rounded-lg border border-gray-200 shadow-md p-4 mx-auto xl:mx-0 w-full sm:w-[420px] md:w-[460px] max-w-full shrink-0 overflow-y-auto"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-900">
                   {t("generator.recipient")}
                 </h2>
                 <Button
@@ -1953,14 +2402,14 @@ function CertificateGeneratorContent() {
                 </Button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {(role === "Admin" || role === "Team") && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="text-sm font-medium text-gray-700">
                       Select Member
                     </label>
                     <select
-                      className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full h-9 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={selectedMemberId}
                       onChange={(e) => handleSelectMember(e.target.value)}
                       disabled={membersLoading}
@@ -1974,7 +2423,7 @@ function CertificateGeneratorContent() {
                     </select>
                   </div>
                 )}
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-700">
                     Certificate Number
                   </label>
@@ -1986,10 +2435,10 @@ function CertificateGeneratorContent() {
                     onFocus={() => setFocusedField("certificate_no")}
                     ref={certNoRef}
                     placeholder="Enter certificate number"
-                    className="border-gray-300"
+                    className="border-gray-300 h-9 text-sm"
                   />
                   {focusedField === "certificate_no" && (
-                    <div className="pt-3">
+                    <div className="pt-2">
                       <GlobalFontSettings
                         selectedLayerId="certificate_no"
                         selectedStyle={(() => {
@@ -2000,6 +2449,8 @@ function CertificateGeneratorContent() {
                                 fontFamily: l.fontFamily,
                                 color: l.color,
                                 fontWeight: l.fontWeight,
+                                x: l.x,
+                                y: l.y,
                               }
                             : null;
                         })()}
@@ -2009,7 +2460,7 @@ function CertificateGeneratorContent() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-700">
                     Recipient Name
                   </label>
@@ -2021,10 +2472,10 @@ function CertificateGeneratorContent() {
                     onFocus={() => setFocusedField("name")}
                     ref={nameRef}
                     placeholder="Enter recipient name"
-                    className="border-gray-300"
+                    className="border-gray-300 h-9 text-sm"
                   />
                   {focusedField === "name" && (
-                    <div className="pt-3">
+                    <div className="pt-2">
                       <GlobalFontSettings
                         selectedLayerId="name"
                         selectedStyle={(() => {
@@ -2035,6 +2486,8 @@ function CertificateGeneratorContent() {
                                 fontFamily: l.fontFamily,
                                 color: l.color,
                                 fontWeight: l.fontWeight,
+                                x: l.x,
+                                y: l.y,
                               }
                             : null;
                         })()}
@@ -2044,7 +2497,7 @@ function CertificateGeneratorContent() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-700">
                     Description
                   </label>
@@ -2056,11 +2509,11 @@ function CertificateGeneratorContent() {
                     onFocus={() => setFocusedField("description")}
                     ref={descRef}
                     placeholder="Enter certificate description"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={3}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={2}
                   />
                   {focusedField === "description" && (
-                    <div className="pt-3">
+                    <div className="pt-2">
                       <GlobalFontSettings
                         selectedLayerId="description"
                         selectedStyle={(() => {
@@ -2071,6 +2524,8 @@ function CertificateGeneratorContent() {
                                 fontFamily: l.fontFamily,
                                 color: l.color,
                                 fontWeight: l.fontWeight,
+                                x: l.x,
+                                y: l.y,
                               }
                             : null;
                         })()}
@@ -2080,8 +2535,8 @@ function CertificateGeneratorContent() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
                     <label className="text-sm font-medium text-gray-700">
                       Issue Date
                     </label>
@@ -2093,10 +2548,10 @@ function CertificateGeneratorContent() {
                       }
                       onFocus={() => setFocusedField("issue_date")}
                       ref={issueRef}
-                      className="border-gray-300"
+                      className="border-gray-300 h-9 text-sm"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="text-sm font-medium text-gray-700">
                       Expiry Date (Optional)
                     </label>
@@ -2108,12 +2563,12 @@ function CertificateGeneratorContent() {
                       }
                       onFocus={() => setFocusedField("expired_date")}
                       ref={expiryRef}
-                      className="border-gray-300"
+                      className="border-gray-300 h-9 text-sm"
                     />
                   </div>
                 </div>
                 {(focusedField === "issue_date" || focusedField === "expired_date") && (
-                  <div className="pt-3 w-full">
+                  <div className="pt-2 w-full">
                     <GlobalFontSettings
                       selectedLayerId={focusedField!}
                       selectedStyle={(() => {
@@ -2158,43 +2613,15 @@ function CertificateGeneratorContent() {
 
                 // FIX: Only show editing controls for custom text layers, not system-generated ones
                 const isSystemLayer = [
-                      "certificate_no",
-                      "name",
-                      "description",
-                      "issue_date",
-                      "expired_date",
-                    ].includes(selectedLayerId);
+                  "certificate_no",
+                  "name",
+                  "description",
+                  "issue_date",
+                  "expired_date",
+                ].includes(selectedLayerId);
 
-                    if (isSystemLayer) {
-                      return (
-                        <div className="space-y-4 pt-4 border-t border-gray-200">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-gray-700">
-                              System Text Layer
-                            </h3>
-                            <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                              Edit via form fields
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                            <p className="font-medium mb-1">
-                              This is a system-generated text layer.
-                            </p>
-                            <p>
-                              To edit this text, use the corresponding form
-                              fields in the &quot;Recipient Information&quot;
-                              section above.
-                            </p>
-                            {selectedLayerId === "description" && (
-                              <p className="mt-2 text-blue-600">
-                                💡 Use the &quot;Description&quot; field above
-                                to edit this text.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
+                // Don't show editor for system layers
+                if (isSystemLayer) return null;
 
                     return (
                       <div className="space-y-4 pt-4 border-t border-gray-200">

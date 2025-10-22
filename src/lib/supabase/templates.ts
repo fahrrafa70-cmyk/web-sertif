@@ -222,46 +222,32 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       insertData.preview_image_path = previewImagePath;
     }
 
-    console.log('💾 Inserting template data to database:', insertData);
+    console.log('💾 Inserting template data via API:', insertData);
 
-    // Insert data into templates table
-    let { data, error } = await supabaseClient
-      .from('templates')
-      .insert([insertData]) // Wrap in array for proper insert
-      .select()
-      .single();
+    // Insert data into templates table via API route (bypasses RLS)
+    const response = await fetch('/api/templates/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(insertData),
+    });
 
-    if (error) {
-      // Backward compatibility: retry without preview_image_path if column doesn't exist
-      const columnMissing = typeof error.message === 'string' && error.message.includes('preview_image_path');
-      if (columnMissing && previewImagePath) {
-        console.warn('⚠️ preview_image_path column missing. Retrying insert without it.');
-        delete (insertData as Record<string, unknown>).preview_image_path;
-        ({ data, error } = await supabaseClient
-          .from('templates')
-          .insert([insertData])
-          .select()
-          .single());
-      }
-      if (error) {
-        console.error('❌ Database insert error:', error);
-        console.error('Error details:', {
-          code: (error as { code?: string }).code,
-          message: error.message,
-          details: (error as { details?: unknown }).details,
-          hint: (error as { hint?: unknown }).hint
-        });
-        throw new Error(`Failed to create template: ${error.message}`);
-      }
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ API creation error:', errorData);
+      throw new Error(errorData.error || errorData.details || 'Failed to create template');
     }
 
-    console.log('✅ Template created successfully in database:', data);
+    const result = await response.json();
     
-    // Verify the data was actually saved
-    if (!data || !data.id) {
-      throw new Error('Template was not created - no data returned from database');
+    if (!result.success || !result.data) {
+      throw new Error('Template was not created - no data returned from API');
     }
 
+    const data = result.data;
+    console.log('✅ Template created successfully via API:', data);
+    
     // Double-check by fetching the created template
     console.log('🔍 Verifying template was saved by fetching it...');
     const { data: verifyData, error: verifyError } = await supabaseClient
@@ -286,66 +272,100 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
 
 // Update template
 export async function updateTemplate(id: string, templateData: UpdateTemplateData): Promise<Template> {
-  // Get current template to check for existing image
-  const currentTemplate = await getTemplate(id);
-  if (!currentTemplate) {
-    throw new Error('Template not found');
-  }
-
-  let imagePath: string | undefined = currentTemplate.image_path;
-  let previewImagePath: string | undefined = currentTemplate.preview_image_path;
-
-  // Handle image update
-  if (templateData.image_file) {
-    // Upload new image
-    imagePath = await uploadTemplateImage(templateData.image_file);
-  }
-
-  // Handle preview image update
-  if (templateData.preview_image_file) {
-    try {
-      previewImagePath = await uploadTemplateImage(templateData.preview_image_file);
-    } catch (e) {
-      console.warn('⚠️ Preview image upload failed:', e);
+  console.log('🔄 Starting template update process...', { id, templateData });
+  
+  try {
+    // Get current template to check for existing image
+    const currentTemplate = await getTemplate(id);
+    if (!currentTemplate) {
+      throw new Error('Template not found');
     }
-  }
 
-  const updateData: Record<string, unknown> = {
-    name: templateData.name,
-    category: templateData.category,
-    orientation: templateData.orientation,
-    image_path: imagePath
-  };
+    let imagePath: string | undefined = currentTemplate.image_path;
+    let previewImagePath: string | undefined = currentTemplate.preview_image_path;
 
-  if (typeof previewImagePath !== 'undefined') {
-    updateData.preview_image_path = previewImagePath;
-  }
-
-  let { data, error } = await supabaseClient
-    .from('templates')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    const columnMissing = typeof error.message === 'string' && error.message.includes('preview_image_path');
-    if (columnMissing && 'preview_image_path' in updateData) {
-      console.warn('⚠️ preview_image_path column missing. Retrying update without it.');
-      delete updateData.preview_image_path;
-      ({ data, error } = await supabaseClient
-        .from('templates')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single());
+    // Handle image update
+    if (templateData.image_file) {
+      console.log('📤 New image file provided, starting upload...');
+      try {
+        imagePath = await uploadTemplateImage(templateData.image_file);
+        console.log('✅ Image upload completed, path:', imagePath);
+      } catch (uploadError) {
+        console.error('❌ Image upload failed:', uploadError);
+        throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+      }
     }
-    if (error) {
-      throw new Error(`Failed to update template: ${error.message}`);
-    }
-  }
 
-  return data;
+    // Handle preview image update
+    if (templateData.preview_image_file) {
+      console.log('📤 New preview image file provided, starting upload...');
+      try {
+        previewImagePath = await uploadTemplateImage(templateData.preview_image_file);
+        console.log('✅ Preview image upload completed, path:', previewImagePath);
+      } catch (e) {
+        console.warn('⚠️ Preview image upload failed:', e);
+        // Do not block update if preview upload fails
+      }
+    }
+
+    const updateData: Record<string, unknown> = {
+      id: id,
+      name: templateData.name,
+      category: templateData.category,
+      orientation: templateData.orientation,
+      image_path: imagePath
+    };
+
+    if (typeof previewImagePath !== 'undefined') {
+      updateData.preview_image_path = previewImagePath;
+    }
+
+    console.log('💾 Updating template data via API:', updateData);
+
+    // Update data in templates table via API route (bypasses RLS)
+    const response = await fetch('/api/templates/update', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ API update error:', errorData);
+      throw new Error(errorData.error || errorData.details || 'Failed to update template');
+    }
+
+    const result = await response.json();
+    
+    if (!result.success || !result.data) {
+      throw new Error('Template was not updated - no data returned from API');
+    }
+
+    const data = result.data;
+    console.log('✅ Template updated successfully via API:', data);
+    
+    // Verify the update by fetching the template
+    console.log('🔍 Verifying template was updated by fetching it...');
+    const { data: verifyData, error: verifyError } = await supabaseClient
+      .from('templates')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (verifyError) {
+      console.error('❌ Verification failed:', verifyError);
+      throw new Error('Template was updated but could not be verified');
+    }
+
+    console.log('✅ Template verification successful:', verifyData);
+    return data;
+
+  } catch (error) {
+    console.error('💥 Template update process failed:', error);
+    throw error;
+  }
 }
 
 // Delete template
@@ -404,19 +424,42 @@ export async function deleteTemplate(id: string): Promise<void> {
       console.log('ℹ️ No image file associated with this template');
     }
 
-    // Delete template from database
-    console.log('🗃️ Deleting template from database...');
-    const { error } = await supabaseClient
-      .from('templates')
-      .delete()
-      .eq('id', id);
+    // Delete template from database using API route (bypasses RLS)
+    console.log('🗃️ Deleting template from database via API...');
+    
+    const response = await fetch('/api/templates/delete', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ templateId: id }),
+    });
 
-    if (error) {
-      console.error('❌ Database deletion error:', error);
-      throw new Error(`Failed to delete template: ${error.message}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ API deletion error:', errorData);
+      throw new Error(errorData.error || 'Failed to delete template from database');
     }
 
-    console.log('✅ Template deleted successfully from database');
+    const result = await response.json();
+    console.log('✅ Template deleted successfully from database via API');
+    console.log('Deleted data:', result.deletedData);
+    
+    // Verify deletion
+    const { data: verifyData, error: verifyError } = await supabaseClient
+      .from('templates')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+    
+    if (verifyError) {
+      console.warn('⚠️ Could not verify deletion:', verifyError);
+    } else if (verifyData) {
+      console.error('❌ Template still exists in database after delete!', verifyData);
+      throw new Error('Template deletion failed - template still exists in database');
+    } else {
+      console.log('✅ Verified: Template no longer exists in database');
+    }
     
   } catch (error) {
     console.error('💥 Template deletion process failed:', error);

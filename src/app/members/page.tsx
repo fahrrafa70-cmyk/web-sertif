@@ -6,11 +6,14 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Member, createMember, getMembers, updateMember, deleteMember as deleteMemberService } from "@/lib/supabase/members";
 import { Certificate, getCertificatesByMember } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
+import * as XLSX from "xlsx";
+import { FileSpreadsheet, Info } from "lucide-react";
 
 export default function MembersPage() {
   const { t } = useLanguage();
@@ -57,6 +60,11 @@ export default function MembersPage() {
     notes: "",
   });
 
+  // Excel import state
+  const [importing, setImporting] = useState<boolean>(false);
+  const [showExcelInfoModal, setShowExcelInfoModal] = useState<boolean>(false);
+  const excelInputRef = useRef<HTMLInputElement>(null);
+
   async function openViewer(member: Member) {
     setViewerMember(member);
     setViewerOpen(true);
@@ -84,6 +92,96 @@ export default function MembersPage() {
       setLoading(false);
     }
   }, [t]);
+
+  // Handle Excel import
+  const handleExcelImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setImporting(true);
+      toast.info("Reading Excel file...");
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = event.target?.result;
+          const workbook = XLSX.read(data, { type: "binary" });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet) as Array<Record<string, unknown>>;
+
+          console.log("📊 Excel data parsed:", jsonData);
+
+          if (jsonData.length === 0) {
+            toast.error("Excel file is empty");
+            return;
+          }
+
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (const row of jsonData) {
+            try {
+              // Map Excel columns to member fields
+              const memberData = {
+                name: String(row.Name || row.name || "").trim(),
+                email: String(row.Email || row.email || "").trim() || undefined,
+                organization: String(row.Organization || row.organization || "").trim() || undefined,
+                phone: String(row.Phone || row.phone || "").trim() || undefined,
+                job: String(row.Job || row.job || "").trim() || undefined,
+                date_of_birth: String(row["Date of Birth"] || row.date_of_birth || "").trim() || undefined,
+                address: String(row.Address || row.address || "").trim() || undefined,
+                city: String(row.City || row.city || "").trim() || undefined,
+                notes: String(row.Notes || row.notes || "").trim() || undefined,
+              };
+
+              if (!memberData.name) {
+                console.warn("Skipping row without name:", row);
+                errorCount++;
+                continue;
+              }
+
+              await createMember(memberData);
+              successCount++;
+            } catch (error) {
+              console.error("Error creating member:", error);
+              errorCount++;
+            }
+          }
+
+          await loadMembers();
+          
+          if (successCount > 0) {
+            toast.success(`Successfully imported ${successCount} member(s)${errorCount > 0 ? `, ${errorCount} failed` : ""}`);
+          } else {
+            toast.error(`Failed to import members. ${errorCount} error(s)`);
+          }
+        } catch (error) {
+          console.error("Error processing Excel:", error);
+          toast.error("Failed to process Excel file");
+        } finally {
+          setImporting(false);
+        }
+      };
+
+      reader.onerror = () => {
+        toast.error("Failed to read Excel file");
+        setImporting(false);
+      };
+
+      reader.readAsBinaryString(file);
+    } catch (error) {
+      console.error("Error importing Excel:", error);
+      toast.error("Failed to import Excel file");
+      setImporting(false);
+    }
+
+    // Reset input
+    if (excelInputRef.current) {
+      excelInputRef.current.value = "";
+    }
+  }, [loadMembers]);
 
   // Load role from localStorage and initialize
   useEffect(() => {
@@ -288,9 +386,26 @@ export default function MembersPage() {
                 <p className="text-gray-500 mt-1">{t('members.subtitle')}</p>
               </div>
               {(role === "Admin" || role === "Team") && (
-                <Button onClick={() => setShowForm((s) => !s)} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                  {showForm ? t('common.close') : t('members.addMember')}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => setShowExcelInfoModal(true)} 
+                    disabled={importing}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    {importing ? t('members.excel.importing') : t('members.excel.importExcel')}
+                  </Button>
+                  <input
+                    ref={excelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleExcelImport}
+                    className="hidden"
+                  />
+                  <Button onClick={() => setShowForm((s) => !s)} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                    {showForm ? t('common.close') : t('members.addMember')}
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -520,6 +635,109 @@ export default function MembersPage() {
         </section>
       </main>
       <Footer />
+
+      {/* Excel Import Info Modal */}
+      <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="w-5 h-5 text-blue-500" />
+              {t('members.excel.title')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('members.excel.description')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Column Requirements */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <h3 className="font-semibold text-sm mb-3">{t('members.excel.requiredColumns')}</h3>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-red-500 font-bold">*</span>
+                  <div>
+                    <span className="font-medium">Name</span>
+                    <p className="text-xs text-gray-600">{t('members.excel.nameRequired')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <h3 className="font-semibold text-sm mb-3">{t('members.excel.optionalColumns')}</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>• <span className="font-medium">Email</span></div>
+                <div>• <span className="font-medium">Organization</span></div>
+                <div>• <span className="font-medium">Phone</span></div>
+                <div>• <span className="font-medium">Job</span></div>
+                <div>• <span className="font-medium">Date of Birth</span></div>
+                <div>• <span className="font-medium">Address</span></div>
+                <div>• <span className="font-medium">City</span></div>
+                <div>• <span className="font-medium">Notes</span></div>
+              </div>
+            </div>
+
+            {/* Example Table */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-semibold text-sm mb-3">{t('members.excel.exampleFormat')}</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border p-2 text-left">Name*</th>
+                      <th className="border p-2 text-left">Email</th>
+                      <th className="border p-2 text-left">Organization</th>
+                      <th className="border p-2 text-left">Phone</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border p-2">John Doe</td>
+                      <td className="border p-2">john@example.com</td>
+                      <td className="border p-2">ABC Corp</td>
+                      <td className="border p-2">08123456789</td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2">Jane Smith</td>
+                      <td className="border p-2">jane@example.com</td>
+                      <td className="border p-2">XYZ Inc</td>
+                      <td className="border p-2">08198765432</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-800">
+                <strong>{t('members.excel.note')}</strong> {t('members.excel.noteText')}
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 justify-end pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowExcelInfoModal(false)}
+              >
+                {t('members.excel.cancel')}
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowExcelInfoModal(false);
+                  excelInputRef.current?.click();
+                }}
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+              >
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                {t('members.excel.chooseFile')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

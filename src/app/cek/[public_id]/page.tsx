@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
 import { Button } from "@/components/ui/button";
-import { Download, Link2, Share2, FileText, Calendar, Building2, User, Tag, Clock, CheckCircle2 } from "lucide-react";
+import { Download, Link2, Share2, FileText, Calendar, Building2, User, Tag, Clock, CheckCircle2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -213,30 +213,16 @@ export default function PublicCertificatePage() {
 
   // Success state - Display certificate
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-[100] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-xl">e</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">E-Certificate</h1>
-                <p className="text-sm text-gray-500">Public Certificate View</p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/')}
-              className="hidden sm:flex"
-            >
-              Back to Home
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col relative">
+      {/* Floating Back to Home Button */}
+      <Button
+        onClick={() => router.push('/')}
+        className="fixed top-6 right-6 z-50 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-lg hover:shadow-xl transition-all duration-200"
+        size="default"
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Back to Home
+      </Button>
 
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 md:py-12">
