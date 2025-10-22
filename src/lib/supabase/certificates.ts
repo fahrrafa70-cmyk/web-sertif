@@ -15,6 +15,8 @@ export interface Certificate {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  public_id: string;
+  is_public: boolean;
   // Optional joined relations
   members?: {
     id?: string;
@@ -189,6 +191,53 @@ export async function getCertificateByNumber(
   return data;
 }
 
+// Get certificate by public_id (for public access)
+export async function getCertificateByPublicId(
+  public_id: string,
+): Promise<Certificate | null> {
+  const { data, error } = await supabaseClient
+    .from("certificates")
+    .select(
+      `
+      *,
+      templates (
+        id,
+        name,
+        category,
+        orientation
+      ),
+      members:members(*)
+    `,
+    )
+    .eq("public_id", public_id)
+    .eq("is_public", true)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      return null; // Certificate not found or not public
+    }
+    throw new Error(`Failed to fetch certificate: ${error.message}`);
+  }
+
+  return data;
+}
+
+// Generate unique public_id using crypto
+export function generatePublicId(): string {
+  // Use crypto.randomUUID if available (modern browsers and Node 16+)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  
+  // Fallback: generate UUID v4 manually
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 // Create new certificate
 export async function createCertificate(
   certificateData: CreateCertificateData,
@@ -217,6 +266,10 @@ export async function createCertificate(
       );
     }
 
+    // Generate unique public_id for the certificate
+    const publicId = generatePublicId();
+    console.log("🔑 Generated public_id:", publicId);
+
     const insertData = {
       certificate_no: certificateData.certificate_no.trim(),
       name: certificateData.name.trim(),
@@ -232,6 +285,8 @@ export async function createCertificate(
         certificateData.merged_image ||
         null,
       text_layers: certificateData.text_layers || [],
+      public_id: publicId,
+      is_public: true, // Default to public
     };
 
     console.log("💾 Inserting certificate data to database:", insertData);

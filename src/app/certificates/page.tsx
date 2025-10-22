@@ -165,16 +165,23 @@ function CertificatesContent() {
     }
   }
 
-  // Generate certificate link
+  // Generate public certificate link using public_id
   async function generateCertificateLink(certificate: Certificate) {
     try {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const certificateLink = `${baseUrl}/certificate/${certificate.certificate_no}`;
+      if (!certificate.public_id) {
+        toast.error('Certificate does not have a public link ID');
+        return;
+      }
+
+      // Use environment variable for production URL, fallback to window.location.origin
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                      (typeof window !== 'undefined' ? window.location.origin : '');
+      const certificateLink = `${baseUrl}/cek/${certificate.public_id}`;
       
       // Copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(`Certificate link copied to clipboard!\n${certificateLink}`);
+        toast.success(`Public certificate link copied!\n${certificateLink}`);
       } else {
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
@@ -183,10 +190,10 @@ function CertificatesContent() {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(`Certificate link copied to clipboard!\n${certificateLink}`);
+        toast.success(`Public certificate link copied!\n${certificateLink}`);
       }
       
-      console.log('Generated certificate link:', certificateLink);
+      console.log('Generated public certificate link:', certificateLink);
     } catch (err) {
       console.error('Failed to generate certificate link:', err);
       toast.error('Failed to generate certificate link');

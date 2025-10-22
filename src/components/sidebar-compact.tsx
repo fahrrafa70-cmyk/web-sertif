@@ -80,11 +80,9 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
         { label: "Members", href: "/members" },
       ];
     }
-    return [
-      { label: t('nav.myCertificates'), href: "/my-certificates" },
-      { label: t('nav.about'), href: "/about" },
-      { label: t('nav.faq'), href: "/faq" },
-    ];
+    // For non-authenticated users or regular users, return empty array
+    // since main menu already has Home, About, and FAQ
+    return [];
   })();
 
   return (
@@ -192,41 +190,43 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                   </div>
 
                   {/* Management / Role Menu */}
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-600 uppercase tracking-wider mb-4 px-2">
-                      {!role ? t('nav.explore') : t('nav.management')}
-                    </h3>
-                    <nav className="space-y-1">
-                      {roleMenu.map((item, index) => (
-                        <motion.div
-                          key={item.href}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.2, delay: index * 0.03 }}
-                        >
-                          <Link
-                            href={item.href}
-                            onClick={onClose}
-                            className={`flex items-center space-x-4 p-4 rounded-xl transition-all duration-150 group border border-transparent hover:border-blue-100 hover:bg-blue-50 ${
-                              index % 3 === 0
-                                ? "bg-white"
-                                : index % 3 === 1
-                                ? "bg-gray-50"
-                                : "bg-white"
-                            }`}
+                  {roleMenu.length > 0 && (
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-600 uppercase tracking-wider mb-4 px-2">
+                        {!role ? t('nav.explore') : t('nav.management')}
+                      </h3>
+                      <nav className="space-y-1">
+                        {roleMenu.map((item, index) => (
+                          <motion.div
+                            key={item.href}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.2, delay: index * 0.03 }}
                           >
-                            <div className="text-gray-500 group-hover:text-blue-600 transition-colors duration-150">
-                              <ChevronRight className="w-3 h-3" />
-                            </div>
-                            <span className="text-base font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-150">
-                              {item.label}
-                            </span>
-                            <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-blue-400 transition-colors duration-150 ml-auto" />
-                          </Link>
-                        </motion.div>
-                      ))}
-                    </nav>
-                  </div>
+                            <Link
+                              href={item.href}
+                              onClick={onClose}
+                              className={`flex items-center space-x-4 p-4 rounded-xl transition-all duration-150 group border border-transparent hover:border-blue-100 hover:bg-blue-50 ${
+                                index % 3 === 0
+                                  ? "bg-white"
+                                  : index % 3 === 1
+                                  ? "bg-gray-50"
+                                  : "bg-white"
+                              }`}
+                            >
+                              <div className="text-gray-500 group-hover:text-blue-600 transition-colors duration-150">
+                                <ChevronRight className="w-3 h-3" />
+                              </div>
+                              <span className="text-base font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-150">
+                                {item.label}
+                              </span>
+                              <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-blue-400 transition-colors duration-150 ml-auto" />
+                            </Link>
+                          </motion.div>
+                        ))}
+                      </nav>
+                    </div>
+                  )}
 
                   {/* Language Switcher */}
                   <div>
