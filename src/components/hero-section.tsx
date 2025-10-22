@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { getCertificateByNumber, Certificate } from "@/lib/supabase/certificates";
+import { getCertificateByNumber, getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Search, Download, ChevronDown, FileText, Link } from "lucide-react";
@@ -323,23 +323,37 @@ export default function HeroSection() {
                 let q = certificateId.trim();
                 if (!q) return;
                 
-                // Extract certificate number from link format
-                // Support formats: /certificate/CERT-XXX, certificate/CERT-XXX, or just CERT-XXX
-                const linkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
-                if (linkMatch) {
-                  q = linkMatch[1]; // Extract the certificate number from the link
-                  console.log('Extracted certificate number from link:', q);
-                }
+                let cert: Certificate | null = null;
                 
                 try {
                   setSearching(true);
-                  const cert = await getCertificateByNumber(q);
+                  
+                  // Check if input is a public link format: /cek/{public_id}
+                  const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
+                  if (publicLinkMatch) {
+                    const publicId = publicLinkMatch[1];
+                    console.log('Searching by public_id:', publicId);
+                    cert = await getCertificateByPublicId(publicId);
+                  } 
+                  // Check if input is old certificate link format: /certificate/CERT-XXX
+                  else {
+                    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
+                    if (oldLinkMatch) {
+                      q = oldLinkMatch[1];
+                      console.log('Extracted certificate number from old link:', q);
+                    }
+                    // Search by certificate number
+                    console.log('Searching by certificate_no:', q);
+                    cert = await getCertificateByNumber(q);
+                  }
+                  
                   if (!cert) {
                     toast.error("Certificate not found");
                     setPreviewCert(null);
                     setPreviewOpen(false);
                     return;
                   }
+                  
                   setPreviewCert(cert);
                   setPreviewOpen(true);
                 } catch (err) {
