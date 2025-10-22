@@ -957,8 +957,8 @@ function CertificatesContent() {
                                 alt="Certificate"
                                 fill
                                 sizes="100vw"
-                                className="object-cover absolute inset-0"
-                                style={{ objectFit: 'cover' }}
+                                className="object-contain absolute inset-0"
+                                style={{ objectFit: 'contain' }}
                                 onError={() => {
                                   console.warn('Preview image failed to load', src);
                                 }}
