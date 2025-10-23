@@ -59,6 +59,8 @@ export default function TemplatesPage() {
   const [draft, setDraft] = useState<Partial<Template> | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [scoreImageFile, setScoreImageFile] = useState<File | null>(null); // NEW: For dual mode score image
+  const [scoreImagePreview, setScoreImagePreview] = useState<string | null>(null); // NEW: For dual mode score preview
   const [previewImageFile, setPreviewImageFile] = useState<File | null>(null);
   const [previewImagePreview, setPreviewImagePreview] = useState<string | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
@@ -73,38 +75,64 @@ export default function TemplatesPage() {
   // This function is kept for backward compatibility but now uses the proper implementation
 
   function openCreate() {
-    setDraft({ name: "", orientation: "Landscape", category: "" });
+    setDraft({ name: "", orientation: "Landscape", category: "", mode: "single" }); // Default to single mode
     setImageFile(null);
     setImagePreview(null);
+    setScoreImageFile(null); // NEW: Clear score image
+    setScoreImagePreview(null); // NEW: Clear score preview
     setPreviewImageFile(null);
     setPreviewImagePreview(null);
     setIsCreateOpen(true);
   }
 
   async function submitCreate() {
-    console.log('🚀 Starting template creation...', { draft, imageFile });
+    console.log('🚀 Starting template creation...');
+    console.log('Draft:', draft);
+    console.log('Image file:', imageFile?.name, imageFile?.size);
+    console.log('Score image file:', scoreImageFile?.name, scoreImageFile?.size);
+    console.log('Preview image file:', previewImageFile?.name, previewImageFile?.size);
     
     if (!draft || !draft.name?.trim() || !draft.category?.trim()) {
-      console.log('❌ Validation failed:', { draft });
+      console.log('❌ Validation failed - missing required fields:', { draft });
       toast.error("Please fill in all required fields");
       return;
     }
     // Require Template Image on create
     if (!imageFile) {
-      toast.error("Template Image is required");
+      console.log('❌ Validation failed - no certificate image');
+      toast.error("Certificate Image is required");
       return;
     }
+    
+    // Require Score Image if dual mode
+    if (draft.mode === 'dual' && !scoreImageFile) {
+      console.log('❌ Validation failed - dual mode requires score image');
+      toast.error("Score Image is required for dual mode templates");
+      return;
+    }
+
+    console.log('✅ All validations passed');
 
     try {
       const templateData: CreateTemplateData = {
         name: draft.name.trim(),
         category: draft.category.trim(),
         orientation: draft.orientation || "Landscape",
+        mode: draft.mode || 'single', // NEW: Include mode
         image_file: imageFile || undefined,
+        score_image_file: scoreImageFile || undefined, // NEW: Include score image for dual mode
         preview_image_file: previewImageFile || undefined
       };
 
-      console.log('📋 Template data prepared:', templateData);
+      console.log('📋 Template data prepared:', {
+        name: templateData.name,
+        category: templateData.category,
+        orientation: templateData.orientation,
+        mode: templateData.mode,
+        hasImageFile: !!templateData.image_file,
+        hasScoreImageFile: !!templateData.score_image_file,
+        hasPreviewImageFile: !!templateData.preview_image_file
+      });
       console.log('🔄 Calling create function...');
       
       const result = await create(templateData);
@@ -114,6 +142,8 @@ export default function TemplatesPage() {
       setDraft(null);
       setImageFile(null);
       setImagePreview(null);
+      setScoreImageFile(null); // Clear score image
+      setScoreImagePreview(null); // Clear score preview
       setPreviewImageFile(null);
       setPreviewImagePreview(null);
       toast.success("Template created successfully!");
@@ -121,7 +151,17 @@ export default function TemplatesPage() {
       refresh();
     } catch (error) {
       console.error('💥 Template creation failed:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to create template");
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
+      
+      // Show detailed error message
+      const errorMessage = error instanceof Error ? error.message : "Failed to create template";
+      toast.error(errorMessage);
+      
+      // Keep the form open so user can see what went wrong
     }
   }
 
@@ -262,6 +302,26 @@ export default function TemplatesPage() {
     } else {
       setImageFile(null);
       setImagePreview(null);
+    }
+  }
+
+  function handleScoreImageUpload(file: File | null) {
+    if (file) {
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!fileExt || !['jpg', 'jpeg', 'png'].includes(fileExt)) {
+        toast.error('Invalid file type. Only JPG, JPEG, and PNG are allowed.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size too large. Maximum size is 10MB.');
+        return;
+      }
+      setScoreImageFile(file);
+      const url = URL.createObjectURL(file);
+      setScoreImagePreview(url);
+    } else {
+      setScoreImageFile(null);
+      setScoreImagePreview(null);
     }
   }
 
@@ -636,6 +696,39 @@ export default function TemplatesPage() {
               </select>
             </motion.div>
             
+            {/* Template Mode Selector */}
+            <motion.div 
+              className="space-y-3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.15 }}
+            >
+              <label className="text-sm font-semibold text-gray-700">Template Mode</label>
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  variant={draft?.mode === "single" ? "default" : "outline"} 
+                  onClick={() => setDraft((d) => (d ? { ...d, mode: "single" } : d))}
+                  className="rounded-lg"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Certificate Only
+                </Button>
+                <Button 
+                  variant={draft?.mode === "dual" ? "default" : "outline"} 
+                  onClick={() => setDraft((d) => (d ? { ...d, mode: "dual" } : d))}
+                  className="rounded-lg"
+                >
+                  <Palette className="w-4 h-4 mr-2" />
+                  Certificate + Score
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500">
+                {draft?.mode === "dual" 
+                  ? "Dual mode: Upload both certificate and score sheet templates" 
+                  : "Single mode: Upload one certificate template"}
+              </p>
+            </motion.div>
+
             <motion.div 
               className="space-y-3"
               initial={{ opacity: 0, x: 20 }}
@@ -663,7 +756,7 @@ export default function TemplatesPage() {
               </div>
             </motion.div>
 
-            {/* Template Image (Required) */}
+            {/* Certificate Image (Required) */}
             <motion.div 
               className="space-y-2"
               initial={{ opacity: 0, x: 20 }}
@@ -671,7 +764,9 @@ export default function TemplatesPage() {
               transition={{ duration: 0.3, delay: 0.3 }}
             >
               <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-gray-700">Template Image (Required)</label>
+                <label className="text-sm font-semibold text-gray-700">
+                  {draft?.mode === "dual" ? "Certificate Image (Required)" : "Template Image (Required)"}
+                </label>
                 <span className="text-xs text-red-500 font-medium">Required</span>
               </div>
               <div className="space-y-3">
@@ -686,7 +781,7 @@ export default function TemplatesPage() {
                     <div className="relative w-full h-32">
                       <Image 
                         src={imagePreview} 
-                        alt="Template preview" 
+                        alt="Certificate preview" 
                         fill
                         className="object-cover rounded-lg border border-gray-200"
                         unoptimized
@@ -704,6 +799,50 @@ export default function TemplatesPage() {
                 )}
               </div>
             </motion.div>
+
+            {/* Score Image (Required for Dual Mode) */}
+            {draft?.mode === "dual" && (
+              <motion.div 
+                className="space-y-2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.35 }}
+              >
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-gray-700">Score Sheet Image (Required)</label>
+                  <span className="text-xs text-red-500 font-medium">Required</span>
+                </div>
+                <div className="space-y-3">
+                  <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg"
+                    onChange={(e) => handleScoreImageUpload(e.target.files?.[0] || null)}
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                  />
+                  {scoreImagePreview && (
+                    <div className="relative">
+                      <div className="relative w-full h-32">
+                        <Image 
+                          src={scoreImagePreview} 
+                          alt="Score sheet preview" 
+                          fill
+                          className="object-cover rounded-lg border border-gray-200"
+                          unoptimized
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                        onClick={() => handleScoreImageUpload(null)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
 
             
 

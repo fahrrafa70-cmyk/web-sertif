@@ -18,7 +18,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Eye, FileText, Image as ImageIcon } from "lucide-react";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { useLanguage } from "@/contexts/language-context";
-import { getTemplate, getTemplateImageUrl } from "@/lib/supabase/templates";
+import { getTemplate } from "@/lib/supabase/templates";
 import { Template } from "@/lib/supabase/templates";
 import {
   createCertificate,
@@ -71,6 +71,51 @@ function CertificateGeneratorContent() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  
+  // Dual-mode template support
+  const [activeTemplateMode, setActiveTemplateMode] = useState<'certificate' | 'score'>('certificate');
+  
+  // Global font settings for score mode
+  const [scoreFontSettings, setScoreFontSettings] = useState({
+    fontSize: 16,
+    fontFamily: 'Arial',
+    color: '#000000',
+    fontWeight: 'normal' as 'normal' | 'bold',
+  });
+  
+  // Score data state
+  const [scoreData, setScoreData] = useState(() => {
+    const now = new Date();
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    
+    return {
+      aspek_non_teknis: [
+        { no: 1, aspek: 'Disiplin', nilai: 0 },
+        { no: 2, aspek: 'Kreativitas', nilai: 0 },
+        { no: 3, aspek: 'Inisiatif', nilai: 0 },
+        { no: 4, aspek: 'Kerjasama', nilai: 0 },
+        { no: 5, aspek: 'Tanggung Jawab', nilai: 0 },
+        { no: 6, aspek: 'Kejujuran', nilai: 0 },
+      ],
+      aspek_teknis: [
+        { no: 1, standar_kompetensi: '', nilai: 0 },
+        { no: 2, standar_kompetensi: '', nilai: 0 },
+        { no: 3, standar_kompetensi: '', nilai: 0 },
+        { no: 4, standar_kompetensi: '', nilai: 0 },
+        { no: 5, standar_kompetensi: '', nilai: 0 },
+        { no: 6, standar_kompetensi: '', nilai: 0 },
+      ],
+      nilai_prestasi: '',
+      keterangan: '',
+      date: fmt(now),
+      pembina: {
+        jabatan: 'Pembina Magang',
+        nama: '',
+        signature_url: '',
+      },
+    };
+  });
+  
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [draggingLayer, setDraggingLayer] = useState<string | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -167,6 +212,30 @@ function CertificateGeneratorContent() {
 
   // Single date format applied to both issue and expiry dates (form keeps ISO)
   const [dateFormat, setDateFormat] = useState<string>("yyyy-mm-dd");
+
+  // Helper function to get active template image URL based on mode
+  const getActiveTemplateImageUrl = useCallback((template: Template | null): string | null => {
+    if (!template) return null;
+    
+    // For dual-mode templates, return appropriate image based on active mode
+    if (template.mode === 'dual') {
+      if (activeTemplateMode === 'score' && template.score_image_path) {
+        // Return score image with cache busting
+        return `${template.score_image_path}?v=${template.id}&t=${Date.now()}`;
+      }
+      // Default to certificate image
+      if (template.image_path) {
+        return `${template.image_path}?v=${template.id}&t=${Date.now()}`;
+      }
+    }
+    
+    // For single-mode templates, return the image_path
+    if (template.image_path) {
+      return `${template.image_path}?v=${template.id}&t=${Date.now()}`;
+    }
+    
+    return null;
+  }, [activeTemplateMode]);
 
   // Format an ISO date (yyyy-mm-dd) into chosen format for canvas text
   const formatDateString = useCallback((iso: string, fmt: string): string => {
@@ -1570,7 +1639,7 @@ function CertificateGeneratorContent() {
       ctx.fillRect(0, 0, consistentDims.width, consistentDims.height);
 
       // Load template image if available
-      if (selectedTemplate && getTemplateImageUrl(selectedTemplate)) {
+      if (selectedTemplate && getActiveTemplateImageUrl(selectedTemplate)) {
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = async () => {
@@ -1687,7 +1756,7 @@ function CertificateGeneratorContent() {
           const dataURL = canvas.toDataURL("image/png");
           resolve(dataURL);
         };
-        img.src = getTemplateImageUrl(selectedTemplate)!
+        img.src = getActiveTemplateImageUrl(selectedTemplate)!
       } else {
         // Draw overlay images even without template
         (async () => {
@@ -1757,30 +1826,43 @@ function CertificateGeneratorContent() {
       // No need to manually update them here anymore
       console.log("✅ Text layers already synced via real-time updates");
 
-      // Validate required fields (certificate_no will be auto-generated if empty)
-      if (
-        !certificateData.name.trim() ||
-        !certificateData.issue_date
-      ) {
-        toast.error(
-          "Please fill in all required fields (Name and Issue Date)",
-        );
-        return;
+      // Validate required fields based on mode
+      if (activeTemplateMode === 'certificate') {
+        if (!certificateData.name.trim() || !certificateData.issue_date) {
+          toast.error("Please fill in all required fields (Name and Issue Date)");
+          return;
+        }
+      } else {
+        // Score mode validation - at least one nilai must be filled
+        const hasNonTeknis = scoreData.aspek_non_teknis.some(item => item.nilai > 0);
+        const hasTeknis = scoreData.aspek_teknis.some(item => item.nilai > 0);
+        if (!hasNonTeknis && !hasTeknis) {
+          toast.error("Please fill in at least one score value");
+          return;
+        }
       }
 
-      // Auto-generate certificate number if empty
-      let finalCertificateNo = certificateData.certificate_no.trim();
-      if (!finalCertificateNo) {
-        console.log("📝 Auto-generating certificate number...");
-        const issueDate = new Date(certificateData.issue_date);
+      // Auto-generate certificate number
+      let finalCertificateNo = '';
+      if (activeTemplateMode === 'certificate') {
+        finalCertificateNo = certificateData.certificate_no.trim();
+        if (!finalCertificateNo) {
+          console.log("📝 Auto-generating certificate number...");
+          const issueDate = new Date(certificateData.issue_date);
+          finalCertificateNo = await generateCertificateNumber(issueDate);
+          console.log("✨ Generated certificate number:", finalCertificateNo);
+          
+          // Update the form with generated number
+          setCertificateData(prev => ({
+            ...prev,
+            certificate_no: finalCertificateNo
+          }));
+        }
+      } else {
+        // Score mode - generate certificate number based on date
+        const issueDate = new Date(scoreData.date);
         finalCertificateNo = await generateCertificateNumber(issueDate);
-        console.log("✨ Generated certificate number:", finalCertificateNo);
-        
-        // Update the form with generated number
-        setCertificateData(prev => ({
-          ...prev,
-          certificate_no: finalCertificateNo
-        }));
+        console.log("✨ Generated certificate number for score:", finalCertificateNo);
       }
 
       // Require member selection for Admin/Team
@@ -1815,11 +1897,16 @@ function CertificateGeneratorContent() {
             fontFamily: layer.fontFamily,
           }));
 
+          // Save with mode-specific key for dual-mode templates
+          const saveKey = selectedTemplate.mode === 'dual' 
+            ? `${selectedTemplate.id}_${activeTemplateMode}`
+            : selectedTemplate.id;
+          
           saveTemplateDefaults({
-            templateId: selectedTemplate.id,
-            templateName: selectedTemplate.name,
+            templateId: saveKey,
+            templateName: `${selectedTemplate.name} (${activeTemplateMode})`,
             textLayers: defaults,
-            overlayImages: overlayImages, // Save overlay images
+            overlayImages: overlayImages,
             savedAt: new Date().toISOString(),
           });
 
@@ -1830,8 +1917,8 @@ function CertificateGeneratorContent() {
         }
       }
 
-      // Prepare certificate data for database (with dataURL only)
-      const certificateDataToSave: CreateCertificateData = {
+      // Prepare certificate data for database based on mode
+      const certificateDataToSave: CreateCertificateData = activeTemplateMode === 'certificate' ? {
         certificate_no: finalCertificateNo,
         name: certificateData.name.trim(),
         description: certificateData.description.trim() || undefined,
@@ -1841,8 +1928,21 @@ function CertificateGeneratorContent() {
         template_id: selectedTemplate?.id || undefined,
         member_id: selectedMemberId || undefined,
         text_layers: textLayers,
-        merged_image: mergedImageDataUrl, // Data URL for database
-        certificate_image_url: mergedImageDataUrl, // Use dataURL initially
+        merged_image: mergedImageDataUrl,
+        certificate_image_url: mergedImageDataUrl,
+      } : {
+        certificate_no: finalCertificateNo,
+        name: scoreData.pembina.nama || 'Score Certificate',
+        description: scoreData.keterangan || undefined,
+        issue_date: scoreData.date,
+        expired_date: undefined,
+        category: selectedTemplate?.category || undefined,
+        template_id: selectedTemplate?.id || undefined,
+        member_id: selectedMemberId || undefined,
+        text_layers: textLayers,
+        merged_image: mergedImageDataUrl,
+        score_data: scoreData,
+        score_image_url: mergedImageDataUrl,
       };
 
       // Save certificate to database FIRST (will throw error if duplicate)
@@ -2084,6 +2184,30 @@ function CertificateGeneratorContent() {
                 </p>
               </div>
             </div>
+            
+            {/* Template Mode Switch for Dual-Mode Templates */}
+            {selectedTemplate.mode === 'dual' && (
+              <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-200">
+                <Button
+                  variant={activeTemplateMode === 'certificate' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setActiveTemplateMode('certificate')}
+                  className="text-xs"
+                >
+                  <FileText className="w-3 h-3 mr-1" />
+                  Certificate
+                </Button>
+                <Button
+                  variant={activeTemplateMode === 'score' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setActiveTemplateMode('score')}
+                  className="text-xs"
+                >
+                  <ImageIcon className="w-3 h-3 mr-1" />
+                  Score (Nilai)
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Dual Pane Layout - centered */}
@@ -2216,7 +2340,7 @@ function CertificateGeneratorContent() {
                       }
                     }}
                   >
-                  {selectedTemplate && getTemplateImageUrl(selectedTemplate) ? (
+                  {selectedTemplate && getActiveTemplateImageUrl(selectedTemplate) ? (
                     <div 
                       className="absolute inset-0 w-full h-full bg-white"
                       style={{
@@ -2234,8 +2358,8 @@ function CertificateGeneratorContent() {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={getTemplateImageUrl(selectedTemplate)!}
-                        alt="Certificate Template"
+                        src={getActiveTemplateImageUrl(selectedTemplate)!}
+                        alt={activeTemplateMode === 'score' ? "Score Template" : "Certificate Template"}
                         crossOrigin="anonymous"
                         style={{ 
                           // PERBAIKAN: Gunakan dimensi yang sama persis dengan container
@@ -2517,7 +2641,7 @@ function CertificateGeneratorContent() {
 
                   {/* Certificate Content - Only show if no template image and no text layers */}
                   {(!selectedTemplate ||
-                    !getTemplateImageUrl(selectedTemplate)) &&
+                    !getActiveTemplateImageUrl(selectedTemplate)) &&
                     textLayers.length === 0 && (
                       <div className="relative z-10 text-center p-6 xl:p-10">
                         <div className="mb-4 xl:mb-6">
@@ -2604,20 +2728,24 @@ function CertificateGeneratorContent() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-900">
-                  {t("generator.recipient")}
+                  {activeTemplateMode === 'score' ? 'Score Data (Nilai)' : t("generator.recipient")}
                 </h2>
-                <Button
-                  variant="outline"
-                  className="border-gray-300"
-                  onClick={() => setImportModalOpen(true)}
-                  size="sm"
-                >
-                  Import Excel
-                </Button>
+                {activeTemplateMode === 'certificate' && (
+                  <Button
+                    variant="outline"
+                    className="border-gray-300"
+                    onClick={() => setImportModalOpen(true)}
+                    size="sm"
+                  >
+                    Import Excel
+                  </Button>
+                )}
               </div>
 
-              <div className="space-y-3">
-                {(role === "Admin" || role === "Team") && (
+              {/* Certificate Input Form */}
+              {activeTemplateMode === 'certificate' ? (
+                <div className="space-y-3">
+                  {(role === "Admin" || role === "Team") && (
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-gray-700">
                       Select Member
@@ -2637,23 +2765,23 @@ function CertificateGeneratorContent() {
                     </select>
                   </div>
                 )}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">
-                    Certificate Number
-                  </label>
-                  <Input
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-gray-700">
+                      Certificate Number
+                    </label>
+                    <Input
                     value={certificateData.certificate_no}
                     onFocus={() => setFocusedField("certificate_no")}
                     ref={certNoRef}
                     placeholder="Auto-generated (YYMMDDXXX)"
                     className="border-gray-300 h-9 text-sm bg-gray-50"
                     readOnly
-                  />
-                  <p className="text-xs text-gray-500">
+                    />
+                    <p className="text-xs text-gray-500">
                     Auto-generated based on issue date. Format: YYMMDDXXX (e.g., 251010001)
-                  </p>
-                  {focusedField === "certificate_no" && (
-                    <div className="pt-2">
+                    </p>
+                    {focusedField === "certificate_no" && (
+                      <div className="pt-2">
                       <GlobalFontSettings
                         selectedLayerId="certificate_no"
                         selectedStyle={(() => {
@@ -2671,16 +2799,11 @@ function CertificateGeneratorContent() {
                         })()}
                         onChange={(prop, value) => updateTextStyle("certificate_no", prop, value)}
                       />
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">
-                    Recipient Name
-                  </label>
-                  <Input
-                    value={certificateData.name}
+                  <div className="space-y-2">
                     onChange={(e) =>
                       updateCertificateData("name", e.target.value)
                     }
@@ -2688,9 +2811,9 @@ function CertificateGeneratorContent() {
                     ref={nameRef}
                     placeholder="Enter recipient name"
                     className="border-gray-300 h-9 text-sm"
-                  />
-                  {focusedField === "name" && (
-                    <div className="pt-2">
+                    />
+                    {focusedField === "name" && (
+                      <div className="pt-2">
                       <GlobalFontSettings
                         selectedLayerId="name"
                         selectedStyle={(() => {
@@ -2708,15 +2831,15 @@ function CertificateGeneratorContent() {
                         })()}
                         onChange={(prop, value) => updateTextStyle("name", prop, value)}
                       />
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">
-                    Description
-                  </label>
-                  <textarea
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-gray-700">
+                      Description
+                    </label>
+                    <textarea
                     value={certificateData.description}
                     onChange={(e) =>
                       updateCertificateData("description", e.target.value)
@@ -2726,9 +2849,9 @@ function CertificateGeneratorContent() {
                     placeholder="Enter certificate description"
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={2}
-                  />
-                  {focusedField === "description" && (
-                    <div className="pt-2">
+                    />
+                    {focusedField === "description" && (
+                      <div className="pt-2">
                       <GlobalFontSettings
                         selectedLayerId="description"
                         selectedStyle={(() => {
@@ -2790,9 +2913,8 @@ function CertificateGeneratorContent() {
                       className="border-gray-300 h-9 text-sm"
                     />
                   </div>
-                </div>
-                
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-xs text-blue-800">
                     <strong>Note:</strong> Issue Date and Expiry Date are stored in the database but not displayed on the certificate image. 
                     They will be visible when viewing certificate details. Expiry Date automatically updates to 3 years from Issue Date.
@@ -2999,7 +3121,230 @@ function CertificateGeneratorContent() {
                     View Saved Certificates
                   </Button>
                   </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                {/* Font Settings Panel */}
+                <div className="space-y-2 pb-3 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    ⚙️ Font Settings (Global)
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-700">Size</label>
+                      <Input
+                        type="number"
+                        value={scoreFontSettings.fontSize}
+                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontSize: parseInt(e.target.value) || 16})}
+                        className="h-7 text-xs"
+                        min="8"
+                        max="72"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-700">Font</label>
+                      <select
+                        value={scoreFontSettings.fontFamily}
+                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontFamily: e.target.value})}
+                        className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md"
+                      >
+                        <option value="Arial">Arial</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-700">Color</label>
+                      <Input
+                        type="color"
+                        value={scoreFontSettings.color}
+                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, color: e.target.value})}
+                        className="h-7"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-700">Weight</label>
+                      <select
+                        value={scoreFontSettings.fontWeight}
+                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontWeight: e.target.value as 'normal' | 'bold'})}
+                        className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md"
+                      >
+                        <option value="normal">Normal</option>
+                        <option value="bold">Bold</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 italic">
+                    💡 Tip: Adjust global font settings here
+                  </p>
+                </div>
+
+                {/* Aspek Non Teknis */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-1">
+                    Aspek Non Teknis
+                  </h3>
+                  <div className="space-y-2">
+                    {scoreData.aspek_non_teknis.map((item, index) => (
+                      <div key={item.no} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 w-6">{item.no}.</span>
+                        <span className="text-xs text-gray-700 flex-1">{item.aspek}</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={item.nilai || ''}
+                          onChange={(e) => {
+                            const newData = {...scoreData};
+                            newData.aspek_non_teknis[index].nilai = parseInt(e.target.value) || 0;
+                            setScoreData(newData);
+                          }}
+                          className="w-16 h-7 text-xs text-center"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Aspek Teknis */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-1">
+                    Aspek Teknis
+                  </h3>
+                  <div className="space-y-2">
+                    {scoreData.aspek_teknis.map((item, index) => (
+                      <div key={item.no} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 w-6">{item.no}.</span>
+                          <Input
+                            value={item.standar_kompetensi}
+                            onChange={(e) => {
+                              const newData = {...scoreData};
+                              newData.aspek_teknis[index].standar_kompetensi = e.target.value;
+                              setScoreData(newData);
+                            }}
+                            className="flex-1 h-7 text-xs"
+                            placeholder="Standar Kompetensi / Kompetensi Dasar"
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={item.nilai || ''}
+                            onChange={(e) => {
+                              const newData = {...scoreData};
+                              newData.aspek_teknis[index].nilai = parseInt(e.target.value) || 0;
+                              setScoreData(newData);
+                            }}
+                            className="w-16 h-7 text-xs text-center"
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Additional Fields */}
+                <div className="space-y-2 pt-2 border-t">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Informasi Tambahan
+                  </h3>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Nilai / Prestasi
+                    </label>
+                    <Input
+                      value={scoreData.nilai_prestasi}
+                      onChange={(e) => setScoreData({...scoreData, nilai_prestasi: e.target.value})}
+                      className="h-8 text-xs"
+                      placeholder="e.g., 88.5 (BAIK)"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Keterangan
+                    </label>
+                    <textarea
+                      value={scoreData.keterangan}
+                      onChange={(e) => setScoreData({...scoreData, keterangan: e.target.value})}
+                      className="w-full h-16 px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Catatan tambahan (optional)"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Tanggal
+                    </label>
+                    <Input
+                      type="date"
+                      value={scoreData.date}
+                      onChange={(e) => setScoreData({...scoreData, date: e.target.value})}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Jabatan Pembina
+                    </label>
+                    <Input
+                      value={scoreData.pembina.jabatan}
+                      onChange={(e) => setScoreData({
+                        ...scoreData,
+                        pembina: {...scoreData.pembina, jabatan: e.target.value}
+                      })}
+                      className="h-8 text-xs"
+                      placeholder="e.g., Pembina Magang"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Nama Pembina
+                    </label>
+                    <Input
+                      value={scoreData.pembina.nama}
+                      onChange={(e) => setScoreData({
+                        ...scoreData,
+                        pembina: {...scoreData.pembina, nama: e.target.value}
+                      })}
+                      className="h-8 text-xs"
+                      placeholder="Nama lengkap pembina"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons for Score */}
+                <div className="flex flex-col gap-3 pt-4 border-t">
+                  <Button
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log("🖱️ Generate Score button clicked!");
+                      generatePreview();
+                    }}
+                    type="button"
+                    disabled={isGenerating}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    {isGenerating ? "Generating..." : "Generate & Save Score"}
+                  </Button>
+                  <Button
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                    onClick={() => router.push("/certificates")}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    View Saved Certificates
+                  </Button>
+                </div>
               </div>
+              )}
             </motion.div>
           </div>
         </div>

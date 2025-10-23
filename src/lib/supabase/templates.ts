@@ -34,22 +34,28 @@ export interface Template {
   created_at: string;
   image_path?: string; // Add image path field
   preview_image_path?: string; // Optional preview (thumbnail) image
+  mode?: 'single' | 'dual'; // Template mode: single (certificate only) or dual (certificate + score)
+  score_image_path?: string; // Path to score sheet image (only for dual mode)
 }
 
 export interface CreateTemplateData {
   name: string;
   category: string;
   orientation: string;
-  image_file?: File;
-  preview_image_file?: File;
+  mode?: 'single' | 'dual'; // Template mode
+  image_file?: File; // For single mode or certificate in dual mode
+  score_image_file?: File; // For score sheet in dual mode
+  preview_image_file?: File; // Thumbnail
 }
 
 export interface UpdateTemplateData {
   name?: string;
   category?: string;
   orientation?: string;
-  image_file?: File;
-  preview_image_file?: File;
+  mode?: 'single' | 'dual'; // Template mode
+  image_file?: File; // For single mode or certificate in dual mode
+  score_image_file?: File; // For score sheet in dual mode
+  preview_image_file?: File; // Thumbnail
 }
 
 // Upload image to local public folder
@@ -183,23 +189,39 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
     }
     
     let imagePath: string | undefined;
+    let scoreImagePath: string | undefined;
     let previewImagePath: string | undefined;
     
-    // Upload image if provided
+    // Determine mode (default to 'single' for backward compatibility)
+    const mode = templateData.mode || 'single';
+    
+    // Upload certificate/main image if provided
     if (templateData.image_file) {
-      console.log('📤 Image file provided, starting upload...');
+      console.log('📤 Certificate image file provided, starting upload...');
       try {
         imagePath = await uploadTemplateImage(templateData.image_file);
-        console.log('✅ Image upload completed, path:', imagePath);
+        console.log('✅ Certificate image upload completed, path:', imagePath);
       } catch (uploadError) {
-        console.error('❌ Image upload failed:', uploadError);
-        throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        console.error('❌ Certificate image upload failed:', uploadError);
+        throw new Error(`Certificate image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
       }
     } else {
-      console.log('ℹ️ No image file provided');
+      console.log('ℹ️ No certificate image file provided');
     }
 
-    // Upload preview image if provided
+    // Upload score image if provided (dual mode only)
+    if (mode === 'dual' && templateData.score_image_file) {
+      console.log('📤 Score image file provided, starting upload...');
+      try {
+        scoreImagePath = await uploadTemplateImage(templateData.score_image_file);
+        console.log('✅ Score image upload completed, path:', scoreImagePath);
+      } catch (uploadError) {
+        console.error('❌ Score image upload failed:', uploadError);
+        throw new Error(`Score image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+      }
+    }
+
+    // Upload preview/thumbnail image if provided
     if (templateData.preview_image_file) {
       try {
         previewImagePath = await uploadTemplateImage(templateData.preview_image_file);
@@ -214,8 +236,14 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       name: templateData.name.trim(),
       category: templateData.category.trim(),
       orientation: templateData.orientation.trim(),
-      image_path: imagePath // Store the image path
+      mode: mode, // Store the template mode
+      image_path: imagePath // Store the certificate image path
     };
+
+    // Only include score_image_path if we have it (dual mode)
+    if (scoreImagePath) {
+      insertData.score_image_path = scoreImagePath;
+    }
 
     // Only include preview_image_path if we actually have it
     if (previewImagePath) {

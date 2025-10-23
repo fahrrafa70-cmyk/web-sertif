@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, category, orientation, image_path, preview_image_path } = body;
+    const { name, category, orientation, mode, image_path, score_image_path, preview_image_path } = body;
 
     // Validate required fields
     if (!name?.trim() || !category?.trim() || !orientation?.trim()) {
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🚀 API: Creating template...', { name, category, orientation });
+    console.log('🚀 API: Creating template...', { name, category, orientation, mode });
 
     // Check if service role key is available
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -57,11 +57,15 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       category: category.trim(),
       orientation: orientation.trim(),
+      mode: mode || 'single', // Default to 'single' for backward compatibility
     };
 
     // Add image paths if provided
     if (image_path) {
       insertData.image_path = image_path;
+    }
+    if (score_image_path) {
+      insertData.score_image_path = score_image_path;
     }
     if (preview_image_path) {
       insertData.preview_image_path = preview_image_path;
@@ -77,11 +81,18 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      // Backward compatibility: retry without preview_image_path if column doesn't exist
-      const columnMissing = typeof error.message === 'string' && error.message.includes('preview_image_path');
-      if (columnMissing && preview_image_path) {
-        console.warn('⚠️ preview_image_path column missing. Retrying insert without it.');
-        delete insertData.preview_image_path;
+      // Backward compatibility: retry without new columns if they don't exist
+      const errorMsg = typeof error.message === 'string' ? error.message : '';
+      const previewColumnMissing = errorMsg.includes('preview_image_path');
+      const modeColumnMissing = errorMsg.includes('mode');
+      const scoreColumnMissing = errorMsg.includes('score_image_path');
+      
+      if (previewColumnMissing || modeColumnMissing || scoreColumnMissing) {
+        console.warn('⚠️ Some columns missing. Retrying insert without them.');
+        if (previewColumnMissing) delete insertData.preview_image_path;
+        if (modeColumnMissing) delete insertData.mode;
+        if (scoreColumnMissing) delete insertData.score_image_path;
+        
         ({ data, error } = await supabase
           .from('templates')
           .insert([insertData])
@@ -91,11 +102,22 @@ export async function POST(request: NextRequest) {
       
       if (error) {
         console.error('❌ API: Database insertion error:', error);
+        
+        // Provide specific error messages based on error type
+        let hint = error.hint || '';
+        if (error.message?.includes('row-level security') || error.message?.includes('policy')) {
+          hint = '🔒 RLS Policy Error: Add SUPABASE_SERVICE_ROLE_KEY to .env.local or update RLS policies in Supabase. See FIX_RLS_ERROR.md for details.';
+        } else if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+          hint = '📊 Database Schema Error: Run the SQL migration in database/add_dual_mode_columns.sql to add required columns.';
+        } else {
+          hint = 'Check RLS policies, run database migration SQL, or add SUPABASE_SERVICE_ROLE_KEY to .env.local';
+        }
+        
         return NextResponse.json(
           { 
             error: 'Failed to create template',
             details: error.message,
-            hint: error.hint || 'Check RLS policies or add SUPABASE_SERVICE_ROLE_KEY to .env.local'
+            hint: hint
           },
           { status: 500 }
         );

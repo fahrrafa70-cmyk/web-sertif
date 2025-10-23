@@ -91,6 +91,8 @@ export interface CreateCertificateData {
   certificate_image_url?: string;
   text_layers?: TextLayer[];
   merged_image?: string; // FIX: Add support for merged image
+  score_data?: any; // Score data for dual-mode templates (JSONB)
+  score_image_url?: string; // URL to generated score sheet image
 }
 
 export interface UpdateCertificateData {
@@ -344,6 +346,8 @@ export async function createCertificate(
         certificateData.merged_image ||
         null,
       text_layers: certificateData.text_layers || [],
+      score_data: certificateData.score_data || null, // Score data for dual-mode templates
+      score_image_url: certificateData.score_image_url || null, // Score image URL
       public_id: publicId,
       is_public: true, // Default to public
     };
