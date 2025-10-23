@@ -13,7 +13,7 @@ import { Certificate, getCertificatesByMember } from "@/lib/supabase/certificate
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Info } from "lucide-react";
+import { FileSpreadsheet, Info, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function MembersPage() {
   const { t } = useLanguage();
@@ -24,6 +24,8 @@ export default function MembersPage() {
   const [showForm, setShowForm] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [initialized, setInitialized] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage] = useState<number>(8);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -368,7 +370,18 @@ export default function MembersPage() {
     }
   }
 
-  const members = useMemo(() => membersData, [membersData]);
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentMembers = useMemo(() => 
+    membersData.slice(indexOfFirstItem, indexOfLastItem), 
+    [membersData, indexOfFirstItem, indexOfLastItem]
+  );
+  const totalPages = useMemo(() => 
+    Math.ceil(membersData.length / itemsPerPage), 
+    [membersData, itemsPerPage]
+  );
+  
   const canDelete = role === "Admin";
 
   // Show loading while initializing
@@ -503,6 +516,7 @@ export default function MembersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>{t('members.table.name')}</TableHead>
                     <TableHead>{t('members.table.organization')}</TableHead>
                     <TableHead>{t('members.table.email')}</TableHead>
@@ -513,8 +527,9 @@ export default function MembersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {members.map((m) => (
+                  {currentMembers.map((m, index) => (
                     <TableRow key={m.id}>
+                      <TableCell className="text-gray-500">{indexOfFirstItem + index + 1}</TableCell>
                       <TableCell className="font-medium">{m.name}</TableCell>
                       <TableCell>{m.organization || "—"}</TableCell>
                       <TableCell>{m.email || "—"}</TableCell>
@@ -550,7 +565,7 @@ export default function MembersPage() {
                       </TableCell>
                     </TableRow>
                   )}
-                  {!loading && members.length === 0 && (
+                  {!loading && membersData.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-gray-500 py-12">
                         <div className="text-center">
@@ -574,6 +589,31 @@ export default function MembersPage() {
                 </TableBody>
               </Table>
             </motion.div>
+            
+            {/* Pagination Controls */}
+            {!loading && membersData.length > 0 && (
+              <div className="flex justify-center items-center mt-6 gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-2"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm text-gray-600 px-4">
+                  {t('common.page') || 'Page'} {currentPage} {t('common.of') || 'of'} {totalPages}
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-2"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
             {viewerOpen && (
               <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center" onClick={() => setViewerOpen(false)}>
