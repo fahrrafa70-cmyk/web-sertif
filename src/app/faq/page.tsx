@@ -114,34 +114,6 @@ export default function FAQPage() {
             </div>
           </div>
         </section>
-
-        {/* Contact Section */}
-        <section className="py-20 bg-gray-50">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-            >
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">
-                Still Have Questions?
-              </h2>
-              <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-                Our support team is here to help. Contact us for personalized assistance 
-                with any questions or concerns about our platform.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button className="bg-blue-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-blue-700 transition-colors duration-200">
-                  Contact Support
-                </button>
-                <button className="border-2 border-blue-600 text-blue-600 px-8 py-3 rounded-full font-semibold hover:bg-blue-600 hover:text-white transition-colors duration-200">
-                  View Documentation
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        </section>
       </main>
       <Footer />
     </div>
