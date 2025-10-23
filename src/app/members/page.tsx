@@ -602,7 +602,7 @@ export default function MembersPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <div className="text-sm text-gray-600 px-4">
-                  {t('common.page') || 'Page'} {currentPage} {t('common.of') || 'of'} {totalPages}
+                  Halaman {currentPage} dari {totalPages}
                 </div>
                 <Button 
                   variant="outline" 

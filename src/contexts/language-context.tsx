@@ -167,6 +167,8 @@ const translations: Translations = {
     'dashboard.overview': 'Overview',
     'dashboard.recentActivity': 'Recent Activity',
     'dashboard.quickActions': 'Quick Actions',
+    'dashboard.stats.members': 'Members',
+    'dashboard.stats.membersChange': '+5 this week',
     
     // Analytics
     'analytics.title': 'Analytics',
