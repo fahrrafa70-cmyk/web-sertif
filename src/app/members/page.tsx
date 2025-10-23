@@ -214,6 +214,50 @@ export default function MembersPage() {
     initializeComponent();
   }, [loadMembers]);
 
+  // Handle keyboard events for viewer modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (viewerOpen && e.key === "Escape") {
+        setViewerOpen(false);
+      }
+    };
+
+    if (viewerOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [viewerOpen]);
+
+  // Handle keyboard events for edit modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (editOpen) {
+        if (e.key === "Escape") {
+          setEditOpen(false);
+        }
+      }
+    };
+
+    if (editOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [editOpen]);
+
+  // Handle keyboard events for image preview modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (imagePreviewOpen && e.key === "Escape") {
+        setImagePreviewOpen(false);
+      }
+    };
+
+    if (imagePreviewOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [imagePreviewOpen]);
+
   function openEdit(member: Member) {
     setEditingMember(member);
     setEditForm({

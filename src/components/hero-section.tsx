@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { getCertificateByNumber, getCertificateByPublicId, Certificate, advancedSearchCertificates, getCertificateCategories, SearchFilters } from "@/lib/supabase/certificates";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Search, Download, ChevronDown, FileText, Link, Filter, X } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
@@ -38,6 +38,8 @@ export default function HeroSection() {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [sendFormErrors, setSendFormErrors] = useState<{ email?: string; subject?: string; message?: string }>({});
   const [sendForm, setSendForm] = useState<{ email: string; subject: string; message: string }>({
     email: "",
     subject: "",
@@ -179,13 +181,40 @@ export default function HeroSection() {
   }
 
   // Confirm and send from modal
-  async function confirmSendEmail() {
-    if (!sendCert || !sendPreviewSrc) return;
+  const confirmSendEmail = useCallback(async () => {
+    if (!sendCert || !sendPreviewSrc || isSendingEmail) return;
+    
+    // Clear previous errors
+    setSendFormErrors({});
+    
+    // Validate fields
+    const errors: { email?: string; subject?: string; message?: string } = {};
     const recipientEmail = (sendForm.email || '').trim();
+    
     if (!recipientEmail) {
-      toast.error('Recipient email is required');
+      errors.email = 'Recipient email is required';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipientEmail)) {
+        errors.email = 'Please enter a valid email address';
+      }
+    }
+    
+    if (!sendForm.subject.trim()) {
+      errors.subject = 'Subject is required';
+    }
+    
+    if (!sendForm.message.trim()) {
+      errors.message = 'Message is required';
+    }
+    
+    // If there are errors, show them and return
+    if (Object.keys(errors).length > 0) {
+      setSendFormErrors(errors);
       return;
     }
+    
+    setIsSendingEmail(true);
     try {
       const payload = {
         recipientEmail,
@@ -202,22 +231,33 @@ export default function HeroSection() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
+        // More specific error messages
+        if (res.status === 400) {
+          throw new Error('Invalid email address or missing required fields');
+        } else if (res.status === 404) {
+          throw new Error('Email service not available');
+        } else if (res.status === 500) {
+          throw new Error('Server error. Please try again later');
+        }
         throw new Error(json?.error || `Failed to send email (status ${res.status})`);
       }
       if (json.previewUrl) {
-        toast.success('Email queued (dev preview opened in new tab)');
+        toast.success('Email queued successfully! Preview opened in new tab');
         try { window.open(json.previewUrl, '_blank'); } catch {}
       } else {
-        toast.success('Email sent to recipient');
+        toast.success(`Email sent successfully to ${recipientEmail}`);
       }
       setSendModalOpen(false);
       setSendCert(null);
       setSendPreviewSrc(null);
+      setSendForm({ email: '', subject: '', message: '' });
     } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Failed to send email');
+      console.error('Email send error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to send email. Please try again.');
+    } finally {
+      setIsSendingEmail(false);
     }
-  }
+  }, [sendCert, sendPreviewSrc, sendForm, isSendingEmail]);
 
   // Load categories on mount
   useEffect(() => {
@@ -233,6 +273,53 @@ export default function HeroSection() {
     }
     loadCategories();
   }, []);
+
+  // Handle keyboard events for preview modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (previewOpen && e.key === "Escape") {
+        setPreviewOpen(false);
+      }
+    };
+
+    if (previewOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [previewOpen]);
+
+  // Handle keyboard events for image preview modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (imagePreviewOpen && e.key === "Escape") {
+        setImagePreviewOpen(false);
+      }
+    };
+
+    if (imagePreviewOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [imagePreviewOpen]);
+
+  // Handle keyboard events for send email modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (sendModalOpen) {
+        if (e.key === "Escape") {
+          setSendModalOpen(false);
+        } else if (e.key === "Enter" && e.ctrlKey) {
+          // Ctrl+Enter to send email
+          confirmSendEmail();
+        }
+      }
+    };
+
+    if (sendModalOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [sendModalOpen, confirmSendEmail]);
 
   // Debounced search function
   const performSearch = useCallback(async (searchFilters: SearchFilters) => {
@@ -255,6 +342,59 @@ export default function HeroSection() {
       setSearching(false);
     }
   }, [t]);
+
+  // Reusable search handler for both Enter key and button click
+  const handleSearch = useCallback(async () => {
+    const q = certificateId.trim();
+    if (!q) {
+      // Show validation error for empty search
+      setSearchError(t('error.search.empty') || 'Please enter a certificate number, name, or link to search');
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+    
+    // Check if it's a direct link/ID search
+    const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
+    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
+    const isCertId = q.match(/^CERT-/i);
+    
+    if (publicLinkMatch || oldLinkMatch || isCertId) {
+      // Direct search by ID/link
+      setSearching(true);
+      setSearchError("");
+      try {
+        let cert: Certificate | null = null;
+        if (publicLinkMatch) {
+          cert = await getCertificateByPublicId(publicLinkMatch[1]);
+        } else {
+          const certNo = oldLinkMatch ? oldLinkMatch[1] : q;
+          cert = await getCertificateByNumber(certNo);
+        }
+        
+        if (!cert) {
+          setSearchError(t('error.search.notFound'));
+        } else {
+          setPreviewCert(cert);
+          setPreviewOpen(true);
+        }
+      } catch (err) {
+        console.error(err);
+        setSearchError(t('error.search.failed'));
+      } finally {
+        setSearching(false);
+      }
+    } else {
+      // Keyword search - perform advanced search
+      const searchFilters: SearchFilters = {
+        keyword: q,
+        category: filters.category,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+      };
+      await performSearch(searchFilters);
+    }
+  }, [certificateId, filters, performSearch, t]);
 
   // Remove auto-search on typing - only search when button clicked
 
@@ -321,96 +461,65 @@ export default function HeroSection() {
             className="mx-auto max-w-2xl"
           >
             {/* Search Bar */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`flex-1 flex items-center gap-2.5 bg-gray-50 rounded-2xl p-1.5 border shadow-sm transition-all duration-200 ${
-                searchError ? 'border-red-300 bg-red-50/50' : 'border-gray-200'
-              }`}>
-                <div className="flex-1 relative">
-                  <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${
-                    searchError ? 'text-red-400' : 'text-gray-400'
-                  }`} />
-                  <Input
-                    value={certificateId}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setCertificateId(value);
-                      setSearchError("");
-                    }}
-                    placeholder={t('search.searchByName')}
-                    className={`h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base ${
-                      searchError ? 'text-red-900' : 'text-gray-900'
-                    }`}
-                  />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex items-center gap-2.5 bg-gray-50 rounded-2xl p-1.5 border border-gray-200 shadow-sm transition-all duration-200">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      value={certificateId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setCertificateId(value);
+                        setSearchError("");
+                        // Clear search results when input is emptied
+                        if (!value.trim()) {
+                          setSearchResults([]);
+                          setShowResults(false);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSearch();
+                        }
+                      }}
+                      placeholder={t('search.searchByName')}
+                      className="h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base text-gray-900"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleSearch}
+                    disabled={searching}
+                    className="h-10 px-4 sm:h-11 sm:px-5 gradient-primary text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {searching ? "Searching..." : t('hero.searchButton')}
+                    <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
+                  </Button>
                 </div>
+                
+                {/* Filter Toggle Button */}
                 <Button
                   type="button"
-                  onClick={async () => {
-                    const q = certificateId.trim();
-                    if (!q) {
-                      // Clear results if search is empty
-                      setSearchResults([]);
-                      setShowResults(false);
-                      setSearchError("");
-                      return;
-                    }
-                    
-                    // Check if it's a direct link/ID search
-                    const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
-                    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
-                    const isCertId = q.match(/^CERT-/i);
-                    
-                    if (publicLinkMatch || oldLinkMatch || isCertId) {
-                      // Direct search by ID/link
-                      setSearching(true);
-                      setSearchError("");
-                      try {
-                        let cert: Certificate | null = null;
-                        if (publicLinkMatch) {
-                          cert = await getCertificateByPublicId(publicLinkMatch[1]);
-                        } else {
-                          const certNo = oldLinkMatch ? oldLinkMatch[1] : q;
-                          cert = await getCertificateByNumber(certNo);
-                        }
-                        
-                        if (!cert) {
-                          setSearchError(t('error.search.notFound'));
-                        } else {
-                          setPreviewCert(cert);
-                          setPreviewOpen(true);
-                        }
-                      } catch (err) {
-                        console.error(err);
-                        setSearchError(t('error.search.failed'));
-                      } finally {
-                        setSearching(false);
-                      }
-                    } else {
-                      // Keyword search - perform advanced search
-                      const searchFilters: SearchFilters = {
-                        keyword: q,
-                        category: filters.category,
-                        startDate: filters.startDate,
-                        endDate: filters.endDate,
-                      };
-                      await performSearch(searchFilters);
-                    }
-                  }}
-                  className="h-10 px-4 sm:h-11 sm:px-5 gradient-primary text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]"
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="h-12 px-4 border-gray-300 hover:bg-gray-50"
                 >
-                  {searching ? "Searching..." : t('hero.searchButton')}
-                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
+                  <Filter className="w-4 h-4" />
                 </Button>
               </div>
               
-              {/* Filter Toggle Button */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="h-12 px-4 border-gray-300 hover:bg-gray-50"
-              >
-                <Filter className="w-4 h-4" />
-              </Button>
+              {/* Error Message */}
+              {searchError && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-sm text-red-500 px-2"
+                >
+                  {searchError}
+                </motion.p>
+              )}
             </div>
 
             {/* Filters Panel */}
@@ -496,20 +605,6 @@ export default function HeroSection() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-            )}
-            {searchError && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg"
-              >
-                <p className="text-sm text-red-600 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  {searchError}
-                </p>
-              </motion.div>
             )}
 
             {/* Search Results */}
@@ -705,42 +800,112 @@ export default function HeroSection() {
               <Input
                 type="email"
                 value={sendForm.email}
-                onChange={(e) => setSendForm({ ...sendForm, email: e.target.value })}
+                onChange={(e) => {
+                  setSendForm({ ...sendForm, email: e.target.value });
+                  if (sendFormErrors.email) setSendFormErrors((err) => ({ ...err, email: undefined }));
+                }}
                 placeholder="recipient@example.com"
-                className="w-full"
+                className={`w-full ${sendFormErrors.email ? 'border-red-500' : ''}`}
+                disabled={isSendingEmail}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isSendingEmail) {
+                    e.preventDefault();
+                    confirmSendEmail();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setSendModalOpen(false);
+                  }
+                }}
               />
+              {sendFormErrors.email && (
+                <p className="text-xs text-red-500 mt-1">{sendFormErrors.email}</p>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Subject</label>
               <Input
                 value={sendForm.subject}
-                onChange={(e) => setSendForm({ ...sendForm, subject: e.target.value })}
+                onChange={(e) => {
+                  setSendForm({ ...sendForm, subject: e.target.value });
+                  if (sendFormErrors.subject) setSendFormErrors((err) => ({ ...err, subject: undefined }));
+                }}
                 placeholder="Email subject"
-                className="w-full"
+                className={`w-full ${sendFormErrors.subject ? 'border-red-500' : ''}`}
+                disabled={isSendingEmail}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isSendingEmail) {
+                    e.preventDefault();
+                    confirmSendEmail();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setSendModalOpen(false);
+                  }
+                }}
               />
+              {sendFormErrors.subject && (
+                <p className="text-xs text-red-500 mt-1">{sendFormErrors.subject}</p>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Message</label>
               <textarea
                 value={sendForm.message}
-                onChange={(e) => setSendForm({ ...sendForm, message: e.target.value })}
+                onChange={(e) => {
+                  setSendForm({ ...sendForm, message: e.target.value });
+                  if (sendFormErrors.message) setSendFormErrors((err) => ({ ...err, message: undefined }));
+                }}
                 placeholder="Email message"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300'}`}
                 rows={4}
+                disabled={isSendingEmail}
+                onKeyDown={(e) => {
+                  // Allow Shift+Enter for new line
+                  if (e.key === 'Enter' && !e.shiftKey && !isSendingEmail) {
+                    e.preventDefault();
+                    confirmSendEmail();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setSendModalOpen(false);
+                  }
+                }}
               />
+              {sendFormErrors.message && (
+                <p className="text-xs text-red-500 mt-1">{sendFormErrors.message}</p>
+              )}
             </div>
             <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setSendModalOpen(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setSendModalOpen(false)}
+                disabled={isSendingEmail}
+              >
                 Cancel
               </Button>
-              <Button onClick={confirmSendEmail} className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-                Send Email
+              <Button 
+                onClick={confirmSendEmail} 
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSendingEmail}
+              >
+                {isSendingEmail ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending...
+                  </>
+                ) : (
+                  'Send Email'
+                )}
               </Button>
             </div>
           </div>
         </div>
       </div>
     )}
+    
+    {/* Toast Notifications */}
+    <Toaster position="top-right" richColors />
   </>
   );
 }

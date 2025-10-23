@@ -23,6 +23,7 @@ import { Template } from "@/lib/supabase/templates";
 import {
   createCertificate,
   CreateCertificateData,
+  generateCertificateNumber,
 } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
@@ -122,12 +123,7 @@ function CertificateGeneratorContent() {
       case "description":
         el = descRef.current;
         break;
-      case "issue_date":
-        el = issueRef.current;
-        break;
-      case "expired_date":
-        el = expiryRef.current;
-        break;
+      // issue_date and expired_date are no longer displayed on certificate
     }
     if (el) {
       el.focus();
@@ -136,14 +132,14 @@ function CertificateGeneratorContent() {
       }
     }
   }
-  // Default dates: issue today, expiry +5 years
+  // Default dates: issue today, expiry +3 years
   const __nowForDefaults = new Date();
   const __expiryForDefaults = new Date(__nowForDefaults);
-  __expiryForDefaults.setFullYear(__expiryForDefaults.getFullYear() + 5);
+  __expiryForDefaults.setFullYear(__expiryForDefaults.getFullYear() + 3);
   const __fmt = (d: Date) => d.toISOString().split("T")[0];
 
   const [certificateData, setCertificateData] = useState<CertificateData>({
-    certificate_no: "CERT-2024-001",
+    certificate_no: "", // Will be auto-generated based on issue date
     name: "John Doe",
     description:
       "This certificate is awarded for successful completion of the program.",
@@ -594,46 +590,6 @@ function CertificateGeneratorContent() {
   }, [textLayers, overlayImages, selectedTemplate]);
 
   // TEMPLATE DEFAULTS: Load saved defaults for current template
-  const loadSavedDefaults = useCallback(() => {
-    if (!selectedTemplate) return;
-
-    const savedDefaults = getTemplateDefaults(selectedTemplate.id);
-    if (!savedDefaults) return;
-
-    // Mark that we've loaded defaults for this template
-    defaultsLoadedForTemplateRef.current = selectedTemplate.id;
-
-    // Apply saved defaults to text layers
-    setTextLayers((prevLayers) =>
-      prevLayers.map((layer) => {
-        const savedLayer = savedDefaults.textLayers.find((d) => d.id === layer.id);
-        if (savedLayer) {
-          return {
-            ...layer,
-            x: savedLayer.x,
-            y: savedLayer.y,
-            xPercent: savedLayer.xPercent,
-            yPercent: savedLayer.yPercent,
-            fontSize: savedLayer.fontSize,
-            color: savedLayer.color,
-            fontWeight: savedLayer.fontWeight,
-            fontFamily: savedLayer.fontFamily,
-          };
-        }
-        return layer;
-      })
-    );
-
-    // Apply saved overlay images if available
-    if (savedDefaults.overlayImages && savedDefaults.overlayImages.length > 0) {
-      setOverlayImages(savedDefaults.overlayImages);
-      console.log(`✅ Loaded ${savedDefaults.overlayImages.length} overlay images`);
-    }
-
-    console.log(`✅ Loaded saved defaults for template: ${selectedTemplate.name}`);
-    toast.success(`Loaded saved defaults for "${selectedTemplate.name}"`);
-  }, [selectedTemplate]);
-
   // Apply global font settings to all text layers - removed unused function
 
   // FIX: Utility functions for normalized coordinates using standard canvas size
@@ -724,30 +680,7 @@ function CertificateGeneratorContent() {
         fontWeight: globalFontSettings.fontWeight,
         fontFamily: globalFontSettings.fontFamily,
       },
-      {
-        id: "issue_date",
-        text: formatDateString(certificateData.issue_date, dateFormat),
-        x: STANDARD_CANVAS_WIDTH * 0.1, // 10% from left
-        y: STANDARD_CANVAS_HEIGHT * 0.85, // 85% from top
-        xPercent: 0.1,
-        yPercent: 0.85,
-        fontSize: globalFontSettings.fontSize,
-        color: globalFontSettings.color,
-        fontWeight: globalFontSettings.fontWeight,
-        fontFamily: globalFontSettings.fontFamily,
-      },
-      {
-        id: "expired_date",
-        text: formatDateString(certificateData.expired_date, dateFormat),
-        x: STANDARD_CANVAS_WIDTH * 0.3, // 30% from left
-        y: STANDARD_CANVAS_HEIGHT * 0.85, // 85% from top
-        xPercent: 0.3,
-        yPercent: 0.85,
-        fontSize: globalFontSettings.fontSize,
-        color: globalFontSettings.color,
-        fontWeight: globalFontSettings.fontWeight,
-        fontFamily: globalFontSettings.fontFamily,
-      },
+      // Note: issue_date and expired_date are stored in database but not displayed on certificate
     ];
     setTextLayers(layers);
   }, [certificateData, globalFontSettings, formatDateString, dateFormat]);
@@ -765,33 +698,82 @@ function CertificateGeneratorContent() {
   }, [certificateData.description]);
 
   // Initialize text layers only once when template is loaded
+  // Check for saved defaults FIRST before initializing
   useEffect(() => {
     if (selectedTemplate && textLayers.length === 0) {
-      initializeTextLayers();
-    }
-  }, [selectedTemplate, initializeTextLayers, textLayers.length]);
-
-  // Auto-load saved defaults after text layers are initialized
-  useEffect(() => {
-    if (selectedTemplate && textLayers.length > 0) {
-      // Check if we've already loaded defaults for this template IN THIS SESSION
+      // Check if we've already processed this template
       if (defaultsLoadedForTemplateRef.current === selectedTemplate.id) {
-        return; // Already loaded in this session, skip
+        return;
       }
 
       const savedDefaults = getTemplateDefaults(selectedTemplate.id);
+      
       if (savedDefaults) {
-        console.log(`🔄 Auto-loading saved defaults for template: ${selectedTemplate.name}`);
-        console.log(`📍 Saved coordinates:`, savedDefaults.textLayers.map(l => ({ id: l.id, x: l.x, y: l.y })));
-        loadSavedDefaults();
+        console.log(`🔄 Loading saved defaults for template: ${selectedTemplate.name}`);
+        console.log(`📍 Saved coordinates:`, savedDefaults.textLayers.map(l => ({ id: l.id, x: l.x, y: l.y, xPercent: l.xPercent, yPercent: l.yPercent })));
+        
+        // Initialize with saved defaults directly
+        const layers: TextLayer[] = [
+          {
+            id: "certificate_no",
+            text: certificateData.certificate_no,
+            x: savedDefaults.textLayers.find(l => l.id === "certificate_no")?.x || STANDARD_CANVAS_WIDTH * 0.1,
+            y: savedDefaults.textLayers.find(l => l.id === "certificate_no")?.y || STANDARD_CANVAS_HEIGHT * 0.1,
+            xPercent: savedDefaults.textLayers.find(l => l.id === "certificate_no")?.xPercent || 0.1,
+            yPercent: savedDefaults.textLayers.find(l => l.id === "certificate_no")?.yPercent || 0.1,
+            fontSize: savedDefaults.textLayers.find(l => l.id === "certificate_no")?.fontSize || globalFontSettings.fontSize,
+            color: savedDefaults.textLayers.find(l => l.id === "certificate_no")?.color || globalFontSettings.color,
+            fontWeight: savedDefaults.textLayers.find(l => l.id === "certificate_no")?.fontWeight || globalFontSettings.fontWeight,
+            fontFamily: savedDefaults.textLayers.find(l => l.id === "certificate_no")?.fontFamily || globalFontSettings.fontFamily,
+          },
+          {
+            id: "name",
+            text: certificateData.name || "Full Name",
+            x: savedDefaults.textLayers.find(l => l.id === "name")?.x || STANDARD_CANVAS_WIDTH * 0.5,
+            y: savedDefaults.textLayers.find(l => l.id === "name")?.y || STANDARD_CANVAS_HEIGHT * 0.5,
+            xPercent: savedDefaults.textLayers.find(l => l.id === "name")?.xPercent || 0.5,
+            yPercent: savedDefaults.textLayers.find(l => l.id === "name")?.yPercent || 0.5,
+            fontSize: savedDefaults.textLayers.find(l => l.id === "name")?.fontSize || globalFontSettings.fontSize + 8,
+            color: savedDefaults.textLayers.find(l => l.id === "name")?.color || globalFontSettings.color,
+            fontWeight: savedDefaults.textLayers.find(l => l.id === "name")?.fontWeight || "bold",
+            fontFamily: savedDefaults.textLayers.find(l => l.id === "name")?.fontFamily || globalFontSettings.fontFamily,
+          },
+          {
+            id: "description",
+            text: certificateData.description,
+            x: savedDefaults.textLayers.find(l => l.id === "description")?.x || STANDARD_CANVAS_WIDTH * 0.5,
+            y: savedDefaults.textLayers.find(l => l.id === "description")?.y || STANDARD_CANVAS_HEIGHT * 0.55,
+            xPercent: savedDefaults.textLayers.find(l => l.id === "description")?.xPercent || 0.5,
+            yPercent: savedDefaults.textLayers.find(l => l.id === "description")?.yPercent || 0.55,
+            fontSize: savedDefaults.textLayers.find(l => l.id === "description")?.fontSize || globalFontSettings.fontSize,
+            color: savedDefaults.textLayers.find(l => l.id === "description")?.color || globalFontSettings.color,
+            fontWeight: savedDefaults.textLayers.find(l => l.id === "description")?.fontWeight || globalFontSettings.fontWeight,
+            fontFamily: savedDefaults.textLayers.find(l => l.id === "description")?.fontFamily || globalFontSettings.fontFamily,
+          },
+          // Note: issue_date and expired_date are stored in database but not displayed on certificate
+        ];
+        
+        setTextLayers(layers);
+        
+        // Load overlay images if available
+        if (savedDefaults.overlayImages && savedDefaults.overlayImages.length > 0) {
+          setOverlayImages(savedDefaults.overlayImages);
+          console.log(`✅ Loaded ${savedDefaults.overlayImages.length} overlay images`);
+        }
+        
+        // Mark as loaded
+        defaultsLoadedForTemplateRef.current = selectedTemplate.id;
+        toast.success(`Loaded saved defaults for "${selectedTemplate.name}"`);
       } else {
         console.log(`ℹ️ No saved defaults found for template: ${selectedTemplate.name}, using initial positions`);
-        // Mark as loaded even if no defaults, to prevent re-checking
+        // Initialize with default positions
+        initializeTextLayers();
+        // Mark as loaded even if no defaults
         defaultsLoadedForTemplateRef.current = selectedTemplate.id;
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTemplate?.id, textLayers.length]); // Trigger when template ID or textLayers.length changes
+  }, [selectedTemplate?.id]); // Only trigger when template changes
 
   // Update canvas dimensions on mount and resize
   useEffect(() => {
@@ -806,8 +788,11 @@ function CertificateGeneratorContent() {
   }, [updateCanvasDimensions]);
 
   // FIX: Update text layer positions when canvas dimensions change
+  // But skip if we just loaded defaults to avoid overriding them
   useEffect(() => {
-    if (textLayers.length > 0) {
+    if (textLayers.length > 0 && defaultsLoadedForTemplateRef.current === selectedTemplate?.id) {
+      // Only update absolute positions based on normalized coordinates
+      // This preserves the loaded defaults while adapting to canvas size
       setTextLayers((prev) =>
         prev.map((layer) => {
           // Keep normalized coordinates, only update absolute coordinates for display
@@ -816,7 +801,7 @@ function CertificateGeneratorContent() {
         }),
       );
     }
-  }, [canvasDimensions, getAbsolutePosition, textLayers.length]);
+  }, [canvasDimensions, getAbsolutePosition, selectedTemplate?.id]);
 
   // Define editing helpers BEFORE effects that reference them
   const startEditingText = useCallback((id: string) => {
@@ -835,6 +820,26 @@ function CertificateGeneratorContent() {
       prev.map((layer) => (layer.id === id ? { ...layer, isEditing: false } : layer)),
     );
   }, []);
+
+  // Auto-generate certificate number when issue_date changes
+  useEffect(() => {
+    const autoGenerateCertNo = async () => {
+      if (certificateData.issue_date && !certificateData.certificate_no) {
+        const issueDate = new Date(certificateData.issue_date);
+        const newCertNo = await generateCertificateNumber(issueDate);
+        setCertificateData((prev) => ({ ...prev, certificate_no: newCertNo }));
+        
+        // Update text layer as well
+        setTextLayers((prev) =>
+          prev.map((layer) =>
+            layer.id === "certificate_no" ? { ...layer, text: newCertNo } : layer
+          )
+        );
+      }
+    };
+    
+    autoGenerateCertNo();
+  }, [certificateData.issue_date]); // Only run when issue_date changes
 
   // Update selection handler for member -> sync recipient name field and canvas text layer
   const handleSelectMember = useCallback((memberId: string) => {
@@ -862,13 +867,24 @@ function CertificateGeneratorContent() {
       if (canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
         const dims = getConsistentDimensions;
-        // Derive the absolute position used in render for this layer
-        const isActiveDragging = draggingLayer === layer.id || candidateLayerRef.current === layer.id;
-        const actualX = isActiveDragging && typeof layer.x === "number" ? layer.x : (layer.xPercent * dims.width);
-        const actualY = isActiveDragging && typeof layer.y === "number" ? layer.y : (layer.yPercent * dims.height);
+        
+        // Get the current position in standard canvas coordinates
+        const actualX = typeof layer.x === "number" ? layer.x : (layer.xPercent * dims.width);
+        const actualY = typeof layer.y === "number" ? layer.y : (layer.yPercent * dims.height);
+        
+        // Calculate scale between displayed canvas and standard canvas
+        const scaleX = rect.width / dims.width;
+        const scaleY = rect.height / dims.height;
+        
+        // Calculate offset in screen coordinates (scaled)
+        const mouseXInCanvas = e.clientX - rect.left;
+        const mouseYInCanvas = e.clientY - rect.top;
+        const layerXInScreen = actualX * scaleX;
+        const layerYInScreen = actualY * scaleY;
+        
         downOffsetRef.current = {
-          x: e.clientX - rect.left - actualX,
-          y: e.clientY - rect.top - actualY,
+          x: mouseXInCanvas - layerXInScreen,
+          y: mouseYInCanvas - layerYInScreen,
         };
       } else {
         downOffsetRef.current = { x: 0, y: 0 };
@@ -943,7 +959,8 @@ function CertificateGeneratorContent() {
       if (!draggingLayer && candidateLayerRef.current && lastDownPosRef.current) {
         const dx = Math.abs(e.clientX - lastDownPosRef.current.x);
         const dy = Math.abs(e.clientY - lastDownPosRef.current.y);
-        if (dx > 1 || dy > 1) {
+        // Increase threshold to 5px to prevent accidental drags
+        if (dx > 5 || dy > 5) {
           setDraggingLayer(candidateLayerRef.current);
           didMoveRef.current = true;
         }
@@ -952,8 +969,10 @@ function CertificateGeneratorContent() {
       if (draggingLayer && canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
         const offset = downOffsetRef.current || { x: 0, y: 0 };
-        const newX = e.clientX - rect.left - offset.x;
-        const newY = e.clientY - rect.top - offset.y;
+        
+        // Get mouse position relative to canvas in screen coordinates
+        const mouseXInCanvas = e.clientX - rect.left;
+        const mouseYInCanvas = e.clientY - rect.top;
 
         // SAMAKAN SATUAN: Gunakan consistentDims untuk koordinat yang sama
         const consistentDims = getConsistentDimensions;
@@ -961,8 +980,11 @@ function CertificateGeneratorContent() {
         // Convert to consistent canvas coordinates
         const scaleX = rect.width / consistentDims.width;
         const scaleY = rect.height / consistentDims.height;
-        const standardX = newX / scaleX;
-        const standardY = newY / scaleY;
+        
+        // Apply offset AFTER converting to standard coordinates
+        // Offset is in screen coordinates, so we need to convert it too
+        const standardX = (mouseXInCanvas - offset.x) / scaleX;
+        const standardY = (mouseYInCanvas - offset.y) / scaleY;
 
         // Tanpa snap saat drag; clamp ke batas kanvas penuh
         const clampedX = Math.max(0, Math.min(standardX, consistentDims.width));
@@ -991,28 +1013,37 @@ function CertificateGeneratorContent() {
       }
 
       const layerId = lastDownLayerRef.current;
+      const wasDragging = draggingLayer !== null;
+      const didMove = didMoveRef.current;
+      
       lastDownLayerRef.current = null;
       lastDownPosRef.current = null;
       didMoveRef.current = false;
       candidateLayerRef.current = null;
       downOffsetRef.current = null;
       setDraggingLayer(null);
-      // Commit normalized coordinates from final absolute x/y (no extra snap here)
-      if (layerId) {
+      
+      // Commit normalized coordinates from final absolute x/y
+      // Keep both x/y and xPercent/yPercent in sync to prevent position shift
+      if (layerId && wasDragging) {
         setTextLayers((prev) =>
           prev.map((layer) => {
             if (layer.id !== layerId || layer.x === undefined || layer.y === undefined) return layer;
             const normalizedPos = getNormalizedPosition(layer.x, layer.y);
             return {
               ...layer,
+              x: layer.x, // Keep the absolute position that was set during drag
+              y: layer.y,
               xPercent: normalizedPos.xPercent,
               yPercent: normalizedPos.yPercent,
             };
           }),
         );
       }
-      // If it was just a click (no drag), enter editing and focus the right panel
-      if (layerId && !didMoveRef.current) {
+      
+      // Only trigger edit mode if it was a clean click (no drag at all)
+      // This prevents edit mode from appearing after dragging
+      if (layerId && !wasDragging && !didMove) {
         startEditingText(layerId);
         focusFieldForLayer(layerId, true);
       }
@@ -1028,6 +1059,91 @@ function CertificateGeneratorContent() {
       document.removeEventListener("mouseup", handleGlobalMouseUp);
     };
   }, [draggingLayer, draggingImage, resizingImage, snapToGrid, getNormalizedPosition, getConsistentDimensions, startEditingText, STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT]);
+
+  // Keyboard navigation for moving selected text layer or image
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if user is typing in an input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return; // Don't move if typing in input
+      }
+
+      // Define movement step (in pixels)
+      const step = e.shiftKey ? 10 : 1; // Hold Shift for faster movement
+      let dx = 0;
+      let dy = 0;
+
+      // Arrow keys for movement
+      switch (e.key) {
+        case 'ArrowUp':
+          dy = -step;
+          e.preventDefault();
+          break;
+        case 'ArrowDown':
+          dy = step;
+          e.preventDefault();
+          break;
+        case 'ArrowLeft':
+          dx = -step;
+          e.preventDefault();
+          break;
+        case 'ArrowRight':
+          dx = step;
+          e.preventDefault();
+          break;
+        default:
+          return; // Ignore other keys
+      }
+
+      // Move selected text layer
+      if (selectedLayerId && dx !== 0 || dy !== 0) {
+        setTextLayers((prev) =>
+          prev.map((layer) => {
+            if (layer.id !== selectedLayerId) return layer;
+            
+            const consistentDims = getConsistentDimensions;
+            const currentX = typeof layer.x === "number" ? layer.x : layer.xPercent * consistentDims.width;
+            const currentY = typeof layer.y === "number" ? layer.y : layer.yPercent * consistentDims.height;
+            
+            const newX = Math.max(0, Math.min(currentX + dx, consistentDims.width));
+            const newY = Math.max(0, Math.min(currentY + dy, consistentDims.height));
+            
+            const normalizedPos = getNormalizedPosition(newX, newY);
+            
+            return {
+              ...layer,
+              x: newX,
+              y: newY,
+              xPercent: normalizedPos.xPercent,
+              yPercent: normalizedPos.yPercent,
+            };
+          })
+        );
+      }
+
+      // Move selected image
+      if (selectedImage && dx !== 0 || dy !== 0) {
+        setOverlayImages((prev) =>
+          prev.map((img) => {
+            if (img.id !== selectedImage) return img;
+            
+            const newX = Math.max(0, img.x + dx);
+            const newY = Math.max(0, img.y + dy);
+            
+            return {
+              ...img,
+              x: newX,
+              y: newY,
+            };
+          })
+        );
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedLayerId, selectedImage, getNormalizedPosition, getConsistentDimensions]);
 
   // FIX: Add new text using standard canvas dimensions
   const addNewText = useCallback(() => {
@@ -1495,14 +1611,22 @@ function CertificateGeneratorContent() {
           // Draw text layers at exact coordinates
           layersToUse.forEach((layer) => {
             if (layer.text && layer.text.trim()) {
-              ctx.font = `${layer.fontWeight} ${layer.fontSize * (consistentDims.scale || 1)}px ${layer.fontFamily}`;
+              const scaledFontSize = layer.fontSize * (consistentDims.scale || 1);
+              ctx.font = `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`;
               ctx.fillStyle = layer.color;
               ctx.textAlign = "left";
               ctx.textBaseline = "top";
 
-              // Use exact coordinates from xPercent/yPercent with consistentDims
-              const x = layer.xPercent * consistentDims.width;
-              const y = layer.yPercent * consistentDims.height;
+              // Use absolute x/y if available (from drag), otherwise use normalized coordinates
+              // This matches the preview rendering logic
+              const x = typeof layer.x === "number" && layer.x !== undefined
+                ? layer.x
+                : layer.xPercent * consistentDims.width;
+              const y = typeof layer.y === "number" && layer.y !== undefined
+                ? layer.y
+                : layer.yPercent * consistentDims.height;
+              
+              // No offset needed - HTML now uses line-height:1 which matches canvas top baseline
 
               ctx.fillText(layer.text, x, y);
             }
@@ -1538,13 +1662,23 @@ function CertificateGeneratorContent() {
           // Draw text layers at exact coordinates
           layersToUse.forEach((layer) => {
             if (layer.text && layer.text.trim()) {
-              ctx.font = `${layer.fontWeight} ${layer.fontSize * (consistentDims.scale || 1)}px ${layer.fontFamily}`;
+              const scaledFontSize = layer.fontSize * (consistentDims.scale || 1);
+              ctx.font = `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`;
               ctx.fillStyle = layer.color;
               ctx.textAlign = "left";
-              ctx.textBaseline = "top";
+              ctx.textBaseline = "alphabetic";
 
-              const x = layer.xPercent * consistentDims.width;
-              const y = layer.yPercent * consistentDims.height;
+              // Use absolute x/y if available (from drag), otherwise use normalized coordinates
+              const x = typeof layer.x === "number" && layer.x !== undefined
+                ? layer.x
+                : layer.xPercent * consistentDims.width;
+              const baseY = typeof layer.y === "number" && layer.y !== undefined
+                ? layer.y
+                : layer.yPercent * consistentDims.height;
+              
+              // Adjust Y to match HTML rendering (fine-tuned offset for baseline)
+              // 0.75 multiplier provides accurate conversion from top to alphabetic baseline
+              const y = baseY + (scaledFontSize * 0.75);
 
               ctx.fillText(layer.text, x, y);
             }
@@ -1553,7 +1687,7 @@ function CertificateGeneratorContent() {
           const dataURL = canvas.toDataURL("image/png");
           resolve(dataURL);
         };
-        img.src = getTemplateImageUrl(selectedTemplate)!;
+        img.src = getTemplateImageUrl(selectedTemplate)!
       } else {
         // Draw overlay images even without template
         (async () => {
@@ -1582,13 +1716,23 @@ function CertificateGeneratorContent() {
           // Draw text layers at exact coordinates
           layersToUse.forEach((layer) => {
             if (layer.text && layer.text.trim()) {
-              ctx.font = `${layer.fontWeight} ${layer.fontSize * (consistentDims.scale || 1)}px ${layer.fontFamily}`;
+              const scaledFontSize = layer.fontSize * (consistentDims.scale || 1);
+              ctx.font = `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`;
               ctx.fillStyle = layer.color;
               ctx.textAlign = "left";
-              ctx.textBaseline = "top";
+              ctx.textBaseline = "alphabetic";
 
-              const x = layer.xPercent * consistentDims.width;
-              const y = layer.yPercent * consistentDims.height;
+              // Use absolute x/y if available (from drag), otherwise use normalized coordinates
+              const x = typeof layer.x === "number" && layer.x !== undefined
+                ? layer.x
+                : layer.xPercent * consistentDims.width;
+              const baseY = typeof layer.y === "number" && layer.y !== undefined
+                ? layer.y
+                : layer.yPercent * consistentDims.height;
+              
+              // Adjust Y to match HTML rendering (fine-tuned offset for baseline)
+              // 0.75 multiplier provides accurate conversion from top to alphabetic baseline
+              const y = baseY + (scaledFontSize * 0.75);
 
               ctx.fillText(layer.text, x, y);
             }
@@ -1613,16 +1757,30 @@ function CertificateGeneratorContent() {
       // No need to manually update them here anymore
       console.log("✅ Text layers already synced via real-time updates");
 
-      // Validate required fields
+      // Validate required fields (certificate_no will be auto-generated if empty)
       if (
-        !certificateData.certificate_no.trim() ||
         !certificateData.name.trim() ||
         !certificateData.issue_date
       ) {
         toast.error(
-          "Please fill in all required fields (Certificate Number, Name, and Issue Date)",
+          "Please fill in all required fields (Name and Issue Date)",
         );
         return;
+      }
+
+      // Auto-generate certificate number if empty
+      let finalCertificateNo = certificateData.certificate_no.trim();
+      if (!finalCertificateNo) {
+        console.log("📝 Auto-generating certificate number...");
+        const issueDate = new Date(certificateData.issue_date);
+        finalCertificateNo = await generateCertificateNumber(issueDate);
+        console.log("✨ Generated certificate number:", finalCertificateNo);
+        
+        // Update the form with generated number
+        setCertificateData(prev => ({
+          ...prev,
+          certificate_no: finalCertificateNo
+        }));
       }
 
       // Require member selection for Admin/Team
@@ -1674,7 +1832,7 @@ function CertificateGeneratorContent() {
 
       // Prepare certificate data for database (with dataURL only)
       const certificateDataToSave: CreateCertificateData = {
-        certificate_no: certificateData.certificate_no.trim(),
+        certificate_no: finalCertificateNo,
         name: certificateData.name.trim(),
         description: certificateData.description.trim() || undefined,
         issue_date: certificateData.issue_date,
@@ -1806,8 +1964,17 @@ function CertificateGeneratorContent() {
         // Release suppression after this row is captured
         suppressSyncRef.current = false;
         
+        // Auto-generate certificate number if empty
+        let finalCertNo = data.certificate_no.trim();
+        if (!finalCertNo) {
+          console.log(`📝 Auto-generating certificate number for row ${i + 1}...`);
+          const issueDate = new Date(data.issue_date);
+          finalCertNo = await generateCertificateNumber(issueDate);
+          console.log(`✨ Generated certificate number: ${finalCertNo}`);
+        }
+        
         const certificateDataToSave: CreateCertificateData = {
-          certificate_no: data.certificate_no.trim(),
+          certificate_no: finalCertNo,
           name: data.name.trim(),
           description: data.description.trim() || undefined,
           issue_date: data.issue_date,
@@ -2171,14 +2338,17 @@ function CertificateGeneratorContent() {
 
                   {/* FIX: Draggable text layers with consistent positioning */}
                   {textLayers.map((layer) => {
-                    // Calculate actual position using absolute x/y while dragging for smooth visual,
+                    // Calculate actual position using absolute x/y if available (from recent drag),
                     // otherwise use normalized coordinates for stable layout
                     const consistentDims = getConsistentDimensions;
                     const isActiveDragging = draggingLayer === layer.id || candidateLayerRef.current === layer.id;
-                    const actualX = isActiveDragging && typeof layer.x === "number"
+                    
+                    // Use absolute position if it exists and is a number, regardless of drag state
+                    // This prevents position shift after drag ends
+                    const actualX = typeof layer.x === "number" && layer.x !== undefined
                       ? layer.x
                       : layer.xPercent * consistentDims.width;
-                    const actualY = isActiveDragging && typeof layer.y === "number"
+                    const actualY = typeof layer.y === "number" && layer.y !== undefined
                       ? layer.y
                       : layer.yPercent * consistentDims.height;
                     
@@ -2219,6 +2389,8 @@ function CertificateGeneratorContent() {
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
+                          // CRITICAL: Set line-height to 1 to match canvas rendering exactly
+                          lineHeight: "1",
                           // Pastikan tidak ada transform atau scaling
                           transform: "none",
                           // Hindari animasi/transition saat drag
@@ -2233,7 +2405,7 @@ function CertificateGeneratorContent() {
                           // Pastikan user interaction tetap berfungsi
                           userSelect: "none",
                           pointerEvents: "auto",
-                          cursor: draggingLayer === layer.id ? "grabbing" : "move",
+                          cursor: draggingLayer === layer.id ? "grabbing" : (candidateLayerRef.current === layer.id ? "grabbing" : "grab"),
                           // PERBAIKAN: Tambahkan ring hanya saat tidak dalam mode render
                           ...(selectedLayerId === layer.id && !isGenerating ? {
                             boxShadow: "0 0 0 2px rgba(59, 130, 246, 0.5)"
@@ -2245,7 +2417,7 @@ function CertificateGeneratorContent() {
                           e.preventDefault();
                           selectTextLayer(layer.id);
                           handleMouseDown(e, layer.id);
-                          focusFieldForLayer(layer.id, false);
+                          // Don't focus field here - let mouseup handle it only if no drag occurred
                         }}
                         onContextMenu={(e) => {
                           // Disable context menu to avoid accidental mode changes on right-click
@@ -2471,14 +2643,15 @@ function CertificateGeneratorContent() {
                   </label>
                   <Input
                     value={certificateData.certificate_no}
-                    onChange={(e) =>
-                      updateCertificateData("certificate_no", e.target.value)
-                    }
                     onFocus={() => setFocusedField("certificate_no")}
                     ref={certNoRef}
-                    placeholder="Enter certificate number"
-                    className="border-gray-300 h-9 text-sm"
+                    placeholder="Auto-generated (YYMMDDXXX)"
+                    className="border-gray-300 h-9 text-sm bg-gray-50"
+                    readOnly
                   />
+                  <p className="text-xs text-gray-500">
+                    Auto-generated based on issue date. Format: YYMMDDXXX (e.g., 251010001)
+                  </p>
                   {focusedField === "certificate_no" && (
                     <div className="pt-2">
                       <GlobalFontSettings
@@ -2577,6 +2750,7 @@ function CertificateGeneratorContent() {
                   )}
                 </div>
 
+                {/* Date inputs - stored in DB but not displayed on certificate */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-gray-700">
@@ -2585,17 +2759,26 @@ function CertificateGeneratorContent() {
                     <Input
                       type="date"
                       value={certificateData.issue_date}
-                      onChange={(e) =>
-                        updateCertificateData("issue_date", e.target.value)
-                      }
-                      onFocus={() => setFocusedField("issue_date")}
+                      onChange={(e) => {
+                        const newIssueDate = e.target.value;
+                        updateCertificateData("issue_date", newIssueDate);
+                        
+                        // Auto-update expired_date to 3 years from issue_date
+                        if (newIssueDate) {
+                          const issueDate = new Date(newIssueDate);
+                          const expiredDate = new Date(issueDate);
+                          expiredDate.setFullYear(expiredDate.getFullYear() + 3);
+                          const formattedExpiredDate = expiredDate.toISOString().split("T")[0];
+                          updateCertificateData("expired_date", formattedExpiredDate);
+                        }
+                      }}
                       ref={issueRef}
                       className="border-gray-300 h-9 text-sm"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-gray-700">
-                      Expiry Date (Optional)
+                      Expiry Date (Auto: +3 years)
                     </label>
                     <Input
                       type="date"
@@ -2603,48 +2786,18 @@ function CertificateGeneratorContent() {
                       onChange={(e) =>
                         updateCertificateData("expired_date", e.target.value)
                       }
-                      onFocus={() => setFocusedField("expired_date")}
                       ref={expiryRef}
                       className="border-gray-300 h-9 text-sm"
                     />
                   </div>
                 </div>
-                {(focusedField === "issue_date" || focusedField === "expired_date") && (
-                  <div className="pt-2 w-full">
-                    <GlobalFontSettings
-                      selectedLayerId={focusedField!}
-                      selectedStyle={(() => {
-                        const l = textLayers.find((x) => x.id === focusedField);
-                        return l
-                          ? {
-                              fontSize: l.fontSize,
-                              fontFamily: l.fontFamily,
-                              color: l.color,
-                              fontWeight: l.fontWeight,
-                            }
-                          : null;
-                      })()}
-                      onChange={(prop, value) => updateTextStyle(focusedField!, prop, value)}
-                      dateFormat={dateFormat}
-                      onDateFormatChange={(fmt) => {
-                        setDateFormat(fmt);
-                        setTextLayers((prev) =>
-                          prev.map((l) =>
-                            (l.id === 'issue_date' || l.id === 'expired_date')
-                              ? {
-                                  ...l,
-                                  text: formatDateString(
-                                    certificateData[l.id as 'issue_date' | 'expired_date'],
-                                    fmt,
-                                  ),
-                                }
-                              : l,
-                          ),
-                        );
-                      }}
-                    />
-                  </div>
-                )}
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>Note:</strong> Issue Date and Expiry Date are stored in the database but not displayed on the certificate image. 
+                    They will be visible when viewing certificate details. Expiry Date automatically updates to 3 years from Issue Date.
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -2907,7 +3060,11 @@ function CertificateGeneratorContent() {
               {!excelRows.length && (
                 <pre className="bg-white border border-gray-200 rounded p-3 text-xs overflow-auto">
 {`certificate_no,name,description,issue_date,expired_date
-CERT-001,John Doe,Completed Training,2024-01-10,2029-01-10`}
+,John Doe,Completed Training,2024-01-10,2029-01-10
+251010001,Jane Smith,Workshop Participant,2025-10-10,2030-10-10
+
+Note: certificate_no is optional and will be auto-generated in format YYMMDDXXX
+Example: 251010001 = 25(year) 10(month) 10(day) 001(sequence)`}
                 </pre>
               )}
             </div>

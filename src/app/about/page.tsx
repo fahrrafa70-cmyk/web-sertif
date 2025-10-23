@@ -134,25 +134,25 @@ export default function AboutPage() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 mb-2">
-                      {statsLoading ? "—" : `${stats.certificates.toLocaleString()}+`}
+                      {statsLoading ? "—" : `${stats.certificates.toLocaleString()}`}
                     </div>
                     <div className="text-gray-600">Certificates Issued</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 mb-2">
-                      {statsLoading ? "—" : `${stats.templates.toLocaleString()}+`}
+                      {statsLoading ? "—" : `${stats.templates.toLocaleString()}`}
                     </div>
                     <div className="text-gray-600">Templates Available</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 mb-2">
-                      {statsLoading ? "—" : `${stats.members.toLocaleString()}+`}
+                      {statsLoading ? "—" : `${stats.members.toLocaleString()}`}
                     </div>
                     <div className="text-gray-600">Registered Members</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 mb-2">
-                      {statsLoading ? "—" : `${stats.categories.toLocaleString()}+`}
+                      {statsLoading ? "—" : `${stats.categories.toLocaleString()}`}
                     </div>
                     <div className="text-gray-600">Certificate Categories</div>
                   </div>

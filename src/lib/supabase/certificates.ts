@@ -80,7 +80,7 @@ export interface TextLayer {
 }
 
 export interface CreateCertificateData {
-  certificate_no: string;
+  certificate_no?: string; // Optional - will be auto-generated if not provided
   name: string;
   description?: string;
   issue_date: string;
@@ -238,6 +238,59 @@ export function generatePublicId(): string {
   });
 }
 
+// Generate certificate number in YYMMDDXXX format
+// YY = year (2 digits), MM = month, DD = day, XXX = sequence (001-999)
+export async function generateCertificateNumber(date?: Date): Promise<string> {
+  const targetDate = date || new Date();
+  
+  // Format: YYMMDD
+  const year = targetDate.getFullYear().toString().slice(-2); // Last 2 digits of year
+  const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const day = String(targetDate.getDate()).padStart(2, '0');
+  const prefix = `${year}${month}${day}`;
+  
+  // Find all certificates with the same date prefix
+  const { data, error } = await supabaseClient
+    .from("certificates")
+    .select("certificate_no")
+    .like("certificate_no", `${prefix}%`)
+    .order("certificate_no", { ascending: false })
+    .limit(1);
+  
+  if (error) {
+    console.error("Error fetching certificates for number generation:", error);
+    // If error, start with 001
+    return `${prefix}001`;
+  }
+  
+  // If no certificates found for this date, start with 001
+  if (!data || data.length === 0) {
+    return `${prefix}001`;
+  }
+  
+  // Extract the sequence number from the last certificate
+  const lastCertNo = data[0].certificate_no;
+  const lastSequence = parseInt(lastCertNo.slice(-3), 10);
+  
+  // Increment sequence number
+  const newSequence = lastSequence + 1;
+  
+  // Check if sequence exceeds 999
+  if (newSequence > 999) {
+    throw new Error(`Certificate sequence limit reached for date ${prefix}. Maximum 999 certificates per day.`);
+  }
+  
+  // Format new certificate number with padded sequence
+  const sequenceStr = String(newSequence).padStart(3, '0');
+  return `${prefix}${sequenceStr}`;
+}
+
+// Check if certificate number is available
+export async function isCertificateNumberAvailable(certificateNo: string): Promise<boolean> {
+  const existing = await getCertificateByNumber(certificateNo);
+  return existing === null;
+}
+
 // Create new certificate
 export async function createCertificate(
   certificateData: CreateCertificateData,
@@ -245,25 +298,31 @@ export async function createCertificate(
   console.log("🚀 Starting certificate creation process...", certificateData);
 
   try {
-    // Validate required fields
+    // Validate required fields (name and issue_date are required, certificate_no will be auto-generated if not provided)
     if (
-      !certificateData.certificate_no?.trim() ||
       !certificateData.name?.trim() ||
       !certificateData.issue_date
     ) {
       throw new Error(
-        "Missing required fields: certificate_no, name, and issue_date are required",
+        "Missing required fields: name and issue_date are required",
       );
     }
 
-    // Check if certificate number already exists
-    const existingCertificate = await getCertificateByNumber(
-      certificateData.certificate_no,
-    );
-    if (existingCertificate) {
-      throw new Error(
-        `Certificate with number ${certificateData.certificate_no} already exists`,
-      );
+    // Auto-generate certificate number if not provided or empty
+    let certificateNo = certificateData.certificate_no?.trim();
+    if (!certificateNo) {
+      console.log("📝 Auto-generating certificate number...");
+      const issueDate = new Date(certificateData.issue_date);
+      certificateNo = await generateCertificateNumber(issueDate);
+      console.log("✨ Generated certificate number:", certificateNo);
+    } else {
+      // Check if certificate number already exists
+      const existingCertificate = await getCertificateByNumber(certificateNo);
+      if (existingCertificate) {
+        throw new Error(
+          `Certificate with number ${certificateNo} already exists`,
+        );
+      }
     }
 
     // Generate unique public_id for the certificate
@@ -271,7 +330,7 @@ export async function createCertificate(
     console.log("🔑 Generated public_id:", publicId);
 
     const insertData = {
-      certificate_no: certificateData.certificate_no.trim(),
+      certificate_no: certificateNo,
       name: certificateData.name.trim(),
       description: certificateData.description?.trim() || null,
       issue_date: certificateData.issue_date,

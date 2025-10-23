@@ -9,8 +9,7 @@ import { cn } from "@/lib/utils"
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return (
     <SheetPrimitive.Root 
-      data-slot="sheet" 
-      modal={false}
+      data-slot="sheet"
       {...props} 
     />
   )

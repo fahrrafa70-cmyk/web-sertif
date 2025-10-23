@@ -70,6 +70,8 @@ function CertificatesContent() {
 
   // Send Email Modal state
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [sendFormErrors, setSendFormErrors] = useState<{ email?: string; subject?: string; message?: string }>({});
   const [sendForm, setSendForm] = useState<{ email: string; subject: string; message: string }>({
     email: "",
     subject: "",
@@ -235,12 +237,39 @@ function CertificatesContent() {
 
   // Confirm and send from modal
   async function confirmSendEmail() {
-    if (!sendCert || !sendPreviewSrc) return;
+    if (!sendCert || !sendPreviewSrc || isSendingEmail) return;
+    
+    // Clear previous errors
+    setSendFormErrors({});
+    
+    // Validate fields
+    const errors: { email?: string; subject?: string; message?: string } = {};
     const recipientEmail = (sendForm.email || '').trim();
+    
     if (!recipientEmail) {
-      toast.error('Recipient email is required');
+      errors.email = 'Recipient email is required';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipientEmail)) {
+        errors.email = 'Please enter a valid email address';
+      }
+    }
+    
+    if (!sendForm.subject.trim()) {
+      errors.subject = 'Subject is required';
+    }
+    
+    if (!sendForm.message.trim()) {
+      errors.message = 'Message is required';
+    }
+    
+    // If there are errors, show them and return
+    if (Object.keys(errors).length > 0) {
+      setSendFormErrors(errors);
       return;
     }
+    
+    setIsSendingEmail(true);
     try {
       const payload = {
         recipientEmail,
@@ -257,20 +286,31 @@ function CertificatesContent() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
+        // More specific error messages
+        if (res.status === 400) {
+          throw new Error('Invalid email address or missing required fields');
+        } else if (res.status === 404) {
+          throw new Error('Email service not available');
+        } else if (res.status === 500) {
+          throw new Error('Server error. Please try again later');
+        }
         throw new Error(json?.error || `Failed to send email (status ${res.status})`);
       }
       if (json.previewUrl) {
-        toast.success('Email queued (dev preview opened in new tab)');
+        toast.success('Email queued successfully! Preview opened in new tab');
         try { window.open(json.previewUrl, '_blank'); } catch {}
       } else {
-        toast.success('Email sent to recipient');
+        toast.success(`Email sent successfully to ${recipientEmail}`);
       }
       setSendModalOpen(false);
       setSendCert(null);
       setSendPreviewSrc(null);
+      setSendForm({ email: '', subject: '', message: '' });
     } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Failed to send email');
+      console.error('Email send error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to send email. Please try again.');
+    } finally {
+      setIsSendingEmail(false);
     }
   }
 
@@ -797,7 +837,15 @@ function CertificatesContent() {
           setPreviewCertificate(o ? previewCertificate : null)
         }
       >
-        <DialogContent className="preview-modal-content max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="preview-modal-content max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              setPreviewCertificate(null);
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-gradient">
               Certificate Preview
@@ -1171,7 +1219,18 @@ function CertificatesContent() {
 
       {/* Send Certificate Email Modal */}
       <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
-        <DialogContent className="max-w-xl w-full">
+        <DialogContent 
+          className="max-w-xl w-full"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && e.target instanceof HTMLInputElement) {
+              e.preventDefault();
+              confirmSendEmail();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setSendModalOpen(false);
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Send Certificate via Email</DialogTitle>
             <DialogDescription>Review and customize the email before sending.</DialogDescription>
@@ -1181,27 +1240,69 @@ function CertificatesContent() {
               <label className="text-sm text-gray-600">Recipient Email</label>
               <Input
                 value={sendForm.email}
-                onChange={(e) => setSendForm((f) => ({ ...f, email: e.target.value }))}
+                onChange={(e) => {
+                  setSendForm((f) => ({ ...f, email: e.target.value }));
+                  if (sendFormErrors.email) setSendFormErrors((e) => ({ ...e, email: undefined }));
+                }}
                 placeholder="recipient@example.com"
+                disabled={isSendingEmail}
+                className={sendFormErrors.email ? 'border-red-500' : ''}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isSendingEmail) {
+                    e.preventDefault();
+                    confirmSendEmail();
+                  }
+                }}
               />
+              {sendFormErrors.email && (
+                <p className="text-xs text-red-500 mt-1">{sendFormErrors.email}</p>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-sm text-gray-600">Subject</label>
               <Input
                 value={sendForm.subject}
-                onChange={(e) => setSendForm((f) => ({ ...f, subject: e.target.value }))}
+                onChange={(e) => {
+                  setSendForm((f) => ({ ...f, subject: e.target.value }));
+                  if (sendFormErrors.subject) setSendFormErrors((e) => ({ ...e, subject: undefined }));
+                }}
                 placeholder="Subject"
+                disabled={isSendingEmail}
+                className={sendFormErrors.subject ? 'border-red-500' : ''}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isSendingEmail) {
+                    e.preventDefault();
+                    confirmSendEmail();
+                  }
+                }}
               />
+              {sendFormErrors.subject && (
+                <p className="text-xs text-red-500 mt-1">{sendFormErrors.subject}</p>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-sm text-gray-600">Message</label>
               <textarea
                 value={sendForm.message}
-                onChange={(e) => setSendForm((f) => ({ ...f, message: e.target.value }))}
+                onChange={(e) => {
+                  setSendForm((f) => ({ ...f, message: e.target.value }));
+                  if (sendFormErrors.message) setSendFormErrors((e) => ({ ...e, message: undefined }));
+                }}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300'}`}
                 placeholder="Message"
+                disabled={isSendingEmail}
+                onKeyDown={(e) => {
+                  // Allow Shift+Enter for new line in textarea
+                  if (e.key === 'Enter' && !e.shiftKey && !isSendingEmail) {
+                    e.preventDefault();
+                    confirmSendEmail();
+                  }
+                }}
               />
+              {sendFormErrors.message && (
+                <p className="text-xs text-red-500 mt-1">{sendFormErrors.message}</p>
+              )}
             </div>
             {sendPreviewSrc && (
               <div className="space-y-2">
@@ -1220,11 +1321,30 @@ function CertificatesContent() {
               </div>
             )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" className="border-gray-300" onClick={() => setSendModalOpen(false)}>
+              <Button 
+                variant="outline" 
+                className="border-gray-300" 
+                onClick={() => setSendModalOpen(false)}
+                disabled={isSendingEmail}
+              >
                 Cancel
               </Button>
-              <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white" onClick={confirmSendEmail}>
-                Send Email
+              <Button 
+                className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed" 
+                onClick={confirmSendEmail}
+                disabled={isSendingEmail}
+              >
+                {isSendingEmail ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending...
+                  </>
+                ) : (
+                  'Send Email'
+                )}
               </Button>
             </div>
           </div>

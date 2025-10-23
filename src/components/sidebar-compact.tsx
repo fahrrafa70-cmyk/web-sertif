@@ -42,6 +42,21 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
     } catch {}
   }, [roleProp]);
 
+  // Add Escape key listener to close sidebar
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
   const mainMenuItems = [
     {
       icon: <Home className="w-5 h-5" />,

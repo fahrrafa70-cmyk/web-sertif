@@ -48,6 +48,20 @@ export default function CertificatePage() {
     loadCertificate();
   }, [certificateNo]);
 
+  // Handle keyboard events for image preview modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (imagePreviewOpen && e.key === "Escape") {
+        setImagePreviewOpen(false);
+      }
+    };
+
+    if (imagePreviewOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [imagePreviewOpen]);
+
   if (loading) {
     return (
       <div className="min-h-screen">

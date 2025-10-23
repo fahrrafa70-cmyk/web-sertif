@@ -66,6 +66,7 @@ const translations: Translations = {
     'certificates.title': 'Certificates',
     'certificates.subtitle': 'Manage and track certificates',
     'certificates.create': 'Create Certificate',
+    'certificates.certificateId': 'Certificate Number',
     'certificates.recipient': 'Recipient',
     'certificates.issuedDate': 'Issued Date',
     'certificates.status': 'Status',
@@ -277,7 +278,7 @@ const translations: Translations = {
     
     // Error Messages - Search
     'error.search.notFound': 'Certificate not found. Please check the certificate number or link and try again.',
-    'error.search.empty': 'Please enter a certificate number or link',
+    'error.search.empty': 'Please enter a certificate number, name, or link to search',
     'error.search.failed': 'Search failed. Please try again.',
     
     // Error Messages - Login
@@ -351,6 +352,7 @@ const translations: Translations = {
     'certificates.title': 'Sertifikat',
     'certificates.subtitle': 'Kelola dan lacak sertifikat',
     'certificates.create': 'Buat Sertifikat',
+    'certificates.certificateId': 'Nomor Sertifikat',
     'certificates.recipient': 'Penerima',
     'certificates.issuedDate': 'Tanggal Diterbitkan',
     'certificates.status': 'Status',
@@ -557,7 +559,7 @@ const translations: Translations = {
     
     // Error Messages - Search
     'error.search.notFound': 'Sertifikat tidak ditemukan. Silakan periksa nomor sertifikat atau link dan coba lagi.',
-    'error.search.empty': 'Silakan masukkan nomor sertifikat atau link',
+    'error.search.empty': 'Silakan masukkan nomor sertifikat, nama, atau link untuk mencari',
     'error.search.failed': 'Pencarian gagal. Silakan coba lagi.',
     
     // Error Messages - Login
