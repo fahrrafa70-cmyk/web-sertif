@@ -64,6 +64,13 @@ export default function TemplatesPage() {
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [cleaningUp, setCleaningUp] = useState(false);
   
+  // Dual template mode state
+  const [isDualTemplate, setIsDualTemplate] = useState(false);
+  const [certificateImageFile, setCertificateImageFile] = useState<File | null>(null);
+  const [certificateImagePreview, setCertificateImagePreview] = useState<string | null>(null);
+  const [scoreImageFile, setScoreImageFile] = useState<File | null>(null);
+  const [scoreImagePreview, setScoreImagePreview] = useState<string | null>(null);
+  
   // Preview modal state
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   
@@ -78,21 +85,34 @@ export default function TemplatesPage() {
     setImagePreview(null);
     setPreviewImageFile(null);
     setPreviewImagePreview(null);
+    setIsDualTemplate(false);
+    setCertificateImageFile(null);
+    setCertificateImagePreview(null);
+    setScoreImageFile(null);
+    setScoreImagePreview(null);
     setIsCreateOpen(true);
   }
 
   async function submitCreate() {
-    console.log('🚀 Starting template creation...', { draft, imageFile });
+    console.log('🚀 Starting template creation...', { draft, imageFile, isDualTemplate });
     
     if (!draft || !draft.name?.trim() || !draft.category?.trim()) {
       console.log('❌ Validation failed:', { draft });
       toast.error("Please fill in all required fields");
       return;
     }
-    // Require Template Image on create
+
+    // Validate based on template mode
+    if (isDualTemplate) {
+      if (!certificateImageFile || !scoreImageFile) {
+        toast.error("Both certificate and score images are required for dual templates");
+        return;
+      }
+    } else {
     if (!imageFile) {
       toast.error("Template Image is required");
       return;
+      }
     }
 
     try {
@@ -100,9 +120,17 @@ export default function TemplatesPage() {
         name: draft.name.trim(),
         category: draft.category.trim(),
         orientation: draft.orientation || "Landscape",
-        image_file: imageFile || undefined,
+        is_dual_template: isDualTemplate,
         preview_image_file: previewImageFile || undefined
       };
+
+      // Add appropriate image files based on mode
+      if (isDualTemplate) {
+        templateData.certificate_image_file = certificateImageFile || undefined;
+        templateData.score_image_file = scoreImageFile || undefined;
+      } else {
+        templateData.image_file = imageFile || undefined;
+      }
 
       console.log('📋 Template data prepared:', templateData);
       console.log('🔄 Calling create function...');
@@ -116,6 +144,11 @@ export default function TemplatesPage() {
       setImagePreview(null);
       setPreviewImageFile(null);
       setPreviewImagePreview(null);
+      setIsDualTemplate(false);
+      setCertificateImageFile(null);
+      setCertificateImagePreview(null);
+      setScoreImageFile(null);
+      setScoreImagePreview(null);
       toast.success("Template created successfully!");
       // Refresh templates to show the new template immediately
       refresh();
@@ -131,6 +164,11 @@ export default function TemplatesPage() {
     setImagePreview(null);
     setPreviewImageFile(null);
     setPreviewImagePreview(null);
+    setIsDualTemplate(item.is_dual_template || false);
+    setCertificateImageFile(null);
+    setCertificateImagePreview(null);
+    setScoreImageFile(null);
+    setScoreImagePreview(null);
     setIsEditOpen(item.id);
   }
 
@@ -140,14 +178,39 @@ export default function TemplatesPage() {
       return;
     }
 
+    // Validate based on template mode
+    if (isDualTemplate) {
+      if (!certificateImageFile && !draft.certificate_image_url) {
+        toast.error("Certificate image is required for dual templates");
+        return;
+      }
+      if (!scoreImageFile && !draft.score_image_url) {
+        toast.error("Score image is required for dual templates");
+        return;
+      }
+    } else {
+      if (!imageFile && !draft.image_path) {
+        toast.error("Template image is required");
+        return;
+      }
+    }
+
     try {
       const templateData: UpdateTemplateData = {
         name: draft.name,
         category: draft.category,
         orientation: draft.orientation,
-        image_file: imageFile || undefined,
+        is_dual_template: isDualTemplate,
         preview_image_file: previewImageFile || undefined
       };
+
+      // Add appropriate image files based on mode
+      if (isDualTemplate) {
+        templateData.certificate_image_file = certificateImageFile || undefined;
+        templateData.score_image_file = scoreImageFile || undefined;
+      } else {
+        templateData.image_file = imageFile || undefined;
+      }
 
       await update(isEditOpen, templateData);
       setIsEditOpen(null);
@@ -156,6 +219,11 @@ export default function TemplatesPage() {
       setImagePreview(null);
       setPreviewImageFile(null);
       setPreviewImagePreview(null);
+      setIsDualTemplate(false);
+      setCertificateImageFile(null);
+      setCertificateImagePreview(null);
+      setScoreImageFile(null);
+      setScoreImagePreview(null);
       toast.success("Template updated successfully!");
       // Refresh templates to show the updated template immediately
       refresh();
@@ -282,6 +350,46 @@ export default function TemplatesPage() {
     } else {
       setPreviewImageFile(null);
       setPreviewImagePreview(null);
+    }
+  }
+
+  function handleCertificateImageUpload(file: File | null) {
+    if (file) {
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!fileExt || !['jpg', 'jpeg', 'png'].includes(fileExt)) {
+        toast.error('Invalid file type. Only JPG, JPEG, and PNG are allowed.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size too large. Maximum size is 10MB.');
+        return;
+      }
+      setCertificateImageFile(file);
+      const url = URL.createObjectURL(file);
+      setCertificateImagePreview(url);
+    } else {
+      setCertificateImageFile(null);
+      setCertificateImagePreview(null);
+    }
+  }
+
+  function handleScoreImageUpload(file: File | null) {
+    if (file) {
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!fileExt || !['jpg', 'jpeg', 'png'].includes(fileExt)) {
+        toast.error('Invalid file type. Only JPG, JPEG, and PNG are allowed.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size too large. Maximum size is 10MB.');
+        return;
+      }
+      setScoreImageFile(file);
+      const url = URL.createObjectURL(file);
+      setScoreImagePreview(url);
+    } else {
+      setScoreImageFile(null);
+      setScoreImagePreview(null);
     }
   }
 
@@ -663,7 +771,41 @@ export default function TemplatesPage() {
               </div>
             </motion.div>
 
-            {/* Template Image (Required) */}
+            {/* Dual Template Mode Selector */}
+            <motion.div 
+              className="space-y-3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.25 }}
+            >
+              <label className="text-sm font-semibold text-gray-700">Template Mode</label>
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  variant={!isDualTemplate ? "default" : "outline"} 
+                  onClick={() => setIsDualTemplate(false)}
+                  className="rounded-lg"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Single Template
+                </Button>
+                <Button 
+                  variant={isDualTemplate ? "default" : "outline"} 
+                  onClick={() => setIsDualTemplate(true)}
+                  className="rounded-lg"
+                >
+                  <Layout className="w-4 h-4 mr-2" />
+                  Dual Template
+                </Button>
+              </div>
+              {isDualTemplate && (
+                <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+                  Dual templates support both certificate and score views. You will need to upload both images.
+                </p>
+              )}
+            </motion.div>
+
+            {/* Single Template Image (Required) */}
+            {!isDualTemplate && (
             <motion.div 
               className="space-y-2"
               initial={{ opacity: 0, x: 20 }}
@@ -704,6 +846,96 @@ export default function TemplatesPage() {
                 )}
               </div>
             </motion.div>
+            )}
+
+            {/* Dual Template Images */}
+            {isDualTemplate && (
+              <>
+                {/* Certificate Image (Required) */}
+                <motion.div 
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                >
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold text-gray-700">Certificate Image (Front)</label>
+                    <span className="text-xs text-red-500 font-medium">Required</span>
+                  </div>
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg"
+                      onChange={(e) => handleCertificateImageUpload(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {certificateImagePreview && (
+                      <div className="relative">
+                        <div className="relative w-full h-32">
+                          <Image 
+                            src={certificateImagePreview} 
+                            alt="Certificate preview" 
+                            fill
+                            className="object-cover rounded-lg border border-gray-200"
+                            unoptimized
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                          onClick={() => handleCertificateImageUpload(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+
+                {/* Score Image (Required) */}
+                <motion.div 
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.35 }}
+                >
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold text-gray-700">Score Image (Back)</label>
+                    <span className="text-xs text-red-500 font-medium">Required</span>
+                  </div>
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg"
+                      onChange={(e) => handleScoreImageUpload(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                    />
+                    {scoreImagePreview && (
+                      <div className="relative">
+                        <div className="relative w-full h-32">
+                          <Image 
+                            src={scoreImagePreview} 
+                            alt="Score preview" 
+                            fill
+                            className="object-cover rounded-lg border border-gray-200"
+                            unoptimized
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                          onClick={() => handleScoreImageUpload(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </>
+            )}
 
             
 
@@ -848,76 +1080,261 @@ export default function TemplatesPage() {
                   </div>
                 </motion.div>
 
-                {/* Current Template Image */}
+                {/* Dual Template Mode Selector */}
                 <motion.div 
-                  className="space-y-2"
+                  className="space-y-3"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.3 }}
+                  transition={{ duration: 0.3, delay: 0.25 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Current Template Image</label>
-                  <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
-                    {imagePreview ? (
-                      <div className="relative w-full h-40">
-                        <Image
-                          src={imagePreview}
-                          alt="New template image"
-                          fill
-                          className="object-contain bg-gray-50"
-                          unoptimized
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        {draft && getTemplatePreviewUrl(draft as Template) ? (
+                  <label className="text-sm font-semibold text-gray-700">Template Mode</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant={!isDualTemplate ? "default" : "outline"} 
+                      onClick={() => setIsDualTemplate(false)}
+                      className="rounded-lg"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Single Template
+                    </Button>
+                    <Button 
+                      variant={isDualTemplate ? "default" : "outline"} 
+                      onClick={() => setIsDualTemplate(true)}
+                      className="rounded-lg"
+                    >
+                      <Layout className="w-4 h-4 mr-2" />
+                      Dual Template
+                    </Button>
+                  </div>
+                  {isDualTemplate && (
+                    <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+                      Dual templates support both certificate and score views. You will need to upload both images.
+                    </p>
+                  )}
+                </motion.div>
+
+                {/* Single Template Image */}
+                {!isDualTemplate && (
+                  <>
+                    {/* Current Template Image */}
+                    <motion.div 
+                      className="space-y-2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.3 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-700">Current Template Image</label>
+                      <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                        {imagePreview ? (
                           <div className="relative w-full h-40">
                             <Image
-                              src={getTemplatePreviewUrl(draft as Template)!}
-                              alt="Current template"
+                              src={imagePreview}
+                              alt="New template image"
                               fill
                               className="object-contain bg-gray-50"
                               unoptimized
                             />
                           </div>
                         ) : (
-                          <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
-                            <Layout className="w-6 h-6 mr-2" />
-                            No template image
-                          </div>
+                          <>
+                            {draft && getTemplatePreviewUrl(draft as Template) ? (
+                              <div className="relative w-full h-40">
+                                <Image
+                                  src={getTemplatePreviewUrl(draft as Template)!}
+                                  alt="Current template"
+                                  fill
+                                  className="object-contain bg-gray-50"
+                                  unoptimized
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                                <Layout className="w-6 h-6 mr-2" />
+                                No template image
+                              </div>
+                            )}
+                          </>
                         )}
-                      </>
-                    )}
-                  </div>
-                </motion.div>
+                      </div>
+                    </motion.div>
 
-                {/* Upload New Template Image */}
-                <motion.div 
-                  className="space-y-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.4 }}
-                >
-                  <label className="text-sm font-semibold text-gray-700">Change Template Image</label>
-                  <div className="space-y-3">
-                    <input
-                      type="file"
-                      accept=".png,.jpg,.jpeg"
-                      onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                    {imagePreview && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleImageUpload(null)}
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Remove New Image
-                      </Button>
-                    )}
-                  </div>
-                </motion.div>
+                    {/* Upload New Template Image */}
+                    <motion.div 
+                      className="space-y-2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.4 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-700">Change Template Image</label>
+                      <div className="space-y-3">
+                        <input
+                          type="file"
+                          accept=".png,.jpg,.jpeg"
+                          onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
+                          className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        {imagePreview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleImageUpload(null)}
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Remove New Image
+                          </Button>
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+
+                {/* Dual Template Images */}
+                {isDualTemplate && (
+                  <>
+                    {/* Current Certificate Image */}
+                    <motion.div 
+                      className="space-y-2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.3 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-700">Current Certificate Image (Front)</label>
+                      <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                        {certificateImagePreview ? (
+                          <div className="relative w-full h-40">
+                            <Image
+                              src={certificateImagePreview}
+                              alt="New certificate image"
+                              fill
+                              className="object-contain bg-gray-50"
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            {draft && (draft as Template).certificate_image_url ? (
+                              <div className="relative w-full h-40">
+                                <Image
+                                  src={`${(draft as Template).certificate_image_url}?v=${Date.now()}`}
+                                  alt="Current certificate"
+                                  fill
+                                  className="object-contain bg-gray-50"
+                                  unoptimized
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                                <Layout className="w-6 h-6 mr-2" />
+                                No certificate image
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </motion.div>
+
+                    {/* Upload New Certificate Image */}
+                    <motion.div 
+                      className="space-y-2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.4 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-700">Change Certificate Image</label>
+                      <div className="space-y-3">
+                        <input
+                          type="file"
+                          accept=".png,.jpg,.jpeg"
+                          onChange={(e) => handleCertificateImageUpload(e.target.files?.[0] || null)}
+                          className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        {certificateImagePreview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleCertificateImageUpload(null)}
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Remove New Certificate Image
+                          </Button>
+                        )}
+                      </div>
+                    </motion.div>
+
+                    {/* Current Score Image */}
+                    <motion.div 
+                      className="space-y-2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.5 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-700">Current Score Image (Back)</label>
+                      <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                        {scoreImagePreview ? (
+                          <div className="relative w-full h-40">
+                            <Image
+                              src={scoreImagePreview}
+                              alt="New score image"
+                              fill
+                              className="object-contain bg-gray-50"
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            {draft && (draft as Template).score_image_url ? (
+                              <div className="relative w-full h-40">
+                                <Image
+                                  src={`${(draft as Template).score_image_url}?v=${Date.now()}`}
+                                  alt="Current score"
+                                  fill
+                                  className="object-contain bg-gray-50"
+                                  unoptimized
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                                <Layout className="w-6 h-6 mr-2" />
+                                No score image
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </motion.div>
+
+                    {/* Upload New Score Image */}
+                    <motion.div 
+                      className="space-y-2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.6 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-700">Change Score Image</label>
+                      <div className="space-y-3">
+                        <input
+                          type="file"
+                          accept=".png,.jpg,.jpeg"
+                          onChange={(e) => handleScoreImageUpload(e.target.files?.[0] || null)}
+                          className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                        />
+                        {scoreImagePreview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleScoreImageUpload(null)}
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Remove New Score Image
+                          </Button>
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
 
                 {/* Current Preview Image */}
                 <motion.div 

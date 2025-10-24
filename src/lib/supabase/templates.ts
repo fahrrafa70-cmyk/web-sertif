@@ -34,6 +34,10 @@ export interface Template {
   created_at: string;
   image_path?: string; // Add image path field
   preview_image_path?: string; // Optional preview (thumbnail) image
+  // Dual template support
+  certificate_image_url?: string; // URL for certificate image (front)
+  score_image_url?: string; // URL for score image (back)
+  is_dual_template?: boolean; // Whether this is a dual template
 }
 
 export interface CreateTemplateData {
@@ -42,6 +46,10 @@ export interface CreateTemplateData {
   orientation: string;
   image_file?: File;
   preview_image_file?: File;
+  // Dual template support
+  certificate_image_file?: File;
+  score_image_file?: File;
+  is_dual_template?: boolean;
 }
 
 export interface UpdateTemplateData {
@@ -50,6 +58,10 @@ export interface UpdateTemplateData {
   orientation?: string;
   image_file?: File;
   preview_image_file?: File;
+  // Dual template support
+  certificate_image_file?: File;
+  score_image_file?: File;
+  is_dual_template?: boolean;
 }
 
 // Upload image to local public folder
@@ -184,29 +196,74 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
     
     let imagePath: string | undefined;
     let previewImagePath: string | undefined;
+    let certificateImagePath: string | undefined;
+    let scoreImagePath: string | undefined;
     
-    // Upload image if provided
-    if (templateData.image_file) {
-      console.log('📤 Image file provided, starting upload...');
-      try {
-        imagePath = await uploadTemplateImage(templateData.image_file);
-        console.log('✅ Image upload completed, path:', imagePath);
-      } catch (uploadError) {
-        console.error('❌ Image upload failed:', uploadError);
-        throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+    // Handle dual template uploads
+    if (templateData.is_dual_template) {
+      console.log('📤 Dual template mode - uploading certificate and score images...');
+      
+      // Upload certificate image (required for dual template)
+      if (templateData.certificate_image_file) {
+        try {
+          certificateImagePath = await uploadTemplateImage(templateData.certificate_image_file);
+          console.log('✅ Certificate image upload completed, path:', certificateImagePath);
+        } catch (uploadError) {
+          console.error('❌ Certificate image upload failed:', uploadError);
+          throw new Error(`Certificate image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        }
+      } else {
+        throw new Error('Certificate image is required for dual templates');
+      }
+      
+      // Upload score image (required for dual template)
+      if (templateData.score_image_file) {
+        try {
+          scoreImagePath = await uploadTemplateImage(templateData.score_image_file);
+          console.log('✅ Score image upload completed, path:', scoreImagePath);
+        } catch (uploadError) {
+          console.error('❌ Score image upload failed:', uploadError);
+          throw new Error(`Score image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        }
+      } else {
+        throw new Error('Score image is required for dual templates');
+      }
+      
+      // Upload preview image if provided
+      if (templateData.preview_image_file) {
+        try {
+          previewImagePath = await uploadTemplateImage(templateData.preview_image_file);
+          console.log('✅ Preview image upload completed, path:', previewImagePath);
+        } catch (uploadError) {
+          console.error('❌ Preview image upload failed:', uploadError);
+          // Do not block creation if preview upload fails
+        }
       }
     } else {
-      console.log('ℹ️ No image file provided');
-    }
+      // Single template mode - use existing logic
+      // Upload image if provided
+      if (templateData.image_file) {
+        console.log('📤 Image file provided, starting upload...');
+        try {
+          imagePath = await uploadTemplateImage(templateData.image_file);
+          console.log('✅ Image upload completed, path:', imagePath);
+        } catch (uploadError) {
+          console.error('❌ Image upload failed:', uploadError);
+          throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        }
+      } else {
+        console.log('ℹ️ No image file provided');
+      }
 
-    // Upload preview image if provided
-    if (templateData.preview_image_file) {
-      try {
-        previewImagePath = await uploadTemplateImage(templateData.preview_image_file);
-        console.log('✅ Preview image upload completed, path:', previewImagePath);
-      } catch (uploadError) {
-        console.error('❌ Preview image upload failed:', uploadError);
-        // Do not block creation if preview upload fails
+      // Upload preview image if provided
+      if (templateData.preview_image_file) {
+        try {
+          previewImagePath = await uploadTemplateImage(templateData.preview_image_file);
+          console.log('✅ Preview image upload completed, path:', previewImagePath);
+        } catch (uploadError) {
+          console.error('❌ Preview image upload failed:', uploadError);
+          // Do not block creation if preview upload fails
+        }
       }
     }
 
@@ -214,8 +271,28 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       name: templateData.name.trim(),
       category: templateData.category.trim(),
       orientation: templateData.orientation.trim(),
-      image_path: imagePath // Store the image path
+      is_dual_template: templateData.is_dual_template || false
     };
+
+    // Handle image paths based on template type
+    if (templateData.is_dual_template) {
+      // Dual template - use certificate and score image URLs
+      if (certificateImagePath) {
+        insertData.certificate_image_url = certificateImagePath;
+      }
+      if (scoreImagePath) {
+        insertData.score_image_url = scoreImagePath;
+      }
+      // For backward compatibility, also set image_path to certificate image
+      if (certificateImagePath) {
+        insertData.image_path = certificateImagePath;
+      }
+    } else {
+      // Single template - use existing image_path
+      if (imagePath) {
+        insertData.image_path = imagePath;
+      }
+    }
 
     // Only include preview_image_path if we actually have it
     if (previewImagePath) {
