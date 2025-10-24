@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       fromEmail,
       subject,
       message,
+      
     }: {
       recipientEmail?: string;
       recipientName?: string;

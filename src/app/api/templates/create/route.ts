@@ -4,7 +4,16 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, category, orientation, image_path, preview_image_path } = body;
+    const { 
+      name, 
+      category, 
+      orientation, 
+      image_path, 
+      preview_image_path,
+      certificate_image_url,
+      score_image_url,
+      is_dual_template
+    } = body;
 
     // Validate required fields
     if (!name?.trim() || !category?.trim() || !orientation?.trim()) {
@@ -65,6 +74,17 @@ export async function POST(request: NextRequest) {
     }
     if (preview_image_path) {
       insertData.preview_image_path = preview_image_path;
+    }
+    
+    // Add dual template fields if provided
+    if (certificate_image_url) {
+      insertData.certificate_image_url = certificate_image_url;
+    }
+    if (score_image_url) {
+      insertData.score_image_url = score_image_url;
+    }
+    if (typeof is_dual_template === 'boolean') {
+      insertData.is_dual_template = is_dual_template;
     }
 
     console.log('💾 API: Inserting template data to database:', insertData);

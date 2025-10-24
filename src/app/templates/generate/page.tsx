@@ -75,12 +75,36 @@ function CertificateGeneratorContent() {
   // NEW: Dual-mode template support
   const [activeTemplateMode, setActiveTemplateMode] = useState<'certificate' | 'score'>('certificate');
   
-  // NEW: Global font settings for score mode
+  // NEW: Separate font settings for different score elements
   const [scoreFontSettings, setScoreFontSettings] = useState({
-    fontSize: 16,
-    fontFamily: 'Arial',
-    color: '#000000',
-    fontWeight: 'normal' as 'normal' | 'bold',
+    // Font settings for nilai (scores)
+    nilai: {
+      fontSize: 16,
+      fontFamily: 'Arial',
+      color: '#000000',
+      fontWeight: 'bold' as 'normal' | 'bold',
+    },
+    // Font settings for aspek teknis (competency)
+    aspekTeknis: {
+      fontSize: 14,
+      fontFamily: 'Arial',
+      color: '#000000',
+      fontWeight: 'normal' as 'normal' | 'bold',
+    },
+    // Font settings for additional info (nilai prestasi, keterangan, dll)
+    additionalInfo: {
+      fontSize: 16,
+      fontFamily: 'Arial',
+      color: '#000000',
+      fontWeight: 'bold' as 'normal' | 'bold',
+    },
+    // Font settings for date
+    date: {
+      fontSize: 14,
+      fontFamily: 'Arial',
+      color: '#000000',
+      fontWeight: 'normal' as 'normal' | 'bold',
+    }
   });
   
   // FIX: Standard canvas dimensions for consistent positioning - MUST be defined before useEffect
@@ -135,6 +159,25 @@ function CertificateGeneratorContent() {
     console.log(`📝 Certificate layers:`, certificateTextLayers.length);
     console.log(`📝 Score layers:`, scoreTextLayers.length);
     console.log(`📝 Active layers:`, textLayers.length);
+    
+    if (activeTemplateMode === 'score') {
+      console.log(`📝 Score text layers details:`, scoreTextLayers.map(l => ({ 
+        id: l.id, 
+        text: l.text, 
+        x: l.x, 
+        y: l.y, 
+        xPercent: l.xPercent, 
+        yPercent: l.yPercent 
+      })));
+      
+      // Debug khusus untuk aspek teknis dan nilai prestasi
+      const competencyLayers = scoreTextLayers.filter(l => l.id.startsWith('aspek_teknis_name_'));
+      const nilaiPrestasiLayer = scoreTextLayers.find(l => l.id === 'nilai_prestasi');
+      
+      console.log('🔍 Competency layers:', competencyLayers);
+      console.log('🔍 Nilai prestasi layer:', nilaiPrestasiLayer);
+      console.log('🔍 Current score data:', scoreData);
+    }
   }, [activeTemplateMode, certificateTextLayers, scoreTextLayers, textLayers]);
   
   // NEW: Auto-sync score data to text layers
@@ -143,41 +186,8 @@ function CertificateGeneratorContent() {
     
     console.log('🔄 Syncing score data to text layers...', scoreData);
     
-    // If layers already exist, update them instead of recreating (preserves positions)
-    if (scoreTextLayers.length > 0) {
-      console.log('📝 Updating existing text layers (preserving positions)...');
-      const updatedLayers = scoreTextLayers.map(layer => {
-        // Update text content based on layer ID
-        if (layer.id.startsWith('aspek_non_teknis_')) {
-          const no = parseInt(layer.id.split('_')[3]);
-          const item = scoreData.aspek_non_teknis.find(i => i.no === no);
-          return { ...layer, text: `${item?.nilai || 0}` };
-        }
-        if (layer.id.startsWith('aspek_teknis_name_')) {
-          const no = parseInt(layer.id.split('_')[3]);
-          const item = scoreData.aspek_teknis.find(i => i.no === no);
-          return { ...layer, text: item?.standar_kompetensi || '' };
-        }
-        if (layer.id.startsWith('aspek_teknis_nilai_')) {
-          const no = parseInt(layer.id.split('_')[3]);
-          const item = scoreData.aspek_teknis.find(i => i.no === no);
-          return { ...layer, text: `${item?.nilai || 0}` };
-        }
-        if (layer.id === 'nilai_prestasi') {
-          return { ...layer, text: `Nilai: ${scoreData.nilai_prestasi}` };
-        }
-        if (layer.id === 'keterangan') {
-          return { ...layer, text: scoreData.keterangan };
-        }
-        if (layer.id === 'pembina_nama') {
-          return { ...layer, text: scoreData.pembina.nama };
-        }
-        return layer;
-      });
-      
-      setScoreTextLayers(updatedLayers);
-      return;
-    }
+    // Always create/update text layers for score mode
+    console.log('📝 Creating/updating score text layers...');
     
     // Create text layers from scratch (first time only)
     const layers: TextLayer[] = [];
@@ -191,30 +201,28 @@ function CertificateGeneratorContent() {
         y: STANDARD_CANVAS_HEIGHT * 0.3 + (index * 30),
         xPercent: 0.2,
         yPercent: 0.3 + (index * 0.05),
-        fontSize: scoreFontSettings.fontSize,
-        color: scoreFontSettings.color,
-        fontWeight: scoreFontSettings.fontWeight,
-        fontFamily: scoreFontSettings.fontFamily,
+        fontSize: scoreFontSettings.nilai.fontSize,
+        color: scoreFontSettings.nilai.color,
+        fontWeight: scoreFontSettings.nilai.fontWeight,
+        fontFamily: scoreFontSettings.nilai.fontFamily,
       });
     });
     
     // Add aspek teknis text layers (standar kompetensi + nilai)
     scoreData.aspek_teknis.forEach((item, index) => {
-      // Add standar kompetensi name text layer
-      if (item.standar_kompetensi) {
-        layers.push({
-          id: `aspek_teknis_name_${item.no}`,
-          text: item.standar_kompetensi,
-          x: STANDARD_CANVAS_WIDTH * 0.45,
-          y: STANDARD_CANVAS_HEIGHT * 0.3 + (index * 30),
-          xPercent: 0.45,
-          yPercent: 0.3 + (index * 0.05),
-          fontSize: scoreFontSettings.fontSize,
-          color: scoreFontSettings.color,
-          fontWeight: scoreFontSettings.fontWeight,
-          fontFamily: scoreFontSettings.fontFamily,
-        });
-      }
+      // Add standar kompetensi name text layer - always create, even if empty
+      layers.push({
+        id: `aspek_teknis_name_${item.no}`,
+        text: item.standar_kompetensi || '',
+        x: STANDARD_CANVAS_WIDTH * 0.45,
+        y: STANDARD_CANVAS_HEIGHT * 0.3 + (index * 30),
+        xPercent: 0.45,
+        yPercent: 0.3 + (index * 0.05),
+        fontSize: scoreFontSettings.aspekTeknis.fontSize,
+        color: scoreFontSettings.aspekTeknis.color,
+        fontWeight: scoreFontSettings.aspekTeknis.fontWeight,
+        fontFamily: scoreFontSettings.aspekTeknis.fontFamily,
+      });
       
       // Add nilai text layer
       layers.push({
@@ -224,28 +232,27 @@ function CertificateGeneratorContent() {
         y: STANDARD_CANVAS_HEIGHT * 0.3 + (index * 30),
         xPercent: 0.7,
         yPercent: 0.3 + (index * 0.05),
-        fontSize: scoreFontSettings.fontSize,
-        color: scoreFontSettings.color,
-        fontWeight: scoreFontSettings.fontWeight,
-        fontFamily: scoreFontSettings.fontFamily,
+        fontSize: scoreFontSettings.nilai.fontSize,
+        color: scoreFontSettings.nilai.color,
+        fontWeight: scoreFontSettings.nilai.fontWeight,
+        fontFamily: scoreFontSettings.nilai.fontFamily,
       });
     });
     
     // Add additional info text layers
-    if (scoreData.nilai_prestasi) {
-      layers.push({
-        id: 'nilai_prestasi',
-        text: `Nilai: ${scoreData.nilai_prestasi}`,
-        x: STANDARD_CANVAS_WIDTH * 0.5,
-        y: STANDARD_CANVAS_HEIGHT * 0.75,
-        xPercent: 0.5,
-        yPercent: 0.75,
-        fontSize: 18,
-        color: '#000000',
-        fontWeight: 'bold',
-        fontFamily: 'Arial',
-      });
-    }
+    // Always create nilai_prestasi layer, even if empty
+    layers.push({
+      id: 'nilai_prestasi',
+      text: scoreData.nilai_prestasi ? `Nilai: ${scoreData.nilai_prestasi}` : 'Nilai: ',
+      x: STANDARD_CANVAS_WIDTH * 0.5,
+      y: STANDARD_CANVAS_HEIGHT * 0.75,
+      xPercent: 0.5,
+      yPercent: 0.75,
+      fontSize: scoreFontSettings.additionalInfo.fontSize,
+      color: scoreFontSettings.additionalInfo.color,
+      fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+      fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+    });
     
     if (scoreData.keterangan) {
       layers.push({
@@ -255,12 +262,26 @@ function CertificateGeneratorContent() {
         y: STANDARD_CANVAS_HEIGHT * 0.8,
         xPercent: 0.5,
         yPercent: 0.8,
-        fontSize: 14,
-        color: '#666666',
-        fontWeight: 'normal',
-        fontFamily: 'Arial',
+        fontSize: scoreFontSettings.additionalInfo.fontSize,
+        color: scoreFontSettings.additionalInfo.color,
+        fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+        fontFamily: scoreFontSettings.additionalInfo.fontFamily,
       });
     }
+    
+    // Add date layer
+    layers.push({
+      id: 'score_date',
+      text: scoreData.date,
+      x: STANDARD_CANVAS_WIDTH * 0.1,
+      y: STANDARD_CANVAS_HEIGHT * 0.85,
+      xPercent: 0.1,
+      yPercent: 0.85,
+      fontSize: scoreFontSettings.date.fontSize,
+      color: scoreFontSettings.date.color,
+      fontWeight: scoreFontSettings.date.fontWeight,
+      fontFamily: scoreFontSettings.date.fontFamily,
+    });
     
     if (scoreData.pembina.nama) {
       layers.push({
@@ -270,32 +291,141 @@ function CertificateGeneratorContent() {
         y: STANDARD_CANVAS_HEIGHT * 0.85,
         xPercent: 0.7,
         yPercent: 0.85,
-        fontSize: 16,
-        color: '#000000',
-        fontWeight: 'normal',
-        fontFamily: 'Arial',
+        fontSize: scoreFontSettings.additionalInfo.fontSize,
+        color: scoreFontSettings.additionalInfo.color,
+        fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+        fontFamily: scoreFontSettings.additionalInfo.fontFamily,
       });
     }
     
-    console.log(`✅ Created ${layers.length} text layers for score mode`, layers.map(l => ({ id: l.id, text: l.text })));
+    console.log('═'.repeat(80));
+    console.log('🎯 SCORE TEXT LAYERS CREATED');
+    console.log('═'.repeat(80));
+    console.log(`✅ Total layers created: ${layers.length}`);
+    console.log(`🎯 Active template mode: ${activeTemplateMode}`);
+    console.log(`🎯 Score text layers count: ${scoreTextLayers.length}`);
+    console.log('');
+    console.log('📊 All layers:', layers.map(l => ({ id: l.id, text: l.text, x: l.x, y: l.y })));
+    console.log('');
+    console.log('🔍 Competency text layers (aspek_teknis_name_):', 
+      layers.filter(l => l.id.startsWith('aspek_teknis_name_')).map(l => ({ 
+        id: l.id, 
+        text: l.text,
+        visible: l.text && l.text.length > 0 ? '✅ YES' : '❌ NO (empty)'
+      }))
+    );
+    console.log('');
+    console.log('🎯 Nilai prestasi layer:', 
+      layers.filter(l => l.id === 'nilai_prestasi').map(l => ({ 
+        id: l.id, 
+        text: l.text,
+        visible: l.text && l.text.length > 0 ? '✅ YES' : '❌ NO (empty)'
+      }))
+    );
+    console.log('');
+    console.log('📝 Current score data:', {
+      aspek_non_teknis: scoreData.aspek_non_teknis,
+      nilai_prestasi: scoreData.nilai_prestasi,
+      aspek_teknis: scoreData.aspek_teknis.map(item => ({
+        no: item.no,
+        standar_kompetensi: item.standar_kompetensi,
+        nilai: item.nilai
+      }))
+    });
+    console.log('═'.repeat(80));
     setScoreTextLayers(layers);
-  }, [scoreData, activeTemplateMode]);
+  }, [activeTemplateMode]);
   
-  // NEW: Update font settings for existing score text layers (without changing positions)
+  // Update text content when scoreData changes (without recreating layers)
   useEffect(() => {
     if (activeTemplateMode !== 'score' || scoreTextLayers.length === 0) return;
     
-    console.log('🎨 Updating font settings for score text layers...');
-    const updatedLayers = scoreTextLayers.map(layer => ({
-      ...layer,
-      fontSize: scoreFontSettings.fontSize,
-      color: scoreFontSettings.color,
-      fontWeight: scoreFontSettings.fontWeight,
-      fontFamily: scoreFontSettings.fontFamily,
-    }));
+    console.log('🔄 Updating text content for existing layers...');
+    const updatedLayers = scoreTextLayers.map(layer => {
+      // Update text content based on layer ID
+      if (layer.id.startsWith('aspek_non_teknis_')) {
+        const no = parseInt(layer.id.split('_')[3]);
+        const item = scoreData.aspek_non_teknis.find(i => i.no === no);
+        return { 
+          ...layer, 
+          text: `${item?.nilai || 0}`,
+          fontSize: scoreFontSettings.nilai.fontSize,
+          color: scoreFontSettings.nilai.color,
+          fontWeight: scoreFontSettings.nilai.fontWeight,
+          fontFamily: scoreFontSettings.nilai.fontFamily,
+        };
+      }
+      if (layer.id.startsWith('aspek_teknis_name_')) {
+        const no = parseInt(layer.id.split('_')[3]);
+        const item = scoreData.aspek_teknis.find(i => i.no === no);
+        return { 
+          ...layer, 
+          text: item?.standar_kompetensi || '',
+          fontSize: scoreFontSettings.aspekTeknis.fontSize,
+          color: scoreFontSettings.aspekTeknis.color,
+          fontWeight: scoreFontSettings.aspekTeknis.fontWeight,
+          fontFamily: scoreFontSettings.aspekTeknis.fontFamily,
+        };
+      }
+      if (layer.id.startsWith('aspek_teknis_nilai_')) {
+        const no = parseInt(layer.id.split('_')[3]);
+        const item = scoreData.aspek_teknis.find(i => i.no === no);
+        return { 
+          ...layer, 
+          text: `${item?.nilai || 0}`,
+          fontSize: scoreFontSettings.nilai.fontSize,
+          color: scoreFontSettings.nilai.color,
+          fontWeight: scoreFontSettings.nilai.fontWeight,
+          fontFamily: scoreFontSettings.nilai.fontFamily,
+        };
+      }
+      if (layer.id === 'nilai_prestasi') {
+        return { 
+          ...layer, 
+          text: scoreData.nilai_prestasi ? `Nilai: ${scoreData.nilai_prestasi}` : 'Nilai: ',
+          fontSize: scoreFontSettings.additionalInfo.fontSize,
+          color: scoreFontSettings.additionalInfo.color,
+          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+        };
+      }
+      if (layer.id === 'keterangan') {
+        return { 
+          ...layer, 
+          text: scoreData.keterangan,
+          fontSize: scoreFontSettings.additionalInfo.fontSize,
+          color: scoreFontSettings.additionalInfo.color,
+          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+        };
+      }
+      if (layer.id === 'score_date') {
+        return { 
+          ...layer, 
+          text: scoreData.date,
+          fontSize: scoreFontSettings.date.fontSize,
+          color: scoreFontSettings.date.color,
+          fontWeight: scoreFontSettings.date.fontWeight,
+          fontFamily: scoreFontSettings.date.fontFamily,
+        };
+      }
+      if (layer.id === 'pembina_nama') {
+        return { 
+          ...layer, 
+          text: scoreData.pembina.nama,
+          fontSize: scoreFontSettings.additionalInfo.fontSize,
+          color: scoreFontSettings.additionalInfo.color,
+          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+        };
+      }
+      return layer;
+    });
     
     setScoreTextLayers(updatedLayers);
-  }, [scoreFontSettings]);
+  }, [scoreData, activeTemplateMode, scoreTextLayers.length]);
+  
+  // Font settings are applied when creating text layers, no need for separate update
   
   // Wrapper function to set text layers based on active mode
   const setTextLayers = useCallback((layers: TextLayer[] | ((prev: TextLayer[]) => TextLayer[])) => {
@@ -427,6 +557,14 @@ function CertificateGeneratorContent() {
     const yyyy = d.getFullYear();
     const mmm = d.toLocaleString('en-US', { month: 'short' });
     const mmmm = d.toLocaleString('en-US', { month: 'long' });
+    
+    // Indonesian month names
+    const indonesianMonths = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const indonesianMonth = indonesianMonths[d.getMonth()];
+    
     switch (fmt) {
       case 'dd-mm-yyyy': return `${dd}-${mm}-${yyyy}`;
       case 'mm-dd-yyyy': return `${mm}-${dd}-${yyyy}`;
@@ -438,6 +576,7 @@ function CertificateGeneratorContent() {
       case 'dd/mm/yyyy': return `${dd}/${mm}/${yyyy}`;
       case 'mm/dd/yyyy': return `${mm}/${dd}/${yyyy}`;
       case 'yyyy/mm/dd': return `${yyyy}/${mm}/${dd}`;
+      case 'dd-indonesian-yyyy': return `${dd} ${indonesianMonth} ${yyyy}`;
       default: return iso;
     }
   }, []);
@@ -447,17 +586,36 @@ function CertificateGeneratorContent() {
     if (!template) return null;
     
     // For dual-mode templates, return appropriate image based on active mode
-    if (template.mode === 'dual') {
-      if (activeTemplateMode === 'score' && template.score_image_path) {
+    if (template.is_dual_template) {
+      console.log('🖼️ Dual template mode:', {
+        activeTemplateMode,
+        score_image_url: template.score_image_url,
+        certificate_image_url: template.certificate_image_url,
+        is_dual_template: template.is_dual_template
+      });
+      
+      if (activeTemplateMode === 'score' && template.score_image_url) {
         // Return score image with cache busting
-        return `${template.score_image_path}?v=${template.id}&t=${Date.now()}`;
+        const scoreUrl = `${template.score_image_url}?v=${template.id}&t=${Date.now()}`;
+        console.log('🖼️ Returning score image URL:', scoreUrl);
+        return scoreUrl;
       }
       // Default to certificate image
-      return getTemplateImageUrl(template);
+      if (template.certificate_image_url) {
+        const certUrl = `${template.certificate_image_url}?v=${template.id}&t=${Date.now()}`;
+        console.log('🖼️ Returning certificate image URL:', certUrl);
+        return certUrl;
+      }
+      // Fallback to legacy image_path
+      const fallbackUrl = getTemplateImageUrl(template);
+      console.log('🖼️ Returning fallback image URL:', fallbackUrl);
+      return fallbackUrl;
     }
     
     // For single-mode templates, always return certificate image
-    return getTemplateImageUrl(template);
+    const singleUrl = getTemplateImageUrl(template);
+    console.log('🖼️ Returning single template image URL:', singleUrl);
+    return singleUrl;
   }, [activeTemplateMode]);
 
   // Import Excel instruction modal state
@@ -469,7 +627,6 @@ function CertificateGeneratorContent() {
     name: "",
     description: "",
     issue_date: "",
-    expired_date: "",
   });
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
   const [selectedFileName, setSelectedFileName] = useState<string>("");
@@ -536,7 +693,8 @@ function CertificateGeneratorContent() {
             case "issue_date":
               return { ...layer, text: formatDateString(nextData.issue_date, dateFormat) };
             case "expired_date":
-              return { ...layer, text: formatDateString(nextData.expired_date, dateFormat) };
+              // Expired date is not displayed on certificate, only stored in database
+              return layer;
           }
           return layer;
         })
@@ -715,9 +873,7 @@ function CertificateGeneratorContent() {
             }
             break;
           case "expired_date":
-            if (layer.id === "expired_date") {
-              return { ...layer, text: formatDateString(value, dateFormat) };
-            }
+            // Expired date is not displayed on certificate, only stored in database
             break;
         }
         return layer;
@@ -740,6 +896,9 @@ function CertificateGeneratorContent() {
             break;
           case "description":
             updatedData.description = layer.text;
+            break;
+          case "issue_date":
+            // Don't sync formatted date back to form - keep ISO format in form
             break;
           // Do not sync formatted dates back into date inputs
         }
@@ -785,10 +944,10 @@ function CertificateGeneratorContent() {
         setCertificateData((prev) => ({ ...prev, description: newText }));
         break;
       case "issue_date":
-        setCertificateData((prev) => ({ ...prev, issue_date: newText }));
+        // Don't update form data from text layer - keep ISO format in form
         break;
       case "expired_date":
-        setCertificateData((prev) => ({ ...prev, expired_date: newText }));
+        // Expired date is not displayed on certificate, only stored in database
         break;
     }
   };
@@ -840,7 +999,7 @@ function CertificateGeneratorContent() {
         }));
 
         // Save with mode-specific key for dual templates
-        const saveKey = selectedTemplate.mode === 'dual' 
+        const saveKey = selectedTemplate.is_dual_template 
           ? `${selectedTemplate.id}_${activeTemplateMode}`
           : selectedTemplate.id;
           
@@ -866,7 +1025,7 @@ function CertificateGeneratorContent() {
   
   // NEW: Load mode-specific defaults when switching between certificate and score
   useEffect(() => {
-    if (!selectedTemplate || selectedTemplate.mode !== 'dual') return;
+    if (!selectedTemplate || !selectedTemplate.is_dual_template) return;
     
     const saveKey = `${selectedTemplate.id}_${activeTemplateMode}`;
     const savedDefaults = getTemplateDefaults(saveKey);
@@ -878,7 +1037,7 @@ function CertificateGeneratorContent() {
       if (savedDefaults.textLayers && savedDefaults.textLayers.length > 0) {
         const layers: TextLayer[] = savedDefaults.textLayers.map(saved => {
           // Sync text content with certificate data for certificate mode
-          let text = saved.id === 'certificate_no' ? certificateData.certificate_no :
+          const text = saved.id === 'certificate_no' ? certificateData.certificate_no :
                      saved.id === 'name' ? certificateData.name :
                      saved.id === 'description' ? certificateData.description :
                      '';
@@ -1006,7 +1165,20 @@ function CertificateGeneratorContent() {
         fontWeight: globalFontSettings.fontWeight,
         fontFamily: globalFontSettings.fontFamily,
       },
-      // Note: issue_date and expired_date are stored in database but not displayed on certificate
+      // Add issued date to certificate preview (but not expired date)
+      {
+        id: "issue_date",
+        text: formatDateString(certificateData.issue_date, dateFormat),
+        x: STANDARD_CANVAS_WIDTH * 0.1,
+        y: STANDARD_CANVAS_HEIGHT * 0.9,
+        xPercent: 0.1,
+        yPercent: 0.9,
+        fontSize: globalFontSettings.fontSize,
+        color: globalFontSettings.color,
+        fontWeight: globalFontSettings.fontWeight,
+        fontFamily: globalFontSettings.fontFamily,
+      },
+      // Note: expired_date is stored in database but not displayed on certificate
     ];
     setTextLayers(layers);
   }, [certificateData, globalFontSettings, formatDateString, dateFormat, setTextLayers]);
@@ -1026,7 +1198,7 @@ function CertificateGeneratorContent() {
   // Initialize text layers only once when template is loaded
   // Check for saved defaults FIRST before initializing
   useEffect(() => {
-    if (selectedTemplate && textLayers.length === 0) {
+    if (selectedTemplate && textLayers.length === 0 && activeTemplateMode === 'certificate') {
       // Check if we've already processed this template
       if (defaultsLoadedForTemplateRef.current === selectedTemplate.id) {
         return;
@@ -1076,7 +1248,20 @@ function CertificateGeneratorContent() {
             fontWeight: savedDefaults.textLayers.find(l => l.id === "description")?.fontWeight || globalFontSettings.fontWeight,
             fontFamily: savedDefaults.textLayers.find(l => l.id === "description")?.fontFamily || globalFontSettings.fontFamily,
           },
-          // Note: issue_date and expired_date are stored in database but not displayed on certificate
+          // Add issued date to certificate preview (but not expired date)
+          {
+            id: "issue_date",
+            text: formatDateString(certificateData.issue_date, dateFormat),
+            x: savedDefaults.textLayers.find(l => l.id === "issue_date")?.x || STANDARD_CANVAS_WIDTH * 0.1,
+            y: savedDefaults.textLayers.find(l => l.id === "issue_date")?.y || STANDARD_CANVAS_HEIGHT * 0.9,
+            xPercent: savedDefaults.textLayers.find(l => l.id === "issue_date")?.xPercent || 0.1,
+            yPercent: savedDefaults.textLayers.find(l => l.id === "issue_date")?.yPercent || 0.9,
+            fontSize: savedDefaults.textLayers.find(l => l.id === "issue_date")?.fontSize || globalFontSettings.fontSize,
+            color: savedDefaults.textLayers.find(l => l.id === "issue_date")?.color || globalFontSettings.color,
+            fontWeight: savedDefaults.textLayers.find(l => l.id === "issue_date")?.fontWeight || globalFontSettings.fontWeight,
+            fontFamily: savedDefaults.textLayers.find(l => l.id === "issue_date")?.fontFamily || globalFontSettings.fontFamily,
+          },
+          // Note: expired_date is stored in database but not displayed on certificate
         ];
         
         setTextLayers(layers);
@@ -2230,7 +2415,7 @@ function CertificateGeneratorContent() {
           name: String(get("name") || ""),
           description: String(get("description") || ""),
           issue_date: excelDateToISO(get("issue_date") || ""),
-          expired_date: excelDateToISO(get("expired_date") || ""),
+          expired_date: "", // Expired date is not used in Excel import
         };
         
         console.log(`📝 Processing row ${i + 1}/${excelRows.length}:`, {
@@ -2258,9 +2443,10 @@ function CertificateGeneratorContent() {
             case "description":
               return { ...layer, text: data.description };
             case "issue_date":
-              return { ...layer, text: data.issue_date };
+              return { ...layer, text: formatDateString(data.issue_date, dateFormat) };
             case "expired_date":
-              return { ...layer, text: data.expired_date };
+              // Expired date is not displayed on certificate, only stored in database
+              return layer;
             default:
               return layer;
           }
@@ -2304,7 +2490,7 @@ function CertificateGeneratorContent() {
           name: data.name.trim(),
           description: data.description.trim() || undefined,
           issue_date: data.issue_date,
-          expired_date: data.expired_date || undefined,
+          expired_date: undefined, // Expired date is not used in Excel import
           category: selectedTemplate?.category || undefined,
           template_id: selectedTemplate?.id || undefined,
           member_id: selectedMemberId || undefined,
@@ -2412,7 +2598,7 @@ function CertificateGeneratorContent() {
             </div>
             
             {/* NEW: Template Mode Switch for Dual-Mode Templates */}
-            {selectedTemplate.mode === 'dual' && (
+            {selectedTemplate.is_dual_template && (
               <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-200">
                 <Button
                   variant={activeTemplateMode === 'certificate' ? 'default' : 'ghost'}
@@ -2703,17 +2889,17 @@ function CertificateGeneratorContent() {
                       ? layer.y
                       : layer.yPercent * consistentDims.height;
                     
-                    // Debug log untuk melihat perbedaan dimensi
-                    if (layer.id === "name") { // Log hanya untuk layer name untuk menghindari spam
-                      console.log('👁️ Preview Dimensions:', {
-                        consistentDims,
+                    // Debug log untuk melihat perbedaan dimensi (hanya untuk layer penting)
+                    if (layer.id === "name" || layer.id === 'nilai_prestasi' || layer.id.startsWith('aspek_teknis_name_')) { // Log untuk layer name dan score layers
+                      console.log('👁️ RENDERING TEXT LAYER:', {
+                        layerId: layer.id,
+                        layerText: layer.text,
+                        textLength: layer.text?.length || 0,
+                        hasText: layer.text && layer.text.length > 0,
                         actualX,
                         actualY,
-                        layerXPercent: layer.xPercent,
-                        layerYPercent: layer.yPercent,
                         fontSize: layer.fontSize,
-                        offsetX: consistentDims.offsetX,
-                        offsetY: consistentDims.offsetY
+                        color: layer.color
                       });
                     }
 
@@ -3131,6 +3317,33 @@ function CertificateGeneratorContent() {
                   </div>
                 </div>
                 
+                {/* Date Format Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Date Format for Display
+                  </label>
+                  <select
+                    value={dateFormat}
+                    onChange={(e) => setDateFormat(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="yyyy-mm-dd">YYYY-MM-DD (2025-01-10)</option>
+                    <option value="dd-mm-yyyy">DD-MM-YYYY (10-01-2025)</option>
+                    <option value="mm-dd-yyyy">MM-DD-YYYY (01-10-2025)</option>
+                    <option value="dd-mmm-yyyy">DD MMM YYYY (10 Jan 2025)</option>
+                    <option value="dd-mmmm-yyyy">DD MMMM YYYY (10 January 2025)</option>
+                    <option value="mmm-dd-yyyy">MMM DD, YYYY (Jan 10, 2025)</option>
+                    <option value="mmmm-dd-yyyy">MMMM DD, YYYY (January 10, 2025)</option>
+                    <option value="dd/mm/yyyy">DD/MM/YYYY (10/01/2025)</option>
+                    <option value="mm/dd/yyyy">MM/DD/YYYY (01/10/2025)</option>
+                    <option value="yyyy/mm/dd">YYYY/MM/DD (2025/01/10)</option>
+                    <option value="dd-indonesian-yyyy">DD Indonesian YYYY (10 Oktober 2025)</option>
+                  </select>
+                  <p className="text-xs text-gray-500">
+                    This format will be used when displaying dates on the certificate preview and generated output.
+                  </p>
+                </div>
+
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-xs text-blue-800">
                     <strong>Note:</strong> Issue Date and Expiry Date are stored in the database but not displayed on the certificate image. 
@@ -3309,6 +3522,120 @@ function CertificateGeneratorContent() {
                           >
                             Delete
                           </Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Score Template Coordinate Controls */}
+                  {(activeTemplateMode as 'certificate' | 'score') === 'score' && selectedLayerId && (() => {
+                    const selectedLayer = textLayers.find((l) => l.id === selectedLayerId);
+                    if (!selectedLayer) return null;
+
+                    return (
+                      <div className="space-y-4 pt-4 border-t border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-semibold text-gray-700">
+                            Position Controls
+                          </h3>
+                          <span className="text-xs text-gray-500">
+                            Score Template
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                              X Position (px)
+                            </label>
+                            <Input
+                              type="number"
+                              value={Math.round(selectedLayer.x)}
+                              onChange={(e) => {
+                                const newX = parseInt(e.target.value) || 0;
+                                const normalizedPos = getNormalizedPosition(newX, selectedLayer.y);
+                                updateTextLayer(selectedLayerId, {
+                                  x: newX,
+                                  xPercent: normalizedPos.xPercent,
+                                });
+                              }}
+                              min="0"
+                              max={getConsistentDimensions.width}
+                              className="border-gray-300"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                              Y Position (px)
+                            </label>
+                            <Input
+                              type="number"
+                              value={Math.round(selectedLayer.y)}
+                              onChange={(e) => {
+                                const newY = parseInt(e.target.value) || 0;
+                                const normalizedPos = getNormalizedPosition(selectedLayer.x, newY);
+                                updateTextLayer(selectedLayerId, {
+                                  y: newY,
+                                  yPercent: normalizedPos.yPercent,
+                                });
+                              }}
+                              min="0"
+                              max={getConsistentDimensions.height}
+                              className="border-gray-300"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                              X Position (%)
+                            </label>
+                            <Input
+                              type="number"
+                              value={Math.round(selectedLayer.xPercent * 100)}
+                              onChange={(e) => {
+                                const newXPercent = (parseInt(e.target.value) || 0) / 100;
+                                const newX = newXPercent * getConsistentDimensions.width;
+                                updateTextLayer(selectedLayerId, {
+                                  x: newX,
+                                  xPercent: newXPercent,
+                                });
+                              }}
+                              min="0"
+                              max="100"
+                              className="border-gray-300"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                              Y Position (%)
+                            </label>
+                            <Input
+                              type="number"
+                              value={Math.round(selectedLayer.yPercent * 100)}
+                              onChange={(e) => {
+                                const newYPercent = (parseInt(e.target.value) || 0) / 100;
+                                const newY = newYPercent * getConsistentDimensions.height;
+                                updateTextLayer(selectedLayerId, {
+                                  y: newY,
+                                  yPercent: newYPercent,
+                                });
+                              }}
+                              min="0"
+                              max="100"
+                              className="border-gray-300"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <p className="text-xs text-blue-800">
+                            <strong>Tip:</strong> Use the coordinate controls above to precisely position text elements on the score template. 
+                            You can also drag text elements directly on the preview canvas.
+                          </p>
                         </div>
                       </div>
                     );
@@ -3540,6 +3867,153 @@ function CertificateGeneratorContent() {
                   </div>
                 </div>
 
+                {/* Font Settings for Score Mode */}
+                <div className="space-y-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Font Settings
+                  </h3>
+                  
+                  {/* Nilai Font Settings */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-700">
+                      Font untuk Nilai (Angka)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500">Size</label>
+                        <Input
+                          type="number"
+                          value={scoreFontSettings.nilai.fontSize}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings,
+                            nilai: {...scoreFontSettings.nilai, fontSize: parseInt(e.target.value) || 16}
+                          })}
+                          className="h-8 text-xs"
+                          min="8"
+                          max="72"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Color</label>
+                        <Input
+                          type="color"
+                          value={scoreFontSettings.nilai.color}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings,
+                            nilai: {...scoreFontSettings.nilai, color: e.target.value}
+                          })}
+                          className="h-8 w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Aspek Teknis Font Settings */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-700">
+                      Font untuk Kompetensi Dasar
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500">Size</label>
+                        <Input
+                          type="number"
+                          value={scoreFontSettings.aspekTeknis.fontSize}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings,
+                            aspekTeknis: {...scoreFontSettings.aspekTeknis, fontSize: parseInt(e.target.value) || 14}
+                          })}
+                          className="h-8 text-xs"
+                          min="8"
+                          max="72"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Color</label>
+                        <Input
+                          type="color"
+                          value={scoreFontSettings.aspekTeknis.color}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings,
+                            aspekTeknis: {...scoreFontSettings.aspekTeknis, color: e.target.value}
+                          })}
+                          className="h-8 w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Info Font Settings */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-700">
+                      Font untuk Informasi Tambahan
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500">Size</label>
+                        <Input
+                          type="number"
+                          value={scoreFontSettings.additionalInfo.fontSize}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings,
+                            additionalInfo: {...scoreFontSettings.additionalInfo, fontSize: parseInt(e.target.value) || 16}
+                          })}
+                          className="h-8 text-xs"
+                          min="8"
+                          max="72"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Color</label>
+                        <Input
+                          type="color"
+                          value={scoreFontSettings.additionalInfo.color}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings,
+                            additionalInfo: {...scoreFontSettings.additionalInfo, color: e.target.value}
+                          })}
+                          className="h-8 w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date Font Settings */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-700">
+                      Font untuk Tanggal
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500">Size</label>
+                        <Input
+                          type="number"
+                          value={scoreFontSettings.date.fontSize}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings,
+                            date: {...scoreFontSettings.date, fontSize: parseInt(e.target.value) || 14}
+                          })}
+                          className="h-8 text-xs"
+                          min="8"
+                          max="72"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Color</label>
+                        <Input
+                          type="color"
+                          value={scoreFontSettings.date.color}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings,
+                            date: {...scoreFontSettings.date, color: e.target.value}
+                          })}
+                          className="h-8 w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Action Buttons for Score */}
                 <div className="flex flex-col gap-3 pt-4 border-t">
                   <Button
@@ -3637,7 +4111,7 @@ Example: 251010001 = 25(year) 10(month) 10(day) 001(sequence)`}
             {excelRows.length > 0 && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {(["certificate_no","name","description","issue_date","expired_date"]).map((field) => (
+                  {(["certificate_no","name","description","issue_date"]).map((field) => (
                     <div key={field} className="space-y-1">
                       <label className="text-xs text-gray-600">Map {field}</label>
                       <select
