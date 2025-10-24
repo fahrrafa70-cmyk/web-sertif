@@ -29,6 +29,9 @@ export async function POST(req: NextRequest) {
       fromEmail,
       subject,
       message,
+      issueDate,
+      expiryDate,
+      certificateType,
     }: {
       recipientEmail?: string;
       recipientName?: string;
@@ -37,6 +40,10 @@ export async function POST(req: NextRequest) {
       fromEmail?: string;
       subject?: string;
       message?: string;
+      issueDate?: string;
+      expiryDate?: string;
+      certificateType?: string;
+      achievement?: string;
     } = body || {};
 
     if (!recipientEmail) {
@@ -94,22 +101,27 @@ export async function POST(req: NextRequest) {
 
     const computedSubject = subject && subject.trim().length > 0
       ? subject
-      : `Your Certificate${certificateNo ? ` #${certificateNo}` : ""}`;
+      : `E-Certificate ${certificateNo ? `#${certificateNo}` : ""} - Notification`;
 
-    const bodyIntro = recipientName ? `Hello ${recipientName},` : `Hello,`;
+    const bodyIntro =`To ${recipientEmail},`;
     const bodyMessage = message && message.trim().length > 0
       ? message
-      : `Attached is your certificate${certificateNo ? ` (No: ${certificateNo})` : ""}.`;
+      : `
+Certificate Information:
+- Certificate Number: ${certificateNo || "N/A"}\n
+- Type: ${certificateType || "Digital Certificate"}\n
+- Recipient Name: ${recipientName || "N/A"}\n
+- Issue Date: ${issueDate || new Date().toLocaleDateString()}\n
+- Expiry Date: ${expiryDate || "No Expiration"}`;
 
     const info = await transporter.sendMail({
       from,
       to: recipientEmail,
       subject: computedSubject,
       html: `
-        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;">
-          <p>${bodyIntro}</p>
-          <p>${bodyMessage}</p>
-          <p>Thank you.</p>
+        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; white-space: pre-line; line-height: 1.5;">
+          <div>${bodyIntro}</div>
+          <div style="white-space: pre-line;">${bodyMessage}</div>
         </div>
       `,
       attachments: [

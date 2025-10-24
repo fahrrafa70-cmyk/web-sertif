@@ -251,9 +251,6 @@ function CertificatesContent() {
         return;
       }
 
-      // Try to read recipient email from joined member if present
-      const guessedEmail: string | undefined = certificate.members?.email;
-
       // Normalize image URL (local public path -> absolute), similar to preview
       let srcRaw = certificate.certificate_image_url || "";
       if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
@@ -267,7 +264,14 @@ function CertificatesContent() {
       setSendForm({
         email: "",
         subject: certificate.certificate_no ? `Certificate #${certificate.certificate_no}` : "Your Certificate",
-        message: `Attached is your certificate${certificate.certificate_no ? ` (No: ${certificate.certificate_no})` : ''}.`,
+        message: 
+        `Certificate Information:
+
+• Certificate Number: ${certificate.certificate_no || "N/A"}
+• Recipient Name: ${certificate.name || "N/A"}
+• Issue Date: ${new Date(certificate.issue_date).toLocaleDateString()}${certificate.expired_date ? `
+• Expiry Date: ${new Date(certificate.expired_date).toLocaleDateString()}` : ""}${certificate.category ? `
+• Category: ${certificate.category}` : ""}`,
       });
       setSendModalOpen(true);
     } catch (err) {

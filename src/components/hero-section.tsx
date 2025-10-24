@@ -198,8 +198,6 @@ export default function HeroSection() {
         return;
       }
 
-      const guessedEmail: string | undefined = certificate.members?.email;
-
       let srcRaw = certificate.certificate_image_url || "";
       if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
         srcRaw = `/${srcRaw}`;
@@ -212,7 +210,14 @@ export default function HeroSection() {
       setSendForm({
         email: "",
         subject: certificate.certificate_no ? `Certificate #${certificate.certificate_no}` : "Your Certificate",
-        message: `Attached is your certificate${certificate.certificate_no ? ` (No: ${certificate.certificate_no})` : ''}.`,
+        message: `Dear ${certificate.name},
+
+Certificate Information:
+- Certificate Number: ${certificate.certificate_no || "N/A"}\n
+- Recipient Name: ${certificate.name || "N/A"}\n
+- Issue Date: ${new Date(certificate.created_at || new Date()).toLocaleDateString()}\n
+${certificate.category ? `- Category: ${certificate.category}` : ""}\n
+${certificate.description ? `- Description: ${certificate.description}` : ""}`,
       });
       setSendModalOpen(true);
     } catch (err) {
