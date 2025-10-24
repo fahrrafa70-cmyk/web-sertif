@@ -25,6 +25,10 @@ import {
   CreateCertificateData,
   generateCertificateNumber,
 } from "@/lib/supabase/certificates";
+import {
+  createScore,
+  CreateScoreData,
+} from "@/lib/supabase/scores";
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
 import html2canvas from "html2canvas";
@@ -34,6 +38,7 @@ import {
   saveTemplateDefaults,
   getTemplateDefaults,
   TextLayerDefault,
+  DEFAULT_SCORE_FONT_SETTINGS,
 } from "@/lib/storage/template-defaults";
 
 type CertificateData = {
@@ -66,6 +71,26 @@ function CertificateGeneratorContent() {
   const searchParams = useSearchParams();
   const templateId = searchParams?.get("template");
 
+  // Helper function to get predikat based on nilai
+  const getPredikat = (nilai: number): string => {
+    if (nilai >= 90 && nilai <= 100) return "Sangat Baik";
+    if (nilai >= 75 && nilai <= 89) return "Baik";
+    if (nilai >= 0 && nilai <= 74) return "Kurang Baik";
+    return "Tidak Valid";
+  };
+
+  // Helper function to format nilai prestasi text
+  const formatNilaiPrestasi = (nilai: string): string => {
+    if (!nilai || nilai.trim() === '') return '';
+    
+    // Extract numeric value from input (e.g., "80.5" or "80")
+    const numericValue = parseFloat(nilai);
+    if (isNaN(numericValue)) return nilai;
+    
+    const predikat = getPredikat(numericValue);
+    return `${numericValue} (${predikat})`;
+  };
+
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
     null,
@@ -75,46 +100,10 @@ function CertificateGeneratorContent() {
   // NEW: Dual-mode template support
   const [activeTemplateMode, setActiveTemplateMode] = useState<'certificate' | 'score'>('certificate');
   
-  // NEW: Separate font settings for different score elements
-  const [scoreFontSettings, setScoreFontSettings] = useState({
-    // Font settings for nilai (scores)
-    nilai: {
-      fontSize: 16,
-      fontFamily: 'Arial',
-      color: '#000000',
-      fontWeight: 'bold' as 'normal' | 'bold',
-    },
-    // Font settings for aspek teknis (competency)
-    aspekTeknis: {
-      fontSize: 14,
-      fontFamily: 'Arial',
-      color: '#000000',
-      fontWeight: 'normal' as 'normal' | 'bold',
-    },
-    // Font settings for additional info (nilai prestasi, keterangan, dll)
-    additionalInfo: {
-      fontSize: 16,
-      fontFamily: 'Arial',
-      color: '#000000',
-      fontWeight: 'bold' as 'normal' | 'bold',
-    },
-    // Font settings for date
-    date: {
-      fontSize: 14,
-      fontFamily: 'Arial',
-      color: '#000000',
-      fontWeight: 'normal' as 'normal' | 'bold',
-    },
-    // Font settings for date
-    date: {
-      fontSize: 14,
-      fontFamily: 'Arial',
-      color: '#000000',
-      fontWeight: 'normal' as 'normal' | 'bold',
-    }
-  });
+  // NEW: Separate font settings for different score elements - using default values
+  const [scoreFontSettings, setScoreFontSettings] = useState(DEFAULT_SCORE_FONT_SETTINGS);
   
-  // FIX: Standard canvas dimensions for consistent positioning - MUST be defined before useEffect
+  // FIX: Standard canvas dimensions for consistent positioning - MUST be defined before useEffectya
   const STANDARD_CANVAS_WIDTH = 800;
   const STANDARD_CANVAS_HEIGHT = 600;
   
@@ -185,7 +174,7 @@ function CertificateGeneratorContent() {
       console.log('🔍 Nilai prestasi layer:', nilaiPrestasiLayer);
       console.log('🔍 Current score data:', scoreData);
     }
-  }, [activeTemplateMode, certificateTextLayers, scoreTextLayers, textLayers]);
+  }, [activeTemplateMode, certificateTextLayers, scoreTextLayers, textLayers, scoreData]);
   
   // NEW: Auto-sync score data to text layers
   useEffect(() => {
@@ -193,8 +182,17 @@ function CertificateGeneratorContent() {
     
     console.log('🔄 Syncing score data to text layers...', scoreData);
     
-    // Always create/update text layers for score mode
-    console.log('📝 Creating/updating score text layers...');
+    // Skip loading defaults here - let the mode-specific useEffect handle it
+    // This prevents conflicts between the two useEffects
+    
+    // Check if score text layers already exist (user has positioned them)
+    if (scoreTextLayers.length > 0) {
+      console.log('📝 Score text layers already exist, skipping recreation to preserve positioning');
+      return;
+    }
+    
+    // Only create text layers from scratch if no saved defaults exist
+    console.log('📝 Creating score text layers for the first time...');
     
     // Create text layers from scratch (first time only)
     const layers: TextLayer[] = [];
@@ -250,7 +248,7 @@ function CertificateGeneratorContent() {
     // Always create nilai_prestasi layer, even if empty
     layers.push({
       id: 'nilai_prestasi',
-      text: scoreData.nilai_prestasi ? `Nilai: ${scoreData.nilai_prestasi}` : 'Nilai: ',
+      text: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '',
       x: STANDARD_CANVAS_WIDTH * 0.5,
       y: STANDARD_CANVAS_HEIGHT * 0.75,
       xPercent: 0.5,
@@ -341,96 +339,198 @@ function CertificateGeneratorContent() {
     });
     console.log('═'.repeat(80));
     setScoreTextLayers(layers);
-  }, [activeTemplateMode]);
+  }, [activeTemplateMode, selectedTemplate, scoreData, scoreFontSettings, formatNilaiPrestasi]);
   
-  // Update text content when scoreData changes (without recreating layers)
+  // Update text content when scoreData or scoreFontSettings changes
   useEffect(() => {
     if (activeTemplateMode !== 'score' || scoreTextLayers.length === 0) return;
     
-    console.log('🔄 Updating text content for existing layers...');
-    const updatedLayers = scoreTextLayers.map(layer => {
-      // Update text content based on layer ID
-      if (layer.id.startsWith('aspek_non_teknis_')) {
-        const no = parseInt(layer.id.split('_')[3]);
-        const item = scoreData.aspek_non_teknis.find(i => i.no === no);
-        return { 
-          ...layer, 
-          text: `${item?.nilai || 0}`,
-          fontSize: scoreFontSettings.nilai.fontSize,
-          color: scoreFontSettings.nilai.color,
-          fontWeight: scoreFontSettings.nilai.fontWeight,
-          fontFamily: scoreFontSettings.nilai.fontFamily,
-        };
-      }
-      if (layer.id.startsWith('aspek_teknis_name_')) {
-        const no = parseInt(layer.id.split('_')[3]);
-        const item = scoreData.aspek_teknis.find(i => i.no === no);
-        return { 
-          ...layer, 
-          text: item?.standar_kompetensi || '',
-          fontSize: scoreFontSettings.aspekTeknis.fontSize,
-          color: scoreFontSettings.aspekTeknis.color,
-          fontWeight: scoreFontSettings.aspekTeknis.fontWeight,
-          fontFamily: scoreFontSettings.aspekTeknis.fontFamily,
-        };
-      }
-      if (layer.id.startsWith('aspek_teknis_nilai_')) {
-        const no = parseInt(layer.id.split('_')[3]);
-        const item = scoreData.aspek_teknis.find(i => i.no === no);
-        return { 
-          ...layer, 
-          text: `${item?.nilai || 0}`,
-          fontSize: scoreFontSettings.nilai.fontSize,
-          color: scoreFontSettings.nilai.color,
-          fontWeight: scoreFontSettings.nilai.fontWeight,
-          fontFamily: scoreFontSettings.nilai.fontFamily,
-        };
-      }
-      if (layer.id === 'nilai_prestasi') {
-        return { 
-          ...layer, 
-          text: scoreData.nilai_prestasi ? `Nilai: ${scoreData.nilai_prestasi}` : 'Nilai: ',
-          fontSize: scoreFontSettings.additionalInfo.fontSize,
-          color: scoreFontSettings.additionalInfo.color,
-          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-        };
-      }
-      if (layer.id === 'keterangan') {
-        return { 
-          ...layer, 
-          text: scoreData.keterangan,
-          fontSize: scoreFontSettings.additionalInfo.fontSize,
-          color: scoreFontSettings.additionalInfo.color,
-          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-        };
-      }
-      if (layer.id === 'score_date') {
-        return { 
-          ...layer, 
-          text: scoreData.date,
-          fontSize: scoreFontSettings.date.fontSize,
-          color: scoreFontSettings.date.color,
-          fontWeight: scoreFontSettings.date.fontWeight,
-          fontFamily: scoreFontSettings.date.fontFamily,
-        };
-      }
-      if (layer.id === 'pembina_nama') {
-        return { 
-          ...layer, 
-          text: scoreData.pembina.nama,
-          fontSize: scoreFontSettings.additionalInfo.fontSize,
-          color: scoreFontSettings.additionalInfo.color,
-          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-        };
-      }
-      return layer;
+    console.log('🔄 Updating text content and font settings for existing layers...');
+    setScoreTextLayers(prevLayers => {
+      return prevLayers.map(layer => {
+        // Update text content and font settings based on layer ID
+        // IMPORTANT: Preserve original positioning (x, y, xPercent, yPercent)
+        if (layer.id.startsWith('aspek_non_teknis_')) {
+          const no = parseInt(layer.id.split('_')[3]);
+          const item = scoreData.aspek_non_teknis.find(i => i.no === no);
+          return { 
+            ...layer, 
+            text: `${item?.nilai || 0}`,
+            fontSize: scoreFontSettings.nilai.fontSize,
+            color: scoreFontSettings.nilai.color,
+            fontWeight: scoreFontSettings.nilai.fontWeight,
+            fontFamily: scoreFontSettings.nilai.fontFamily,
+            // Preserve positioning
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+          };
+        }
+        if (layer.id.startsWith('aspek_teknis_name_')) {
+          const no = parseInt(layer.id.split('_')[3]);
+          const item = scoreData.aspek_teknis.find(i => i.no === no);
+          return { 
+            ...layer, 
+            text: item?.standar_kompetensi || '',
+            fontSize: scoreFontSettings.aspekTeknis.fontSize,
+            color: scoreFontSettings.aspekTeknis.color,
+            fontWeight: scoreFontSettings.aspekTeknis.fontWeight,
+            fontFamily: scoreFontSettings.aspekTeknis.fontFamily,
+            // Preserve positioning
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+          };
+        }
+        if (layer.id.startsWith('aspek_teknis_nilai_')) {
+          const no = parseInt(layer.id.split('_')[3]);
+          const item = scoreData.aspek_teknis.find(i => i.no === no);
+          return { 
+            ...layer, 
+            text: `${item?.nilai || 0}`,
+            fontSize: scoreFontSettings.nilai.fontSize,
+            color: scoreFontSettings.nilai.color,
+            fontWeight: scoreFontSettings.nilai.fontWeight,
+            fontFamily: scoreFontSettings.nilai.fontFamily,
+            // Preserve positioning
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+          };
+        }
+        if (layer.id === 'nilai_prestasi') {
+          return { 
+            ...layer, 
+            text: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '',
+            fontSize: scoreFontSettings.additionalInfo.fontSize,
+            color: scoreFontSettings.additionalInfo.color,
+            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+            // Preserve positioning
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+          };
+        }
+        if (layer.id === 'keterangan') {
+          return { 
+            ...layer, 
+            text: scoreData.keterangan,
+            fontSize: scoreFontSettings.additionalInfo.fontSize,
+            color: scoreFontSettings.additionalInfo.color,
+            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+            // Preserve positioning
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+          };
+        }
+        if (layer.id === 'score_date') {
+          return { 
+            ...layer, 
+            text: scoreData.date,
+            fontSize: scoreFontSettings.date.fontSize,
+            color: scoreFontSettings.date.color,
+            fontWeight: scoreFontSettings.date.fontWeight,
+            fontFamily: scoreFontSettings.date.fontFamily,
+            // Preserve positioning
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+          };
+        }
+        if (layer.id === 'pembina_nama') {
+          return { 
+            ...layer, 
+            text: scoreData.pembina.nama,
+            fontSize: scoreFontSettings.additionalInfo.fontSize,
+            color: scoreFontSettings.additionalInfo.color,
+            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+            // Preserve positioning
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+          };
+        }
+        return layer;
+      });
     });
+  }, [scoreData, scoreFontSettings, activeTemplateMode, formatNilaiPrestasi, scoreTextLayers.length]);
+  
+  // Auto-save coordinates and font settings when score text layers are positioned
+  useEffect(() => {
+    if (activeTemplateMode !== 'score' || !selectedTemplate || scoreTextLayers.length === 0) return;
     
-    setScoreTextLayers(updatedLayers);
-  }, [scoreData, activeTemplateMode, scoreTextLayers.length]);
+    // Only save if user has actually positioned layers (not default positions)
+    const hasUserPositionedLayers = scoreTextLayers.some(layer => 
+      layer.x !== 0 || layer.y !== 0 || layer.xPercent !== 0 || layer.yPercent !== 0
+    );
+    
+    if (hasUserPositionedLayers) {
+      console.log('💾 Auto-saving score coordinates and font settings...');
+      try {
+        const defaults: TextLayerDefault[] = scoreTextLayers.map((layer) => ({
+          id: layer.id,
+          x: layer.x,
+          y: layer.y,
+          xPercent: layer.xPercent,
+          yPercent: layer.yPercent,
+          fontSize: layer.fontSize,
+          color: layer.color,
+          fontWeight: layer.fontWeight,
+          fontFamily: layer.fontFamily,
+        }));
+
+        saveTemplateDefaults({
+          templateId: `${selectedTemplate.id}_score`,
+          templateName: selectedTemplate.name,
+          textLayers: defaults,
+          overlayImages: overlayImages,
+          scoreFontSettings: scoreFontSettings, // Save score font settings
+          savedAt: new Date().toISOString(),
+        });
+
+        console.log(`💾 Auto-saved score coordinates and font settings for template: ${selectedTemplate.name}`);
+      } catch (error) {
+        console.warn("⚠️ Failed to auto-save score coordinates and font settings:", error);
+      }
+    }
+  }, [scoreTextLayers, activeTemplateMode, selectedTemplate, scoreTextLayers.length, scoreFontSettings]);
+  
+  // Auto-save score font settings when they change
+  useEffect(() => {
+    if (activeTemplateMode !== 'score' || !selectedTemplate) return;
+    
+    console.log('💾 Auto-saving score font settings...');
+    try {
+      // Get existing defaults or create new ones
+      const existingDefaults = getTemplateDefaults(`${selectedTemplate.id}_score`);
+      const textLayers = existingDefaults?.textLayers || [];
+      const overlayImages = existingDefaults?.overlayImages || [];
+      
+      saveTemplateDefaults({
+        templateId: `${selectedTemplate.id}_score`,
+        templateName: selectedTemplate.name,
+        textLayers: textLayers,
+        overlayImages: overlayImages,
+        scoreFontSettings: scoreFontSettings,
+        savedAt: new Date().toISOString(),
+      });
+
+      console.log(`💾 Auto-saved score font settings for template: ${selectedTemplate.name}`);
+    } catch (error) {
+      console.warn("⚠️ Failed to auto-save score font settings:", error);
+    }
+  }, [scoreFontSettings, activeTemplateMode, selectedTemplate]);
   
   // Font settings are applied when creating text layers, no need for separate update
   
@@ -534,6 +634,14 @@ function CertificateGeneratorContent() {
   });
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // NEW: Preview mode state for dual-mode templates
+  const [previewMode, setPreviewMode] = useState<'certificate' | 'score' | 'combined'>('combined');
+  const [certificateImageUrl, setCertificateImageUrl] = useState<string | null>(null);
+  const [scoreImageUrl, setScoreImageUrl] = useState<string | null>(null);
+  
+  // NEW: Manual dual template mode toggle (for testing)
+  const [manualDualMode, setManualDualMode] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
@@ -834,6 +942,13 @@ function CertificateGeneratorContent() {
           // Reset defaults loaded ref when template changes
           defaultsLoadedForTemplateRef.current = null;
           // Template loaded successfully
+          console.log("🔍 Template loaded:", {
+            id: template?.id,
+            name: template?.name,
+            is_dual_template: template?.is_dual_template,
+            certificate_image_url: template?.certificate_image_url,
+            score_image_url: template?.score_image_url
+          });
         } catch (error) {
           console.error("Failed to load template:", error);
           setSelectedTemplate(null);
@@ -1042,12 +1157,47 @@ function CertificateGeneratorContent() {
       
       // Load text layers
       if (savedDefaults.textLayers && savedDefaults.textLayers.length > 0) {
+        // Check if text layers already exist for this mode to prevent overwriting user positions
+        const currentLayers = activeTemplateMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
+        
+        if (currentLayers.length > 0) {
+          console.log(`📝 Text layers already exist for ${activeTemplateMode} mode, preserving user positions`);
+          return;
+        }
+        
         const layers: TextLayer[] = savedDefaults.textLayers.map(saved => {
-          // Sync text content with certificate data for certificate mode
-          const text = saved.id === 'certificate_no' ? certificateData.certificate_no :
-                     saved.id === 'name' ? certificateData.name :
-                     saved.id === 'description' ? certificateData.description :
-                     '';
+          let text = '';
+          
+          if (activeTemplateMode === 'certificate') {
+            // Sync text content with certificate data for certificate mode
+            text = saved.id === 'certificate_no' ? certificateData.certificate_no :
+                   saved.id === 'name' ? certificateData.name :
+                   saved.id === 'description' ? certificateData.description :
+                   '';
+          } else {
+            // Sync text content with score data for score mode
+            if (saved.id.startsWith('aspek_non_teknis_')) {
+              const no = parseInt(saved.id.split('_')[3]);
+              const item = scoreData.aspek_non_teknis.find(i => i.no === no);
+              text = `${item?.nilai || 0}`;
+            } else if (saved.id.startsWith('aspek_teknis_name_')) {
+              const no = parseInt(saved.id.split('_')[3]);
+              const item = scoreData.aspek_teknis.find(i => i.no === no);
+              text = item?.standar_kompetensi || '';
+            } else if (saved.id.startsWith('aspek_teknis_nilai_')) {
+              const no = parseInt(saved.id.split('_')[3]);
+              const item = scoreData.aspek_teknis.find(i => i.no === no);
+              text = `${item?.nilai || 0}`;
+            } else if (saved.id === 'nilai_prestasi') {
+              text = scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '';
+            } else if (saved.id === 'keterangan') {
+              text = scoreData.keterangan;
+            } else if (saved.id === 'score_date') {
+              text = scoreData.date;
+            } else if (saved.id === 'pembina_nama') {
+              text = scoreData.pembina.nama;
+            }
+          }
           
           return {
             id: saved.id,
@@ -1079,10 +1229,17 @@ function CertificateGeneratorContent() {
         }
         console.log(`✅ Loaded ${savedDefaults.overlayImages.length} overlay images for ${activeTemplateMode}`);
       }
+      
+      // Load score font settings for score mode
+      if (activeTemplateMode === 'score' && savedDefaults.scoreFontSettings) {
+        console.log(`🔄 Loading saved score font settings...`);
+        setScoreFontSettings(savedDefaults.scoreFontSettings);
+        console.log(`✅ Loaded score font settings for ${activeTemplateMode} mode`);
+      }
     } else {
       console.log(`ℹ️ No saved defaults for ${activeTemplateMode} mode`);
     }
-  }, [activeTemplateMode, selectedTemplate, certificateData]);
+  }, [activeTemplateMode, selectedTemplate, certificateData, scoreData, certificateTextLayers, scoreTextLayers, formatNilaiPrestasi]);
 
   // FIX: Utility functions for normalized coordinates using standard canvas size
   const getNormalizedPosition = useCallback((x: number, y: number) => {
@@ -2060,6 +2217,57 @@ function CertificateGeneratorContent() {
   };
 
   // Fallback method using canvas (original implementation)
+  // NEW: Create combined image from score and certificate
+  const createCombinedImage = async (scoreImageDataUrl: string, certificateImageDataUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+
+        // Create images
+        const scoreImg = new Image();
+        const certificateImg = new Image();
+        
+        let imagesLoaded = 0;
+        const onImageLoad = () => {
+          imagesLoaded++;
+          if (imagesLoaded === 2) {
+            // Set canvas dimensions (score on top, certificate below)
+            const maxWidth = Math.max(scoreImg.width, certificateImg.width);
+            const totalHeight = scoreImg.height + certificateImg.height;
+            
+            canvas.width = maxWidth;
+            canvas.height = totalHeight;
+            
+            // Draw score image on top
+            ctx.drawImage(scoreImg, 0, 0);
+            
+            // Draw certificate image below
+            ctx.drawImage(certificateImg, 0, scoreImg.height);
+            
+            // Convert to data URL
+            const combinedDataUrl = canvas.toDataURL('image/png');
+            resolve(combinedDataUrl);
+          }
+        };
+        
+        scoreImg.onload = onImageLoad;
+        certificateImg.onload = onImageLoad;
+        scoreImg.onerror = () => reject(new Error('Failed to load score image'));
+        certificateImg.onerror = () => reject(new Error('Failed to load certificate image'));
+        
+        scoreImg.src = scoreImageDataUrl;
+        certificateImg.src = certificateImageDataUrl;
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
+
   const createMergedCertificateImageFallback = async (customTextLayers?: TextLayer[]): Promise<string> => {
     // Use custom textLayers if provided (for batch generation)
     const layersToUse = customTextLayers || textLayers;
@@ -2307,79 +2515,165 @@ function CertificateGeneratorContent() {
         return;
       }
 
-      // FIX: Create merged certificate image
-      console.log("🎨 Creating merged certificate image...");
-      const mergedImageDataUrl = await createMergedCertificateImage();
-      console.log(
-        "✅ Merged image created:",
-        mergedImageDataUrl.substring(0, 50) + "...",
-      );
-
-      // Tampilkan preview dengan dataURL (belum save ke storage)
-      setGeneratedImageUrl(mergedImageDataUrl);
-
-      // AUTO-SAVE: Save current coordinates as default for this template
-      if (selectedTemplate) {
-        try {
-          const defaults: TextLayerDefault[] = textLayers.map((layer) => ({
-            id: layer.id,
-            x: layer.x,
-            y: layer.y,
-            xPercent: layer.xPercent,
-            yPercent: layer.yPercent,
-            fontSize: layer.fontSize,
-            color: layer.color,
-            fontWeight: layer.fontWeight,
-            fontFamily: layer.fontFamily,
-          }));
-
-          saveTemplateDefaults({
-            templateId: selectedTemplate.id,
-            templateName: selectedTemplate.name,
-            textLayers: defaults,
-            overlayImages: overlayImages, // Save overlay images
-            savedAt: new Date().toISOString(),
-          });
-
-          console.log(`💾 Auto-saved coordinates and ${overlayImages.length} overlay images for template: ${selectedTemplate.name}`);
-        } catch (error) {
-          console.warn("⚠️ Failed to auto-save coordinates:", error);
-          // Don't block certificate generation if save fails
-        }
-      }
-
-      // Prepare certificate data for database (with dataURL only)
-      const certificateDataToSave: CreateCertificateData = {
-        certificate_no: finalCertificateNo,
-        name: certificateData.name.trim(),
-        description: certificateData.description.trim() || undefined,
-        issue_date: certificateData.issue_date,
-        expired_date: certificateData.expired_date || undefined,
-        category: selectedTemplate?.category || undefined,
-        template_id: selectedTemplate?.id || undefined,
-        member_id: selectedMemberId || undefined,
-        text_layers: textLayers,
-        merged_image: mergedImageDataUrl, // Data URL for database
-        certificate_image_url: mergedImageDataUrl, // Use dataURL initially
-      };
-
-      // Save certificate to database FIRST (will throw error if duplicate)
-      const savedCertificate = await createCertificate(certificateDataToSave);
-
-      console.log("✅ Certificate saved to database successfully:", savedCertificate);
-
-      // Only save PNG to local storage AFTER database save succeeds
-      let finalPreviewUrl: string = mergedImageDataUrl;
-      try {
-        console.log("💾 Saving PNG to local storage...");
-        const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl);
-        console.log("✅ PNG saved locally:", localImageUrl);
-        finalPreviewUrl = localImageUrl;
+      // For dual-mode templates, generate both score and certificate
+      if (selectedTemplate?.is_dual_template || manualDualMode) {
+        console.log("🎨 Generating both score and certificate for dual-mode template...");
         
-        // Update preview with saved URL
-        setGeneratedImageUrl(finalPreviewUrl);
-      } catch (e) {
-        console.warn("⚠️ Save PNG to local failed, keeping dataURL.", e);
+        // First, generate certificate image
+        console.log("📜 Creating certificate image...");
+        const certificateImageDataUrl = await createMergedCertificateImage();
+        console.log("✅ Certificate image created:", certificateImageDataUrl.substring(0, 50) + "...");
+
+        // Then, generate score image by switching mode
+        console.log("📊 Creating score image...");
+        const originalMode = activeTemplateMode;
+        setActiveTemplateMode('score');
+        
+        // Wait for mode switch to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const scoreImageDataUrl = await createMergedCertificateImage();
+        console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
+        
+        // Switch back to original mode
+        setActiveTemplateMode(originalMode);
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Create combined image (score on top, certificate below)
+        console.log("🖼️ Creating combined image...");
+        const combinedImageDataUrl = await createCombinedImage(scoreImageDataUrl, certificateImageDataUrl);
+        console.log("✅ Combined image created:", combinedImageDataUrl.substring(0, 50) + "...");
+
+        // Set generated image URLs for preview
+        setGeneratedImageUrl(combinedImageDataUrl);
+        setCertificateImageUrl(certificateImageDataUrl);
+        setScoreImageUrl(scoreImageDataUrl);
+
+        // Save both certificate and score separately to database
+        console.log("💾 Saving certificate to database...");
+        const certificateDataToSave: CreateCertificateData = {
+          certificate_no: finalCertificateNo,
+          name: certificateData.name.trim(),
+          description: certificateData.description.trim() || undefined,
+          issue_date: certificateData.issue_date,
+          expired_date: certificateData.expired_date || undefined,
+          category: selectedTemplate?.category || undefined,
+          template_id: selectedTemplate?.id || undefined,
+          member_id: selectedMemberId || undefined,
+          text_layers: textLayers,
+          merged_image: certificateImageDataUrl, // Certificate image only
+          certificate_image_url: certificateImageDataUrl,
+        };
+
+        const savedCertificate = await createCertificate(certificateDataToSave);
+        console.log("✅ Certificate saved to database:", savedCertificate);
+
+        // Save score to database
+        console.log("💾 Saving score to database...");
+        const scoreDataToSave: CreateScoreData = {
+          name: certificateData.name.trim(),
+          description: certificateData.description.trim() || undefined,
+          issue_date: certificateData.issue_date,
+          expired_date: certificateData.expired_date || undefined,
+          category: selectedTemplate?.category || undefined,
+          template_id: selectedTemplate?.id || undefined,
+          member_id: selectedMemberId || undefined,
+          text_layers: scoreTextLayers,
+          score_data: scoreData,
+          merged_image: scoreImageDataUrl, // Score image only
+          score_image_url: scoreImageDataUrl,
+        };
+
+        const savedScore = await createScore(scoreDataToSave);
+        console.log("✅ Score saved to database:", savedScore);
+
+        // Save combined image to local storage
+        try {
+          console.log("💾 Saving combined PNG to local storage...");
+          const localImageUrl = await saveGeneratedPNG(combinedImageDataUrl);
+          console.log("✅ Combined PNG saved locally:", localImageUrl);
+          setGeneratedImageUrl(localImageUrl);
+        } catch (e) {
+          console.warn("⚠️ Save combined PNG to local failed, keeping dataURL.", e);
+        }
+
+        toast.success("Certificate and Score generated and saved successfully!");
+        return; // Exit early for dual-mode templates
+      } else {
+        // For single-mode templates, generate only certificate
+        console.log("🎨 Creating merged certificate image...");
+        const mergedImageDataUrl = await createMergedCertificateImage();
+        console.log(
+          "✅ Merged image created:",
+          mergedImageDataUrl.substring(0, 50) + "...",
+        );
+
+        // Tampilkan preview dengan dataURL (belum save ke storage)
+        setGeneratedImageUrl(mergedImageDataUrl);
+
+        // AUTO-SAVE: Save current coordinates as default for this template
+        if (selectedTemplate) {
+          try {
+            const defaults: TextLayerDefault[] = textLayers.map((layer) => ({
+              id: layer.id,
+              x: layer.x,
+              y: layer.y,
+              xPercent: layer.xPercent,
+              yPercent: layer.yPercent,
+              fontSize: layer.fontSize,
+              color: layer.color,
+              fontWeight: layer.fontWeight,
+              fontFamily: layer.fontFamily,
+            }));
+
+            saveTemplateDefaults({
+              templateId: selectedTemplate.id,
+              templateName: selectedTemplate.name,
+              textLayers: defaults,
+              overlayImages: overlayImages, // Save overlay images
+              savedAt: new Date().toISOString(),
+            });
+
+            console.log(`💾 Auto-saved coordinates and ${overlayImages.length} overlay images for template: ${selectedTemplate.name}`);
+          } catch (error) {
+            console.warn("⚠️ Failed to auto-save coordinates:", error);
+            // Don't block certificate generation if save fails
+          }
+        }
+
+        // For single-mode templates, save certificate to database
+        const certificateDataToSave: CreateCertificateData = {
+          certificate_no: finalCertificateNo,
+          name: certificateData.name.trim(),
+          description: certificateData.description.trim() || undefined,
+          issue_date: certificateData.issue_date,
+          expired_date: certificateData.expired_date || undefined,
+          category: selectedTemplate?.category || undefined,
+          template_id: selectedTemplate?.id || undefined,
+          member_id: selectedMemberId || undefined,
+          text_layers: textLayers,
+          merged_image: mergedImageDataUrl, // Data URL for database
+          certificate_image_url: mergedImageDataUrl, // Use dataURL initially
+        };
+
+        // Save certificate to database FIRST (will throw error if duplicate)
+        const savedCertificate = await createCertificate(certificateDataToSave);
+
+        console.log("✅ Certificate saved to database successfully:", savedCertificate);
+
+        // Only save PNG to local storage AFTER database save succeeds
+        let finalPreviewUrl: string = mergedImageDataUrl;
+        try {
+          console.log("💾 Saving PNG to local storage...");
+          const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl);
+          console.log("✅ PNG saved locally:", localImageUrl);
+          finalPreviewUrl = localImageUrl;
+          
+          // Update preview with saved URL
+          setGeneratedImageUrl(finalPreviewUrl);
+        } catch (e) {
+          console.warn("⚠️ Save PNG to local failed, keeping dataURL.", e);
+        }
       }
 
       toast.success("Certificate generated and saved successfully!");
@@ -2650,6 +2944,64 @@ function CertificateGeneratorContent() {
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  {/* Preview Mode Switch for Dual Templates */}
+                  {(() => {
+                    const isDualTemplate = selectedTemplate?.is_dual_template || manualDualMode;
+                    console.log("🔍 Switch button conditions:", {
+                      selectedTemplate: !!selectedTemplate,
+                      is_dual_template: selectedTemplate?.is_dual_template,
+                      manualDualMode,
+                      isDualTemplate,
+                      generatedImageUrl: !!generatedImageUrl,
+                      certificateImageUrl: !!certificateImageUrl,
+                      scoreImageUrl: !!scoreImageUrl,
+                      previewMode
+                    });
+                    return isDualTemplate && generatedImageUrl;
+                  })() && (
+                    <div className="flex bg-gray-100 rounded-lg p-1 mr-2">
+                      <button
+                        onClick={() => setPreviewMode('combined')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                          previewMode === 'combined'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Combined
+                      </button>
+                      <button
+                        onClick={() => setPreviewMode('certificate')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                          previewMode === 'certificate'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Certificate
+                      </button>
+                      <button
+                        onClick={() => setPreviewMode('score')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                          previewMode === 'score'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Score
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Manual Dual Mode Toggle (for testing) */}
+                  <Button
+                    onClick={() => setManualDualMode(!manualDualMode)}
+                    className={`${manualDualMode ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-500 hover:bg-gray-600'} text-white`}
+                    size="sm"
+                  >
+                    {manualDualMode ? 'Dual Mode ON' : 'Dual Mode OFF'}
+                  </Button>
+                  
                   <Button
                     onClick={addNewText}
                     className="bg-green-500 hover:bg-green-600 text-white"
@@ -2712,8 +3064,20 @@ function CertificateGeneratorContent() {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={generatedImageUrl}
-                      alt="Generated Certificate"
+                      src={
+                        (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'certificate' && certificateImageUrl
+                          ? certificateImageUrl
+                          : (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'score' && scoreImageUrl
+                          ? scoreImageUrl
+                          : generatedImageUrl
+                      }
+                      alt={
+                        (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'certificate'
+                          ? "Generated Certificate"
+                          : (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'score'
+                          ? "Generated Score"
+                          : "Generated Certificate"
+                      }
                       style={{
                         // PERBAIKAN: Gunakan dimensi exact, bukan w-full h-auto
                         width: `${getConsistentDimensions.width}px`,
@@ -2723,7 +3087,11 @@ function CertificateGeneratorContent() {
                       }}
                     />
                     <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-medium">
-                      Generated PNG
+                      {(selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'certificate'
+                        ? "Certificate PNG"
+                        : (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'score'
+                        ? "Score PNG"
+                        : "Generated PNG"}
                     </div>
                   </div>
                 ) : (
@@ -3677,62 +4045,6 @@ function CertificateGeneratorContent() {
               ) : (
               // Score Input Form
               <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-                {/* Font Settings Panel */}
-                <div className="space-y-2 pb-3 border-b border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    ⚙️ Font Settings (Global)
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">Font Size</label>
-                      <Input
-                        type="number"
-                        min="8"
-                        max="72"
-                        value={scoreFontSettings.fontSize}
-                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontSize: parseInt(e.target.value) || 16})}
-                        className="h-7 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">Font Family</label>
-                      <select
-                        value={scoreFontSettings.fontFamily}
-                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontFamily: e.target.value})}
-                        className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="Arial">Arial</option>
-                        <option value="Times New Roman">Times New Roman</option>
-                        <option value="Courier New">Courier New</option>
-                        <option value="Georgia">Georgia</option>
-                        <option value="Verdana">Verdana</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">Color</label>
-                      <Input
-                        type="color"
-                        value={scoreFontSettings.color}
-                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, color: e.target.value})}
-                        className="h-7 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">Font Weight</label>
-                      <select
-                        value={scoreFontSettings.fontWeight}
-                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontWeight: e.target.value as 'normal' | 'bold'})}
-                        className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="normal">Normal</option>
-                        <option value="bold">Bold</option>
-                      </select>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 italic">
-                    💡 Tip: Adjust global font settings here, or click individual text on canvas to customize
-                  </p>
-                </div>
                 
                 {/* Aspek Non Teknis */}
                 <div className="space-y-2">
@@ -3759,6 +4071,70 @@ function CertificateGeneratorContent() {
                         />
                       </div>
                     ))}
+                  </div>
+                  
+                  {/* Font Settings for Nilai (Scores) */}
+                  <div className="mt-3 p-3 bg-gray-50 rounded-md border">
+                    <h4 className="text-xs font-semibold text-gray-800 mb-2">🎨 Font Settings - Nilai</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Size</label>
+                        <Input
+                          type="number"
+                          min="8"
+                          max="72"
+                          value={scoreFontSettings.nilai.fontSize}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            nilai: {...scoreFontSettings.nilai, fontSize: parseInt(e.target.value) || 16}
+                          })}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Family</label>
+                        <select
+                          value={scoreFontSettings.nilai.fontFamily}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            nilai: {...scoreFontSettings.nilai, fontFamily: e.target.value}
+                          })}
+                          className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="Arial">Arial</option>
+                          <option value="Times New Roman">Times New Roman</option>
+                          <option value="Courier New">Courier New</option>
+                          <option value="Georgia">Georgia</option>
+                          <option value="Verdana">Verdana</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Color</label>
+                        <Input
+                          type="color"
+                          value={scoreFontSettings.nilai.color}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            nilai: {...scoreFontSettings.nilai, color: e.target.value}
+                          })}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Weight</label>
+                        <select
+                          value={scoreFontSettings.nilai.fontWeight}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            nilai: {...scoreFontSettings.nilai, fontWeight: e.target.value as 'normal' | 'bold'}
+                          })}
+                          className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -3799,6 +4175,70 @@ function CertificateGeneratorContent() {
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Font Settings for Kompetensi Dasar */}
+                  <div className="mt-3 p-3 bg-gray-50 rounded-md border">
+                    <h4 className="text-xs font-semibold text-gray-800 mb-2">🎨 Font Settings - Kompetensi Dasar</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Size</label>
+                        <Input
+                          type="number"
+                          min="8"
+                          max="72"
+                          value={scoreFontSettings.aspekTeknis.fontSize}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            aspekTeknis: {...scoreFontSettings.aspekTeknis, fontSize: parseInt(e.target.value) || 14}
+                          })}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Family</label>
+                        <select
+                          value={scoreFontSettings.aspekTeknis.fontFamily}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            aspekTeknis: {...scoreFontSettings.aspekTeknis, fontFamily: e.target.value}
+                          })}
+                          className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="Arial">Arial</option>
+                          <option value="Times New Roman">Times New Roman</option>
+                          <option value="Courier New">Courier New</option>
+                          <option value="Georgia">Georgia</option>
+                          <option value="Verdana">Verdana</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Color</label>
+                        <Input
+                          type="color"
+                          value={scoreFontSettings.aspekTeknis.color}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            aspekTeknis: {...scoreFontSettings.aspekTeknis, color: e.target.value}
+                          })}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Weight</label>
+                        <select
+                          value={scoreFontSettings.aspekTeknis.fontWeight}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            aspekTeknis: {...scoreFontSettings.aspekTeknis, fontWeight: e.target.value as 'normal' | 'bold'}
+                          })}
+                          className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Additional Fields */}
@@ -3815,7 +4255,7 @@ function CertificateGeneratorContent() {
                       value={scoreData.nilai_prestasi}
                       onChange={(e) => setScoreData({...scoreData, nilai_prestasi: e.target.value})}
                       className="h-8 text-xs"
-                      placeholder="e.g., 88.5 (BAIK)"
+                      placeholder="e.g., 88.5 (akan otomatis menjadi 88.5 (Baik))"
                     />
                   </div>
 
@@ -3872,165 +4312,219 @@ function CertificateGeneratorContent() {
                       placeholder="Nama lengkap pembina"
                     />
                   </div>
-                </div>
-
-                {/* Font Settings for Score Mode */}
-                <div className="space-y-4 pt-4 border-t border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    Font Settings
-                  </h3>
                   
-                  {/* Nilai Font Settings */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-700">
-                      Font untuk Nilai (Angka)
-                    </label>
+                  {/* Font Settings for Informasi Tambahan */}
+                  <div className="mt-3 p-3 bg-gray-50 rounded-md border">
+                    <h4 className="text-xs font-semibold text-gray-800 mb-2">🎨 Font Settings - Informasi Tambahan</h4>
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-gray-500">Size</label>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Size</label>
                         <Input
                           type="number"
-                          value={scoreFontSettings.nilai.fontSize}
-                          onChange={(e) => setScoreFontSettings({
-                            ...scoreFontSettings,
-                            nilai: {...scoreFontSettings.nilai, fontSize: parseInt(e.target.value) || 16}
-                          })}
-                          className="h-8 text-xs"
                           min="8"
                           max="72"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Color</label>
-                        <Input
-                          type="color"
-                          value={scoreFontSettings.nilai.color}
-                          onChange={(e) => setScoreFontSettings({
-                            ...scoreFontSettings,
-                            nilai: {...scoreFontSettings.nilai, color: e.target.value}
-                          })}
-                          className="h-8 w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Aspek Teknis Font Settings */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-700">
-                      Font untuk Kompetensi Dasar
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-gray-500">Size</label>
-                        <Input
-                          type="number"
-                          value={scoreFontSettings.aspekTeknis.fontSize}
-                          onChange={(e) => setScoreFontSettings({
-                            ...scoreFontSettings,
-                            aspekTeknis: {...scoreFontSettings.aspekTeknis, fontSize: parseInt(e.target.value) || 14}
-                          })}
-                          className="h-8 text-xs"
-                          min="8"
-                          max="72"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Color</label>
-                        <Input
-                          type="color"
-                          value={scoreFontSettings.aspekTeknis.color}
-                          onChange={(e) => setScoreFontSettings({
-                            ...scoreFontSettings,
-                            aspekTeknis: {...scoreFontSettings.aspekTeknis, color: e.target.value}
-                          })}
-                          className="h-8 w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Additional Info Font Settings */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-700">
-                      Font untuk Informasi Tambahan
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-gray-500">Size</label>
-                        <Input
-                          type="number"
                           value={scoreFontSettings.additionalInfo.fontSize}
                           onChange={(e) => setScoreFontSettings({
-                            ...scoreFontSettings,
+                            ...scoreFontSettings, 
                             additionalInfo: {...scoreFontSettings.additionalInfo, fontSize: parseInt(e.target.value) || 16}
                           })}
-                          className="h-8 text-xs"
-                          min="8"
-                          max="72"
+                          className="h-7 text-xs"
                         />
                       </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Color</label>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Family</label>
+                        <select
+                          value={scoreFontSettings.additionalInfo.fontFamily}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            additionalInfo: {...scoreFontSettings.additionalInfo, fontFamily: e.target.value}
+                          })}
+                          className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="Arial">Arial</option>
+                          <option value="Times New Roman">Times New Roman</option>
+                          <option value="Courier New">Courier New</option>
+                          <option value="Georgia">Georgia</option>
+                          <option value="Verdana">Verdana</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Color</label>
                         <Input
                           type="color"
                           value={scoreFontSettings.additionalInfo.color}
                           onChange={(e) => setScoreFontSettings({
-                            ...scoreFontSettings,
+                            ...scoreFontSettings, 
                             additionalInfo: {...scoreFontSettings.additionalInfo, color: e.target.value}
                           })}
-                          className="h-8 w-full"
+                          className="h-7 text-xs"
                         />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Weight</label>
+                        <select
+                          value={scoreFontSettings.additionalInfo.fontWeight}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            additionalInfo: {...scoreFontSettings.additionalInfo, fontWeight: e.target.value as 'normal' | 'bold'}
+                          })}
+                          className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="bold">Bold</option>
+                        </select>
                       </div>
                     </div>
                   </div>
-
-                  {/* Date Font Settings */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-700">
-                      Font untuk Tanggal
-                    </label>
+                  
+                  {/* Font Settings for Tanggal */}
+                  <div className="mt-3 p-3 bg-gray-50 rounded-md border">
+                    <h4 className="text-xs font-semibold text-gray-800 mb-2">🎨 Font Settings - Tanggal</h4>
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-gray-500">Size</label>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Size</label>
                         <Input
                           type="number"
-                          value={scoreFontSettings.date.fontSize}
-                          onChange={(e) => setScoreFontSettings({
-                            ...scoreFontSettings,
-                            date: {...scoreFontSettings.date, fontSize: parseInt(e.target.value) || 14}
-                          })}
-                          className="h-8 text-xs"
                           min="8"
                           max="72"
+                          value={scoreFontSettings.date.fontSize}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            date: {...scoreFontSettings.date, fontSize: parseInt(e.target.value) || 14}
+                          })}
+                          className="h-7 text-xs"
                         />
                       </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Color</label>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Family</label>
+                        <select
+                          value={scoreFontSettings.date.fontFamily}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            date: {...scoreFontSettings.date, fontFamily: e.target.value}
+                          })}
+                          className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="Arial">Arial</option>
+                          <option value="Times New Roman">Times New Roman</option>
+                          <option value="Courier New">Courier New</option>
+                          <option value="Georgia">Georgia</option>
+                          <option value="Verdana">Verdana</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Color</label>
                         <Input
                           type="color"
                           value={scoreFontSettings.date.color}
                           onChange={(e) => setScoreFontSettings({
-                            ...scoreFontSettings,
+                            ...scoreFontSettings, 
                             date: {...scoreFontSettings.date, color: e.target.value}
                           })}
-                          className="h-8 w-full"
+                          className="h-7 text-xs"
                         />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">Font Weight</label>
+                        <select
+                          value={scoreFontSettings.date.fontWeight}
+                          onChange={(e) => setScoreFontSettings({
+                            ...scoreFontSettings, 
+                            date: {...scoreFontSettings.date, fontWeight: e.target.value as 'normal' | 'bold'}
+                          })}
+                          className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="bold">Bold</option>
+                        </select>
                       </div>
                     </div>
                   </div>
                 </div>
+
 
                 {/* Action Buttons for Score */}
                 <div className="flex flex-col gap-3 pt-4 border-t">
                   <Button
                     className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       console.log("🖱️ Generate Score button clicked!");
-                      // TODO: Implement score generation
-                      toast.info("Score generation coming soon!");
+                      
+                      try {
+                        setIsGenerating(true);
+                        
+                        // Generate both score and certificate for dual-mode templates
+                        console.log("🎨 Generating both score and certificate for dual-mode template...");
+                        
+                        // First, generate score image
+                        console.log("📊 Creating score image...");
+                        const scoreImageDataUrl = await createMergedCertificateImage();
+                        console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
+
+                        // Then, generate certificate image by switching mode
+                        console.log("📜 Creating certificate image...");
+                        const originalMode = activeTemplateMode;
+                        setActiveTemplateMode('certificate');
+                        
+                        // Wait for mode switch to complete
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                        const certificateImageDataUrl = await createMergedCertificateImage();
+                        console.log("✅ Certificate image created:", certificateImageDataUrl.substring(0, 50) + "...");
+                        
+                        // Switch back to original mode
+                        setActiveTemplateMode(originalMode);
+                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                        // Create combined image (score on top, certificate below)
+                        console.log("🖼️ Creating combined image...");
+                        const combinedImageDataUrl = await createCombinedImage(scoreImageDataUrl, certificateImageDataUrl);
+                        console.log("✅ Combined image created:", combinedImageDataUrl.substring(0, 50) + "...");
+
+                        // Set generated image URL for preview
+                        setGeneratedImageUrl(combinedImageDataUrl);
+
+                        // AUTO-SAVE: Save current coordinates as default for this template
+                        if (selectedTemplate) {
+                          try {
+                            const defaults: TextLayerDefault[] = textLayers.map((layer) => ({
+                              id: layer.id,
+                              x: layer.x,
+                              y: layer.y,
+                              xPercent: layer.xPercent,
+                              yPercent: layer.yPercent,
+                              fontSize: layer.fontSize,
+                              color: layer.color,
+                              fontWeight: layer.fontWeight,
+                              fontFamily: layer.fontFamily,
+                            }));
+
+                            saveTemplateDefaults({
+                              templateId: `${selectedTemplate.id}_score`,
+                              templateName: selectedTemplate.name,
+                              textLayers: defaults,
+                              overlayImages: overlayImages,
+                              scoreFontSettings: scoreFontSettings, // Save score font settings
+                              savedAt: new Date().toISOString(),
+                            });
+
+                            console.log(`💾 Auto-saved score coordinates and ${overlayImages.length} overlay images for template: ${selectedTemplate.name}`);
+                            toast.success("Both score and certificate generated successfully!");
+                          } catch (error) {
+                            console.warn("⚠️ Failed to auto-save score coordinates:", error);
+                            toast.warning("Score generated but failed to save coordinates");
+                          }
+                        }
+
+                        toast.success("Score and certificate generated successfully!");
+                      } catch (error) {
+                        console.error("❌ Failed to generate score:", error);
+                        toast.error("Failed to generate score");
+                      } finally {
+                        setIsGenerating(false);
+                      }
                     }}
                     type="button"
                   >

@@ -25,11 +25,75 @@ export interface OverlayImageDefault {
   aspectRatio: number;
 }
 
+export interface ScoreFontSettings {
+  fontSize: number;
+  fontFamily: string;
+  color: string;
+  fontWeight: 'normal' | 'bold';
+  nilai: {
+    fontSize: number;
+    fontFamily: string;
+    color: string;
+    fontWeight: 'normal' | 'bold';
+  };
+  aspekTeknis: {
+    fontSize: number;
+    fontFamily: string;
+    color: string;
+    fontWeight: 'normal' | 'bold';
+  };
+  additionalInfo: {
+    fontSize: number;
+    fontFamily: string;
+    color: string;
+    fontWeight: 'normal' | 'bold';
+  };
+  date: {
+    fontSize: number;
+    fontFamily: string;
+    color: string;
+    fontWeight: 'normal' | 'bold';
+  };
+}
+
+// Default score font settings with requested values
+export const DEFAULT_SCORE_FONT_SETTINGS: ScoreFontSettings = {
+  fontSize: 16,
+  fontFamily: 'Arial',
+  color: '#000000',
+  fontWeight: 'normal',
+  nilai: {
+    fontSize: 65, // Default font size for nilai as requested
+    fontFamily: 'Arial',
+    color: '#000000',
+    fontWeight: 'normal',
+  },
+  aspekTeknis: {
+    fontSize: 50, // Default font size for kompetensi dasar as requested
+    fontFamily: 'Arial',
+    color: '#000000',
+    fontWeight: 'normal',
+  },
+  additionalInfo: {
+    fontSize: 50, // Default font size for nilai/prestasi as requested
+    fontFamily: 'Arial',
+    color: '#000000',
+    fontWeight: 'normal',
+  },
+  date: {
+    fontSize: 16,
+    fontFamily: 'Arial',
+    color: '#000000',
+    fontWeight: 'normal',
+  },
+};
+
 export interface TemplateDefaults {
   templateId: string;
   templateName: string;
   textLayers: TextLayerDefault[];
   overlayImages?: OverlayImageDefault[]; // Optional for backward compatibility
+  scoreFontSettings?: ScoreFontSettings; // Optional score font settings for score mode
   savedAt: string; // ISO timestamp
 }
 
