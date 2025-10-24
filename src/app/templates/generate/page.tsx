@@ -71,21 +71,268 @@ function CertificateGeneratorContent() {
     null,
   );
   const [loading, setLoading] = useState(true);
-  const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
+  
+  // NEW: Dual-mode template support
+  const [activeTemplateMode, setActiveTemplateMode] = useState<'certificate' | 'score'>('certificate');
+  
+  // NEW: Global font settings for score mode
+  const [scoreFontSettings, setScoreFontSettings] = useState({
+    fontSize: 16,
+    fontFamily: 'Arial',
+    color: '#000000',
+    fontWeight: 'normal' as 'normal' | 'bold',
+  });
+  
+  // FIX: Standard canvas dimensions for consistent positioning - MUST be defined before useEffect
+  const STANDARD_CANVAS_WIDTH = 800;
+  const STANDARD_CANVAS_HEIGHT = 600;
+  
+  const [scoreData, setScoreData] = useState(() => {
+    // Initialize with current date
+    const now = new Date();
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    
+    return {
+      aspek_non_teknis: [
+        { no: 1, aspek: 'Disiplin', nilai: 0 },
+        { no: 2, aspek: 'Kreativitas', nilai: 0 },
+        { no: 3, aspek: 'Inisiatif', nilai: 0 },
+        { no: 4, aspek: 'Kerjasama', nilai: 0 },
+        { no: 5, aspek: 'Tanggung Jawab', nilai: 0 },
+        { no: 6, aspek: 'Kejujuran', nilai: 0 },
+      ],
+      aspek_teknis: [
+        { no: 1, standar_kompetensi: '', nilai: 0 },
+        { no: 2, standar_kompetensi: '', nilai: 0 },
+        { no: 3, standar_kompetensi: '', nilai: 0 },
+        { no: 4, standar_kompetensi: '', nilai: 0 },
+        { no: 5, standar_kompetensi: '', nilai: 0 },
+        { no: 6, standar_kompetensi: '', nilai: 0 },
+      ],
+      nilai_prestasi: '',
+      keterangan: '',
+      date: fmt(now),
+      pembina: {
+        jabatan: 'Pembina Magang',
+        nama: '',
+        signature_url: '',
+      },
+    };
+  });
+  
+  // Separate text layers for certificate and score modes
+  const [certificateTextLayers, setCertificateTextLayers] = useState<TextLayer[]>([]);
+  const [scoreTextLayers, setScoreTextLayers] = useState<TextLayer[]>([]);
+  
+  // Active text layers based on current mode - use useMemo to ensure reactivity
+  const textLayers = useMemo(() => {
+    return activeTemplateMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
+  }, [activeTemplateMode, certificateTextLayers, scoreTextLayers]);
+  
+  // Debug logging
+  useEffect(() => {
+    console.log(`📝 Active mode: ${activeTemplateMode}`);
+    console.log(`📝 Certificate layers:`, certificateTextLayers.length);
+    console.log(`📝 Score layers:`, scoreTextLayers.length);
+    console.log(`📝 Active layers:`, textLayers.length);
+  }, [activeTemplateMode, certificateTextLayers, scoreTextLayers, textLayers]);
+  
+  // NEW: Auto-sync score data to text layers
+  useEffect(() => {
+    if (activeTemplateMode !== 'score') return;
+    
+    console.log('🔄 Syncing score data to text layers...', scoreData);
+    
+    // If layers already exist, update them instead of recreating (preserves positions)
+    if (scoreTextLayers.length > 0) {
+      console.log('📝 Updating existing text layers (preserving positions)...');
+      const updatedLayers = scoreTextLayers.map(layer => {
+        // Update text content based on layer ID
+        if (layer.id.startsWith('aspek_non_teknis_')) {
+          const no = parseInt(layer.id.split('_')[3]);
+          const item = scoreData.aspek_non_teknis.find(i => i.no === no);
+          return { ...layer, text: `${item?.nilai || 0}` };
+        }
+        if (layer.id.startsWith('aspek_teknis_name_')) {
+          const no = parseInt(layer.id.split('_')[3]);
+          const item = scoreData.aspek_teknis.find(i => i.no === no);
+          return { ...layer, text: item?.standar_kompetensi || '' };
+        }
+        if (layer.id.startsWith('aspek_teknis_nilai_')) {
+          const no = parseInt(layer.id.split('_')[3]);
+          const item = scoreData.aspek_teknis.find(i => i.no === no);
+          return { ...layer, text: `${item?.nilai || 0}` };
+        }
+        if (layer.id === 'nilai_prestasi') {
+          return { ...layer, text: `Nilai: ${scoreData.nilai_prestasi}` };
+        }
+        if (layer.id === 'keterangan') {
+          return { ...layer, text: scoreData.keterangan };
+        }
+        if (layer.id === 'pembina_nama') {
+          return { ...layer, text: scoreData.pembina.nama };
+        }
+        return layer;
+      });
+      
+      setScoreTextLayers(updatedLayers);
+      return;
+    }
+    
+    // Create text layers from scratch (first time only)
+    const layers: TextLayer[] = [];
+    
+    // Add aspek non teknis text layers (nilai only)
+    scoreData.aspek_non_teknis.forEach((item, index) => {
+      layers.push({
+        id: `aspek_non_teknis_${item.no}`,
+        text: `${item.nilai}`,
+        x: STANDARD_CANVAS_WIDTH * 0.2,
+        y: STANDARD_CANVAS_HEIGHT * 0.3 + (index * 30),
+        xPercent: 0.2,
+        yPercent: 0.3 + (index * 0.05),
+        fontSize: scoreFontSettings.fontSize,
+        color: scoreFontSettings.color,
+        fontWeight: scoreFontSettings.fontWeight,
+        fontFamily: scoreFontSettings.fontFamily,
+      });
+    });
+    
+    // Add aspek teknis text layers (standar kompetensi + nilai)
+    scoreData.aspek_teknis.forEach((item, index) => {
+      // Add standar kompetensi name text layer
+      if (item.standar_kompetensi) {
+        layers.push({
+          id: `aspek_teknis_name_${item.no}`,
+          text: item.standar_kompetensi,
+          x: STANDARD_CANVAS_WIDTH * 0.45,
+          y: STANDARD_CANVAS_HEIGHT * 0.3 + (index * 30),
+          xPercent: 0.45,
+          yPercent: 0.3 + (index * 0.05),
+          fontSize: scoreFontSettings.fontSize,
+          color: scoreFontSettings.color,
+          fontWeight: scoreFontSettings.fontWeight,
+          fontFamily: scoreFontSettings.fontFamily,
+        });
+      }
+      
+      // Add nilai text layer
+      layers.push({
+        id: `aspek_teknis_nilai_${item.no}`,
+        text: `${item.nilai}`,
+        x: STANDARD_CANVAS_WIDTH * 0.7,
+        y: STANDARD_CANVAS_HEIGHT * 0.3 + (index * 30),
+        xPercent: 0.7,
+        yPercent: 0.3 + (index * 0.05),
+        fontSize: scoreFontSettings.fontSize,
+        color: scoreFontSettings.color,
+        fontWeight: scoreFontSettings.fontWeight,
+        fontFamily: scoreFontSettings.fontFamily,
+      });
+    });
+    
+    // Add additional info text layers
+    if (scoreData.nilai_prestasi) {
+      layers.push({
+        id: 'nilai_prestasi',
+        text: `Nilai: ${scoreData.nilai_prestasi}`,
+        x: STANDARD_CANVAS_WIDTH * 0.5,
+        y: STANDARD_CANVAS_HEIGHT * 0.75,
+        xPercent: 0.5,
+        yPercent: 0.75,
+        fontSize: 18,
+        color: '#000000',
+        fontWeight: 'bold',
+        fontFamily: 'Arial',
+      });
+    }
+    
+    if (scoreData.keterangan) {
+      layers.push({
+        id: 'keterangan',
+        text: scoreData.keterangan,
+        x: STANDARD_CANVAS_WIDTH * 0.5,
+        y: STANDARD_CANVAS_HEIGHT * 0.8,
+        xPercent: 0.5,
+        yPercent: 0.8,
+        fontSize: 14,
+        color: '#666666',
+        fontWeight: 'normal',
+        fontFamily: 'Arial',
+      });
+    }
+    
+    if (scoreData.pembina.nama) {
+      layers.push({
+        id: 'pembina_nama',
+        text: scoreData.pembina.nama,
+        x: STANDARD_CANVAS_WIDTH * 0.7,
+        y: STANDARD_CANVAS_HEIGHT * 0.85,
+        xPercent: 0.7,
+        yPercent: 0.85,
+        fontSize: 16,
+        color: '#000000',
+        fontWeight: 'normal',
+        fontFamily: 'Arial',
+      });
+    }
+    
+    console.log(`✅ Created ${layers.length} text layers for score mode`, layers.map(l => ({ id: l.id, text: l.text })));
+    setScoreTextLayers(layers);
+  }, [scoreData, activeTemplateMode]);
+  
+  // NEW: Update font settings for existing score text layers (without changing positions)
+  useEffect(() => {
+    if (activeTemplateMode !== 'score' || scoreTextLayers.length === 0) return;
+    
+    console.log('🎨 Updating font settings for score text layers...');
+    const updatedLayers = scoreTextLayers.map(layer => ({
+      ...layer,
+      fontSize: scoreFontSettings.fontSize,
+      color: scoreFontSettings.color,
+      fontWeight: scoreFontSettings.fontWeight,
+      fontFamily: scoreFontSettings.fontFamily,
+    }));
+    
+    setScoreTextLayers(updatedLayers);
+  }, [scoreFontSettings]);
+  
+  // Wrapper function to set text layers based on active mode
+  const setTextLayers = useCallback((layers: TextLayer[] | ((prev: TextLayer[]) => TextLayer[])) => {
+    if (activeTemplateMode === 'certificate') {
+      setCertificateTextLayers(layers);
+    } else {
+      setScoreTextLayers(layers);
+    }
+  }, [activeTemplateMode]);
+  
   const [draggingLayer, setDraggingLayer] = useState<string | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
-  // FIX: Standard canvas dimensions for consistent positioning
-  const STANDARD_CANVAS_WIDTH = 800;
-  const STANDARD_CANVAS_HEIGHT = 600;
   const [canvasDimensions, setCanvasDimensions] = useState({
     width: STANDARD_CANVAS_WIDTH,
     height: STANDARD_CANVAS_HEIGHT,
   });
   const [snapGridEnabled, setSnapGridEnabled] = useState(false);
   const gridSize = 20; // Grid spacing in pixels
-  const [overlayImages, setOverlayImages] = useState<Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>>([]);
+  
+  // Separate overlay images for certificate and score modes
+  const [certificateOverlayImages, setCertificateOverlayImages] = useState<Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>>([]);
+  const [scoreOverlayImages, setScoreOverlayImages] = useState<Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>>([]);
+  
+  // Active overlay images based on current mode
+  const overlayImages = activeTemplateMode === 'certificate' ? certificateOverlayImages : scoreOverlayImages;
+  
+  // Wrapper function to set overlay images based on active mode
+  const setOverlayImages = useCallback((images: Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}> | ((prev: Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>) => Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>)) => {
+    if (activeTemplateMode === 'certificate') {
+      setCertificateOverlayImages(images);
+    } else {
+      setScoreOverlayImages(images);
+    }
+  }, [activeTemplateMode]);
+  
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [draggingImage, setDraggingImage] = useState<string | null>(null);
   const [resizingImage, setResizingImage] = useState<string | null>(null);
@@ -132,19 +379,21 @@ function CertificateGeneratorContent() {
       }
     }
   }
-  // Default dates: issue today, expiry +3 years
-  const __nowForDefaults = new Date();
-  const __expiryForDefaults = new Date(__nowForDefaults);
-  __expiryForDefaults.setFullYear(__expiryForDefaults.getFullYear() + 3);
-  const __fmt = (d: Date) => d.toISOString().split("T")[0];
-
-  const [certificateData, setCertificateData] = useState<CertificateData>({
-    certificate_no: "", // Will be auto-generated based on issue date
-    name: "John Doe",
-    description:
-      "This certificate is awarded for successful completion of the program.",
-    issue_date: __fmt(__nowForDefaults),
-    expired_date: __fmt(__expiryForDefaults),
+  
+  // Initialize certificate data with default dates
+  const [certificateData, setCertificateData] = useState<CertificateData>(() => {
+    const now = new Date();
+    const expiry = new Date(now);
+    expiry.setFullYear(expiry.getFullYear() + 3);
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    
+    return {
+      certificate_no: "", // Will be auto-generated based on issue date
+      name: "John Doe",
+      description: "This certificate is awarded for successful completion of the program.",
+      issue_date: fmt(now),
+      expired_date: fmt(expiry),
+    };
   });
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -192,6 +441,24 @@ function CertificateGeneratorContent() {
       default: return iso;
     }
   }, []);
+
+  // NEW: Helper function to get active template image URL based on mode
+  const getActiveTemplateImageUrl = useCallback((template: Template | null): string | null => {
+    if (!template) return null;
+    
+    // For dual-mode templates, return appropriate image based on active mode
+    if (template.mode === 'dual') {
+      if (activeTemplateMode === 'score' && template.score_image_path) {
+        // Return score image with cache busting
+        return `${template.score_image_path}?v=${template.id}&t=${Date.now()}`;
+      }
+      // Default to certificate image
+      return getTemplateImageUrl(template);
+    }
+    
+    // For single-mode templates, always return certificate image
+    return getTemplateImageUrl(template);
+  }, [activeTemplateMode]);
 
   // Import Excel instruction modal state
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -572,25 +839,84 @@ function CertificateGeneratorContent() {
           fontFamily: layer.fontFamily,
         }));
 
+        // Save with mode-specific key for dual templates
+        const saveKey = selectedTemplate.mode === 'dual' 
+          ? `${selectedTemplate.id}_${activeTemplateMode}`
+          : selectedTemplate.id;
+          
         saveTemplateDefaults({
-          templateId: selectedTemplate.id,
-          templateName: selectedTemplate.name,
+          templateId: saveKey,
+          templateName: `${selectedTemplate.name} (${activeTemplateMode})`,
           textLayers: defaults,
           overlayImages: overlayImages,
           savedAt: new Date().toISOString(),
         });
 
-        console.log(`💾 Auto-saved coordinates for template: ${selectedTemplate.name}`);
+        console.log(`💾 Auto-saved coordinates for template: ${selectedTemplate.name} (${activeTemplateMode})`);
       } catch (error) {
         console.warn("⚠️ Failed to auto-save coordinates:", error);
       }
     }, 1000); // Save after 1 second of no changes
 
     return () => clearTimeout(timeoutId);
-  }, [textLayers, overlayImages, selectedTemplate]);
+  }, [textLayers, overlayImages, selectedTemplate, activeTemplateMode]);
 
   // TEMPLATE DEFAULTS: Load saved defaults for current template
   // Apply global font settings to all text layers - removed unused function
+  
+  // NEW: Load mode-specific defaults when switching between certificate and score
+  useEffect(() => {
+    if (!selectedTemplate || selectedTemplate.mode !== 'dual') return;
+    
+    const saveKey = `${selectedTemplate.id}_${activeTemplateMode}`;
+    const savedDefaults = getTemplateDefaults(saveKey);
+    
+    if (savedDefaults) {
+      console.log(`🔄 Loading saved defaults for ${activeTemplateMode} mode`);
+      
+      // Load text layers
+      if (savedDefaults.textLayers && savedDefaults.textLayers.length > 0) {
+        const layers: TextLayer[] = savedDefaults.textLayers.map(saved => {
+          // Sync text content with certificate data for certificate mode
+          let text = saved.id === 'certificate_no' ? certificateData.certificate_no :
+                     saved.id === 'name' ? certificateData.name :
+                     saved.id === 'description' ? certificateData.description :
+                     '';
+          
+          return {
+            id: saved.id,
+            text: text,
+            x: saved.x,
+            y: saved.y,
+            xPercent: saved.xPercent,
+            yPercent: saved.yPercent,
+            fontSize: saved.fontSize,
+            color: saved.color,
+            fontWeight: saved.fontWeight,
+            fontFamily: saved.fontFamily,
+          };
+        });
+        
+        if (activeTemplateMode === 'certificate') {
+          setCertificateTextLayers(layers);
+        } else {
+          setScoreTextLayers(layers);
+        }
+      }
+      
+      // Load overlay images
+      if (savedDefaults.overlayImages && savedDefaults.overlayImages.length > 0) {
+        if (activeTemplateMode === 'certificate') {
+          setCertificateOverlayImages(savedDefaults.overlayImages);
+        } else {
+          setScoreOverlayImages(savedDefaults.overlayImages);
+        }
+        console.log(`✅ Loaded ${savedDefaults.overlayImages.length} overlay images for ${activeTemplateMode}`);
+      }
+    } else {
+      console.log(`ℹ️ No saved defaults for ${activeTemplateMode} mode`);
+    }
+  }, [activeTemplateMode, selectedTemplate, certificateData]);
 
   // FIX: Utility functions for normalized coordinates using standard canvas size
   const getNormalizedPosition = useCallback((x: number, y: number) => {
@@ -683,7 +1009,7 @@ function CertificateGeneratorContent() {
       // Note: issue_date and expired_date are stored in database but not displayed on certificate
     ];
     setTextLayers(layers);
-  }, [certificateData, globalFontSettings, formatDateString, dateFormat]);
+  }, [certificateData, globalFontSettings, formatDateString, dateFormat, setTextLayers]);
 
   // FIX: Update description text layer when certificate data changes
   useEffect(() => {
@@ -1167,7 +1493,7 @@ function CertificateGeneratorContent() {
 
     setTextLayers((prev) => [...prev, newTextLayer]);
     setSelectedLayerId(newTextLayer.id);
-  }, [getNormalizedPosition]);
+  }, [getNormalizedPosition, setTextLayers]);
 
   // FIX: Update text layer with proper coordinate normalization
   const updateTextLayer = useCallback(
@@ -1570,7 +1896,7 @@ function CertificateGeneratorContent() {
       ctx.fillRect(0, 0, consistentDims.width, consistentDims.height);
 
       // Load template image if available
-      if (selectedTemplate && getTemplateImageUrl(selectedTemplate)) {
+      if (selectedTemplate && getActiveTemplateImageUrl(selectedTemplate)) {
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = async () => {
@@ -1687,7 +2013,7 @@ function CertificateGeneratorContent() {
           const dataURL = canvas.toDataURL("image/png");
           resolve(dataURL);
         };
-        img.src = getTemplateImageUrl(selectedTemplate)!
+        img.src = getActiveTemplateImageUrl(selectedTemplate)!
       } else {
         // Draw overlay images even without template
         (async () => {
@@ -2084,6 +2410,30 @@ function CertificateGeneratorContent() {
                 </p>
               </div>
             </div>
+            
+            {/* NEW: Template Mode Switch for Dual-Mode Templates */}
+            {selectedTemplate.mode === 'dual' && (
+              <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-200">
+                <Button
+                  variant={activeTemplateMode === 'certificate' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setActiveTemplateMode('certificate')}
+                  className="text-xs"
+                >
+                  <FileText className="w-3 h-3 mr-1" />
+                  Certificate
+                </Button>
+                <Button
+                  variant={activeTemplateMode === 'score' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setActiveTemplateMode('score')}
+                  className="text-xs"
+                >
+                  <ImageIcon className="w-3 h-3 mr-1" />
+                  Score (Nilai)
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Dual Pane Layout - centered */}
@@ -2101,8 +2451,9 @@ function CertificateGeneratorContent() {
                     {t("generator.preview")}
                   </h2>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Click &quot;Add Text&quot; to add custom text • Double-click
-                    text to edit • Drag to move • Press Delete to remove
+                    {activeTemplateMode === 'certificate' 
+                      ? 'Click "Add Text" to add custom text • Double-click text to edit • Drag to move'
+                      : 'Text auto-generated from form • Drag to adjust position • Click "Add Text" for custom text'}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -2216,7 +2567,7 @@ function CertificateGeneratorContent() {
                       }
                     }}
                   >
-                  {selectedTemplate && getTemplateImageUrl(selectedTemplate) ? (
+                  {selectedTemplate && getActiveTemplateImageUrl(selectedTemplate) ? (
                     <div 
                       className="absolute inset-0 w-full h-full bg-white"
                       style={{
@@ -2234,8 +2585,8 @@ function CertificateGeneratorContent() {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={getTemplateImageUrl(selectedTemplate)!}
-                        alt="Certificate Template"
+                        src={getActiveTemplateImageUrl(selectedTemplate)!}
+                        alt={activeTemplateMode === 'score' ? "Score Template" : "Certificate Template"}
                         crossOrigin="anonymous"
                         style={{ 
                           // PERBAIKAN: Gunakan dimensi yang sama persis dengan container
@@ -2492,23 +2843,6 @@ function CertificateGeneratorContent() {
                             >
                               {layer.text || "Click to edit"}
                             </span>
-                            {/* Delete button - hidden for system layers */}
-                            {!__isSystemLayer && (
-                              <button
-                                className={`absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs transition-opacity duration-200 flex items-center justify-center ${
-                                  selectedLayerId === layer.id
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover:opacity-100"
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteTextLayer(layer.id);
-                                }}
-                                title="Delete text"
-                              >
-                                ×
-                              </button>
-                            )}
                           </div>
                         )}
                       </div>
@@ -2517,7 +2851,7 @@ function CertificateGeneratorContent() {
 
                   {/* Certificate Content - Only show if no template image and no text layers */}
                   {(!selectedTemplate ||
-                    !getTemplateImageUrl(selectedTemplate)) &&
+                    !getActiveTemplateImageUrl(selectedTemplate)) &&
                     textLayers.length === 0 && (
                       <div className="relative z-10 text-center p-6 xl:p-10">
                         <div className="mb-4 xl:mb-6">
@@ -2604,18 +2938,23 @@ function CertificateGeneratorContent() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-900">
-                  {t("generator.recipient")}
+                  {activeTemplateMode === 'score' ? 'Score Data (Nilai)' : t("generator.recipient")}
                 </h2>
-                <Button
-                  variant="outline"
-                  className="border-gray-300"
-                  onClick={() => setImportModalOpen(true)}
-                  size="sm"
-                >
-                  Import Excel
-                </Button>
+                {activeTemplateMode === 'certificate' && (
+                  <Button
+                    variant="outline"
+                    className="border-gray-300"
+                    onClick={() => setImportModalOpen(true)}
+                    size="sm"
+                  >
+                    Import Excel
+                  </Button>
+                )}
               </div>
 
+              {/* Certificate Input Form */}
+              {activeTemplateMode === 'certificate' ? (
+              <>
               <div className="space-y-3">
                 {(role === "Admin" || role === "Team") && (
                   <div className="space-y-1.5">
@@ -3000,6 +3339,233 @@ function CertificateGeneratorContent() {
                   </Button>
                   </div>
               </div>
+              </>
+              ) : (
+              // Score Input Form
+              <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+                {/* Font Settings Panel */}
+                <div className="space-y-2 pb-3 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    ⚙️ Font Settings (Global)
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-700">Font Size</label>
+                      <Input
+                        type="number"
+                        min="8"
+                        max="72"
+                        value={scoreFontSettings.fontSize}
+                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontSize: parseInt(e.target.value) || 16})}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-700">Font Family</label>
+                      <select
+                        value={scoreFontSettings.fontFamily}
+                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontFamily: e.target.value})}
+                        className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Arial">Arial</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Verdana">Verdana</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-700">Color</label>
+                      <Input
+                        type="color"
+                        value={scoreFontSettings.color}
+                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, color: e.target.value})}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-700">Font Weight</label>
+                      <select
+                        value={scoreFontSettings.fontWeight}
+                        onChange={(e) => setScoreFontSettings({...scoreFontSettings, fontWeight: e.target.value as 'normal' | 'bold'})}
+                        className="w-full h-7 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="normal">Normal</option>
+                        <option value="bold">Bold</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 italic">
+                    💡 Tip: Adjust global font settings here, or click individual text on canvas to customize
+                  </p>
+                </div>
+                
+                {/* Aspek Non Teknis */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-1">
+                    Aspek Non Teknis
+                  </h3>
+                  <div className="space-y-1">
+                    {scoreData.aspek_non_teknis.map((item, index) => (
+                      <div key={item.no} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 w-6">{item.no}.</span>
+                        <span className="text-xs text-gray-700 flex-1">{item.aspek}</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={item.nilai || ''}
+                          onChange={(e) => {
+                            const newData = {...scoreData};
+                            newData.aspek_non_teknis[index].nilai = parseInt(e.target.value) || 0;
+                            setScoreData(newData);
+                          }}
+                          className="w-16 h-7 text-xs text-center"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Aspek Teknis */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-1">
+                    Aspek Teknis
+                  </h3>
+                  <div className="space-y-2">
+                    {scoreData.aspek_teknis.map((item, index) => (
+                      <div key={item.no} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 w-6">{item.no}.</span>
+                          <Input
+                            value={item.standar_kompetensi}
+                            onChange={(e) => {
+                              const newData = {...scoreData};
+                              newData.aspek_teknis[index].standar_kompetensi = e.target.value;
+                              setScoreData(newData);
+                            }}
+                            className="flex-1 h-7 text-xs"
+                            placeholder="Standar Kompetensi / Kompetensi Dasar"
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={item.nilai || ''}
+                            onChange={(e) => {
+                              const newData = {...scoreData};
+                              newData.aspek_teknis[index].nilai = parseInt(e.target.value) || 0;
+                              setScoreData(newData);
+                            }}
+                            className="w-16 h-7 text-xs text-center"
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Additional Fields */}
+                <div className="space-y-2 pt-2 border-t">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Informasi Tambahan
+                  </h3>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Nilai / Prestasi
+                    </label>
+                    <Input
+                      value={scoreData.nilai_prestasi}
+                      onChange={(e) => setScoreData({...scoreData, nilai_prestasi: e.target.value})}
+                      className="h-8 text-xs"
+                      placeholder="e.g., 88.5 (BAIK)"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Keterangan
+                    </label>
+                    <textarea
+                      value={scoreData.keterangan}
+                      onChange={(e) => setScoreData({...scoreData, keterangan: e.target.value})}
+                      className="w-full h-16 px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Catatan tambahan (optional)"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Tanggal
+                    </label>
+                    <Input
+                      type="date"
+                      value={scoreData.date}
+                      onChange={(e) => setScoreData({...scoreData, date: e.target.value})}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Jabatan Pembina
+                    </label>
+                    <Input
+                      value={scoreData.pembina.jabatan}
+                      onChange={(e) => setScoreData({
+                        ...scoreData, 
+                        pembina: {...scoreData.pembina, jabatan: e.target.value}
+                      })}
+                      className="h-8 text-xs"
+                      placeholder="e.g., Pembina Magang"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Nama Pembina
+                    </label>
+                    <Input
+                      value={scoreData.pembina.nama}
+                      onChange={(e) => setScoreData({
+                        ...scoreData, 
+                        pembina: {...scoreData.pembina, nama: e.target.value}
+                      })}
+                      className="h-8 text-xs"
+                      placeholder="Nama lengkap pembina"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons for Score */}
+                <div className="flex flex-col gap-3 pt-4 border-t">
+                  <Button
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log("🖱️ Generate Score button clicked!");
+                      // TODO: Implement score generation
+                      toast.info("Score generation coming soon!");
+                    }}
+                    type="button"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Generate & Save Score
+                  </Button>
+                  <Button
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                    onClick={() => router.push("/certificates")}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    View Saved Certificates
+                  </Button>
+                </div>
+              </div>
+              )}
             </motion.div>
           </div>
         </div>

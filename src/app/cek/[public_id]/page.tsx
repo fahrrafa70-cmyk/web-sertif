@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
 import { Button } from "@/components/ui/button";
-import { Download, Link2, Share2, FileText, Calendar, Building2, User, Tag, Clock, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Download, Link2, Share2, FileText, Calendar, Building2, User, Tag, Clock, CheckCircle2, ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -110,6 +110,45 @@ export default function PublicCertificatePage() {
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PDF");
+    }
+  }
+
+  // Export certificate to PNG
+  async function exportToPNG() {
+    if (!certificate?.certificate_image_url) {
+      toast.error("Certificate image not available");
+      return;
+    }
+
+    try {
+      let srcRaw = certificate.certificate_image_url || "";
+      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+        srcRaw = `/${srcRaw}`;
+      }
+      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+      const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
+      const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+        ? `${window.location.origin}${localWithBust}`
+        : localWithBust;
+
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+      const blob = await resp.blob();
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${certificate.certificate_no || 'certificate'}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("PNG downloaded successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to export PNG");
     }
   }
 
@@ -361,14 +400,24 @@ export default function PublicCertificatePage() {
 
                 {/* Action Buttons */}
                 <div className="mt-8 space-y-3">
-                  <Button
-                    onClick={exportToPDF}
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
-                    size="lg"
-                  >
-                    <Download className="w-5 h-5 mr-2" />
-                    Download PDF
-                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      onClick={exportToPDF}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
+                      size="lg"
+                    >
+                      <FileText className="w-5 h-5 mr-2" />
+                      Download PDF
+                    </Button>
+                    <Button
+                      onClick={exportToPNG}
+                      className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700"
+                      size="lg"
+                    >
+                      <ImageIcon className="w-5 h-5 mr-2" />
+                      Download PNG
+                    </Button>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <Button

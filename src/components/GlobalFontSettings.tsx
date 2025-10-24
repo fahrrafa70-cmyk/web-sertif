@@ -123,13 +123,13 @@ export default function GlobalFontSettings({
               <Input
                 type="number"
                 min="8"
-                max="72"
+                max="100"
                 value={fontSizeInput}
                 onChange={(e) => {
                   const v = e.target.value;
                   setFontSizeInput(v);
                   if (v !== "" && !isNaN(Number(v))) {
-                    const n = Math.max(8, Math.min(72, Number(v)));
+                    const n = Math.max(8, Math.min(100, Number(v)));
                     onChange("fontSize", n);
                   }
                 }}
@@ -139,7 +139,7 @@ export default function GlobalFontSettings({
                     setFontSizeInput(String(fallback));
                     onChange("fontSize", fallback);
                   } else if (!isNaN(Number(fontSizeInput))) {
-                    const n = Math.max(8, Math.min(72, Number(fontSizeInput)));
+                    const n = Math.max(8, Math.min(100, Number(fontSizeInput)));
                     setFontSizeInput(String(n));
                     onChange("fontSize", n);
                   }

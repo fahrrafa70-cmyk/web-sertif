@@ -38,7 +38,7 @@ import {
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate } from "@/lib/supabase/certificates";
-import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link } from "lucide-react";
+import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -167,6 +167,47 @@ function CertificatesContent() {
     }
   }
 
+  // Export certificate to PNG
+  async function exportToPNG(certificate: Certificate) {
+    try {
+      if (!certificate.certificate_image_url) {
+        toast.error("Certificate image not available to export");
+        return;
+      }
+
+      // Normalize URL (local relative -> absolute) similar to PDF logic
+      let srcRaw = certificate.certificate_image_url || "";
+      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+        srcRaw = `/${srcRaw}`;
+      }
+      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+      const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
+      const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+        ? `${window.location.origin}${localWithBust}`
+        : localWithBust;
+
+      // Fetch image as blob
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+      const blob = await resp.blob();
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${certificate.certificate_no || 'certificate'}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("PNG downloaded successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to export PNG");
+    }
+  }
+
   // Generate public certificate link using public_id
   async function generateCertificateLink(certificate: Certificate) {
     try {
@@ -224,7 +265,7 @@ function CertificatesContent() {
       setSendCert(certificate);
       setSendPreviewSrc(src);
       setSendForm({
-        email: guessedEmail || "",
+        email: "",
         subject: certificate.certificate_no ? `Certificate #${certificate.certificate_no}` : "Your Certificate",
         message: `Attached is your certificate${certificate.certificate_no ? ` (No: ${certificate.certificate_no})` : ''}.`,
       });
@@ -631,6 +672,10 @@ function CertificatesContent() {
                                 <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
                                   <FileText className="w-4 h-4 mr-2" />
                                   Export as PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
+                                  <ImageIcon className="w-4 h-4 mr-2" />
+                                  Download PNG
                                 </DropdownMenuItem>
                                 {certificate.certificate_image_url && (
                                   <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
@@ -1244,7 +1289,7 @@ function CertificatesContent() {
                   setSendForm((f) => ({ ...f, email: e.target.value }));
                   if (sendFormErrors.email) setSendFormErrors((e) => ({ ...e, email: undefined }));
                 }}
-                placeholder="recipient@example.com"
+                placeholder=""
                 disabled={isSendingEmail}
                 className={sendFormErrors.email ? 'border-red-500' : ''}
                 onKeyDown={(e) => {
@@ -1329,11 +1374,11 @@ function CertificatesContent() {
               >
                 Cancel
               </Button>
-              <Button 
-                className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed" 
-                onClick={confirmSendEmail}
-                disabled={isSendingEmail}
-              >
+               <Button 
+                 className="gradient-primary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-300" 
+                 onClick={confirmSendEmail}
+                 disabled={isSendingEmail}
+               >
                 {isSendingEmail ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
