@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Sheet,
   SheetContent,
@@ -434,20 +434,70 @@ function CertificatesContent() {
     aspectRatio: number;
   } | null>(null);
 
+  // Standard canvas dimensions used in generation (must match generator)
+  const STANDARD_CANVAS_WIDTH = 800;
+  const STANDARD_CANVAS_HEIGHT = 600;
+
+  // Ref for preview container to calculate actual dimensions
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Update container dimensions when it changes
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (previewContainerRef.current) {
+        const rect = previewContainerRef.current.getBoundingClientRect();
+        const dimensions = { width: rect.width, height: rect.height };
+        setContainerDimensions(dimensions);
+      }
+    };
+
+    // Initial update with multiple attempts
+    updateDimensions();
+    const timeout1 = setTimeout(updateDimensions, 50);
+    const timeout2 = setTimeout(updateDimensions, 200);
+    
+    // Update on window resize
+    window.addEventListener('resize', updateDimensions);
+    
+    // Use ResizeObserver for more accurate tracking
+    const resizeObserver = new ResizeObserver(() => {
+      updateDimensions();
+    });
+    
+    if (previewContainerRef.current) {
+      resizeObserver.observe(previewContainerRef.current);
+    }
+    
+    return () => {
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      window.removeEventListener('resize', updateDimensions);
+      resizeObserver.disconnect();
+    };
+  }, [previewMode, previewCertificate]);
+
   // Handler untuk mendapatkan dimensi gambar template
   const handleTemplateImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     const naturalWidth = img.naturalWidth;
     const naturalHeight = img.naturalHeight;
     
+    console.log('Loading template image in certificates preview:', { 
+      naturalWidth, 
+      naturalHeight, 
+      aspectRatio: naturalWidth / naturalHeight,
+      previewMode,
+      isScoreMode: previewMode === 'score',
+      templateHasScore: previewTemplate?.score_image_url
+    });
+    
     setTemplateImageDimensions({
       width: naturalWidth,
       height: naturalHeight,
       aspectRatio: naturalWidth / naturalHeight
     });
-    
-    console.log('Template image loaded in certificates page:', { naturalWidth, naturalHeight, aspectRatio: naturalWidth / naturalHeight });
-  }, []);
+  }, [previewMode, previewTemplate]);
 
   // Function to calculate consistent dimensions for text scaling
   const getConsistentDimensions = useMemo(() => {
@@ -457,7 +507,21 @@ function CertificatesContent() {
     const maxWidth = 800; // Maksimal lebar container
     const maxHeight = 600; // Maksimal tinggi container
     
-    // Calculate scale based on actual image dimensions if available
+    // For score mode, always use STANDARD canvas dimensions (800x600)
+    // Score images are generated at exactly 800x600, regardless of template image size
+    if (previewMode === 'score') {
+      const scaleX = maxWidth / STANDARD_CANVAS_WIDTH; // 800/800 = 1
+      const scaleY = maxHeight / STANDARD_CANVAS_HEIGHT; // 600/600 = 1
+      const scale = Math.min(scaleX, scaleY); // Should be 1
+      
+      return {
+        width: STANDARD_CANVAS_WIDTH,
+        height: STANDARD_CANVAS_HEIGHT,
+        scale: scale
+      };
+    }
+    
+    // For certificate mode, calculate scale based on actual template image dimensions
     if (templateImageDimensions) {
       const scaleX = maxWidth / templateImageDimensions.width;
       const scaleY = maxHeight / templateImageDimensions.height;
@@ -476,7 +540,7 @@ function CertificatesContent() {
       height: 600,
       scale: 1
     };
-  }, [previewTemplate, templateImageDimensions]);
+  }, [previewTemplate, templateImageDimensions, previewMode]);
   
   // Disable any emergency override for production
   const forceCanDelete = false;
@@ -1120,6 +1184,7 @@ function CertificatesContent() {
                     )}
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
                       <div
+                        ref={previewContainerRef}
                         className="bg-white rounded-xl shadow-xl relative"
                         style={{
                           width: "100%",
@@ -1129,7 +1194,17 @@ function CertificatesContent() {
                         }}
                       >
                         {/* FIX: Show merged certificate or score image with consistent aspect ratio */}
-                        {((previewMode === 'certificate' && previewCertificate?.certificate_image_url) || (previewMode === 'score' && previewCertificate?.score_image_url)) ? (
+                        {(() => {
+                          const hasGeneratedImage = (previewMode === 'certificate' && previewCertificate?.certificate_image_url) || 
+                                                     (previewMode === 'score' && previewCertificate?.score_image_url);
+                          console.log('Preview render decision:', {
+                            previewMode,
+                            hasCertImage: !!previewCertificate?.certificate_image_url,
+                            hasScoreImage: !!previewCertificate?.score_image_url,
+                            hasGeneratedImage
+                          });
+                          return hasGeneratedImage;
+                        })() ? (
                           (() => {
                             let srcRaw = previewMode === 'score' ? (previewCertificate?.score_image_url || '') : (previewCertificate.certificate_image_url || "");
                             // Normalize local relative path like "generate/file.png" => "/generate/file.png"
@@ -1175,7 +1250,7 @@ function CertificatesContent() {
                                 src={previewTemplate.score_image_url}
                                 alt="Score Template"
                                 fill
-                                className="object-cover absolute inset-0"
+                                className="object-contain absolute inset-0"
                                 onLoad={handleTemplateImageLoad}
                               />
                             ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
@@ -1183,7 +1258,7 @@ function CertificatesContent() {
                                 src={getTemplateImageUrl(previewTemplate)!}
                                 alt="Certificate Template"
                                 fill
-                                className="object-cover absolute inset-0"
+                                className="object-contain absolute inset-0"
                                 onLoad={handleTemplateImageLoad}
                               />
                             ) : (
@@ -1239,9 +1314,28 @@ function CertificatesContent() {
                               else if (layer.id === 'nilai_prestasi') content = '';
                               else content = layer.id.replace(/_/g, ' ');
 
-                              // Apply consistent scaling to match template generator
-                              const scaledFontSize = layer.fontSize * (getConsistentDimensions.scale || 1);
+                              // IMPORTANT: Preview scale calculation for score text overlay
+                              // Generator uses 800x600 canvas with pixel-based fontSize
+                              // Preview needs to match this, so scale fontSize based on container width
+                              // Example: fontSize 50 at 800px should appear as fontSize 25 at 400px container
+                              
+                              const containerWidth = containerDimensions?.width || 800;
+                              const scoreScale = containerWidth / STANDARD_CANVAS_WIDTH;
+                              
+                              // Only log for first layer to avoid console spam
+                              if (layer.id === scoreDefaults.textLayers[0]?.id) {
+                                console.log('🔍 Score overlay scale:', {
+                                  containerWidth,
+                                  standardWidth: STANDARD_CANVAS_WIDTH,
+                                  scale: scoreScale,
+                                  fontSize: layer.fontSize,
+                                  scaledFontSize: layer.fontSize * scoreScale
+                                });
+                              }
 
+                              // Apply scale to fontSize for proper proportional scaling
+                              const finalFontSize = layer.fontSize * scoreScale;
+                              
                               return (
                                 <div
                                   key={layer.id}
@@ -1249,7 +1343,7 @@ function CertificatesContent() {
                                   style={{
                                     left: actualX,
                                     top: actualY,
-                                    fontSize: scaledFontSize,
+                                    fontSize: `${finalFontSize}px`,
                                     color: layer.color,
                                     fontWeight: layer.fontWeight,
                                     fontFamily: layer.fontFamily,
