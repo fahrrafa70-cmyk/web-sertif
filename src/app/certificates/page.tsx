@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
-import { Certificate } from "@/lib/supabase/certificates";
+import { Certificate, TextLayer as CertificateTextLayer } from "@/lib/supabase/certificates";
 import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
@@ -45,6 +45,7 @@ import {
   getTemplateImageUrl,
   Template,
 } from "@/lib/supabase/templates";
+import { getTemplateDefaults, TemplateDefaults, TextLayerDefault } from '@/lib/storage/template-defaults';
 import Image from "next/image";
 import { confirmToast } from "@/lib/ui/confirm";
 import { Suspense } from "react";
@@ -93,6 +94,29 @@ function CertificatesContent() {
       setRole("Public");
     }
   }, []);
+
+  // Auto-refresh certificates when page becomes visible (after returning from generate page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("🔄 Page became visible, refreshing certificates...");
+        refresh();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log("🔄 Window focused, refreshing certificates...");
+      refresh();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refresh]);
 
   // Export certificate to PDF using its generated image
   async function exportToPDF(certificate: Certificate) {
@@ -396,10 +420,63 @@ function CertificatesContent() {
   const [previewCertificate, setPreviewCertificate] =
     useState<Certificate | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const [previewMode, setPreviewMode] = useState<'certificate' | 'score' | 'combined'>('certificate');
+  const [scoreDefaults, setScoreDefaults] = useState<TemplateDefaults | null>(null);
   const [deletingCertificateId, setDeletingCertificateId] = useState<
     string | null
   >(null);
   const canDelete = role === "Admin"; // Only Admin can delete
+  
+  // State for template image dimensions
+  const [templateImageDimensions, setTemplateImageDimensions] = useState<{
+    width: number;
+    height: number;
+    aspectRatio: number;
+  } | null>(null);
+
+  // Handler untuk mendapatkan dimensi gambar template
+  const handleTemplateImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const naturalWidth = img.naturalWidth;
+    const naturalHeight = img.naturalHeight;
+    
+    setTemplateImageDimensions({
+      width: naturalWidth,
+      height: naturalHeight,
+      aspectRatio: naturalWidth / naturalHeight
+    });
+    
+    console.log('Template image loaded in certificates page:', { naturalWidth, naturalHeight, aspectRatio: naturalWidth / naturalHeight });
+  }, []);
+
+  // Function to calculate consistent dimensions for text scaling
+  const getConsistentDimensions = useMemo(() => {
+    if (!previewTemplate) return { width: 800, height: 600, scale: 1 };
+    
+    // Use the same logic as template generator
+    const maxWidth = 800; // Maksimal lebar container
+    const maxHeight = 600; // Maksimal tinggi container
+    
+    // Calculate scale based on actual image dimensions if available
+    if (templateImageDimensions) {
+      const scaleX = maxWidth / templateImageDimensions.width;
+      const scaleY = maxHeight / templateImageDimensions.height;
+      const scale = Math.min(scaleX, scaleY);
+      
+      return {
+        width: templateImageDimensions.width * scale,
+        height: templateImageDimensions.height * scale,
+        scale: scale
+      };
+    }
+    
+    // Fallback to default scale if dimensions not available
+    return {
+      width: 800,
+      height: 600,
+      scale: 1
+    };
+  }, [previewTemplate, templateImageDimensions]);
   
   // Disable any emergency override for production
   const forceCanDelete = false;
@@ -505,12 +582,21 @@ function CertificatesContent() {
 
   async function openPreview(certificate: Certificate) {
     setPreviewCertificate(certificate);
+    setPreviewMode('certificate');
 
     // Load template if available
     if (certificate.template_id) {
       try {
         const template = await getTemplate(certificate.template_id);
         setPreviewTemplate(template);
+            // load score defaults from localStorage if available
+            try {
+              const defaults = template ? getTemplateDefaults(`${template.id}_score`) : null;
+              setScoreDefaults(defaults);
+            } catch (err) {
+              console.warn('Failed to load score defaults', err);
+              setScoreDefaults(null);
+            }
       } catch (error) {
         console.error("Failed to load template:", error);
         setPreviewTemplate(null);
@@ -1005,7 +1091,7 @@ function CertificatesContent() {
                     </motion.div>
                   </div>
 
-                  {/* Certificate Preview */}
+                  {/* Certificate / Score Preview */}
                   <motion.div
                     className="space-y-4"
                     initial={{ opacity: 0, x: 20 }}
@@ -1015,6 +1101,23 @@ function CertificatesContent() {
                     <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
                       Certificate Preview
                     </label>
+                    {/* Toggle for dual templates - only show if score image exists */}
+                    {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url && (
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          onClick={() => setPreviewMode('certificate')}
+                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'certificate' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                        >
+                          Certificate
+                        </button>
+                        <button
+                          onClick={() => setPreviewMode('score')}
+                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'score' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                        >
+                          Score
+                        </button>
+                      </div>
+                    )}
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
                       <div
                         className="bg-white rounded-xl shadow-xl relative"
@@ -1025,15 +1128,15 @@ function CertificatesContent() {
                           minHeight: 300,
                         }}
                       >
-                        {/* FIX: Show merged certificate image with consistent aspect ratio */}
-                        {previewCertificate.certificate_image_url ? (
+                        {/* FIX: Show merged certificate or score image with consistent aspect ratio */}
+                        {((previewMode === 'certificate' && previewCertificate?.certificate_image_url) || (previewMode === 'score' && previewCertificate?.score_image_url)) ? (
                           (() => {
-                            let srcRaw = previewCertificate.certificate_image_url || "";
+                            let srcRaw = previewMode === 'score' ? (previewCertificate?.score_image_url || '') : (previewCertificate.certificate_image_url || "");
                             // Normalize local relative path like "generate/file.png" => "/generate/file.png"
                             if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
                               srcRaw = `/${srcRaw}`;
                             }
-                            const cacheBust = previewCertificate.updated_at
+                            const cacheBust = previewCertificate?.updated_at
                               ? `?v=${new Date(previewCertificate.updated_at).getTime()}`
                               : '';
                             // Only append cache bust for local public paths. Do NOT append for data URLs.
@@ -1046,12 +1149,12 @@ function CertificatesContent() {
                               : localWithBust;
 
                             // Use Next.js Image for all cases. For remote/data URLs, disable optimization.
-                            const isRemote = /^https?:\/\//i.test(srcRaw);
+                              const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
                             return (
                               <Image
                                 src={src}
-                                alt="Certificate"
+                                alt={previewMode === 'score' ? "Score" : "Certificate"}
                                 fill
                                 sizes="100vw"
                                 className="object-contain absolute inset-0"
@@ -1067,13 +1170,21 @@ function CertificatesContent() {
                         ) : (
                           <>
                             {/* FIX: Template Image with consistent aspect ratio */}
-                            {previewTemplate &&
-                            getTemplateImageUrl(previewTemplate) ? (
+                            {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
+                              <Image
+                                src={previewTemplate.score_image_url}
+                                alt="Score Template"
+                                fill
+                                className="object-cover absolute inset-0"
+                                onLoad={handleTemplateImageLoad}
+                              />
+                            ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
                               <Image
                                 src={getTemplateImageUrl(previewTemplate)!}
                                 alt="Certificate Template"
                                 fill
                                 className="object-cover absolute inset-0"
+                                onLoad={handleTemplateImageLoad}
                               />
                             ) : (
                               <>
@@ -1086,23 +1197,15 @@ function CertificatesContent() {
                             )}
 
                             {/* FIX: Text Layers with consistent positioning using normalized coordinates */}
-                            {previewCertificate.text_layers &&
+                            {previewMode === 'certificate' && previewCertificate.text_layers &&
                               previewCertificate.text_layers.map(
-                                (layer: {
-                                  id: string;
-                                  text: string;
-                                  x: number;
-                                  y: number;
-                                  xPercent: number;
-                                  yPercent: number;
-                                  fontSize: number;
-                                  color: string;
-                                  fontWeight: string;
-                                  fontFamily: string;
-                                }) => {
-                                  // Use normalized coordinates for consistent positioning
+                                (layer: CertificateTextLayer) => {
                                   const actualX = layer.xPercent * 100 + "%";
                                   const actualY = layer.yPercent * 100 + "%";
+                                  
+                                  // Apply consistent scaling to match template generator
+                                  // Use the same scale factor that would be applied in the template generator
+                                  const scaledFontSize = layer.fontSize * (getConsistentDimensions.scale || 1);
 
                                   return (
                                     <div
@@ -1111,7 +1214,7 @@ function CertificatesContent() {
                                       style={{
                                         left: actualX,
                                         top: actualY,
-                                        fontSize: layer.fontSize,
+                                        fontSize: scaledFontSize,
                                         color: layer.color,
                                         fontWeight: layer.fontWeight,
                                         fontFamily: layer.fontFamily,
@@ -1125,6 +1228,40 @@ function CertificatesContent() {
                                   );
                                 },
                               )}
+
+                            {previewMode === 'score' && scoreDefaults && scoreDefaults.textLayers && scoreDefaults.textLayers.map((layer: TextLayerDefault) => {
+                              const actualX = (typeof layer.xPercent === 'number' ? layer.xPercent : (layer.xPercent || 0)) * 100 + "%";
+                              const actualY = (typeof layer.yPercent === 'number' ? layer.yPercent : (layer.yPercent || 0)) * 100 + "%";
+                              // Decide content: try to map known IDs to certificate data, otherwise show placeholder id
+                              let content = '';
+                              if (layer.id === 'pembina_nama') content = previewCertificate.members?.name || previewCertificate.created_by || '';
+                              else if (layer.id === 'score_date') content = previewCertificate.issue_date ? new Date(previewCertificate.issue_date).toLocaleDateString() : '';
+                              else if (layer.id === 'nilai_prestasi') content = '';
+                              else content = layer.id.replace(/_/g, ' ');
+
+                              // Apply consistent scaling to match template generator
+                              const scaledFontSize = layer.fontSize * (getConsistentDimensions.scale || 1);
+
+                              return (
+                                <div
+                                  key={layer.id}
+                                  className="absolute select-none"
+                                  style={{
+                                    left: actualX,
+                                    top: actualY,
+                                    fontSize: scaledFontSize,
+                                    color: layer.color,
+                                    fontWeight: layer.fontWeight,
+                                    fontFamily: layer.fontFamily,
+                                    userSelect: "none",
+                                    pointerEvents: "none",
+                                    transform: "translate(-50%, -50%)",
+                                  }}
+                                >
+                                  {content}
+                                </div>
+                              );
+                            })}
 
                             {/* Fallback Certificate Content - Only show if no text layers */}
                             {(!previewCertificate.text_layers ||

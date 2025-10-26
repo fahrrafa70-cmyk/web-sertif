@@ -25,10 +25,7 @@ import {
   CreateCertificateData,
   generateCertificateNumber,
 } from "@/lib/supabase/certificates";
-import {
-  createScore,
-  CreateScoreData,
-} from "@/lib/supabase/scores";
+// Removed createScore import since we now store both images in the same certificate record
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
 import html2canvas from "html2canvas";
@@ -72,15 +69,15 @@ function CertificateGeneratorContent() {
   const templateId = searchParams?.get("template");
 
   // Helper function to get predikat based on nilai
-  const getPredikat = (nilai: number): string => {
+  const getPredikat = useCallback((nilai: number): string => {
     if (nilai >= 90 && nilai <= 100) return "Sangat Baik";
     if (nilai >= 75 && nilai <= 89) return "Baik";
     if (nilai >= 0 && nilai <= 74) return "Kurang Baik";
     return "Tidak Valid";
-  };
+  }, []);
 
   // Helper function to format nilai prestasi text
-  const formatNilaiPrestasi = (nilai: string): string => {
+  const formatNilaiPrestasi = useCallback((nilai: string): string => {
     if (!nilai || nilai.trim() === '') return '';
     
     // Extract numeric value from input (e.g., "80.5" or "80")
@@ -89,7 +86,7 @@ function CertificateGeneratorContent() {
     
     const predikat = getPredikat(numericValue);
     return `${numericValue} (${predikat})`;
-  };
+  }, [getPredikat]);
 
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
@@ -103,9 +100,46 @@ function CertificateGeneratorContent() {
   // NEW: Separate font settings for different score elements - using default values
   const [scoreFontSettings, setScoreFontSettings] = useState(DEFAULT_SCORE_FONT_SETTINGS);
   
+  // Single date format applied to both issue and expiry dates (form keeps ISO)
+  const [dateFormat, setDateFormat] = useState<string>("yyyy-mm-dd");
+  
   // FIX: Standard canvas dimensions for consistent positioning - MUST be defined before useEffectya
   const STANDARD_CANVAS_WIDTH = 800;
   const STANDARD_CANVAS_HEIGHT = 600;
+  
+  // Format an ISO date (yyyy-mm-dd) into chosen format for canvas text
+  const formatDateString = useCallback((iso: string, fmt: string): string => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mmm = d.toLocaleString('en-US', { month: 'short' });
+    const mmmm = d.toLocaleString('en-US', { month: 'long' });
+    
+    // Indonesian month names
+    const indonesianMonths = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const indonesianMonth = indonesianMonths[d.getMonth()];
+    
+    switch (fmt) {
+      case 'dd-mm-yyyy': return `${dd}-${mm}-${yyyy}`;
+      case 'mm-dd-yyyy': return `${mm}-${dd}-${yyyy}`;
+      case 'yyyy-mm-dd': return `${yyyy}-${mm}-${dd}`;
+      case 'dd-mmm-yyyy': return `${dd} ${mmm} ${yyyy}`;
+      case 'dd-mmmm-yyyy': return `${dd} ${mmmm} ${yyyy}`;
+      case 'mmm-dd-yyyy': return `${mmm} ${dd}, ${yyyy}`;
+      case 'mmmm-dd-yyyy': return `${mmmm} ${dd}, ${yyyy}`;
+      case 'dd/mm/yyyy': return `${dd}/${mm}/${yyyy}`;
+      case 'mm/dd/yyyy': return `${mm}/${dd}/${yyyy}`;
+      case 'yyyy/mm/dd': return `${yyyy}/${mm}/${dd}`;
+      case 'dd-indonesian-yyyy': return `${dd} ${indonesianMonth} ${yyyy}`;
+      default: return iso;
+    }
+  }, []);
   
   const [scoreData, setScoreData] = useState(() => {
     // Initialize with current date
@@ -143,6 +177,13 @@ function CertificateGeneratorContent() {
   // Separate text layers for certificate and score modes
   const [certificateTextLayers, setCertificateTextLayers] = useState<TextLayer[]>([]);
   const [scoreTextLayers, setScoreTextLayers] = useState<TextLayer[]>([]);
+  
+  // Separate overlay images for certificate and score modes
+  const [certificateOverlayImages, setCertificateOverlayImages] = useState<Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>>([]);
+  const [scoreOverlayImages, setScoreOverlayImages] = useState<Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>>([]);
+  
+  // Active overlay images based on current mode
+  const overlayImages = activeTemplateMode === 'certificate' ? certificateOverlayImages : scoreOverlayImages;
   
   // Active text layers based on current mode - use useMemo to ensure reactivity
   const textLayers = useMemo(() => {
@@ -259,25 +300,24 @@ function CertificateGeneratorContent() {
       fontFamily: scoreFontSettings.additionalInfo.fontFamily,
     });
     
-    if (scoreData.keterangan) {
-      layers.push({
-        id: 'keterangan',
-        text: scoreData.keterangan,
-        x: STANDARD_CANVAS_WIDTH * 0.5,
-        y: STANDARD_CANVAS_HEIGHT * 0.8,
-        xPercent: 0.5,
-        yPercent: 0.8,
-        fontSize: scoreFontSettings.additionalInfo.fontSize,
-        color: scoreFontSettings.additionalInfo.color,
-        fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-        fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-      });
-    }
+    // Always create keterangan layer, even if empty
+    layers.push({
+      id: 'keterangan',
+      text: scoreData.keterangan || '',
+      x: STANDARD_CANVAS_WIDTH * 0.5,
+      y: STANDARD_CANVAS_HEIGHT * 0.8,
+      xPercent: 0.5,
+      yPercent: 0.8,
+      fontSize: scoreFontSettings.additionalInfo.fontSize,
+      color: scoreFontSettings.additionalInfo.color,
+      fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+      fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+    });
     
-    // Add date layer
+    // Add date layer with proper formatting
     layers.push({
       id: 'score_date',
-      text: scoreData.date,
+      text: formatDateString(scoreData.date, dateFormat),
       x: STANDARD_CANVAS_WIDTH * 0.1,
       y: STANDARD_CANVAS_HEIGHT * 0.85,
       xPercent: 0.1,
@@ -288,20 +328,32 @@ function CertificateGeneratorContent() {
       fontFamily: scoreFontSettings.date.fontFamily,
     });
     
-    if (scoreData.pembina.nama) {
-      layers.push({
-        id: 'pembina_nama',
-        text: scoreData.pembina.nama,
-        x: STANDARD_CANVAS_WIDTH * 0.7,
-        y: STANDARD_CANVAS_HEIGHT * 0.85,
-        xPercent: 0.7,
-        yPercent: 0.85,
-        fontSize: scoreFontSettings.additionalInfo.fontSize,
-        color: scoreFontSettings.additionalInfo.color,
-        fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-        fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-      });
-    }
+    // Always create pembina text layers, even if empty
+    layers.push({
+      id: 'pembina_nama',
+      text: scoreData.pembina.nama || '',
+      x: STANDARD_CANVAS_WIDTH * 0.7,
+      y: STANDARD_CANVAS_HEIGHT * 0.85,
+      xPercent: 0.7,
+      yPercent: 0.85,
+      fontSize: scoreFontSettings.additionalInfo.fontSize,
+      color: scoreFontSettings.additionalInfo.color,
+      fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+      fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+    });
+    
+    layers.push({
+      id: 'pembina_jabatan',
+      text: scoreData.pembina.jabatan || '',
+      x: STANDARD_CANVAS_WIDTH * 0.7,
+      y: STANDARD_CANVAS_HEIGHT * 0.9,
+      xPercent: 0.7,
+      yPercent: 0.9,
+      fontSize: scoreFontSettings.additionalInfo.fontSize,
+      color: scoreFontSettings.additionalInfo.color,
+      fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+      fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+    });
     
     console.log('═'.repeat(80));
     console.log('🎯 SCORE TEXT LAYERS CREATED');
@@ -339,7 +391,7 @@ function CertificateGeneratorContent() {
     });
     console.log('═'.repeat(80));
     setScoreTextLayers(layers);
-  }, [activeTemplateMode, selectedTemplate, scoreData, scoreFontSettings, formatNilaiPrestasi]);
+  }, [activeTemplateMode, selectedTemplate, scoreData, scoreFontSettings, formatNilaiPrestasi, dateFormat, formatDateString]);
   
   // Update text content when scoreData or scoreFontSettings changes
   useEffect(() => {
@@ -434,7 +486,7 @@ function CertificateGeneratorContent() {
         if (layer.id === 'score_date') {
           return { 
             ...layer, 
-            text: scoreData.date,
+            text: formatDateString(scoreData.date, dateFormat),
             fontSize: scoreFontSettings.date.fontSize,
             color: scoreFontSettings.date.color,
             fontWeight: scoreFontSettings.date.fontWeight,
@@ -449,7 +501,22 @@ function CertificateGeneratorContent() {
         if (layer.id === 'pembina_nama') {
           return { 
             ...layer, 
-            text: scoreData.pembina.nama,
+            text: scoreData.pembina.nama || '',
+            fontSize: scoreFontSettings.additionalInfo.fontSize,
+            color: scoreFontSettings.additionalInfo.color,
+            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+            // Preserve positioning
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+          };
+        }
+        if (layer.id === 'pembina_jabatan') {
+          return { 
+            ...layer, 
+            text: scoreData.pembina.jabatan || '',
             fontSize: scoreFontSettings.additionalInfo.fontSize,
             color: scoreFontSettings.additionalInfo.color,
             fontWeight: scoreFontSettings.additionalInfo.fontWeight,
@@ -464,7 +531,7 @@ function CertificateGeneratorContent() {
         return layer;
       });
     });
-  }, [scoreData, scoreFontSettings, activeTemplateMode, formatNilaiPrestasi, scoreTextLayers.length]);
+  }, [scoreData, scoreFontSettings, activeTemplateMode, formatNilaiPrestasi, scoreTextLayers.length, dateFormat, formatDateString]);
   
   // Auto-save coordinates and font settings when score text layers are positioned
   useEffect(() => {
@@ -504,7 +571,7 @@ function CertificateGeneratorContent() {
         console.warn("⚠️ Failed to auto-save score coordinates and font settings:", error);
       }
     }
-  }, [scoreTextLayers, activeTemplateMode, selectedTemplate, scoreTextLayers.length, scoreFontSettings]);
+  }, [scoreTextLayers, activeTemplateMode, selectedTemplate, scoreTextLayers.length, scoreFontSettings, overlayImages]);
   
   // Auto-save score font settings when they change
   useEffect(() => {
@@ -552,14 +619,7 @@ function CertificateGeneratorContent() {
     height: STANDARD_CANVAS_HEIGHT,
   });
   const [snapGridEnabled, setSnapGridEnabled] = useState(false);
-  const gridSize = 20; // Grid spacing in pixels
-  
-  // Separate overlay images for certificate and score modes
-  const [certificateOverlayImages, setCertificateOverlayImages] = useState<Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>>([]);
-  const [scoreOverlayImages, setScoreOverlayImages] = useState<Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>>([]);
-  
-  // Active overlay images based on current mode
-  const overlayImages = activeTemplateMode === 'certificate' ? certificateOverlayImages : scoreOverlayImages;
+  const gridSize = 20; // Grid spacing in pixels;
   
   // Wrapper function to set overlay images based on active mode
   const setOverlayImages = useCallback((images: Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}> | ((prev: Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>) => Array<{id: string; url: string; x: number; y: number; width: number; height: number; aspectRatio: number}>)) => {
@@ -636,12 +696,11 @@ function CertificateGeneratorContent() {
   const [isGenerating, setIsGenerating] = useState(false);
   
   // NEW: Preview mode state for dual-mode templates
-  const [previewMode, setPreviewMode] = useState<'certificate' | 'score' | 'combined'>('combined');
+  const [previewMode, setPreviewMode] = useState<'certificate' | 'score' | 'combined'>('certificate');
   const [certificateImageUrl, setCertificateImageUrl] = useState<string | null>(null);
   const [scoreImageUrl, setScoreImageUrl] = useState<string | null>(null);
   
-  // NEW: Manual dual template mode toggle (for testing)
-  const [manualDualMode, setManualDualMode] = useState(false);
+  // Manual dual template toggle removed — use template.is_dual_template instead
   const [members, setMembers] = useState<Member[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
@@ -659,42 +718,26 @@ function CertificateGeneratorContent() {
     fontWeight: "normal",
   });
 
-  // Single date format applied to both issue and expiry dates (form keeps ISO)
-  const [dateFormat, setDateFormat] = useState<string>("yyyy-mm-dd");
+  // Sync activeTemplateMode -> previewMode so switching template mode also updates preview
+  useEffect(() => {
+    if (activeTemplateMode === 'certificate') setPreviewMode('certificate');
+    else if (activeTemplateMode === 'score') setPreviewMode('score');
+  }, [activeTemplateMode]);
 
-  // Format an ISO date (yyyy-mm-dd) into chosen format for canvas text
-  const formatDateString = useCallback((iso: string, fmt: string): string => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    const mmm = d.toLocaleString('en-US', { month: 'short' });
-    const mmmm = d.toLocaleString('en-US', { month: 'long' });
+  // Update certificate date text layers when date format changes
+  useEffect(() => {
+    if (activeTemplateMode !== 'certificate') return;
+    if (certificateTextLayers.length === 0) return;
     
-    // Indonesian month names
-    const indonesianMonths = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    const indonesianMonth = indonesianMonths[d.getMonth()];
-    
-    switch (fmt) {
-      case 'dd-mm-yyyy': return `${dd}-${mm}-${yyyy}`;
-      case 'mm-dd-yyyy': return `${mm}-${dd}-${yyyy}`;
-      case 'yyyy-mm-dd': return `${yyyy}-${mm}-${dd}`;
-      case 'dd-mmm-yyyy': return `${dd} ${mmm} ${yyyy}`;
-      case 'dd-mmmm-yyyy': return `${dd} ${mmmm} ${yyyy}`;
-      case 'mmm-dd-yyyy': return `${mmm} ${dd}, ${yyyy}`;
-      case 'mmmm-dd-yyyy': return `${mmmm} ${dd}, ${yyyy}`;
-      case 'dd/mm/yyyy': return `${dd}/${mm}/${yyyy}`;
-      case 'mm/dd/yyyy': return `${mm}/${dd}/${yyyy}`;
-      case 'yyyy/mm/dd': return `${yyyy}/${mm}/${dd}`;
-      case 'dd-indonesian-yyyy': return `${dd} ${indonesianMonth} ${yyyy}`;
-      default: return iso;
-    }
-  }, []);
+    setCertificateTextLayers(prevLayers => 
+      prevLayers.map(layer => {
+        if (layer.id === 'issue_date') {
+          return { ...layer, text: formatDateString(certificateData.issue_date, dateFormat) };
+        }
+        return layer;
+      })
+    );
+  }, [dateFormat, activeTemplateMode, certificateData.issue_date, formatDateString]);
 
   // NEW: Helper function to get active template image URL based on mode
   const getActiveTemplateImageUrl = useCallback((template: Template | null): string | null => {
@@ -963,6 +1006,27 @@ function CertificateGeneratorContent() {
     loadTemplate();
   }, [templateId]);
 
+  // When a template is loaded, populate preview image URLs for certificate and score
+  useEffect(() => {
+    if (!selectedTemplate) {
+      setCertificateImageUrl(null);
+      setScoreImageUrl(null);
+      return;
+    }
+
+    // Prefer explicit certificate/score URLs stored on the template
+    const certUrl = selectedTemplate.certificate_image_url
+      ? `${selectedTemplate.certificate_image_url}?v=${selectedTemplate.id}&t=${Date.now()}`
+      : getTemplateImageUrl(selectedTemplate) || null;
+    const scUrl = selectedTemplate.score_image_url
+      ? `${selectedTemplate.score_image_url}?v=${selectedTemplate.id}&t=${Date.now()}`
+      : null;
+    setCertificateImageUrl(certUrl);
+    setScoreImageUrl(scUrl);
+
+    console.log('🛰️ Preview image URLs set from template:', { certUrl, scUrl });
+  }, [selectedTemplate]);
+
   const updateCertificateData = (
     field: keyof CertificateData,
     value: string,
@@ -1193,9 +1257,11 @@ function CertificateGeneratorContent() {
             } else if (saved.id === 'keterangan') {
               text = scoreData.keterangan;
             } else if (saved.id === 'score_date') {
-              text = scoreData.date;
+              text = formatDateString(scoreData.date, dateFormat);
             } else if (saved.id === 'pembina_nama') {
               text = scoreData.pembina.nama;
+            } else if (saved.id === 'pembina_jabatan') {
+              text = scoreData.pembina.jabatan;
             }
           }
           
@@ -1239,7 +1305,7 @@ function CertificateGeneratorContent() {
     } else {
       console.log(`ℹ️ No saved defaults for ${activeTemplateMode} mode`);
     }
-  }, [activeTemplateMode, selectedTemplate, certificateData, scoreData, certificateTextLayers, scoreTextLayers, formatNilaiPrestasi]);
+  }, [activeTemplateMode, selectedTemplate, certificateData, scoreData, certificateTextLayers, scoreTextLayers, formatNilaiPrestasi, dateFormat, formatDateString]);
 
   // FIX: Utility functions for normalized coordinates using standard canvas size
   const getNormalizedPosition = useCallback((x: number, y: number) => {
@@ -2217,52 +2283,185 @@ function CertificateGeneratorContent() {
   };
 
   // Fallback method using canvas (original implementation)
-  // NEW: Create combined image from score and certificate
-  const createCombinedImage = async (scoreImageDataUrl: string, certificateImageDataUrl: string): Promise<string> => {
+  // Removed createCombinedImage function since we now store separate images
+
+  // NEW: Synchronize score data with text layers before generation
+  const syncScoreDataToTextLayers = (layers: TextLayer[], scoreData: any): TextLayer[] => {
+    console.log('🔄 Synchronizing score data to text layers...');
+    console.log('📝 Current score data:', scoreData);
+    console.log('📝 Existing layers:', layers.length);
+    console.log('📝 Current score font settings:', scoreFontSettings);
+    
+    return layers.map(layer => {
+      // Update aspek non teknis nilai
+      if (layer.id.startsWith('aspek_non_teknis_')) {
+        const no = layer.id.split('_')[3]; // Extract number from id
+        const item = scoreData.aspek_non_teknis.find((a: any) => a.no === parseInt(no));
+        if (item) {
+          return { 
+            ...layer, 
+            text: `${item.nilai}`,
+            // Preserve font settings from scoreFontSettings
+            fontSize: scoreFontSettings.nilai.fontSize,
+            color: scoreFontSettings.nilai.color,
+            fontWeight: scoreFontSettings.nilai.fontWeight,
+            fontFamily: scoreFontSettings.nilai.fontFamily,
+          };
+        }
+      }
+      
+      // Update aspek teknis standar kompetensi
+      if (layer.id.startsWith('aspek_teknis_name_')) {
+        const no = layer.id.split('_')[3]; // Extract number from id
+        const item = scoreData.aspek_teknis.find((a: any) => a.no === parseInt(no));
+        if (item) {
+          return { 
+            ...layer, 
+            text: item.standar_kompetensi || '',
+            // Preserve font settings from scoreFontSettings
+            fontSize: scoreFontSettings.aspekTeknis.fontSize,
+            color: scoreFontSettings.aspekTeknis.color,
+            fontWeight: scoreFontSettings.aspekTeknis.fontWeight,
+            fontFamily: scoreFontSettings.aspekTeknis.fontFamily,
+          };
+        }
+      }
+      
+      // Update aspek teknis nilai
+      if (layer.id.startsWith('aspek_teknis_nilai_')) {
+        const no = layer.id.split('_')[3]; // Extract number from id
+        const item = scoreData.aspek_teknis.find((a: any) => a.no === parseInt(no));
+        if (item) {
+          return { 
+            ...layer, 
+            text: `${item.nilai}`,
+            // Preserve font settings from scoreFontSettings
+            fontSize: scoreFontSettings.nilai.fontSize,
+            color: scoreFontSettings.nilai.color,
+            fontWeight: scoreFontSettings.nilai.fontWeight,
+            fontFamily: scoreFontSettings.nilai.fontFamily,
+          };
+        }
+      }
+      
+      // Update nilai prestasi
+      if (layer.id === 'nilai_prestasi') {
+        return { 
+          ...layer, 
+          text: formatNilaiPrestasi(scoreData.nilai_prestasi || ''),
+          // Preserve font settings from scoreFontSettings
+          fontSize: scoreFontSettings.additionalInfo.fontSize,
+          color: scoreFontSettings.additionalInfo.color,
+          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+        };
+      }
+      
+      // Update pembina nama
+      if (layer.id === 'pembina_nama') {
+        return { 
+          ...layer, 
+          text: scoreData.pembina_nama || '',
+          // Preserve font settings from scoreFontSettings
+          fontSize: scoreFontSettings.additionalInfo.fontSize,
+          color: scoreFontSettings.additionalInfo.color,
+          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+        };
+      }
+      
+      // Update score date
+      if (layer.id === 'score_date') {
+        return { 
+          ...layer, 
+          text: scoreData.score_date || '',
+          // Preserve font settings from scoreFontSettings
+          fontSize: scoreFontSettings.additionalInfo.fontSize,
+          color: scoreFontSettings.additionalInfo.color,
+          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+        };
+      }
+      
+      return layer; // Return unchanged if no match
+    });
+  };
+
+  // NEW: Create a specialized function for generating score images with explicit template
+  const createScoreImageWithTemplate = async (scoreTextLayers: TextLayer[], template: Template): Promise<string> => {
     return new Promise((resolve, reject) => {
       try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        console.log('🎨 Creating score image with explicit template...');
+        console.log('📝 Score text layers:', scoreTextLayers.length);
+        console.log('🖼️ Using score template:', template.score_image_url);
+        
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
         if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
+          reject(new Error("Could not get canvas context"));
           return;
         }
 
-        // Create images
-        const scoreImg = new Image();
-        const certificateImg = new Image();
+        // Set canvas dimensions
+        canvas.width = STANDARD_CANVAS_WIDTH;
+        canvas.height = STANDARD_CANVAS_HEIGHT;
+
+        // Load the score template image
+        const scoreTemplateImg = new Image();
+        scoreTemplateImg.crossOrigin = "anonymous";
         
-        let imagesLoaded = 0;
-        const onImageLoad = () => {
-          imagesLoaded++;
-          if (imagesLoaded === 2) {
-            // Set canvas dimensions (score on top, certificate below)
-            const maxWidth = Math.max(scoreImg.width, certificateImg.width);
-            const totalHeight = scoreImg.height + certificateImg.height;
+        scoreTemplateImg.onload = () => {
+          try {
+            // Draw the score template background
+            ctx.drawImage(scoreTemplateImg, 0, 0, canvas.width, canvas.height);
             
-            canvas.width = maxWidth;
-            canvas.height = totalHeight;
-            
-            // Draw score image on top
-            ctx.drawImage(scoreImg, 0, 0);
-            
-            // Draw certificate image below
-            ctx.drawImage(certificateImg, 0, scoreImg.height);
+            // Draw score text layers with proper font settings
+            scoreTextLayers.forEach((layer) => {
+              // Use the actual font properties from the text layer
+              ctx.font = `${layer.fontWeight} ${layer.fontSize}px ${layer.fontFamily}`;
+              ctx.fillStyle = layer.color;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              
+              const x = layer.xPercent * canvas.width;
+              const y = layer.yPercent * canvas.height;
+              
+              console.log(`🎨 Drawing text layer: ${layer.id}`, {
+                text: layer.text,
+                fontSize: layer.fontSize,
+                fontWeight: layer.fontWeight,
+                fontFamily: layer.fontFamily,
+                color: layer.color,
+                position: { x, y },
+                fontString: `${layer.fontWeight} ${layer.fontSize}px ${layer.fontFamily}`
+              });
+              
+              ctx.fillText(layer.text, x, y);
+            });
             
             // Convert to data URL
-            const combinedDataUrl = canvas.toDataURL('image/png');
-            resolve(combinedDataUrl);
+            const dataUrl = canvas.toDataURL("image/png");
+            console.log("✅ Score image created with explicit template");
+            resolve(dataUrl);
+          } catch (error) {
+            console.error("❌ Error drawing score image:", error);
+            reject(error);
           }
         };
         
-        scoreImg.onload = onImageLoad;
-        certificateImg.onload = onImageLoad;
-        scoreImg.onerror = () => reject(new Error('Failed to load score image'));
-        certificateImg.onerror = () => reject(new Error('Failed to load certificate image'));
+        scoreTemplateImg.onerror = () => {
+          console.error("❌ Failed to load score template image");
+          reject(new Error("Failed to load score template image"));
+        };
         
-        scoreImg.src = scoreImageDataUrl;
-        certificateImg.src = certificateImageDataUrl;
+        // Use the score template image URL
+        if (template.score_image_url) {
+          scoreTemplateImg.src = template.score_image_url;
+        } else {
+          reject(new Error("No score template image available"));
+        }
       } catch (error) {
+        console.error("❌ Error creating score image:", error);
         reject(error);
       }
     });
@@ -2516,89 +2715,124 @@ function CertificateGeneratorContent() {
       }
 
       // For dual-mode templates, generate both score and certificate
-      if (selectedTemplate?.is_dual_template || manualDualMode) {
+      if (selectedTemplate?.is_dual_template) {
         console.log("🎨 Generating both score and certificate for dual-mode template...");
         
-        // First, generate certificate image
-        console.log("📜 Creating certificate image...");
-        const certificateImageDataUrl = await createMergedCertificateImage();
-        console.log("✅ Certificate image created:", certificateImageDataUrl.substring(0, 50) + "...");
-
-        // Then, generate score image by switching mode
-        console.log("📊 Creating score image...");
-        const originalMode = activeTemplateMode;
-        setActiveTemplateMode('score');
-        
-        // Wait for mode switch to complete
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const scoreImageDataUrl = await createMergedCertificateImage();
-        console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
-        
-        // Switch back to original mode
-        setActiveTemplateMode(originalMode);
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Create combined image (score on top, certificate below)
-        console.log("🖼️ Creating combined image...");
-        const combinedImageDataUrl = await createCombinedImage(scoreImageDataUrl, certificateImageDataUrl);
-        console.log("✅ Combined image created:", combinedImageDataUrl.substring(0, 50) + "...");
-
-        // Set generated image URLs for preview
-        setGeneratedImageUrl(combinedImageDataUrl);
-        setCertificateImageUrl(certificateImageDataUrl);
-        setScoreImageUrl(scoreImageDataUrl);
-
-        // Save both certificate and score separately to database
-        console.log("💾 Saving certificate to database...");
-        const certificateDataToSave: CreateCertificateData = {
-          certificate_no: finalCertificateNo,
-          name: certificateData.name.trim(),
-          description: certificateData.description.trim() || undefined,
-          issue_date: certificateData.issue_date,
-          expired_date: certificateData.expired_date || undefined,
-          category: selectedTemplate?.category || undefined,
-          template_id: selectedTemplate?.id || undefined,
-          member_id: selectedMemberId || undefined,
-          text_layers: textLayers,
-          merged_image: certificateImageDataUrl, // Certificate image only
-          certificate_image_url: certificateImageDataUrl,
-        };
-
-        const savedCertificate = await createCertificate(certificateDataToSave);
-        console.log("✅ Certificate saved to database:", savedCertificate);
-
-        // Save score to database
-        console.log("💾 Saving score to database...");
-        const scoreDataToSave: CreateScoreData = {
-          name: certificateData.name.trim(),
-          description: certificateData.description.trim() || undefined,
-          issue_date: certificateData.issue_date,
-          expired_date: certificateData.expired_date || undefined,
-          category: selectedTemplate?.category || undefined,
-          template_id: selectedTemplate?.id || undefined,
-          member_id: selectedMemberId || undefined,
-          text_layers: scoreTextLayers,
-          score_data: scoreData,
-          merged_image: scoreImageDataUrl, // Score image only
-          score_image_url: scoreImageDataUrl,
-        };
-
-        const savedScore = await createScore(scoreDataToSave);
-        console.log("✅ Score saved to database:", savedScore);
-
-        // Save combined image to local storage
         try {
-          console.log("💾 Saving combined PNG to local storage...");
-          const localImageUrl = await saveGeneratedPNG(combinedImageDataUrl);
-          console.log("✅ Combined PNG saved locally:", localImageUrl);
-          setGeneratedImageUrl(localImageUrl);
-        } catch (e) {
-          console.warn("⚠️ Save combined PNG to local failed, keeping dataURL.", e);
-        }
+          // Store original mode to restore later
+          const originalMode = activeTemplateMode;
+          
+          // First, generate certificate image with certificate text layers
+          console.log("📜 Creating certificate image...");
+          console.log("📝 Using certificate text layers:", certificateTextLayers.length);
+          console.log("🔄 Current mode before switch:", activeTemplateMode);
+          
+          // Ensure we're in certificate mode for proper template image
+          setActiveTemplateMode('certificate');
+          await new Promise(resolve => setTimeout(resolve, 200)); // Wait longer for mode switch
+          
+          // Force DOM update to ensure template image changes
+          const previewElement = document.getElementById('certificate-preview');
+          if (previewElement) {
+            const originalDisplay = previewElement.style.display;
+            previewElement.style.display = 'none';
+            previewElement.offsetHeight; // Trigger reflow
+            previewElement.style.display = originalDisplay;
+          }
+          
+          console.log("🔄 Mode after switch:", activeTemplateMode);
+          const templateImageUrl = getActiveTemplateImageUrl(selectedTemplate);
+          console.log("🖼️ Template image URL:", templateImageUrl);
+          
+          const certificateImageDataUrl = await createMergedCertificateImage(certificateTextLayers);
+          console.log("✅ Certificate image created:", certificateImageDataUrl.substring(0, 50) + "...");
 
-        toast.success("Certificate and Score generated and saved successfully!");
-        return; // Exit early for dual-mode templates
+          // Then, generate score image with score text layers using explicit template
+          console.log("📊 Creating score image...");
+          console.log("📝 Using score text layers:", scoreTextLayers.length);
+          console.log("📝 Current score data:", scoreData);
+          
+          // Synchronize score data with text layers before generation
+          const synchronizedScoreTextLayers = syncScoreDataToTextLayers(scoreTextLayers, scoreData);
+          console.log("🔄 Synchronized score text layers:", synchronizedScoreTextLayers.length);
+          
+          // Use specialized function that explicitly uses score template
+          const scoreImageDataUrl = await createScoreImageWithTemplate(synchronizedScoreTextLayers, selectedTemplate!);
+          console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
+          
+          // Restore original mode
+          setActiveTemplateMode(originalMode);
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          // Set generated image URLs for preview - NO COMBINED IMAGE
+          console.log("🖼️ Setting separate certificate and score images for preview...");
+          setCertificateImageUrl(certificateImageDataUrl);
+          setScoreImageUrl(scoreImageDataUrl);
+          
+          // Save both images to local storage separately
+          try {
+            console.log("💾 Saving certificate PNG to local storage...");
+            const certificateLocalUrl = await saveGeneratedPNG(certificateImageDataUrl);
+            console.log("✅ Certificate PNG saved locally:", certificateLocalUrl);
+            setCertificateImageUrl(certificateLocalUrl);
+          } catch (e) {
+            console.warn("⚠️ Save certificate PNG to local failed, keeping dataURL.", e);
+          }
+          
+          try {
+            console.log("💾 Saving score PNG to local storage...");
+            const scoreLocalUrl = await saveGeneratedPNG(scoreImageDataUrl);
+            console.log("✅ Score PNG saved locally:", scoreLocalUrl);
+            setScoreImageUrl(scoreLocalUrl);
+          } catch (e) {
+            console.warn("⚠️ Save score PNG to local failed, keeping dataURL.", e);
+          }
+
+          // Save both certificate and score images in the same certificate record
+          console.log("💾 Saving certificate with both images to database...");
+          console.log("📝 Certificate text layers to save:", certificateTextLayers.length);
+          console.log("📝 Score text layers available:", scoreTextLayers.length);
+          
+          const certificateDataToSave: CreateCertificateData = {
+            certificate_no: finalCertificateNo,
+            name: certificateData.name.trim(),
+            description: certificateData.description.trim() || undefined,
+            issue_date: certificateData.issue_date,
+            expired_date: certificateData.expired_date || undefined,
+            category: selectedTemplate?.category || undefined,
+            template_id: selectedTemplate?.id || undefined,
+            member_id: selectedMemberId || undefined,
+            text_layers: certificateTextLayers, // FIX: Use certificateTextLayers explicitly instead of textLayers
+            merged_image: certificateImageDataUrl, // Certificate image only
+            certificate_image_url: certificateImageDataUrl,
+            score_image_url: scoreImageDataUrl, // NEW: Store score image in same record
+          };
+
+          const savedCertificate = await createCertificate(certificateDataToSave);
+          console.log("✅ Certificate with both images saved to database:", savedCertificate);
+
+          toast.success("Certificate and Score generated and saved successfully!");
+          
+          // Show success dialog
+          const go = await confirmToast(
+            "Certificate and Score saved successfully! Would you like to view all certificates?",
+            { confirmText: "View Certificates", tone: "success" }
+          );
+          if (go) {
+            window.location.href = "/certificates";
+          }
+          return; // Exit early for dual-mode templates
+        } catch (error) {
+          console.error("❌ Failed to generate dual template certificate:", error);
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Failed to generate certificate and score",
+          );
+          return;
+        } finally {
+          setIsGenerating(false);
+        }
       } else {
         // For single-mode templates, generate only certificate
         console.log("🎨 Creating merged certificate image...");
@@ -2944,64 +3178,9 @@ function CertificateGeneratorContent() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  {/* Preview Mode Switch for Dual Templates */}
-                  {(() => {
-                    const isDualTemplate = selectedTemplate?.is_dual_template || manualDualMode;
-                    console.log("🔍 Switch button conditions:", {
-                      selectedTemplate: !!selectedTemplate,
-                      is_dual_template: selectedTemplate?.is_dual_template,
-                      manualDualMode,
-                      isDualTemplate,
-                      generatedImageUrl: !!generatedImageUrl,
-                      certificateImageUrl: !!certificateImageUrl,
-                      scoreImageUrl: !!scoreImageUrl,
-                      previewMode
-                    });
-                    return isDualTemplate && generatedImageUrl;
-                  })() && (
-                    <div className="flex bg-gray-100 rounded-lg p-1 mr-2">
-                      <button
-                        onClick={() => setPreviewMode('combined')}
-                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                          previewMode === 'combined'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Combined
-                      </button>
-                      <button
-                        onClick={() => setPreviewMode('certificate')}
-                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                          previewMode === 'certificate'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Certificate
-                      </button>
-                      <button
-                        onClick={() => setPreviewMode('score')}
-                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                          previewMode === 'score'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Score
-                      </button>
-                    </div>
-                  )}
+                  {/* Preview Mode Switch removed (use existing switch elsewhere) */}
                   
-                  {/* Manual Dual Mode Toggle (for testing) */}
-                  <Button
-                    onClick={() => setManualDualMode(!manualDualMode)}
-                    className={`${manualDualMode ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-500 hover:bg-gray-600'} text-white`}
-                    size="sm"
-                  >
-                    {manualDualMode ? 'Dual Mode ON' : 'Dual Mode OFF'}
-                  </Button>
-                  
+                  {/* Removed manual dual-mode toggle (redundant with preview switch) */}
                   <Button
                     onClick={addNewText}
                     className="bg-green-500 hover:bg-green-600 text-white"
@@ -3065,16 +3244,16 @@ function CertificateGeneratorContent() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={
-                        (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'certificate' && certificateImageUrl
+                        selectedTemplate?.is_dual_template && previewMode === 'certificate' && certificateImageUrl
                           ? certificateImageUrl
-                          : (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'score' && scoreImageUrl
+                          : selectedTemplate?.is_dual_template && previewMode === 'score' && scoreImageUrl
                           ? scoreImageUrl
                           : generatedImageUrl
                       }
                       alt={
-                        (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'certificate'
+                        selectedTemplate?.is_dual_template && previewMode === 'certificate'
                           ? "Generated Certificate"
-                          : (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'score'
+                          : selectedTemplate?.is_dual_template && previewMode === 'score'
                           ? "Generated Score"
                           : "Generated Certificate"
                       }
@@ -3087,9 +3266,9 @@ function CertificateGeneratorContent() {
                       }}
                     />
                     <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-medium">
-                      {(selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'certificate'
+                      {selectedTemplate?.is_dual_template && previewMode === 'certificate'
                         ? "Certificate PNG"
-                        : (selectedTemplate?.is_dual_template || manualDualMode) && previewMode === 'score'
+                        : selectedTemplate?.is_dual_template && previewMode === 'score'
                         ? "Score PNG"
                         : "Generated PNG"}
                     </div>
@@ -4285,6 +4464,27 @@ function CertificateGeneratorContent() {
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-700">
+                      Format Tanggal
+                    </label>
+                    <select
+                      value={dateFormat}
+                      onChange={(e) => setDateFormat(e.target.value)}
+                      className="w-full h-8 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="yyyy-mm-dd">2025-01-10</option>
+                      <option value="dd-mm-yyyy">10-01-2025</option>
+                      <option value="mm-dd-yyyy">01-10-2025</option>
+                      <option value="dd-mmm-yyyy">10 Jan 2025</option>
+                      <option value="dd-mmmm-yyyy">10 January 2025</option>
+                      <option value="dd-indonesian-yyyy">10 Oktober 2025</option>
+                      <option value="dd/mm/yyyy">10/01/2025</option>
+                      <option value="mm/dd/yyyy">01/10/2025</option>
+                      <option value="yyyy/mm/dd">2025/01/10</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">
                       Jabatan Pembina
                     </label>
                     <Input
@@ -4315,7 +4515,7 @@ function CertificateGeneratorContent() {
                   
                   {/* Font Settings for Informasi Tambahan */}
                   <div className="mt-3 p-3 bg-gray-50 rounded-md border">
-                    <h4 className="text-xs font-semibold text-gray-800 mb-2">🎨 Font Settings - Informasi Tambahan</h4>
+                    <h4 className="text-xs font-semibold text-gray-800 mb-2">Font Settings - Informasi Tambahan</h4>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-gray-700">Font Size</label>
@@ -4447,6 +4647,7 @@ function CertificateGeneratorContent() {
                 <div className="flex flex-col gap-3 pt-4 border-t">
                   <Button
                     className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                    disabled={isGenerating}
                     onClick={async (e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -4455,73 +4656,145 @@ function CertificateGeneratorContent() {
                       try {
                         setIsGenerating(true);
                         
+                        // Validate required fields
+                        if (!certificateData.name.trim() || !certificateData.issue_date) {
+                          toast.error("Please fill in all required fields (Name and Issue Date)");
+                          return;
+                        }
+
+                        // Require member selection for Admin/Team
+                        if ((role === "Admin" || role === "Team") && !selectedMemberId) {
+                          toast.error("Please select a member before creating the certificate");
+                          return;
+                        }
+
+                        // Auto-generate certificate number if empty
+                        let finalCertificateNo = certificateData.certificate_no.trim();
+                        if (!finalCertificateNo) {
+                          console.log("📝 Auto-generating certificate number...");
+                          const issueDate = new Date(certificateData.issue_date);
+                          finalCertificateNo = await generateCertificateNumber(issueDate);
+                          console.log("✨ Generated certificate number:", finalCertificateNo);
+                          
+                          // Update the form with generated number
+                          setCertificateData(prev => ({
+                            ...prev,
+                            certificate_no: finalCertificateNo
+                          }));
+                        }
+
                         // Generate both score and certificate for dual-mode templates
                         console.log("🎨 Generating both score and certificate for dual-mode template...");
                         
-                        // First, generate score image
-                        console.log("📊 Creating score image...");
-                        const scoreImageDataUrl = await createMergedCertificateImage();
-                        console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
-
-                        // Then, generate certificate image by switching mode
-                        console.log("📜 Creating certificate image...");
+                        // Store original mode to restore later
                         const originalMode = activeTemplateMode;
+                        
+                        // First, generate certificate image with certificate text layers
+                        console.log("📜 Creating certificate image...");
+                        console.log("📝 Using certificate text layers:", certificateTextLayers.length);
+                        console.log("🔄 Current mode before switch:", activeTemplateMode);
+                        
+                        // Ensure we're in certificate mode for proper template image
                         setActiveTemplateMode('certificate');
+                        await new Promise(resolve => setTimeout(resolve, 200)); // Wait longer for mode switch
                         
-                        // Wait for mode switch to complete
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        // Force DOM update to ensure template image changes
+                        const previewElement = document.getElementById('certificate-preview');
+                        if (previewElement) {
+                          const originalDisplay = previewElement.style.display;
+                          previewElement.style.display = 'none';
+                          previewElement.offsetHeight; // Trigger reflow
+                          previewElement.style.display = originalDisplay;
+                        }
                         
-                        const certificateImageDataUrl = await createMergedCertificateImage();
+                        console.log("🔄 Mode after switch:", activeTemplateMode);
+                        const templateImageUrl = getActiveTemplateImageUrl(selectedTemplate);
+                        console.log("🖼️ Template image URL:", templateImageUrl);
+                        
+                        const certificateImageDataUrl = await createMergedCertificateImage(certificateTextLayers);
                         console.log("✅ Certificate image created:", certificateImageDataUrl.substring(0, 50) + "...");
+
+                        // Then, generate score image with score text layers using explicit template
+                        console.log("📊 Creating score image...");
+                        console.log("📝 Using score text layers:", scoreTextLayers.length);
+                        console.log("📝 Current score data:", scoreData);
                         
-                        // Switch back to original mode
+                        // Synchronize score data with text layers before generation
+                        const synchronizedScoreTextLayers = syncScoreDataToTextLayers(scoreTextLayers, scoreData);
+                        console.log("🔄 Synchronized score text layers:", synchronizedScoreTextLayers.length);
+                        
+                        // Use specialized function that explicitly uses score template
+                        const scoreImageDataUrl = await createScoreImageWithTemplate(synchronizedScoreTextLayers, selectedTemplate!);
+                        console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
+                        
+                        // Restore original mode
                         setActiveTemplateMode(originalMode);
                         await new Promise(resolve => setTimeout(resolve, 100));
 
-                        // Create combined image (score on top, certificate below)
-                        console.log("🖼️ Creating combined image...");
-                        const combinedImageDataUrl = await createCombinedImage(scoreImageDataUrl, certificateImageDataUrl);
-                        console.log("✅ Combined image created:", combinedImageDataUrl.substring(0, 50) + "...");
-
-                        // Set generated image URL for preview
-                        setGeneratedImageUrl(combinedImageDataUrl);
-
-                        // AUTO-SAVE: Save current coordinates as default for this template
-                        if (selectedTemplate) {
-                          try {
-                            const defaults: TextLayerDefault[] = textLayers.map((layer) => ({
-                              id: layer.id,
-                              x: layer.x,
-                              y: layer.y,
-                              xPercent: layer.xPercent,
-                              yPercent: layer.yPercent,
-                              fontSize: layer.fontSize,
-                              color: layer.color,
-                              fontWeight: layer.fontWeight,
-                              fontFamily: layer.fontFamily,
-                            }));
-
-                            saveTemplateDefaults({
-                              templateId: `${selectedTemplate.id}_score`,
-                              templateName: selectedTemplate.name,
-                              textLayers: defaults,
-                              overlayImages: overlayImages,
-                              scoreFontSettings: scoreFontSettings, // Save score font settings
-                              savedAt: new Date().toISOString(),
-                            });
-
-                            console.log(`💾 Auto-saved score coordinates and ${overlayImages.length} overlay images for template: ${selectedTemplate.name}`);
-                            toast.success("Both score and certificate generated successfully!");
-                          } catch (error) {
-                            console.warn("⚠️ Failed to auto-save score coordinates:", error);
-                            toast.warning("Score generated but failed to save coordinates");
-                          }
+                        // Set generated image URLs for preview - NO COMBINED IMAGE
+                        console.log("🖼️ Setting separate certificate and score images for preview...");
+                        setCertificateImageUrl(certificateImageDataUrl);
+                        setScoreImageUrl(scoreImageDataUrl);
+                        
+                        // Save both images to local storage separately
+                        try {
+                          console.log("💾 Saving certificate PNG to local storage...");
+                          const certificateLocalUrl = await saveGeneratedPNG(certificateImageDataUrl);
+                          console.log("✅ Certificate PNG saved locally:", certificateLocalUrl);
+                          setCertificateImageUrl(certificateLocalUrl);
+                        } catch (e) {
+                          console.warn("⚠️ Save certificate PNG to local failed, keeping dataURL.", e);
+                        }
+                        
+                        try {
+                          console.log("💾 Saving score PNG to local storage...");
+                          const scoreLocalUrl = await saveGeneratedPNG(scoreImageDataUrl);
+                          console.log("✅ Score PNG saved locally:", scoreLocalUrl);
+                          setScoreImageUrl(scoreLocalUrl);
+                        } catch (e) {
+                          console.warn("⚠️ Save score PNG to local failed, keeping dataURL.", e);
                         }
 
-                        toast.success("Score and certificate generated successfully!");
+          // Save both certificate and score images in the same certificate record
+          console.log("💾 Saving certificate with both images to database...");
+          console.log("📝 Certificate text layers to save:", certificateTextLayers.length);
+          console.log("📝 Score text layers available:", scoreTextLayers.length);
+          
+          const certificateDataToSave: CreateCertificateData = {
+            certificate_no: finalCertificateNo,
+            name: certificateData.name.trim(),
+            description: certificateData.description.trim() || undefined,
+            issue_date: certificateData.issue_date,
+            expired_date: certificateData.expired_date || undefined,
+            category: selectedTemplate?.category || undefined,
+            template_id: selectedTemplate?.id || undefined,
+            member_id: selectedMemberId || undefined,
+            text_layers: certificateTextLayers, // Use certificateTextLayers explicitly
+            merged_image: certificateImageDataUrl,
+            certificate_image_url: certificateImageDataUrl,
+            score_image_url: scoreImageDataUrl, // NEW: Store score image in same record
+          };
+
+          const savedCertificate = await createCertificate(certificateDataToSave);
+          console.log("✅ Certificate with both images saved to database:", savedCertificate);
+
+                        toast.success("Certificate and Score generated and saved successfully!");
+                        
+                        // Show success dialog
+                        const go = await confirmToast(
+                          "Certificate and Score saved successfully! Would you like to view all certificates?",
+                          { confirmText: "View Certificates", tone: "success" }
+                        );
+                        if (go) {
+                          window.location.href = "/certificates";
+                        }
                       } catch (error) {
                         console.error("❌ Failed to generate score:", error);
-                        toast.error("Failed to generate score");
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "Failed to generate certificate and score",
+                        );
                       } finally {
                         setIsGenerating(false);
                       }
@@ -4529,7 +4802,7 @@ function CertificateGeneratorContent() {
                     type="button"
                   >
                     <Eye className="w-4 h-4 mr-2" />
-                    Generate & Save Score
+                    {isGenerating ? "Generating..." : "Generate & Save Score"}
                   </Button>
                   <Button
                     className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"

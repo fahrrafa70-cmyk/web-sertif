@@ -11,6 +11,7 @@ export interface Certificate {
   template_id: string | null;
   member_id: string | null;
   certificate_image_url: string | null;
+  score_image_url: string | null; // NEW: For dual templates
   text_layers: TextLayer[];
   created_at: string;
   updated_at: string;
@@ -89,6 +90,7 @@ export interface CreateCertificateData {
   template_id?: string;
   member_id?: string;
   certificate_image_url?: string;
+  score_image_url?: string; // NEW: For dual templates
   text_layers?: TextLayer[];
   merged_image?: string; // FIX: Add support for merged image
 }
@@ -103,11 +105,14 @@ export interface UpdateCertificateData {
   template_id?: string;
   member_id?: string;
   certificate_image_url?: string;
+  score_image_url?: string; // NEW: For dual templates
   text_layers?: TextLayer[];
 }
 
 // Get all certificates
 export async function getCertificates(): Promise<Certificate[]> {
+  console.log("🔍 Fetching all certificates from database...");
+  
   const { data, error } = await supabaseClient
     .from("certificates")
     .select(
@@ -125,7 +130,19 @@ export async function getCertificates(): Promise<Certificate[]> {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("❌ Error fetching certificates:", error);
     throw new Error(`Failed to fetch certificates: ${error.message}`);
+  }
+
+  console.log(`✅ Successfully fetched ${data?.length || 0} certificates from database`);
+  if (data && data.length > 0) {
+    console.log("📋 Certificate details:", data.map(cert => ({
+      id: cert.id,
+      certificate_no: cert.certificate_no,
+      name: cert.name,
+      template_id: cert.template_id,
+      created_at: cert.created_at
+    })));
   }
 
   return data || [];
@@ -343,6 +360,8 @@ export async function createCertificate(
         certificateData.certificate_image_url ||
         certificateData.merged_image ||
         null,
+      // NEW: Handle score image URL for dual templates
+      score_image_url: certificateData.score_image_url || null,
       text_layers: certificateData.text_layers || [],
       public_id: publicId,
       is_public: true, // Default to public
@@ -417,6 +436,7 @@ export async function updateCertificate(
     template_id: certificateData.template_id,
     member_id: certificateData.member_id,
     certificate_image_url: certificateData.certificate_image_url,
+    score_image_url: certificateData.score_image_url, // NEW: For dual templates
     text_layers: certificateData.text_layers,
   };
 
