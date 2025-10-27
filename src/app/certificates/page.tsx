@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Sheet,
   SheetContent,
@@ -427,12 +427,8 @@ function CertificatesContent() {
   >(null);
   const canDelete = role === "Admin"; // Only Admin can delete
   
-  // State for template image dimensions
-  const [templateImageDimensions, setTemplateImageDimensions] = useState<{
-    width: number;
-    height: number;
-    aspectRatio: number;
-  } | null>(null);
+  // REMOVED: templateImageDimensions state - no longer needed
+  // We now use container dimensions directly for text scaling
 
   // Standard canvas dimensions used in generation (must match generator)
   const STANDARD_CANVAS_WIDTH = 800;
@@ -477,70 +473,12 @@ function CertificatesContent() {
     };
   }, [previewMode, previewCertificate]);
 
-  // Handler untuk mendapatkan dimensi gambar template
-  const handleTemplateImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    const naturalWidth = img.naturalWidth;
-    const naturalHeight = img.naturalHeight;
-    
-    console.log('Loading template image in certificates preview:', { 
-      naturalWidth, 
-      naturalHeight, 
-      aspectRatio: naturalWidth / naturalHeight,
-      previewMode,
-      isScoreMode: previewMode === 'score',
-      templateHasScore: previewTemplate?.score_image_url
-    });
-    
-    setTemplateImageDimensions({
-      width: naturalWidth,
-      height: naturalHeight,
-      aspectRatio: naturalWidth / naturalHeight
-    });
-  }, [previewMode, previewTemplate]);
+  // REMOVED: handleTemplateImageLoad - no longer needed
+  // We now use container dimensions directly for text scaling
 
-  // Function to calculate consistent dimensions for text scaling
-  const getConsistentDimensions = useMemo(() => {
-    if (!previewTemplate) return { width: 800, height: 600, scale: 1 };
-    
-    // Use the same logic as template generator
-    const maxWidth = 800; // Maksimal lebar container
-    const maxHeight = 600; // Maksimal tinggi container
-    
-    // For score mode, always use STANDARD canvas dimensions (800x600)
-    // Score images are generated at exactly 800x600, regardless of template image size
-    if (previewMode === 'score') {
-      const scaleX = maxWidth / STANDARD_CANVAS_WIDTH; // 800/800 = 1
-      const scaleY = maxHeight / STANDARD_CANVAS_HEIGHT; // 600/600 = 1
-      const scale = Math.min(scaleX, scaleY); // Should be 1
-      
-      return {
-        width: STANDARD_CANVAS_WIDTH,
-        height: STANDARD_CANVAS_HEIGHT,
-        scale: scale
-      };
-    }
-    
-    // For certificate mode, calculate scale based on actual template image dimensions
-    if (templateImageDimensions) {
-      const scaleX = maxWidth / templateImageDimensions.width;
-      const scaleY = maxHeight / templateImageDimensions.height;
-      const scale = Math.min(scaleX, scaleY);
-      
-      return {
-        width: templateImageDimensions.width * scale,
-        height: templateImageDimensions.height * scale,
-        scale: scale
-      };
-    }
-    
-    // Fallback to default scale if dimensions not available
-    return {
-      width: 800,
-      height: 600,
-      scale: 1
-    };
-  }, [previewTemplate, templateImageDimensions, previewMode]);
+  // REMOVED: getConsistentDimensions - no longer used
+  // We now use containerScale directly based on actual container dimensions
+  // This ensures text scales proportionally with the image in the preview
   
   // Disable any emergency override for production
   const forceCanDelete = false;
@@ -1251,7 +1189,6 @@ function CertificatesContent() {
                                 alt="Score Template"
                                 fill
                                 className="object-contain absolute inset-0"
-                                onLoad={handleTemplateImageLoad}
                               />
                             ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
                               <Image
@@ -1259,7 +1196,6 @@ function CertificatesContent() {
                                 alt="Certificate Template"
                                 fill
                                 className="object-contain absolute inset-0"
-                                onLoad={handleTemplateImageLoad}
                               />
                             ) : (
                               <>
@@ -1278,9 +1214,16 @@ function CertificatesContent() {
                                   const actualX = layer.xPercent * 100 + "%";
                                   const actualY = layer.yPercent * 100 + "%";
                                   
-                                  // Apply consistent scaling to match template generator
-                                  // Use the same scale factor that would be applied in the template generator
-                                  const scaledFontSize = layer.fontSize * (getConsistentDimensions.scale || 1);
+                                  // CRITICAL FIX: Container uses aspectRatio: "800/600" and image uses object-contain
+                                  // This means the image scales proportionally with the container
+                                  // Since generated images are at fixed 800x600, we need to scale the fontSize
+                                  // to match how the image is scaled in the container
+                                  // Calculate the actual container dimensions based on aspect ratio
+                                  const containerScale = containerDimensions 
+                                    ? Math.min(containerDimensions.width / STANDARD_CANVAS_WIDTH, containerDimensions.height / STANDARD_CANVAS_HEIGHT)
+                                    : 1;
+                                  
+                                  const scaledFontSize = layer.fontSize * containerScale;
 
                                   return (
                                     <div
@@ -1289,13 +1232,14 @@ function CertificatesContent() {
                                       style={{
                                         left: actualX,
                                         top: actualY,
-                                        fontSize: scaledFontSize,
+                                        fontSize: `${scaledFontSize}px`,
                                         color: layer.color,
                                         fontWeight: layer.fontWeight,
                                         fontFamily: layer.fontFamily,
                                         userSelect: "none",
                                         pointerEvents: "none",
-                                        transform: "translate(-50%, -50%)",
+                                        transform: "translate(0, 0)",
+                                        textAlign: "left",
                                       }}
                                     >
                                       {layer.text}
@@ -1305,8 +1249,10 @@ function CertificatesContent() {
                               )}
 
                             {previewMode === 'score' && scoreDefaults && scoreDefaults.textLayers && scoreDefaults.textLayers.map((layer: TextLayerDefault) => {
-                              const actualX = (typeof layer.xPercent === 'number' ? layer.xPercent : (layer.xPercent || 0)) * 100 + "%";
-                              const actualY = (typeof layer.yPercent === 'number' ? layer.yPercent : (layer.yPercent || 0)) * 100 + "%";
+                              // CRITICAL FIX: Use the same positioning logic as certificate mode for consistency
+                              const actualX = layer.xPercent * 100 + "%";
+                              const actualY = layer.yPercent * 100 + "%";
+                              
                               // Decide content: try to map known IDs to certificate data, otherwise show placeholder id
                               let content = '';
                               if (layer.id === 'pembina_nama') content = previewCertificate.members?.name || previewCertificate.created_by || '';
@@ -1314,27 +1260,16 @@ function CertificatesContent() {
                               else if (layer.id === 'nilai_prestasi') content = '';
                               else content = layer.id.replace(/_/g, ' ');
 
-                              // IMPORTANT: Preview scale calculation for score text overlay
-                              // Generator uses 800x600 canvas with pixel-based fontSize
-                              // Preview needs to match this, so scale fontSize based on container width
-                              // Example: fontSize 50 at 800px should appear as fontSize 25 at 400px container
+                              // CRITICAL FIX: Container uses aspectRatio: "800/600" and image uses object-contain
+                              // This means the image scales proportionally with the container
+                              // Since generated images are at fixed 800x600, we need to scale the fontSize
+                              // to match how the image is scaled in the container
+                              // Calculate the actual container dimensions based on aspect ratio
+                              const containerScale = containerDimensions 
+                                ? Math.min(containerDimensions.width / STANDARD_CANVAS_WIDTH, containerDimensions.height / STANDARD_CANVAS_HEIGHT)
+                                : 1;
                               
-                              const containerWidth = containerDimensions?.width || 800;
-                              const scoreScale = containerWidth / STANDARD_CANVAS_WIDTH;
-                              
-                              // Only log for first layer to avoid console spam
-                              if (layer.id === scoreDefaults.textLayers[0]?.id) {
-                                console.log('🔍 Score overlay scale:', {
-                                  containerWidth,
-                                  standardWidth: STANDARD_CANVAS_WIDTH,
-                                  scale: scoreScale,
-                                  fontSize: layer.fontSize,
-                                  scaledFontSize: layer.fontSize * scoreScale
-                                });
-                              }
-
-                              // Apply scale to fontSize for proper proportional scaling
-                              const finalFontSize = layer.fontSize * scoreScale;
+                              const scaledFontSize = layer.fontSize * containerScale;
                               
                               return (
                                 <div
@@ -1343,13 +1278,15 @@ function CertificatesContent() {
                                   style={{
                                     left: actualX,
                                     top: actualY,
-                                    fontSize: `${finalFontSize}px`,
+                                    fontSize: `${scaledFontSize}px`,
                                     color: layer.color,
                                     fontWeight: layer.fontWeight,
                                     fontFamily: layer.fontFamily,
                                     userSelect: "none",
                                     pointerEvents: "none",
-                                    transform: "translate(-50%, -50%)",
+                                    // CRITICAL FIX: Use same positioning as Certificate system for consistency
+                                    transform: "translate(0, 0)",
+                                    textAlign: "left",
                                   }}
                                 >
                                   {content}

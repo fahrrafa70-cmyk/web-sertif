@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable react-hooks/exhaustive-deps, @typescript-eslint/no-unused-vars, no-unused-expressions */
+/* eslint-disable react-hooks/exhaustive-deps, @typescript-eslint/no-unused-vars */
 
 import Header from "@/components/header";
 import Footer from "@/components/footer";
@@ -315,12 +315,16 @@ function CertificateGeneratorContent() {
       return Math.max(opts?.min ?? 12, Math.min(opts?.max ?? 24, Math.round(size)));
     };
     
+    // CRITICAL FIX: Use fixed dimensions for Score text layer creation to match generation
+    const fixedWidth = 800;
+    const fixedHeight = 600;
+    
     // Add title section
     layers.push({
       id: 'score_title',
       text: 'DAFTAR NILAI',
-      x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.title.x),
-      y: Math.round(STANDARD_CANVAS_HEIGHT * SCORE_LAYOUT.title.mainY),
+      x: Math.round(fixedWidth * SCORE_LAYOUT.title.x),
+      y: Math.round(fixedHeight * SCORE_LAYOUT.title.mainY),
       xPercent: SCORE_LAYOUT.title.x,
       yPercent: SCORE_LAYOUT.title.mainY,
       fontSize: 24,  // Large title
@@ -332,8 +336,8 @@ function CertificateGeneratorContent() {
     layers.push({
       id: 'score_subtitle',
       text: 'MAGANG INDUSTRI',
-      x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.title.x),
-      y: Math.round(STANDARD_CANVAS_HEIGHT * SCORE_LAYOUT.title.subY),
+      x: Math.round(fixedWidth * SCORE_LAYOUT.title.x),
+      y: Math.round(fixedHeight * SCORE_LAYOUT.title.subY),
       xPercent: SCORE_LAYOUT.title.x,
       yPercent: SCORE_LAYOUT.title.subY,
       fontSize: 20,  // Slightly smaller than title
@@ -346,8 +350,8 @@ function CertificateGeneratorContent() {
     layers.push({
       id: 'non_teknis_header',
       text: 'I. ASPEK NON TEKNIS',
-      x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.sections.left.headerX),
-      y: Math.round(STANDARD_CANVAS_HEIGHT * SCORE_LAYOUT.sections.left.headerY),
+      x: Math.round(fixedWidth * SCORE_LAYOUT.sections.left.headerX),
+      y: Math.round(fixedHeight * SCORE_LAYOUT.sections.left.headerY),
       xPercent: SCORE_LAYOUT.sections.left.headerX,
       yPercent: SCORE_LAYOUT.sections.left.headerY,
       fontSize: 16,
@@ -359,8 +363,8 @@ function CertificateGeneratorContent() {
     layers.push({
       id: 'teknis_header',
       text: 'II. ASPEK TEKNIS',
-      x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.sections.right.headerX),
-      y: Math.round(STANDARD_CANVAS_HEIGHT * SCORE_LAYOUT.sections.right.headerY),
+      x: Math.round(fixedWidth * SCORE_LAYOUT.sections.right.headerX),
+      y: Math.round(fixedHeight * SCORE_LAYOUT.sections.right.headerY),
       xPercent: SCORE_LAYOUT.sections.right.headerX,
       yPercent: SCORE_LAYOUT.sections.right.headerY,
       fontSize: 16,
@@ -377,8 +381,8 @@ function CertificateGeneratorContent() {
       layers.push({
         id: `aspek_non_teknis_name_${item.no}`,
         text: item.aspek,  // Add the aspect name
-        x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.sections.left.startX),
-        y: Math.round(STANDARD_CANVAS_HEIGHT * yPos),
+        x: Math.round(fixedWidth * SCORE_LAYOUT.sections.left.startX),
+        y: Math.round(fixedHeight * yPos),
         xPercent: SCORE_LAYOUT.sections.left.startX,
         yPercent: yPos,
         fontSize: 14,  // Standard table text
@@ -391,8 +395,8 @@ function CertificateGeneratorContent() {
       layers.push({
         id: `aspek_non_teknis_nilai_${item.no}`,
         text: `${item.nilai}`,
-        x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.sections.left.valueX),
-        y: Math.round(STANDARD_CANVAS_HEIGHT * yPos),
+        x: Math.round(fixedWidth * SCORE_LAYOUT.sections.left.valueX),
+        y: Math.round(fixedHeight * yPos),
         xPercent: SCORE_LAYOUT.sections.left.valueX,
         yPercent: yPos,
         fontSize: 14,  // Match aspect name size
@@ -410,8 +414,8 @@ function CertificateGeneratorContent() {
       layers.push({
         id: `aspek_teknis_name_${item.no}`,
         text: item.standar_kompetensi || '',
-        x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.sections.right.startX),
-        y: Math.round(STANDARD_CANVAS_HEIGHT * yPos),
+        x: Math.round(fixedWidth * SCORE_LAYOUT.sections.right.startX),
+        y: Math.round(fixedHeight * yPos),
         xPercent: SCORE_LAYOUT.sections.right.startX,
         yPercent: yPos,
         fontSize: 14,  // Standard table text
@@ -424,8 +428,8 @@ function CertificateGeneratorContent() {
       layers.push({
         id: `aspek_teknis_nilai_${item.no}`,
         text: `${item.nilai}`,
-        x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.sections.right.valueX),
-        y: Math.round(STANDARD_CANVAS_HEIGHT * yPos),
+        x: Math.round(fixedWidth * SCORE_LAYOUT.sections.right.valueX),
+        y: Math.round(fixedHeight * yPos),
         xPercent: SCORE_LAYOUT.sections.right.valueX,
         yPercent: yPos,
         fontSize: 14,  // Match aspect name size
@@ -439,8 +443,8 @@ function CertificateGeneratorContent() {
     layers.push({
       id: 'nilai_prestasi',
       text: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '',
-      x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.bottom.prestasi.x),
-      y: Math.round(STANDARD_CANVAS_HEIGHT * SCORE_LAYOUT.bottom.prestasi.y),
+      x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.prestasi.x),
+      y: Math.round(fixedHeight * SCORE_LAYOUT.bottom.prestasi.y),
       xPercent: SCORE_LAYOUT.bottom.prestasi.x,
       yPercent: SCORE_LAYOUT.bottom.prestasi.y,
       fontSize: 18,  // Larger than table text
@@ -454,8 +458,8 @@ function CertificateGeneratorContent() {
       layers.push({
         id: 'keterangan',
         text: scoreData.keterangan,
-        x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.bottom.keterangan.x),
-        y: Math.round(STANDARD_CANVAS_HEIGHT * SCORE_LAYOUT.bottom.keterangan.y),
+        x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.keterangan.x),
+        y: Math.round(fixedHeight * SCORE_LAYOUT.bottom.keterangan.y),
         xPercent: SCORE_LAYOUT.bottom.keterangan.x,
         yPercent: SCORE_LAYOUT.bottom.keterangan.y,
         fontSize: 14,
@@ -469,8 +473,8 @@ function CertificateGeneratorContent() {
     layers.push({
       id: 'score_date',
       text: formatDateString(scoreData.date, dateFormat),
-      x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.bottom.date.x),
-      y: Math.round(STANDARD_CANVAS_HEIGHT * SCORE_LAYOUT.bottom.date.y),
+      x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.date.x),
+      y: Math.round(fixedHeight * SCORE_LAYOUT.bottom.date.y),
       xPercent: SCORE_LAYOUT.bottom.date.x,
       yPercent: SCORE_LAYOUT.bottom.date.y,
       fontSize: 14,
@@ -483,8 +487,8 @@ function CertificateGeneratorContent() {
     layers.push({
       id: 'pembina_nama',
       text: scoreData.pembina.nama || '',
-      x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.bottom.signature.x),
-      y: Math.round(STANDARD_CANVAS_HEIGHT * (SCORE_LAYOUT.bottom.signature.y + 0.05)),
+      x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.signature.x),
+      y: Math.round(fixedHeight * (SCORE_LAYOUT.bottom.signature.y + 0.05)),
       xPercent: SCORE_LAYOUT.bottom.signature.x,
       yPercent: SCORE_LAYOUT.bottom.signature.y + 0.05,
       fontSize: 14,
@@ -496,8 +500,8 @@ function CertificateGeneratorContent() {
     layers.push({
       id: 'pembina_jabatan',
       text: scoreData.pembina.jabatan || '',
-      x: Math.round(STANDARD_CANVAS_WIDTH * SCORE_LAYOUT.bottom.signature.x),
-      y: Math.round(STANDARD_CANVAS_HEIGHT * (SCORE_LAYOUT.bottom.signature.y + 0.10)),
+      x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.signature.x),
+      y: Math.round(fixedHeight * (SCORE_LAYOUT.bottom.signature.y + 0.10)),
       xPercent: SCORE_LAYOUT.bottom.signature.x, 
       yPercent: SCORE_LAYOUT.bottom.signature.y + 0.10,
       fontSize: 14,
@@ -581,6 +585,7 @@ function CertificateGeneratorContent() {
             text: `${item?.nilai || 0}`,
             ...preserveStyles(layer, savedLayer)
           };
+        }
         if (layer.id.startsWith('aspek_teknis_name_')) {
           const no = parseInt(layer.id.split('_')[3]);
           const item = scoreData.aspek_teknis.find(i => i.no === no);
@@ -767,11 +772,53 @@ function CertificateGeneratorContent() {
     }
   }, [scoreTextLayers, activeTemplateMode, selectedTemplate, scoreTextLayers.length, scoreFontSettings, overlayImages]);
   
-  // Auto-save score font settings when they change
+  // Auto-save score font settings when they change AND immediately update text layers
   useEffect(() => {
     if (activeTemplateMode !== 'score' || !selectedTemplate) return;
     
-    console.log('💾 Auto-saving score font settings...');
+    console.log('💾 Auto-saving score font settings and updating text layers...');
+    
+    // CRITICAL FIX: Immediately update text layers with new font settings
+    setScoreTextLayers(prevLayers => {
+      return prevLayers.map(layer => {
+        // Apply font settings based on layer type
+        if (layer.id.startsWith('aspek_teknis_name_')) {
+          return {
+            ...layer,
+            fontSize: scoreFontSettings.aspekTeknis.fontSize,
+            color: scoreFontSettings.aspekTeknis.color,
+            fontWeight: scoreFontSettings.aspekTeknis.fontWeight,
+            fontFamily: scoreFontSettings.aspekTeknis.fontFamily,
+          };
+        } else if (layer.id.startsWith('aspek_teknis_nilai_') || layer.id.startsWith('aspek_non_teknis_nilai_')) {
+          return {
+            ...layer,
+            fontSize: scoreFontSettings.nilai.fontSize,
+            color: scoreFontSettings.nilai.color,
+            fontWeight: scoreFontSettings.nilai.fontWeight,
+            fontFamily: scoreFontSettings.nilai.fontFamily,
+          };
+        } else if (layer.id === 'score_date') {
+          return {
+            ...layer,
+            fontSize: scoreFontSettings.date.fontSize,
+            color: scoreFontSettings.date.color,
+            fontWeight: scoreFontSettings.date.fontWeight,
+            fontFamily: scoreFontSettings.date.fontFamily,
+          };
+        } else if (layer.id === 'nilai_prestasi' || layer.id === 'keterangan' || layer.id === 'pembina_nama' || layer.id === 'pembina_jabatan') {
+          return {
+            ...layer,
+            fontSize: scoreFontSettings.additionalInfo.fontSize,
+            color: scoreFontSettings.additionalInfo.color,
+            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
+            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
+          };
+        }
+        return layer;
+      });
+    });
+    
     try {
       // Get existing defaults or create new ones
       const existingDefaults = getTemplateDefaults(`${selectedTemplate.id}_score`);
@@ -1063,7 +1110,6 @@ function CertificateGeneratorContent() {
       applyRowToPreview(idx);
     }
     // Intentionally exclude applyRowToPreview to avoid effect re-run on each render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [excelRows, mapping, selectedRowIndex]);
 
   // Prevent body scroll when page loads (optional - for consistency)
@@ -1707,7 +1753,6 @@ function CertificateGeneratorContent() {
         defaultsLoadedForTemplateRef.current = selectedTemplate.id;
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTemplate?.id]); // Only trigger when template changes
 
   // Update canvas dimensions on mount and resize
@@ -2315,6 +2360,34 @@ function CertificateGeneratorContent() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedLayerId, deleteTextLayer, stopEditingText]);
 
+  // Function to save generated Score PNG to local storage
+  const saveGeneratedScorePNG = async (imageDataUrl: string): Promise<string> => {
+    try {
+      const fileName = `generated_score_${Date.now()}.png`;
+      
+      const response = await fetch('/api/save-generated-score', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: imageDataUrl,
+          fileName: fileName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save generated score');
+      }
+
+      const result = await response.json();
+      return result.url;
+    } catch (error) {
+      console.error('Error saving generated Score PNG:', error);
+      throw error;
+    }
+  };
+
   // Function to save generated PNG to local storage
   const saveGeneratedPNG = async (imageDataUrl: string): Promise<string> => {
     try {
@@ -2582,6 +2655,7 @@ function CertificateGeneratorContent() {
   };
 
   // NEW: Create a specialized function for generating score images with explicit template
+  // CRITICAL FIX: Use EXACT same logic as certificate fallback for consistency
   const createScoreImageWithTemplate = async (scoreTextLayers: TextLayer[], template: Template): Promise<string> => {
     return new Promise((resolve, reject) => {
       try {
@@ -2590,19 +2664,28 @@ function CertificateGeneratorContent() {
         console.log('🖼️ Using score template:', template.score_image_url);
         
         const canvas = document.createElement("canvas");
-        // Set canvas dimensions to match standard dimensions exactly
-        canvas.width = STANDARD_CANVAS_WIDTH;  // 800
-        canvas.height = STANDARD_CANVAS_HEIGHT; // 600
-        
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           reject(new Error("Could not get canvas context"));
           return;
         }
 
-        // Enable high-quality scaling
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        // CRITICAL FIX: Use getConsistentDimensions for canvas to match preview exactly
+        // Same as certificate fallback
+        const consistentDims = getConsistentDimensions;
+        canvas.width = consistentDims.width;
+        canvas.height = consistentDims.height;
+        
+        console.log('🎨 Score Canvas Dimensions (matching preview):', {
+          canvasWidth: consistentDims.width,
+          canvasHeight: consistentDims.height,
+          scale: consistentDims.scale,
+          note: 'Using same dimensions as certificate for consistency'
+        });
+
+        // Create a white background
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, consistentDims.width, consistentDims.height);
 
         // Load the score template image
         const scoreTemplateImg = new Image();
@@ -2610,49 +2693,50 @@ function CertificateGeneratorContent() {
         
         scoreTemplateImg.onload = () => {
           try {
-            // Draw the score template background
-            ctx.drawImage(scoreTemplateImg, 0, 0, canvas.width, canvas.height);
+            // Draw the score template background at full canvas size
+            ctx.drawImage(scoreTemplateImg, 0, 0, consistentDims.width, consistentDims.height);
             
-            // Draw score text layers with proper font settings
+            // CRITICAL FIX: Use EXACT same text rendering logic as certificate fallback
             scoreTextLayers.forEach((layer) => {
-              // Determine the correct font settings based on layer type
-              let fontSettings = scoreFontSettings.additionalInfo; // default
-              
-              // Use specific font settings based on layer type
-              if (layer.id.startsWith('aspek_teknis_name_')) {
-                fontSettings = scoreFontSettings.aspekTeknis;
-              } else if (layer.id.startsWith('aspek_teknis_nilai_') || layer.id.includes('nilai_')) {
-                fontSettings = scoreFontSettings.nilai;
-              } else if (layer.id === 'score_date') {
-                fontSettings = scoreFontSettings.date;
-              }
-              
-              // Calculate exact positions based on percentages
-              const x = Math.round(layer.xPercent * canvas.width);
-              const y = Math.round(layer.yPercent * canvas.height);
+              if (layer.text && layer.text.trim()) {
+                // CRITICAL FIX: Use same scaling as certificate
+                const scaledFontSize = layer.fontSize * (consistentDims.scale || 1);
+                ctx.font = `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`;
+                ctx.fillStyle = layer.color;
+                ctx.textAlign = "left";
+                ctx.textBaseline = "top";
 
-              // Apply font settings with precise pixel sizes
-              ctx.font = `${fontSettings.fontWeight} ${Math.round(fontSettings.fontSize)}px ${fontSettings.fontFamily}`;
-              ctx.fillStyle = fontSettings.color;
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              
-              console.log(`🎨 Drawing text layer: ${layer.id}`, {
-                text: layer.text,
-                fontSize: fontSettings.fontSize,
-                fontWeight: fontSettings.fontWeight,
-                fontFamily: fontSettings.fontFamily,
-                color: fontSettings.color,
-                position: { x, y },
-                fontString: `${fontSettings.fontWeight} ${fontSettings.fontSize}px ${fontSettings.fontFamily}`
-              });
-              
-              ctx.fillText(layer.text, x, y);
+                // CRITICAL FIX: Use same coordinate logic as certificate
+                // Use absolute x/y if available (from drag), otherwise use normalized coordinates
+                const x = typeof layer.x === "number" && layer.x !== undefined
+                  ? layer.x
+                  : layer.xPercent * consistentDims.width;
+                const y = typeof layer.y === "number" && layer.y !== undefined
+                  ? layer.y
+                  : layer.yPercent * consistentDims.height;
+                
+                // CRITICAL FIX: No offset needed - same as certificate
+                // HTML now uses line-height:1 which matches canvas top baseline
+                
+                console.log(`🎨 Drawing score text layer: ${layer.id}`, {
+                  text: layer.text,
+                  layerFontSize: layer.fontSize,
+                  scaledFontSize: scaledFontSize,
+                  scale: consistentDims.scale,
+                  fontWeight: layer.fontWeight,
+                  fontFamily: layer.fontFamily,
+                  color: layer.color,
+                  position: { x, y },
+                  fontString: `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`
+                });
+                
+                ctx.fillText(layer.text, x, y);
+              }
             });
             
             // Convert to data URL
             const dataUrl = canvas.toDataURL("image/png");
-            console.log("✅ Score image created with explicit template");
+            console.log("✅ Score image created with consistent dimensions");
             resolve(dataUrl);
           } catch (error) {
             console.error("❌ Error drawing score image:", error);
@@ -2971,6 +3055,46 @@ function CertificateGeneratorContent() {
           const scoreImageDataUrl = await createScoreImageWithTemplate(synchronizedScoreTextLayers, selectedTemplate!);
           console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
           
+          // CRITICAL FIX: Save Score PNG to local storage like certificate
+          let finalScoreImageUrl: string = scoreImageDataUrl;
+          try {
+            console.log("💾 Saving Score PNG to local storage...");
+            const localScoreImageUrl = await saveGeneratedScorePNG(scoreImageDataUrl);
+            console.log("✅ Score PNG saved locally:", localScoreImageUrl);
+            finalScoreImageUrl = localScoreImageUrl;
+          } catch (e) {
+            console.warn("⚠️ Save Score PNG to local failed, keeping dataURL.", e);
+          }
+          
+          // CRITICAL FIX: Save Score text layout as persistent defaults after generation
+          console.log("💾 Saving Score text layout as persistent defaults...");
+          try {
+            const scoreDefaults: TextLayerDefault[] = synchronizedScoreTextLayers.map((layer) => ({
+              id: layer.id,
+              x: layer.x,
+              y: layer.y,
+              xPercent: layer.xPercent,
+              yPercent: layer.yPercent,
+              fontSize: layer.fontSize,
+              color: layer.color,
+              fontWeight: layer.fontWeight,
+              fontFamily: layer.fontFamily,
+            }));
+            
+            saveTemplateDefaults({
+              templateId: `${selectedTemplate.id}_score`,
+              templateName: selectedTemplate.name,
+              textLayers: scoreDefaults,
+              overlayImages: scoreOverlayImages,
+              scoreFontSettings: scoreFontSettings,
+              savedAt: new Date().toISOString(),
+            });
+            
+            console.log("✅ Score text layout saved as persistent defaults");
+          } catch (error) {
+            console.warn("⚠️ Failed to save Score text layout:", error);
+          }
+          
           // Restore original mode
           setActiveTemplateMode(originalMode);
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -2990,14 +3114,8 @@ function CertificateGeneratorContent() {
             console.warn("⚠️ Save certificate PNG to local failed, keeping dataURL.", e);
           }
           
-          try {
-            console.log("💾 Saving score PNG to local storage...");
-            const scoreLocalUrl = await saveGeneratedPNG(scoreImageDataUrl);
-            console.log("✅ Score PNG saved locally:", scoreLocalUrl);
-            setScoreImageUrl(scoreLocalUrl);
-          } catch (e) {
-            console.warn("⚠️ Save score PNG to local failed, keeping dataURL.", e);
-          }
+          // Use the finalScoreImageUrl that was already saved above
+          setScoreImageUrl(finalScoreImageUrl);
 
           // Save both certificate and score images in the same certificate record
           console.log("💾 Saving certificate with both images to database...");
@@ -3016,7 +3134,7 @@ function CertificateGeneratorContent() {
             text_layers: certificateTextLayers, // FIX: Use certificateTextLayers explicitly instead of textLayers
             merged_image: certificateImageDataUrl, // Certificate image only
             certificate_image_url: certificateImageDataUrl,
-            score_image_url: scoreImageDataUrl, // NEW: Store score image in same record
+            score_image_url: finalScoreImageUrl, // NEW: Store score image PNG URL in same record
           };
 
           const savedCertificate = await createCertificate(certificateDataToSave);
@@ -4937,6 +5055,35 @@ function CertificateGeneratorContent() {
                         // Use specialized function that explicitly uses score template
                         const scoreImageDataUrl = await createScoreImageWithTemplate(synchronizedScoreTextLayers, selectedTemplate!);
                         console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
+                        
+                        // CRITICAL FIX: Save Score text layout as persistent defaults after generation
+                        console.log("💾 Saving Score text layout as persistent defaults...");
+                        try {
+                          const scoreDefaults: TextLayerDefault[] = synchronizedScoreTextLayers.map((layer) => ({
+                            id: layer.id,
+                            x: layer.x,
+                            y: layer.y,
+                            xPercent: layer.xPercent,
+                            yPercent: layer.yPercent,
+                            fontSize: layer.fontSize,
+                            color: layer.color,
+                            fontWeight: layer.fontWeight,
+                            fontFamily: layer.fontFamily,
+                          }));
+                          
+                          saveTemplateDefaults({
+                            templateId: `${selectedTemplate.id}_score`,
+                            templateName: selectedTemplate.name,
+                            textLayers: scoreDefaults,
+                            overlayImages: scoreOverlayImages,
+                            scoreFontSettings: scoreFontSettings,
+                            savedAt: new Date().toISOString(),
+                          });
+                          
+                          console.log("✅ Score text layout saved as persistent defaults");
+                        } catch (error) {
+                          console.warn("⚠️ Failed to save Score text layout:", error);
+                        }
                         
                         // Restore original mode
                         setActiveTemplateMode(originalMode);

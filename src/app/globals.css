@@ -148,6 +148,32 @@
     background: oklch(0.6 0.01 106.423);
   }
 
+  /* Prevent horizontal scroll on all screen sizes */
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Responsive containers */
+  .container-responsive {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-responsive {
+      padding: 0 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-responsive {
+      padding: 0 2rem;
+    }
+  }
+
   /* ABSOLUTE NO-SHIFT POLICY - Never change scroll behavior */
   html {
     scrollbar-gutter: stable both-edges !important; /* Always reserve scrollbar space */
@@ -172,7 +198,7 @@
 
   body {
     @apply bg-background text-foreground;
-    padding-top: 4rem !important; /* Account for fixed header height */
+    padding-top: 3.5rem !important; /* Account for fixed header height on mobile */
     overflow-y: scroll !important; /* NEVER change this - always show scrollbar */
     scrollbar-gutter: stable both-edges !important; /* Prevent content from shifting when scrollbars appear */
     overscroll-behavior: contain !important; /* Prevent scroll chaining side-effects */
@@ -188,6 +214,13 @@
     margin-right: 0 !important;
     /* Prevent any style mutations */
     transition: none !important;
+  }
+
+  /* Responsive body padding for different screen sizes */
+  @media (min-width: 640px) {
+    body {
+      padding-top: 4rem !important;
+    }
   }
   
   /* NO SCROLL LOCKING - Use visual overlay instead */
@@ -536,4 +569,157 @@ nextjs-portal [data-nextjs-error-overlay] {
 /* Jika ingin sekalian menonaktifkan seluruh portal Next.js dev */
 nextjs-portal {
   display: none !important;
+}
+
+/* RESPONSIVE DESIGN UTILITIES */
+
+/* Tablet Landscape: max-width 1200px */
+@media (max-width: 1200px) {
+  /* Adjust font sizes for better readability */
+  body {
+    font-size: 15px;
+  }
+}
+
+/* Tablet Portrait: max-width 992px */
+@media (max-width: 992px) {
+  body {
+    font-size: 15px;
+  }
+
+  /* Make cards and grids more compact */
+  .responsive-grid-3 {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  .responsive-grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+}
+
+/* Mobile/Smartphone: max-width 768px */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  /* Stack elements vertically on mobile */
+  .responsive-flex-row {
+    flex-direction: column;
+  }
+
+  .responsive-grid-3,
+  .responsive-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  /* Adjust padding for mobile */
+  .container-responsive {
+    padding: 0 1rem;
+  }
+
+  /* Make tables scrollable horizontally on mobile */
+  .mobile-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Adjust header height for mobile */
+  header {
+    height: 3.5rem;
+    min-height: 3.5rem;
+  }
+}
+
+/* Small Mobile: max-width 480px */
+@media (max-width: 480px) {
+  body {
+    font-size: 13px;
+  }
+
+  /* Further reduce spacing on small screens */
+  .container-responsive {
+    padding: 0 0.75rem;
+  }
+
+  /* Reduce header height on small mobile */
+  header {
+    height: 3rem;
+    min-height: 3rem;
+  }
+
+  /* Stack all flex items */
+  .responsive-flex {
+    flex-direction: column;
+  }
+}
+
+/* Prevent text overflow */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-ellipsis-multiline {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Responsive image containers */
+.responsive-image {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* Responsive modal/dialog */
+@media (max-width: 768px) {
+  [data-radix-dialog-content] {
+    max-width: 95vw !important;
+    margin: 0.5rem !important;
+    padding: 1rem !important;
+  }
+
+  .preview-modal-content {
+    max-width: 95vw !important;
+    padding: 0.75rem !important;
+  }
+}
+
+/* Responsive cards */
+@media (max-width: 768px) {
+  .card-responsive {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-responsive {
+    padding: 0.75rem;
+  }
+}
+
+/* Responsive buttons - stack on mobile */
+.button-group-responsive {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .button-group-responsive {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .button-group-responsive > * {
+    width: 100%;
+  }
 }

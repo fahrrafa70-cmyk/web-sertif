@@ -394,7 +394,6 @@ const translations: Translations = {
     'hero.description': 'Buat, kelola, dan verifikasi sertifikat digital untuk pelatihan, magang, MoU, dan kunjungan industri dengan platform multibahasa profesional kami.',
     'hero.searchPlaceholder': 'Cari sertifikat berdasarkan ID...',
     'hero.searchButton': 'Cari Sertifikat',
-    'hero.getStarted': 'Mulai Sekarang',
     'hero.learnMore': 'Pelajari Lebih Lanjut',
     
     // About Section

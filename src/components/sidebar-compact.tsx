@@ -140,41 +140,42 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
             }}
           >
             <div 
-              className="sidebar-content h-full w-96 shadow-xl border-r border-gray-200 bg-white"
+              className="sidebar-content h-full w-[85vw] sm:w-96 max-w-[24rem] shadow-xl border-r border-gray-200 bg-white"
               style={{
                 pointerEvents: 'auto',
                 height: '100vh',
-                width: '24rem',
+                width: '85vw',
+                maxWidth: '24rem',
                 backgroundColor: '#ffffff'
               }}
             >
               <div className="flex flex-col h-full bg-white">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">e</span>
+                <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-white">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-bold text-base sm:text-lg">e</span>
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900">E-Certificate</h2>
-                      <p className="text-sm text-gray-500">Management Platform</p>
+                      <h2 className="text-base sm:text-xl font-bold text-gray-900">E-Certificate</h2>
+                      <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Management Platform</p>
                     </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={onClose}
-                    className="p-2 hover:bg-gray-100 h-8 w-8"
+                    className="p-2 hover:bg-gray-100 h-8 w-8 flex-shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
 
                 {/* Main Content (scrollable to always fit viewport height) */}
-                <div className="flex-1 p-6 space-y-8 bg-white overflow-y-auto overscroll-contain min-h-0 pr-2">
+                <div className="flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8 bg-white overflow-y-auto overscroll-contain min-h-0 pr-2">
                   {/* Navigation */}
                   <div>
-                    <h3 className="text-base font-semibold text-gray-600 uppercase tracking-wider mb-4 px-2">
+                    <h3 className="text-sm sm:text-base font-semibold text-gray-600 uppercase tracking-wider mb-3 sm:mb-4 px-2">
                       {t('nav.menu') || 'Menu'}
                     </h3>
                     <nav className="space-y-1">
@@ -188,12 +189,12 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                           <Link
                             href={item.href}
                             onClick={onClose}
-                            className="flex items-center space-x-4 p-4 rounded-lg hover:bg-blue-50 transition-colors duration-150 group"
+                            className="flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-lg hover:bg-blue-50 transition-colors duration-150 group"
                           >
-                            <div className="text-gray-500 group-hover:text-blue-600 transition-colors duration-150">
+                            <div className="text-gray-500 group-hover:text-blue-600 transition-colors duration-150 flex-shrink-0">
                               {item.icon}
                             </div>
-                            <span className="text-base font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-150">
+                            <span className="text-sm sm:text-base font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-150">
                               {item.label}
                             </span>
                             <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-blue-400 transition-colors duration-150 ml-auto" />
@@ -206,7 +207,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                   {/* Management / Role Menu */}
                   {roleMenu.length > 0 && (
                     <div>
-                      <h3 className="text-base font-semibold text-gray-600 uppercase tracking-wider mb-4 px-2">
+                      <h3 className="text-sm sm:text-base font-semibold text-gray-600 uppercase tracking-wider mb-3 sm:mb-4 px-2">
                         {!role ? t('nav.explore') : t('nav.management')}
                       </h3>
                       <nav className="space-y-1">
@@ -220,7 +221,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                             <Link
                               href={item.href}
                               onClick={onClose}
-                              className={`flex items-center space-x-4 p-4 rounded-xl transition-all duration-150 group border border-transparent hover:border-blue-100 hover:bg-blue-50 ${
+                              className={`flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl transition-all duration-150 group border border-transparent hover:border-blue-100 hover:bg-blue-50 ${
                                 index % 3 === 0
                                   ? "bg-white"
                                   : index % 3 === 1
@@ -228,10 +229,10 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                                   : "bg-white"
                               }`}
                             >
-                              <div className="text-gray-500 group-hover:text-blue-600 transition-colors duration-150">
+                              <div className="text-gray-500 group-hover:text-blue-600 transition-colors duration-150 flex-shrink-0">
                                 <ChevronRight className="w-3 h-3" />
                               </div>
-                              <span className="text-base font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-150">
+                              <span className="text-sm sm:text-base font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-150">
                                 {item.label}
                               </span>
                               <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-blue-400 transition-colors duration-150 ml-auto" />
@@ -244,7 +245,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
 
                   {/* Language Switcher */}
                   <div>
-                    <h3 className="text-base font-semibold text-gray-600 uppercase tracking-wider mb-4 px-2">
+                    <h3 className="text-sm sm:text-base font-semibold text-gray-600 uppercase tracking-wider mb-3 sm:mb-4 px-2">
                       {t('language.switch')}
                     </h3>
                     <div className="px-2">
@@ -254,20 +255,20 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
 
                   {/* Contact */}
                   <div>
-                    <h3 className="text-base font-semibold text-gray-600 uppercase tracking-wider mb-4 px-2">
+                    <h3 className="text-sm sm:text-base font-semibold text-gray-600 uppercase tracking-wider mb-3 sm:mb-4 px-2">
                       {t('nav.contact')}
                     </h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3 text-sm text-gray-500 px-2">
-                        <Phone className="w-4 h-4" />
-                        <span>+6281380935185</span>
+                    <div className="space-y-2 sm:space-y-3">
+                      <div className="flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm text-gray-500 px-2">
+                        <Phone className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span className="break-all">+6281380935185</span>
                       </div>
-                      <div className="flex items-center space-x-3 text-sm text-gray-500 px-2">
-                        <Mail className="w-4 h-4" />
-                        <span>fahrirafa.rpl1@gmail.com</span>
+                      <div className="flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm text-gray-500 px-2">
+                        <Mail className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span className="break-all">fahrirafa.rpl1@gmail.com</span>
                       </div>
-                      <div className="flex items-center space-x-3 text-sm text-gray-500 px-2">
-                        <MapPin className="w-4 h-4" />
+                      <div className="flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm text-gray-500 px-2">
+                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                         <span>Malang</span>
                       </div>
                     </div>
@@ -275,26 +276,26 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
                   <div className="space-y-2">
                     {!isAuthenticated ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start text-base h-10"
+                        className="w-full justify-start text-sm sm:text-base h-9 sm:h-10"
                         onClick={() => {
                           setOpenLogin(true);
                           onClose();
                         }}
                       >
-                        <LogIn className="w-5 h-5 mr-3" />
+                        <LogIn className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
                         {t('auth.login')}
                       </Button>
                     ) : (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start text-base h-10 border-gray-300 text-gray-700 hover:bg-gray-50 hover-lift"
+                        className="w-full justify-start text-sm sm:text-base h-9 sm:h-10 border-gray-300 text-gray-700 hover:bg-gray-50 hover-lift"
                         onClick={() => {
                           localSignOut();
                           onClose();
@@ -305,9 +306,9 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                     )}
                   </div>
                   
-                  <div className="mt-3 text-center">
-                    <div className="flex items-center justify-center space-x-1 text-sm text-gray-500">
-                      <Globe className="w-4 h-4" />
+                  <div className="mt-2 sm:mt-3 text-center">
+                    <div className="flex items-center justify-center space-x-1 text-xs sm:text-sm text-gray-500">
+                      <Globe className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>{t('footer.multilingual')}</span>
                     </div>
                   </div>

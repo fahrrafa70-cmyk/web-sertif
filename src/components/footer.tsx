@@ -52,8 +52,8 @@ export default function Footer() {
         </svg>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-6 sm:pb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-8 sm:mb-12">
           {/* Contact Information */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -62,19 +62,19 @@ export default function Footer() {
             viewport={{ once: true }}
             className="lg:col-span-2"
           >
-            <h3 className="text-2xl font-bold mb-6">{t('footer.contact')}</h3>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <Phone className="w-5 h-5 text-blue-200" />
-                <span className="text-blue-100">{t('footer.phone')}</span>
+            <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">{t('footer.contact')}</h3>
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-blue-200 flex-shrink-0" />
+                <span className="text-sm sm:text-base text-blue-100">{t('footer.phone')}</span>
               </div>
-              <div className="flex items-center space-x-3">
-                <Mail className="w-5 h-5 text-blue-200" />
-                <span className="text-blue-100">{t('footer.email')}</span>
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-blue-200 flex-shrink-0" />
+                <span className="text-sm sm:text-base text-blue-100 break-all">{t('footer.email')}</span>
               </div>
-              <div className="flex items-center space-x-3">
-                <MapPin className="w-5 h-5 text-blue-200" />
-                <span className="text-blue-100">{t('footer.location')}</span>
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-200 flex-shrink-0" />
+                <span className="text-sm sm:text-base text-blue-100">{t('footer.location')}</span>
               </div>
             </div>
           </motion.div>
@@ -86,25 +86,25 @@ export default function Footer() {
             transition={{ duration: 0.8, delay: 0.1 }}
             viewport={{ once: true }}
           >
-            <h4 className="text-lg font-semibold mb-4">{t('footer.quickLinks')}</h4>
+            <h4 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">{t('footer.quickLinks')}</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/" className="text-blue-100 hover:text-white transition-colors duration-200">
+                <Link href="/" className="text-sm sm:text-base text-blue-100 hover:text-white transition-colors duration-200">
                   {t('nav.home')}
                 </Link>
               </li>
               <li>
-                <Link href="/about" className="text-blue-100 hover:text-white transition-colors duration-200">
+                <Link href="/about" className="text-sm sm:text-base text-blue-100 hover:text-white transition-colors duration-200">
                   {t('nav.about')}
                 </Link>
               </li>
               <li>
-                <Link href="/faq" className="text-blue-100 hover:text-white transition-colors duration-200">
+                <Link href="/faq" className="text-sm sm:text-base text-blue-100 hover:text-white transition-colors duration-200">
                   {t('nav.faq')}
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="text-blue-100 hover:text-white transition-colors duration-200">
+                <Link href="/contact" className="text-sm sm:text-base text-blue-100 hover:text-white transition-colors duration-200">
                   {t('nav.contact')}
                 </Link>
               </li>
@@ -118,20 +118,20 @@ export default function Footer() {
             transition={{ duration: 0.8, delay: 0.2 }}
             viewport={{ once: true }}
           >
-            <h4 className="text-lg font-semibold mb-4">{t('footer.legal')}</h4>
+            <h4 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">{t('footer.legal')}</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/terms" className="text-blue-100 hover:text-white transition-colors duration-200">
+                <Link href="/terms" className="text-sm sm:text-base text-blue-100 hover:text-white transition-colors duration-200">
                   {t('footer.terms')}
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="text-blue-100 hover:text-white transition-colors duration-200">
+                <Link href="/privacy" className="text-sm sm:text-base text-blue-100 hover:text-white transition-colors duration-200">
                   {t('footer.privacy')}
                 </Link>
               </li>
               <li>
-                <Link href="/cookies" className="text-blue-100 hover:text-white transition-colors duration-200">
+                <Link href="/cookies" className="text-sm sm:text-base text-blue-100 hover:text-white transition-colors duration-200">
                   {t('footer.cookies')}
                 </Link>
               </li>
@@ -140,8 +140,8 @@ export default function Footer() {
         </div>
 
         {/* Divider */}
-        <div className="border-t border-blue-400/30 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+        <div className="border-t border-blue-400/30 pt-6 sm:pt-8">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
             {/* Copyright */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -150,11 +150,8 @@ export default function Footer() {
               viewport={{ once: true }}
               className="text-blue-100 text-center md:text-left"
             >
-            
-              <p className="text-sm mt-1">{t('footer.developedBy')} Fahri Raffa</p>
+              <p className="text-xs sm:text-sm mt-1">{t('footer.developedBy')} Fahri Raffa</p>
             </motion.div>
-
-            
           </div>
         </div>
       </div>

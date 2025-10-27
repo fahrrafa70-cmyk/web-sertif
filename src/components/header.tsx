@@ -16,14 +16,15 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 min-h-[4rem] py-3">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 min-h-[3.5rem] sm:min-h-[4rem] py-2 sm:py-3">
           {/* Sidebar Trigger Button (Mobile - Left) */}
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="lg:hidden p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-100 flex items-center justify-center self-center"
+            aria-label="Open Menu"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           {/* Sidebar Trigger Button (Desktop, left of logo) */}
@@ -37,22 +38,22 @@ export default function Header() {
           </button>
 
           {/* Enhanced Logo - Centered on Mobile, Left on Desktop */}
-          <div className="absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0">
-            <Link href="/" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-xl">e</span>
+          <div className="absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0 flex items-center">
+            <Link href="/" className="flex items-center space-x-2 sm:space-x-3 group">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-lg sm:text-xl">e</span>
               </div>
-              <span className="text-2xl font-bold text-gradient">
+              <span className="text-lg sm:text-xl lg:text-2xl font-bold text-gradient">
                 E-Certificate
               </span>
             </Link>
           </div>
           
           {/* Spacer for mobile to balance the layout */}
-          <div className="lg:hidden w-10"></div>
+          <div className="lg:hidden w-8 sm:w-10"></div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
             {[
               { href: "/", label: t('nav.home') },
               { href: "/about", label: t('nav.about') },
@@ -63,20 +64,20 @@ export default function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-gray-700 hover:text-blue-600 font-medium relative group"
+                className="text-sm xl:text-base text-gray-700 hover:text-blue-600 font-medium relative group"
               >
                 {item.label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 group-hover:w-full"></span>
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 group-hover:w-full transition-all duration-300"></span>
               </Link>
             ))}
           </nav>
 
           {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden lg:flex items-center space-x-3 xl:space-x-4">
             {!isAuthenticated ? (
               <Button
                 variant="outline"
-                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50 text-sm xl:text-base"
                 onClick={() => setOpenLogin(true)}
               >
                 {t('auth.login')}
@@ -84,7 +85,7 @@ export default function Header() {
             ) : (
               <Button
                 variant="outline"
-                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50 text-sm xl:text-base"
                 onClick={localSignOut}
               >
                 Log out

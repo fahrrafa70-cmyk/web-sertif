@@ -51,19 +51,19 @@ export const DEFAULT_SCORE_FONT_SETTINGS: ScoreFontSettings = {
   color: '#000000',
   fontWeight: 'normal',
   nilai: {
-    fontSize: 16, // Score values in table
+    fontSize: 16, // Score values in table - Reasonable size for generation
     fontFamily: 'Arial',
     color: '#000000',
-    fontWeight: 'bold',
+    fontWeight: 'normal',
   },
   aspekTeknis: {
-    fontSize: 14, // Competency names
+    fontSize: 14, // Competency names - Reasonable size for generation
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
   },
   additionalInfo: {
-    fontSize: 16, // Nilai prestasi and bottom info
+    fontSize: 16, // Nilai prestasi and bottom info - Reasonable size for generation
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
