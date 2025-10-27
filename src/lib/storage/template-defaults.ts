@@ -25,63 +25,57 @@ export interface OverlayImageDefault {
   aspectRatio: number;
 }
 
+export interface FontSetting {
+  fontSize: number;
+  fontFamily: string;
+  color: string;
+  fontWeight: 'normal' | 'bold';
+}
+
 export interface ScoreFontSettings {
   fontSize: number;
   fontFamily: string;
   color: string;
   fontWeight: 'normal' | 'bold';
-  nilai: {
-    fontSize: number;
-    fontFamily: string;
-    color: string;
-    fontWeight: 'normal' | 'bold';
-  };
-  aspekTeknis: {
-    fontSize: number;
-    fontFamily: string;
-    color: string;
-    fontWeight: 'normal' | 'bold';
-  };
-  additionalInfo: {
-    fontSize: number;
-    fontFamily: string;
-    color: string;
-    fontWeight: 'normal' | 'bold';
-  };
-  date: {
-    fontSize: number;
-    fontFamily: string;
-    color: string;
-    fontWeight: 'normal' | 'bold';
-  };
+  nilai: FontSetting;
+  aspekTeknis: FontSetting;
+  additionalInfo: FontSetting;
+  date: FontSetting;
+  issueDate: FontSetting;
 }
 
 // Default score font settings with requested values
 export const DEFAULT_SCORE_FONT_SETTINGS: ScoreFontSettings = {
-  fontSize: 16,
+  fontSize: 14, // Base text size
   fontFamily: 'Arial',
   color: '#000000',
   fontWeight: 'normal',
   nilai: {
-    fontSize: 65, // Default font size for nilai as requested
+    fontSize: 16, // Score values in table
     fontFamily: 'Arial',
     color: '#000000',
-    fontWeight: 'normal',
+    fontWeight: 'bold',
   },
   aspekTeknis: {
-    fontSize: 50, // Default font size for kompetensi dasar as requested
+    fontSize: 14, // Competency names
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
   },
   additionalInfo: {
-    fontSize: 50, // Default font size for nilai/prestasi as requested
+    fontSize: 16, // Nilai prestasi and bottom info
+    fontFamily: 'Arial',
+    color: '#000000',
+    fontWeight: 'normal',
+  },
+  issueDate: {
+    fontSize: 12, // Issue date slightly smaller for hierarchy
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
   },
   date: {
-    fontSize: 16,
+    fontSize: 12,
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
