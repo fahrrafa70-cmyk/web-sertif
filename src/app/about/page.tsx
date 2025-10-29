@@ -78,7 +78,7 @@ export default function AboutPage() {
   return (
     <ModernLayout>
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-700 text-white py-20">
+      <section className="gradient-hero text-white py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6 text-center relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -188,7 +188,7 @@ export default function AboutPage() {
                   className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow duration-300"
                 >
                   <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white">
+                    <div className="flex-shrink-0 w-12 h-12 gradient-primary rounded-lg flex items-center justify-center text-white">
                       {feature.icon}
                     </div>
                     <div>

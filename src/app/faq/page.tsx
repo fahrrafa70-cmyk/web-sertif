@@ -48,7 +48,7 @@ export default function FAQPage() {
   return (
     <ModernLayout>
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-700 text-white py-20">
+      <section className="gradient-hero text-white py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6 text-center relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}

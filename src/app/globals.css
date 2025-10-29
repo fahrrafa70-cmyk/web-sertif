@@ -499,6 +499,12 @@
     background: linear-gradient(135deg, oklch(0.96 0.01 106.423), oklch(0.92 0.02 106.423));
   }
 
+  /* Hero section gradient - bright blue */
+  .gradient-hero {
+    background: linear-gradient(135deg, #60A5FA, #1E40AF);
+    /* Match primary gradient for consistency */
+  }
+
   /* Text gradients */
   .text-gradient {
     background: linear-gradient(135deg, #60A5FA, #1E40AF);
