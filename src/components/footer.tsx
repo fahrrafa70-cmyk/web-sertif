@@ -103,11 +103,6 @@ export default function Footer() {
                   {t('nav.faq')}
                 </Link>
               </li>
-              <li>
-                <Link href="/contact" className="text-sm sm:text-base text-blue-100 hover:text-white transition-colors duration-200">
-                  {t('nav.contact')}
-                </Link>
-              </li>
             </ul>
           </motion.div>
 

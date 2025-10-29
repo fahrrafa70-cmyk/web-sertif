@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Settings, LogOut, ChevronDown } from "lucide-react";
+import { User, LogOut, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import Link from "next/link";
@@ -113,14 +113,6 @@ export default function UserAvatar() {
               >
                 <User className="w-4 h-4" />
                 <span>Profile</span>
-              </Link>
-              <Link
-                href="/settings"
-                className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                <Settings className="w-4 h-4" />
-                <span>Settings</span>
               </Link>
             </div>
 

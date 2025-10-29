@@ -9,7 +9,6 @@ import {
   FileText,
   Layout,
   Users,
-  Settings,
   Info,
   HelpCircle,
 } from "lucide-react";
@@ -62,12 +61,6 @@ export default function ModernSidebar() {
       icon: <HelpCircle className="w-5 h-5" />,
       label: t("nav.faq"),
       href: "/faq",
-    },
-    {
-      icon: <Settings className="w-5 h-5" />,
-      label: "Settings",
-      href: "/settings",
-      roles: ["admin", "team"],
     },
   ];
 
