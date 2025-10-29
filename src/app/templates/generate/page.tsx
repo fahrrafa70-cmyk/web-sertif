@@ -331,42 +331,73 @@ function CertificateGeneratorContent() {
   
   // Update score text content when scoreData changes (without recreating layers)
   useEffect(() => {
-    if (activeTemplateMode !== 'score') return;
-    if (scoreTextLayers.length === 0) return;
+    if (activeTemplateMode !== 'score') {
+      console.log('⏭️ Skipping score update: not in score mode');
+      return;
+    }
+    if (scoreTextLayers.length === 0) {
+      console.log('⏭️ Skipping score update: no scoreTextLayers yet');
+      return;
+    }
     
-    console.log('📝 Updating score text content from scoreData...');
+    console.log('📝 Updating score text content from scoreData...', {
+      nilai_prestasi: scoreData.nilai_prestasi,
+      formatted: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '(empty)',
+      layersCount: scoreTextLayers.length
+    });
+    
     setScoreTextLayers(prevLayers => 
       prevLayers.map(layer => {
         // Update aspek non teknis nilai
         if (layer.id.startsWith('aspek_non_teknis_nilai_')) {
           const no = parseInt(layer.id.split('_')[4]);
           const item = scoreData.aspek_non_teknis.find(i => i.no === no);
-          return { ...layer, text: `${item?.nilai ?? 0}` };
+          const newText = `${item?.nilai ?? 0}`;
+          if (layer.text !== newText) {
+            console.log(`  ✏️ Updated ${layer.id}: "${layer.text}" → "${newText}"`);
+          }
+          return { ...layer, text: newText };
         }
         // Update aspek teknis names
         if (layer.id.startsWith('aspek_teknis_name_')) {
           const no = parseInt(layer.id.split('_')[3]);
           const item = scoreData.aspek_teknis.find(i => i.no === no);
-          return { ...layer, text: item?.standar_kompetensi || '' };
+          const newText = item?.standar_kompetensi || '';
+          if (layer.text !== newText) {
+            console.log(`  ✏️ Updated ${layer.id}: "${layer.text}" → "${newText}"`);
+          }
+          return { ...layer, text: newText };
         }
         // Update aspek teknis nilai
         if (layer.id.startsWith('aspek_teknis_nilai_')) {
           const no = parseInt(layer.id.split('_')[3]);
           const item = scoreData.aspek_teknis.find(i => i.no === no);
-          return { ...layer, text: `${item?.nilai ?? 0}` };
+          const newText = `${item?.nilai ?? 0}`;
+          if (layer.text !== newText) {
+            console.log(`  ✏️ Updated ${layer.id}: "${layer.text}" → "${newText}"`);
+          }
+          return { ...layer, text: newText };
         }
         // Update nilai prestasi
         if (layer.id === 'nilai_prestasi') {
-          return { ...layer, text: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '' };
+          const newText = scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '';
+          if (layer.text !== newText) {
+            console.log(`  ✏️ Updated nilai_prestasi: "${layer.text}" → "${newText}"`);
+          }
+          return { ...layer, text: newText };
         }
         // Update score date
         if (layer.id === 'score_date') {
-          return { ...layer, text: scoreData.date ? formatDateString(scoreData.date, dateFormat) : '' };
+          const newText = scoreData.date ? formatDateString(scoreData.date, dateFormat) : '';
+          if (layer.text !== newText) {
+            console.log(`  ✏️ Updated score_date: "${layer.text}" → "${newText}"`);
+          }
+          return { ...layer, text: newText };
         }
         return layer;
       })
     );
-  }, [scoreData, activeTemplateMode, dateFormat, formatDateString, formatNilaiPrestasi]);
+  }, [scoreData, activeTemplateMode, dateFormat, formatDateString, formatNilaiPrestasi, scoreTextLayers.length]);
   
   
   // DISABLED: Loading saved defaults for score to prevent old text boxes
