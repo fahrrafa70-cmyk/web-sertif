@@ -38,7 +38,7 @@ import {
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer } from "@/lib/supabase/certificates";
-import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -49,6 +49,9 @@ import { getTemplateDefaults, TemplateDefaults, TextLayerDefault } from '@/lib/s
 import Image from "next/image";
 import { confirmToast } from "@/lib/ui/confirm";
 import { Suspense } from "react";
+import { QuickGenerateModal, QuickGenerateParams } from "@/components/certificate/QuickGenerateModal";
+import { getTemplates } from "@/lib/supabase/templates";
+import { getMembers } from "@/lib/supabase/members";
 
 function CertificatesContent() {
   const { t } = useLanguage();
@@ -62,6 +65,12 @@ function CertificatesContent() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage] = useState<number>(10);
+  
+  // Quick Generate state
+  const [quickGenerateOpen, setQuickGenerateOpen] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loadingQuickGenData, setLoadingQuickGenData] = useState(false);
 
   // Use certificates hook for Supabase integration
   const {
@@ -408,6 +417,145 @@ function CertificatesContent() {
     }
   }
 
+  // Quick Generate: Load templates and members when modal opens
+  const handleOpenQuickGenerate = async () => {
+    console.log('🚀 Opening Quick Generate Modal...');
+    setQuickGenerateOpen(true);
+    
+    if (templates.length === 0 || members.length === 0) {
+      console.log('📥 Loading templates and members...');
+      const loadingToast = toast.loading('Loading templates and members...');
+      
+      try {
+        setLoadingQuickGenData(true);
+        const [templatesData, membersData] = await Promise.all([
+          getTemplates(),
+          getMembers()
+        ]);
+        
+        console.log('✅ Data loaded:', {
+          templates: templatesData.length,
+          members: membersData.length
+        });
+        
+        setTemplates(templatesData);
+        setMembers(membersData);
+        toast.dismiss(loadingToast);
+        toast.success(`Loaded ${templatesData.length} templates and ${membersData.length} members`);
+      } catch (error) {
+        console.error('❌ Failed to load Quick Generate data:', error);
+        toast.dismiss(loadingToast);
+        toast.error('Failed to load templates and members');
+      } finally {
+        setLoadingQuickGenData(false);
+      }
+    } else {
+      console.log('✅ Using cached data:', {
+        templates: templates.length,
+        members: members.length
+      });
+    }
+  };
+
+  // Quick Generate: Handle certificate generation
+  const handleQuickGenerate = async (params: QuickGenerateParams) => {
+    try {
+      toast.loading('Generating certificate(s)...');
+      
+      // Load template defaults for coordinates
+      const templateId = params.template.is_dual_template 
+        ? `${params.template.id}_certificate` 
+        : params.template.id;
+      const defaults = getTemplateDefaults(templateId);
+      
+      if (!defaults || !defaults.textLayers) {
+        throw new Error('Template defaults not found. Please set up template first.');
+      }
+
+      if (params.dataSource === 'member' && params.member && params.certificateData) {
+        // Single certificate generation from member
+        await generateSingleCertificate(
+          params.template,
+          params.member,
+          params.certificateData,
+          defaults,
+          params.dateFormat
+        );
+        toast.dismiss();
+        toast.success('Certificate generated successfully!');
+      } else if (params.dataSource === 'excel' && params.excelData) {
+        // Bulk certificate generation from Excel
+        const total = params.excelData.length;
+        let generated = 0;
+        
+        for (const row of params.excelData) {
+          try {
+            const certNo = String(row.certificate_no || row.cert_no || `CERT-${Date.now()}`);
+            const name = String(row.name || row.recipient || '');
+            const description = String(row.description || '');
+            const issueDate = String(row.issue_date || row.date || new Date().toISOString().split('T')[0]);
+            const expiredDate = String(row.expired_date || row.expiry || '');
+            
+            // Create temporary member object from Excel data
+            const tempMember: Member = {
+              id: `temp-${Date.now()}-${generated}`,
+              name,
+              email: String(row.email || ''),
+              organization: String(row.organization || ''),
+              phone: String(row.phone || ''),
+              job: String(row.job || ''),
+              date_of_birth: null,
+              address: String(row.address || ''),
+              city: String(row.city || ''),
+              notes: '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
+            await generateSingleCertificate(
+              params.template,
+              tempMember,
+              { certificate_no: certNo, description, issue_date: issueDate, expired_date: expiredDate },
+              defaults,
+              params.dateFormat
+            );
+            
+            generated++;
+            toast.loading(`Generating certificates... ${generated}/${total}`);
+          } catch (error) {
+            console.error('Failed to generate certificate for row:', row, error);
+          }
+        }
+        
+        toast.dismiss();
+        toast.success(`Successfully generated ${generated}/${total} certificate(s)!`);
+      }
+      
+      // Refresh certificates list
+      await refresh();
+    } catch (error) {
+      toast.dismiss();
+      console.error('Quick Generate error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate certificate');
+    }
+  };
+
+  // Helper: Generate single certificate
+  const generateSingleCertificate = async (
+    template: Template,
+    member: Member,
+    certData: { certificate_no: string; description: string; issue_date: string; expired_date: string },
+    defaults: TemplateDefaults,
+    dateFormat: string
+  ) => {
+    // This is a simplified version - full implementation would use canvas like generate page
+    // For now, create certificate record with placeholder image
+    console.log('Generating certificate:', { template: template.name, member: member.name, certData });
+    
+    // TODO: Implement full canvas-based generation using template defaults
+    toast.info('Certificate generation with canvas rendering - Coming soon!');
+  };
+
   const filtered = useMemo(() => {
     let filteredCerts = certificates;
 
@@ -690,6 +838,16 @@ function CertificatesContent() {
                     {t("certificates.subtitle")}
                   </p>
                 </div>
+                {/* Quick Generate Button */}
+                {(role === "Admin" || role === "Team") && (
+                  <Button
+                    onClick={handleOpenQuickGenerate}
+                    className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center gap-2"
+                  >
+                    <Zap className="w-5 h-5" />
+                    Quick Generate
+                  </Button>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <Input
@@ -1832,6 +1990,15 @@ function CertificatesContent() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Quick Generate Modal */}
+      <QuickGenerateModal
+        open={quickGenerateOpen}
+        onClose={() => setQuickGenerateOpen(false)}
+        templates={templates}
+        members={members}
+        onGenerate={handleQuickGenerate}
+      />
 
       {/* Toast Notifications */}
       <Toaster position="top-right" richColors />

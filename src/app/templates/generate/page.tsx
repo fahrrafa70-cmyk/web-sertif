@@ -129,21 +129,6 @@ function CertificateGeneratorContent() {
   // Active text layers based on current mode - use useMemo to ensure reactivity
   const textLayers = useMemo(() => {
     const result = activeTemplateMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
-    const nilaiPrestasiLayer = result.find(l => l.id === 'nilai_prestasi');
-    console.log('🔍 textLayers useMemo:', {
-      mode: activeTemplateMode,
-      resultCount: result.length,
-      certificateCount: certificateTextLayers.length,
-      scoreCount: scoreTextLayers.length,
-      nilaiPrestasiLayer: nilaiPrestasiLayer ? {
-        id: nilaiPrestasiLayer.id,
-        text: nilaiPrestasiLayer.text,
-        hasText: !!nilaiPrestasiLayer.text,
-        x: nilaiPrestasiLayer.x,
-        y: nilaiPrestasiLayer.y
-      } : '❌ NOT FOUND',
-      firstFewLayers: result.slice(0, 3).map(l => ({ id: l.id, text: l.text?.substring(0, 20) }))
-    });
     return result;
   }, [activeTemplateMode, certificateTextLayers, scoreTextLayers]);
   
@@ -341,74 +326,60 @@ function CertificateGeneratorContent() {
   
   // Update score text content when scoreData changes (without recreating layers)
   useEffect(() => {
-    if (activeTemplateMode !== 'score') {
-      console.log('⏭️ Skipping score update: not in score mode');
-      return;
-    }
-    if (scoreTextLayers.length === 0) {
-      console.log('⏭️ Skipping score update: no scoreTextLayers yet');
-      return;
-    }
+    if (activeTemplateMode !== 'score') return;
+    if (scoreTextLayers.length === 0) return;
     
-    console.log('📝 Updating score text content from scoreData...', {
+    console.log('🔄 useEffect triggered - Updating score layers:', {
       nilai_prestasi: scoreData.nilai_prestasi,
-      formatted: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '(empty)',
       layersCount: scoreTextLayers.length
     });
     
-    setScoreTextLayers(prevLayers => 
-      prevLayers.map(layer => {
+    setScoreTextLayers(prevLayers => {
+      const newLayers = prevLayers.map(layer => {
         // Update aspek non teknis nilai
         if (layer.id.startsWith('aspek_non_teknis_nilai_')) {
           const no = parseInt(layer.id.split('_')[4]);
           const item = scoreData.aspek_non_teknis.find(i => i.no === no);
-          const newText = `${item?.nilai ?? 0}`;
-          if (layer.text !== newText) {
-            console.log(`  ✏️ Updated ${layer.id}: "${layer.text}" → "${newText}"`);
-          }
-          return { ...layer, text: newText };
+          return { ...layer, text: `${item?.nilai ?? 0}` };
         }
         // Update aspek teknis names
         if (layer.id.startsWith('aspek_teknis_name_')) {
           const no = parseInt(layer.id.split('_')[3]);
           const item = scoreData.aspek_teknis.find(i => i.no === no);
-          const newText = item?.standar_kompetensi || '';
-          if (layer.text !== newText) {
-            console.log(`  ✏️ Updated ${layer.id}: "${layer.text}" → "${newText}"`);
-          }
-          return { ...layer, text: newText };
+          return { ...layer, text: item?.standar_kompetensi || '' };
         }
         // Update aspek teknis nilai
         if (layer.id.startsWith('aspek_teknis_nilai_')) {
           const no = parseInt(layer.id.split('_')[3]);
           const item = scoreData.aspek_teknis.find(i => i.no === no);
-          const newText = `${item?.nilai ?? 0}`;
-          if (layer.text !== newText) {
-            console.log(`  ✏️ Updated ${layer.id}: "${layer.text}" → "${newText}"`);
-          }
-          return { ...layer, text: newText };
+          return { ...layer, text: `${item?.nilai ?? 0}` };
         }
         // Update nilai prestasi (SAME logic as aspek teknis - always show value)
         if (layer.id === 'nilai_prestasi') {
           const newText = scoreData.nilai_prestasi && scoreData.nilai_prestasi.trim() !== '' 
             ? formatNilaiPrestasi(scoreData.nilai_prestasi) 
             : '0';  // Default to '0' like aspek teknis
-          if (layer.text !== newText) {
-            console.log(`  ✏️ Updated nilai_prestasi: "${layer.text}" → "${newText}"`);
-          }
+          console.log('✅ UPDATING nilai_prestasi layer:', { 
+            oldText: layer.text, 
+            newText, 
+            scoreDataValue: scoreData.nilai_prestasi,
+            formatted: formatNilaiPrestasi(scoreData.nilai_prestasi || '0')
+          });
           return { ...layer, text: newText };
         }
         // Update score date
         if (layer.id === 'score_date') {
-          const newText = scoreData.date ? formatDateString(scoreData.date, dateFormat) : '';
-          if (layer.text !== newText) {
-            console.log(`  ✏️ Updated score_date: "${layer.text}" → "${newText}"`);
-          }
-          return { ...layer, text: newText };
+          return { ...layer, text: scoreData.date ? formatDateString(scoreData.date, dateFormat) : '' };
         }
         return layer;
-      })
-    );
+      });
+      
+      // Log updated nilai_prestasi layer
+      const updatedNilaiLayer = newLayers.find(l => l.id === 'nilai_prestasi');
+      console.log('📊 After update, nilai_prestasi layer:', updatedNilaiLayer);
+      
+      return newLayers;
+    });
   }, [scoreData, activeTemplateMode, dateFormat, formatDateString, formatNilaiPrestasi]);
   
   
@@ -717,35 +688,20 @@ function CertificateGeneratorContent() {
     
     // For dual-mode templates, return appropriate image based on active mode
     if (template.is_dual_template) {
-      console.log('🖼️ Dual template mode:', {
-        activeTemplateMode,
-        score_image_url: template.score_image_url,
-        certificate_image_url: template.certificate_image_url,
-        is_dual_template: template.is_dual_template
-      });
-      
       if (activeTemplateMode === 'score' && template.score_image_url) {
-        // Return score image with cache busting
-        const scoreUrl = `${template.score_image_url}?v=${template.id}&t=${Date.now()}`;
-        console.log('🖼️ Returning score image URL:', scoreUrl);
-        return scoreUrl;
+        // Return score image with cache busting using template ID only (stable)
+        return `${template.score_image_url}?v=${template.id}`;
       }
       // Default to certificate image
       if (template.certificate_image_url) {
-        const certUrl = `${template.certificate_image_url}?v=${template.id}&t=${Date.now()}`;
-        console.log('🖼️ Returning certificate image URL:', certUrl);
-        return certUrl;
+        return `${template.certificate_image_url}?v=${template.id}`;
       }
       // Fallback to legacy image_path
-      const fallbackUrl = getTemplateImageUrl(template);
-      console.log('🖼️ Returning fallback image URL:', fallbackUrl);
-      return fallbackUrl;
+      return getTemplateImageUrl(template);
     }
     
     // For single-mode templates, always return certificate image
-    const singleUrl = getTemplateImageUrl(template);
-    console.log('🖼️ Returning single template image URL:', singleUrl);
-    return singleUrl;
+    return getTemplateImageUrl(template);
   }, [activeTemplateMode]);
 
   // Import Excel instruction modal state
@@ -3641,6 +3597,20 @@ function CertificateGeneratorContent() {
                     </div>
                   )}
                   {textLayers.map((layer) => {
+                    // ONE-TIME DEBUG: Log nilai_prestasi when rendering
+                    if (layer.id === 'nilai_prestasi') {
+                      console.log('🎨 RENDERING nilai_prestasi layer:', {
+                        id: layer.id,
+                        text: layer.text,
+                        textType: typeof layer.text,
+                        textLength: layer.text?.length,
+                        isEmpty: !layer.text || layer.text === '',
+                        willShowPlaceholder: !layer.text,
+                        x: layer.x,
+                        y: layer.y
+                      });
+                    }
+                    
                     // Calculate actual position using absolute x/y if available (from recent drag),
                     // otherwise use normalized coordinates for stable layout
                     const consistentDims = getConsistentDimensions;
@@ -3654,24 +3624,6 @@ function CertificateGeneratorContent() {
                     const actualY = typeof layer.y === "number" && layer.y !== undefined
                       ? layer.y
                       : layer.yPercent * consistentDims.height;
-                    
-                    // Debug log untuk melihat perbedaan dimensi - log ALL layers in score mode
-                    if (activeTemplateMode === 'score' || layer.id === "name" || layer.id === 'nilai_prestasi' || layer.id.startsWith('aspek_teknis_name_')) {
-                      console.log('👁️ RENDERING TEXT LAYER:', {
-                        mode: activeTemplateMode,
-                        layerId: layer.id,
-                        layerText: layer.text,
-                        textLength: layer.text?.length || 0,
-                        hasText: !!(layer.text && layer.text.length > 0),
-                        actualX,
-                        actualY,
-                        fontSize: layer.fontSize,
-                        scaledFontSize: layer.fontSize * (consistentDims.scale || 1),
-                        scale: consistentDims.scale,
-                        color: layer.color,
-                        visible: layer.text && layer.text.length > 0 && layer.fontSize > 0 ? '✅ YES' : '❌ NO'
-                      });
-                    }
 
                     // Prevent deletion for system-generated layers
                     const __isSystemLayer = [
@@ -4661,11 +4613,7 @@ function CertificateGeneratorContent() {
                       value={scoreData.nilai_prestasi}
                       onChange={(e) => {
                         const newValue = e.target.value;
-                        console.log('🔵 Nilai/Prestasi input changed:', {
-                          oldValue: scoreData.nilai_prestasi,
-                          newValue: newValue,
-                          formatted: newValue ? formatNilaiPrestasi(newValue) : '(empty)'
-                        });
+                        console.log('🔵 INPUT CHANGED - Nilai/Prestasi:', newValue);
                         setScoreData({...scoreData, nilai_prestasi: newValue});
                       }}
                       className="h-8 text-xs"
