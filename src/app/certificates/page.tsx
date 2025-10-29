@@ -38,7 +38,7 @@ import {
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer } from "@/lib/supabase/certificates";
-import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon } from "lucide-react";
+import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -58,6 +58,10 @@ function CertificatesContent() {
   const [searchInput, setSearchInput] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage] = useState<number>(10);
 
   // Use certificates hook for Supabase integration
   const {
@@ -436,6 +440,23 @@ function CertificatesContent() {
     return filteredCerts;
   }, [certificates, searchInput, certQuery, categoryFilter, dateFilter]);
 
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentCertificates = useMemo(() => 
+    filtered.slice(indexOfFirstItem, indexOfLastItem), 
+    [filtered, indexOfFirstItem, indexOfLastItem]
+  );
+  const totalPages = useMemo(() => 
+    Math.ceil(filtered.length / itemsPerPage), 
+    [filtered, itemsPerPage]
+  );
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchInput, categoryFilter, dateFilter]);
+
   const [isEditOpen, setIsEditOpen] = useState<null | string>(null);
   const [draft, setDraft] = useState<Certificate | null>(null);
   const [previewCertificate, setPreviewCertificate] =
@@ -771,7 +792,7 @@ function CertificatesContent() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filtered.map((certificate) => (
+                      {currentCertificates.map((certificate) => (
                         <TableRow 
                           key={certificate.id}
                           onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
@@ -877,6 +898,39 @@ function CertificatesContent() {
                   </Table>
                 </div>
               </motion.div>
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && !error && filtered.length > 0 && (
+              <div className="mt-6 flex items-center justify-between px-6 py-4 bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filtered.length)} of {filtered.length} certificates
+                  {(searchInput || categoryFilter || dateFilter) && <span className="ml-1 text-gray-400">(filtered from {certificates.length})</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <div className="text-sm text-gray-600 px-3">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
             )}
 
             {/* Empty State */}
