@@ -54,6 +54,12 @@ import {
   excelDateToISO,
 } from "@/lib/utils/certificate-formatters";
 import { useMembersSelection } from "@/hooks/use-members-selection";
+import {
+  STANDARD_CANVAS_WIDTH,
+  STANDARD_CANVAS_HEIGHT,
+  SCORE_LAYOUT,
+  normalizeFontSize,
+} from "@/lib/constants/canvas";
 
 function CertificateGeneratorContent() {
   const { t } = useLanguage();
@@ -75,10 +81,6 @@ function CertificateGeneratorContent() {
   
   // Single date format applied to both issue and expiry dates (form keeps ISO)
   const [dateFormat, setDateFormat] = useState<string>("yyyy-mm-dd");
-  
-  // FIX: Standard canvas dimensions for consistent positioning - MUST be defined before useEffectya
-  const STANDARD_CANVAS_WIDTH = 800;
-  const STANDARD_CANVAS_HEIGHT = 600;
   
   const [scoreData, setScoreData] = useState(() => {
     // Initialize with current date
@@ -174,60 +176,9 @@ function CertificateGeneratorContent() {
     // Create text layers from scratch (first time only)
     const layers: TextLayer[] = [];
     
-    // Certificate layout constants calibrated from reference image
-    const SCORE_LAYOUT = {
-      title: {
-        x: 0.5,              // Centered
-        mainY: 0.15,         // DAFTAR NILAI
-        subY: 0.20,          // MAGANG INDUSTRI
-      },
-      sections: {
-        left: {
-          headerX: 0.15,     // I. ASPEK NON TEKNIS
-          headerY: 0.25,
-          startX: 0.15,      // Table start X
-          valueX: 0.35,      // Score values
-          startY: 0.30,      // First row Y
-          spacing: 0.045     // Row height
-        },
-        right: {
-          headerX: 0.55,     // II. ASPEK TEKNIS
-          headerY: 0.25,
-          startX: 0.55,      // Table start X
-          valueX: 0.85,      // Score values
-          startY: 0.30,      // First row Y
-          spacing: 0.045     // Match left spacing
-        }
-      },
-      bottom: {
-        prestasi: {
-          x: 0.5,           // Centered
-          y: 0.65          // Nilai/Prestasi text
-        },
-        keterangan: {
-          x: 0.5,
-          y: 0.70
-        },
-        date: {
-          x: 0.15,         // Bottom left
-          y: 0.80
-        },
-        signature: {
-          x: 0.80,         // Bottom right
-          y: 0.80
-        }
-      }
-    };
-
-    // Font size normalizer (prevents UI inputs from breaking layout)
-    const normalizeFontSize = (size: number | undefined, opts?: {min?: number; max?: number}) => {
-      if (!size || Number.isNaN(size)) return opts?.min ?? 14;
-      return Math.max(opts?.min ?? 12, Math.min(opts?.max ?? 24, Math.round(size)));
-    };
-    
-    // CRITICAL FIX: Use fixed dimensions for Score text layer creation to match generation
-    const fixedWidth = 800;
-    const fixedHeight = 600;
+    // Use standard canvas dimensions for text layer creation
+    const fixedWidth = STANDARD_CANVAS_WIDTH;
+    const fixedHeight = STANDARD_CANVAS_HEIGHT;
     
     // REMOVED: Title, subtitle, and headers are already in the template image
     // Only add editable user input fields below

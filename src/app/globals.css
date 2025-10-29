@@ -491,7 +491,8 @@
 
   /* Gradient backgrounds */
   .gradient-primary {
-    background: linear-gradient(135deg, #3B82F6, #06B6D4);
+    background: linear-gradient(135deg, #60A5FA, #1E40AF);
+    /* Light blue (#60A5FA) to dark blue (#1E40AF) - Brighter gradient */
   }
 
   .gradient-secondary {
