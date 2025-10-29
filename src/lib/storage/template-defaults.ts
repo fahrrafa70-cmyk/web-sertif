@@ -46,36 +46,40 @@ export interface ScoreFontSettings {
 
 // Default score font settings with requested values
 export const DEFAULT_SCORE_FONT_SETTINGS: ScoreFontSettings = {
-  fontSize: 14, // Base text size
+  // Default sizes per request: values 75, other text 50
+  fontSize: 50,
   fontFamily: 'Arial',
   color: '#000000',
   fontWeight: 'normal',
+  // Numeric grades (nilai) default to 70
   nilai: {
-    fontSize: 16, // Score values in table - Reasonable size for generation
+    fontSize: 70,
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
   },
+  // Other table/text elements (titles, labels, headings, kompetensi, etc.) default to 50
   aspekTeknis: {
-    fontSize: 14, // Competency names - Reasonable size for generation
+    fontSize: 50,
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
   },
+  // Nilai/Prestasi text should also default to 50
   additionalInfo: {
-    fontSize: 16, // Nilai prestasi and bottom info - Reasonable size for generation
+    fontSize: 50,
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
   },
   issueDate: {
-    fontSize: 12, // Issue date slightly smaller for hierarchy
+    fontSize: 50,
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',
   },
   date: {
-    fontSize: 12,
+    fontSize: 50,
     fontFamily: 'Arial',
     color: '#000000',
     fontWeight: 'normal',

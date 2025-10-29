@@ -29,11 +29,11 @@ export default function Footer() {
   return (
     <footer className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white overflow-hidden">
       {/* Background Decorations */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-12">
         {bubbles.map((b, i) => (
           <motion.div
             key={i}
-            className="absolute w-2 h-2 bg-white/20 rounded-full"
+            className="absolute w-4 h-4 bg-white/20 rounded-full"
             style={{ left: b.left, top: b.top }}
             animate={{ y: [0, -20, 0], opacity: [0.2, 0.8, 0.2] }}
             transition={{ duration: b.duration, repeat: Infinity, delay: b.delay }}
@@ -44,9 +44,9 @@ export default function Footer() {
       {/* Wave Divider */}
       <div className="absolute top-0 left-0 right-0">
         <svg
-          viewBox="0 0 1200 120"
+          viewBox="0 0 1200 140"
           preserveAspectRatio="none"
-          className="w-full h-16 fill-white"
+          className="w-full h-15  fill-white"
         >
           <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z"></path>
         </svg>

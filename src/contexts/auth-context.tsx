@@ -77,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole(null);
         setEmail(null);
         setError(null);
+        setLoading(false); // Ensure loading is reset on sign out
       } else if (event === "SIGNED_IN" && session?.user?.email) {
         const normalized = session.user.email.toLowerCase().trim();
         setEmail(normalized);
@@ -90,10 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch {}
           
           setError(null);
+          setLoading(false); // Ensure loading is reset after successful sign in
         } catch (err) {
           console.error('Error fetching user role:', err);
           setRole(null);
           setError("Failed to fetch user role. Please try signing in again.");
+          setLoading(false); // Ensure loading is reset even on error
         }
       } else if (event === "TOKEN_REFRESHED" && session?.user?.email) {
         // Handle token refresh - just update the session without changing state
@@ -120,8 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { user } = await signInWithEmailPassword(normalized, password);
       console.log("Auth success", user?.id);
       
-      // The auth state change listener will handle setting email and role
-      // We just need to close the login modal
+      // Wait for auth state to be updated before closing modal
+      // Give the auth state listener time to process the SIGNED_IN event
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Reset loading state before closing modal to prevent freeze
+      setLoading(false);
+      
+      // Close the login modal after auth state is updated
       setOpenLogin(false);
     } catch (err: unknown) {
       console.error('Sign in error:', err);
@@ -145,9 +154,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setError(message);
+      setLoading(false); // Reset loading on error
       throw new Error(message); // Re-throw error so it can be caught by login modal
-    } finally {
-      setLoading(false);
     }
   }, []);
 

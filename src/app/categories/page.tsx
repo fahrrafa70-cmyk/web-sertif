@@ -1,7 +1,6 @@
 "use client";
 
 import Header from "@/components/header";
-import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -57,7 +56,6 @@ export default function CategoriesPage() {
           </div>
         </section>
       </main>
-      <Footer />
     </div>
   );
 }

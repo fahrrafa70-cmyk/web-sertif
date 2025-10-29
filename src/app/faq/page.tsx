@@ -1,7 +1,6 @@
 "use client";
 
-import Header from "@/components/header";
-import Footer from "@/components/footer";
+import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
@@ -47,12 +46,10 @@ export default function FAQPage() {
   ];
 
   return (
-    <div className="min-h-screen">
-      <Header />
-      <main className="pt-16">
-        {/* Hero Section */}
-        <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <ModernLayout>
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6 text-center relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -70,8 +67,8 @@ export default function FAQPage() {
         </section>
 
         {/* FAQ Content */}
-        <section className="py-20 bg-white">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-20">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-6">
             <div className="space-y-6">
               {faqs.map((faq, index) => (
                 <motion.div
@@ -114,8 +111,6 @@ export default function FAQPage() {
             </div>
           </div>
         </section>
-      </main>
-      <Footer />
-    </div>
+    </ModernLayout>
   );
 }

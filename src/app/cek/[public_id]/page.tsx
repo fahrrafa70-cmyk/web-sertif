@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
 import { Button } from "@/components/ui/button";
-import { Download, Link2, Share2, FileText, Calendar, Building2, User, Tag, Clock, CheckCircle2, ArrowLeft, Image as ImageIcon } from "lucide-react";
+import { Link2, Share2, FileText, Calendar, Building2, User, Tag, Clock, CheckCircle2, ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -46,7 +46,7 @@ export default function PublicCertificatePage() {
     loadCertificate();
   }, [public_id]);
 
-  // Export certificate to PDF
+  // Export both certificate and score images to a single PDF
   async function exportToPDF() {
     if (!certificate?.certificate_image_url) {
       toast.error("Certificate image not available");
@@ -61,50 +61,65 @@ export default function PublicCertificatePage() {
       }
       const { jsPDF } = mod;
 
-      let srcRaw = certificate.certificate_image_url || "";
-      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
-        srcRaw = `/${srcRaw}`;
+      async function fetchImage(urlRaw: string) {
+        let srcRaw = urlRaw || "";
+        if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+          srcRaw = `/${srcRaw}`;
+        }
+        const cacheBust = certificate?.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+        const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
+        const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+          ? `${window.location.origin}${localWithBust}`
+          : localWithBust;
+        const resp = await fetch(src);
+        if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+        const blob = await resp.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const bitmap = await createImageBitmap(blob);
+        const dims = { w: bitmap.width, h: bitmap.height };
+        bitmap.close();
+        return { dataUrl, dims, mime: blob.type };
       }
-      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
-      const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
-      const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
-        ? `${window.location.origin}${localWithBust}`
-        : localWithBust;
 
-      const resp = await fetch(src);
-      if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
-      const blob = await resp.blob();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      const isPNG = blob.type.includes('png');
+      // Fetch main certificate
+      const main = await fetchImage(certificate.certificate_image_url);
+      const isPNG = main.mime.includes('png');
       const imgType = isPNG ? 'PNG' : 'JPEG';
 
-      const imgBitmap = await createImageBitmap(blob);
-      const imgW = imgBitmap.width;
-      const imgH = imgBitmap.height;
-      imgBitmap.close();
-
-      const orientation = imgW >= imgH ? 'l' : 'p';
+      // Create PDF with orientation of first image
+      const orientation = main.dims.w >= main.dims.h ? 'l' : 'p';
       const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
 
-      const margin = 8;
-      const maxW = pageW - margin * 2;
-      const maxH = pageH - margin * 2;
-      const scale = Math.min(maxW / imgW, maxH / imgH);
-      const drawW = imgW * scale;
-      const drawH = imgH * scale;
-      const x = (pageW - drawW) / 2;
-      const y = (pageH - drawH) / 2;
+      function addCenteredImage(dataUrl: string, dims: { w: number; h: number }) {
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 8;
+        const maxW = pageW - margin * 2;
+        const maxH = pageH - margin * 2;
+        const scale = Math.min(maxW / dims.w, maxH / dims.h);
+        const drawW = dims.w * scale;
+        const drawH = dims.h * scale;
+        const x = (pageW - drawW) / 2;
+        const y = (pageH - drawH) / 2;
+        doc.addImage(dataUrl, imgType, x, y, drawW, drawH, undefined, 'FAST');
+      }
 
-      doc.addImage(dataUrl, imgType, x, y, drawW, drawH, undefined, 'FAST');
-      const fileName = `${certificate.certificate_no || 'certificate'}.pdf`;
+      // Page 1: main certificate
+      addCenteredImage(main.dataUrl, main.dims);
+
+      // Page 2: score certificate if available
+      if (certificate.score_image_url) {
+        doc.addPage();
+        const score = await fetchImage(certificate.score_image_url);
+        addCenteredImage(score.dataUrl, score.dims);
+      }
+
+      const fileName = `${certificate.certificate_no || 'certificate'}-combined.pdf`;
       doc.save(fileName);
       toast.success("PDF downloaded successfully");
     } catch (err) {
@@ -113,42 +128,46 @@ export default function PublicCertificatePage() {
     }
   }
 
-  // Export certificate to PNG
+  // Export both certificate and score to PNG (two files)
   async function exportToPNG() {
     if (!certificate?.certificate_image_url) {
       toast.error("Certificate image not available");
       return;
     }
 
-    try {
-      let srcRaw = certificate.certificate_image_url || "";
+    async function downloadPng(urlRaw: string, name: string) {
+      let srcRaw = urlRaw || "";
       if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
         srcRaw = `/${srcRaw}`;
       }
-      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+      const cacheBust = certificate?.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
       const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
       const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
         ? `${window.location.origin}${localWithBust}`
         : localWithBust;
-
       const resp = await fetch(src);
       if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
       const blob = await resp.blob();
-
-      // Create download link
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${certificate.certificate_no || 'certificate'}.png`;
+      link.download = name;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+    }
 
-      toast.success("PNG downloaded successfully");
+    try {
+      const base = certificate.certificate_no || 'certificate';
+      await downloadPng(certificate.certificate_image_url, `${base}.png`);
+      if (certificate.score_image_url) {
+        await downloadPng(certificate.score_image_url, `${base}-score.png`);
+      }
+      toast.success("PNGs downloaded successfully");
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "Failed to export PNG");
+      toast.error(err instanceof Error ? err.message : "Failed to export PNGs");
     }
   }
 

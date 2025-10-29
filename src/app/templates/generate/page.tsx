@@ -2,8 +2,7 @@
 
 /* eslint-disable react-hooks/exhaustive-deps, @typescript-eslint/no-unused-vars */
 
-import Header from "@/components/header";
-import Footer from "@/components/footer";
+import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +47,7 @@ interface AspekTeknis {
 
 interface AspekNonTeknis {
   no: number;
+  aspek: string;
   nilai: number;
 }
 
@@ -213,53 +213,81 @@ function CertificateGeneratorContent() {
   
   // Active text layers based on current mode - use useMemo to ensure reactivity
   const textLayers = useMemo(() => {
-    return activeTemplateMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
+    const result = activeTemplateMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
+    console.log('🔍 textLayers useMemo:', {
+      mode: activeTemplateMode,
+      resultCount: result.length,
+      certificateCount: certificateTextLayers.length,
+      scoreCount: scoreTextLayers.length,
+      firstFewLayers: result.slice(0, 3).map(l => ({ id: l.id, text: l.text?.substring(0, 20) }))
+    });
+    return result;
   }, [activeTemplateMode, certificateTextLayers, scoreTextLayers]);
   
-  // Debug logging
-  useEffect(() => {
-    console.log(`📝 Active mode: ${activeTemplateMode}`);
-    console.log(`📝 Certificate layers:`, certificateTextLayers.length);
-    console.log(`📝 Score layers:`, scoreTextLayers.length);
-    console.log(`📝 Active layers:`, textLayers.length);
-    
-    if (activeTemplateMode === 'score') {
-      console.log(`📝 Score text layers details:`, scoreTextLayers.map(l => ({ 
-        id: l.id, 
-        text: l.text, 
-        x: l.x, 
-        y: l.y, 
-        xPercent: l.xPercent, 
-        yPercent: l.yPercent 
-      })));
-      
-      // Debug khusus untuk aspek teknis dan nilai prestasi
-      const competencyLayers = scoreTextLayers.filter(l => l.id.startsWith('aspek_teknis_name_'));
-      const nilaiPrestasiLayer = scoreTextLayers.find(l => l.id === 'nilai_prestasi');
-      
-      console.log('🔍 Competency layers:', competencyLayers);
-      console.log('🔍 Nilai prestasi layer:', nilaiPrestasiLayer);
-      console.log('🔍 Current score data:', scoreData);
-    }
-  }, [activeTemplateMode, certificateTextLayers, scoreTextLayers, textLayers, scoreData]);
+
   
   // NEW: Auto-sync score data to text layers
   useEffect(() => {
     if (activeTemplateMode !== 'score') return;
     
-    console.log('🔄 Syncing score data to text layers...', scoreData);
+    console.log('🔄 Score text layers sync triggered:', {
+      currentLayersCount: scoreTextLayers.length,
+      scoreDataFilled: scoreData.aspek_teknis.some(a => a.standar_kompetensi),
+      mode: activeTemplateMode
+    });
     
-    // Skip loading defaults here - let the mode-specific useEffect handle it
-    // This prevents conflicts between the two useEffects
+    // Always create/update score text layers to ensure they exist and are synchronized
+    // This replaces the conflicting safety guard useEffect
     
-    // Check if score text layers already exist (user has positioned them)
-    if (scoreTextLayers.length > 0) {
-      console.log('📝 Score text layers already exist, skipping recreation to preserve positioning');
+    // CRITICAL FIX: Check if existing layers have valid text content
+    // If layers exist but are empty/corrupt, force recreation
+    const hasValidLayers = scoreTextLayers.length > 0 && 
+      scoreTextLayers.some(layer => layer.text && layer.text.length > 0);
+    
+    if (hasValidLayers) {
+      console.log('📝 Updating existing score text layers with valid content...');
+      // Update existing layers with current data while preserving positions and styles
+      const updatedLayers = scoreTextLayers.map(layer => {
+        // REMOVED: aspek_non_teknis_name_ update - these layers are no longer created
+        
+        // Update aspek non teknis nilai
+        if (layer.id.startsWith('aspek_non_teknis_nilai_')) {
+          const no = parseInt(layer.id.split('_')[4]);
+          const item = scoreData.aspek_non_teknis.find(i => i.no === no);
+          return { ...layer, text: `${item?.nilai ?? 0}` };
+        }
+        // Update aspek teknis names
+        if (layer.id.startsWith('aspek_teknis_name_')) {
+          const no = parseInt(layer.id.split('_')[3]);
+          const item = scoreData.aspek_teknis.find(i => i.no === no);
+          return { ...layer, text: item?.standar_kompetensi || '' };
+        }
+        // Update aspek teknis nilai
+        if (layer.id.startsWith('aspek_teknis_nilai_')) {
+          const no = parseInt(layer.id.split('_')[3]);
+          const item = scoreData.aspek_teknis.find(i => i.no === no);
+          return { ...layer, text: `${item?.nilai ?? 0}` };
+        }
+        // Update nilai prestasi
+        if (layer.id === 'nilai_prestasi') {
+          return { ...layer, text: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '' };
+        }
+        // Update score date
+        if (layer.id === 'score_date') {
+          return { ...layer, text: scoreData.date ? formatDateString(scoreData.date, dateFormat) : '' };
+        }
+        return layer;
+      });
+      setScoreTextLayers(updatedLayers);
       return;
     }
     
-    // Only create text layers from scratch if no saved defaults exist
-    console.log('📝 Creating score text layers for the first time...');
+    // If layers exist but are empty/corrupt, log and force recreation
+    if (scoreTextLayers.length > 0 && !hasValidLayers) {
+      console.warn('⚠️ Score text layers exist but have no valid content. Forcing recreation...');
+    }
+    
+    // FORCE CREATE: If no layers exist, create them immediately
     
     // Create text layers from scratch (first time only)
     const layers: TextLayer[] = [];
@@ -319,79 +347,16 @@ function CertificateGeneratorContent() {
     const fixedWidth = 800;
     const fixedHeight = 600;
     
-    // Add title section
-    layers.push({
-      id: 'score_title',
-      text: 'DAFTAR NILAI',
-      x: Math.round(fixedWidth * SCORE_LAYOUT.title.x),
-      y: Math.round(fixedHeight * SCORE_LAYOUT.title.mainY),
-      xPercent: SCORE_LAYOUT.title.x,
-      yPercent: SCORE_LAYOUT.title.mainY,
-      fontSize: 24,  // Large title
-      color: '#000000',
-      fontWeight: 'bold',
-      fontFamily: 'Arial',
-    });
-
-    layers.push({
-      id: 'score_subtitle',
-      text: 'MAGANG INDUSTRI',
-      x: Math.round(fixedWidth * SCORE_LAYOUT.title.x),
-      y: Math.round(fixedHeight * SCORE_LAYOUT.title.subY),
-      xPercent: SCORE_LAYOUT.title.x,
-      yPercent: SCORE_LAYOUT.title.subY,
-      fontSize: 20,  // Slightly smaller than title
-      color: '#000000',
-      fontWeight: 'bold',
-      fontFamily: 'Arial',
-    });
-
-    // Add section headers
-    layers.push({
-      id: 'non_teknis_header',
-      text: 'I. ASPEK NON TEKNIS',
-      x: Math.round(fixedWidth * SCORE_LAYOUT.sections.left.headerX),
-      y: Math.round(fixedHeight * SCORE_LAYOUT.sections.left.headerY),
-      xPercent: SCORE_LAYOUT.sections.left.headerX,
-      yPercent: SCORE_LAYOUT.sections.left.headerY,
-      fontSize: 16,
-      color: '#000000',
-      fontWeight: 'bold',
-      fontFamily: 'Arial',
-    });
-
-    layers.push({
-      id: 'teknis_header',
-      text: 'II. ASPEK TEKNIS',
-      x: Math.round(fixedWidth * SCORE_LAYOUT.sections.right.headerX),
-      y: Math.round(fixedHeight * SCORE_LAYOUT.sections.right.headerY),
-      xPercent: SCORE_LAYOUT.sections.right.headerX,
-      yPercent: SCORE_LAYOUT.sections.right.headerY,
-      fontSize: 16,
-      color: '#000000',
-      fontWeight: 'bold',
-      fontFamily: 'Arial',
-    });
+    // REMOVED: Title, subtitle, and headers are already in the template image
+    // Only add editable user input fields below
     
-    // Add aspek non teknis scores (left table)
+    // Add aspek non teknis scores (left table) - ONLY VALUES, not names (names are in template)
     scoreData.aspek_non_teknis.forEach((item, index) => {
       const yPos = SCORE_LAYOUT.sections.left.startY + (index * SCORE_LAYOUT.sections.left.spacing);
       
-      // Add aspect name
-      layers.push({
-        id: `aspek_non_teknis_name_${item.no}`,
-        text: item.aspek,  // Add the aspect name
-        x: Math.round(fixedWidth * SCORE_LAYOUT.sections.left.startX),
-        y: Math.round(fixedHeight * yPos),
-        xPercent: SCORE_LAYOUT.sections.left.startX,
-        yPercent: yPos,
-        fontSize: 14,  // Standard table text
-        color: '#000000',
-        fontWeight: 'normal',
-        fontFamily: 'Arial',
-      });
-
-      // Add score value
+      // REMOVED: aspect name layer - already in template
+      
+      // Add score value (editable by user)
       layers.push({
         id: `aspek_non_teknis_nilai_${item.no}`,
         text: `${item.nilai}`,
@@ -399,7 +364,7 @@ function CertificateGeneratorContent() {
         y: Math.round(fixedHeight * yPos),
         xPercent: SCORE_LAYOUT.sections.left.valueX,
         yPercent: yPos,
-        fontSize: 14,  // Match aspect name size
+        fontSize: scoreFontSettings.nilai.fontSize,
         color: '#000000',
         fontWeight: 'normal',
         fontFamily: 'Arial',
@@ -418,7 +383,7 @@ function CertificateGeneratorContent() {
         y: Math.round(fixedHeight * yPos),
         xPercent: SCORE_LAYOUT.sections.right.startX,
         yPercent: yPos,
-        fontSize: 14,  // Standard table text
+        fontSize: scoreFontSettings.aspekTeknis.fontSize,
         color: '#000000',
         fontWeight: 'normal',
         fontFamily: 'Arial',
@@ -432,7 +397,7 @@ function CertificateGeneratorContent() {
         y: Math.round(fixedHeight * yPos),
         xPercent: SCORE_LAYOUT.sections.right.valueX,
         yPercent: yPos,
-        fontSize: 14,  // Match aspect name size
+        fontSize: scoreFontSettings.nilai.fontSize,
         color: '#000000',
         fontWeight: 'normal',
         fontFamily: 'Arial',
@@ -447,68 +412,29 @@ function CertificateGeneratorContent() {
       y: Math.round(fixedHeight * SCORE_LAYOUT.bottom.prestasi.y),
       xPercent: SCORE_LAYOUT.bottom.prestasi.x,
       yPercent: SCORE_LAYOUT.bottom.prestasi.y,
-      fontSize: 18,  // Larger than table text
+      fontSize: scoreFontSettings.additionalInfo.fontSize,
       color: '#000000',
       fontWeight: 'bold',
       fontFamily: 'Arial',
     });
 
-    // Add keterangan if present
-    if (scoreData.keterangan) {
-      layers.push({
-        id: 'keterangan',
-        text: scoreData.keterangan,
-        x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.keterangan.x),
-        y: Math.round(fixedHeight * SCORE_LAYOUT.bottom.keterangan.y),
-        xPercent: SCORE_LAYOUT.bottom.keterangan.x,
-        yPercent: SCORE_LAYOUT.bottom.keterangan.y,
-        fontSize: 14,
-        color: '#000000',
-        fontWeight: 'normal',
-        fontFamily: 'Arial',
-      });
-    }
+    // REMOVED: keterangan - already in template
 
-    // Add date on bottom left
+    // Add date (user editable)
     layers.push({
       id: 'score_date',
-      text: formatDateString(scoreData.date, dateFormat),
+      text: scoreData.date ? formatDateString(scoreData.date, dateFormat) : '',
       x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.date.x),
       y: Math.round(fixedHeight * SCORE_LAYOUT.bottom.date.y),
       xPercent: SCORE_LAYOUT.bottom.date.x,
       yPercent: SCORE_LAYOUT.bottom.date.y,
-      fontSize: 14,
+      fontSize: scoreFontSettings.date.fontSize,
       color: '#000000',
       fontWeight: 'normal',
       fontFamily: 'Arial',
     });
 
-    // Add pembina details on bottom right
-    layers.push({
-      id: 'pembina_nama',
-      text: scoreData.pembina.nama || '',
-      x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.signature.x),
-      y: Math.round(fixedHeight * (SCORE_LAYOUT.bottom.signature.y + 0.05)),
-      xPercent: SCORE_LAYOUT.bottom.signature.x,
-      yPercent: SCORE_LAYOUT.bottom.signature.y + 0.05,
-      fontSize: 14,
-      color: '#000000',
-      fontWeight: 'bold',
-      fontFamily: 'Arial',
-    });
-    
-    layers.push({
-      id: 'pembina_jabatan',
-      text: scoreData.pembina.jabatan || '',
-      x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.signature.x),
-      y: Math.round(fixedHeight * (SCORE_LAYOUT.bottom.signature.y + 0.10)),
-      xPercent: SCORE_LAYOUT.bottom.signature.x, 
-      yPercent: SCORE_LAYOUT.bottom.signature.y + 0.10,
-      fontSize: 14,
-      color: '#000000',
-      fontWeight: 'normal',
-      fontFamily: 'Arial',
-    });
+    // REMOVED: pembina details (pembina_nama and pembina_jabatan) - already in template
     
     console.log('═'.repeat(80));
     console.log('🎯 SCORE TEXT LAYERS CREATED');
@@ -545,162 +471,16 @@ function CertificateGeneratorContent() {
       }))
     });
     console.log('═'.repeat(80));
+    console.log('✅ Setting scoreTextLayers state with', layers.length, 'layers');
+    console.log('═'.repeat(80));
     setScoreTextLayers(layers);
-  }, [activeTemplateMode, selectedTemplate, scoreData, scoreFontSettings, formatNilaiPrestasi, dateFormat, formatDateString]);
+  }, [activeTemplateMode, scoreData, scoreFontSettings, dateFormat, formatDateString, formatNilaiPrestasi]);
   
-  // Update text content while preserving ALL styles and positions 
-  useEffect(() => {
-    if (activeTemplateMode !== 'score' || scoreTextLayers.length === 0) return;
-
-    console.log('🔄 Updating text content while preserving all styles...');
-    
-    // Load saved defaults to ensure we use saved styles
-    const savedDefaults = selectedTemplate ? getTemplateDefaults(`${selectedTemplate.id}_score`) : null;
-    console.log('📝 Using saved defaults:', Boolean(savedDefaults));
-
-    setScoreTextLayers(prevLayers => {
-      return prevLayers.map(layer => {
-        // Try to find saved settings for this layer
-        const savedLayer = savedDefaults?.textLayers.find(l => l.id === layer.id);
-        
-        // Function to preserve existing or use saved styles
-        const preserveStyles = (layer: TextLayer, savedLayer?: TextLayerDefault) => ({
-          fontSize: savedLayer?.fontSize || layer.fontSize,
-          color: savedLayer?.color || layer.color,
-          fontWeight: savedLayer?.fontWeight || layer.fontWeight,
-          fontFamily: savedLayer?.fontFamily || layer.fontFamily,
-          // Always preserve the latest position
-          x: layer.x,
-          y: layer.y,
-          xPercent: layer.xPercent, 
-          yPercent: layer.yPercent
-        });
-
-        // Update text content while preserving ALL styles
-        if (layer.id.startsWith('aspek_non_teknis_')) {
-          const no = parseInt(layer.id.split('_')[3]);
-          const item = scoreData.aspek_non_teknis.find(i => i.no === no);
-          return { 
-            ...layer,
-            text: `${item?.nilai || 0}`,
-            ...preserveStyles(layer, savedLayer)
-          };
-        }
-        if (layer.id.startsWith('aspek_teknis_name_')) {
-          const no = parseInt(layer.id.split('_')[3]);
-          const item = scoreData.aspek_teknis.find(i => i.no === no);
-          return { 
-            ...layer, 
-            text: item?.standar_kompetensi || '',
-            fontSize: scoreFontSettings.aspekTeknis.fontSize,
-            color: scoreFontSettings.aspekTeknis.color,
-            fontWeight: scoreFontSettings.aspekTeknis.fontWeight,
-            fontFamily: scoreFontSettings.aspekTeknis.fontFamily,
-            // Preserve positioning
-            x: layer.x,
-            y: layer.y,
-            xPercent: layer.xPercent,
-            yPercent: layer.yPercent,
-          };
-        }
-        if (layer.id.startsWith('aspek_teknis_nilai_')) {
-          const no = parseInt(layer.id.split('_')[3]);
-          const item = scoreData.aspek_teknis.find(i => i.no === no);
-          return { 
-            ...layer, 
-            text: `${item?.nilai || 0}`,
-            fontSize: scoreFontSettings.nilai.fontSize,
-            color: scoreFontSettings.nilai.color,
-            fontWeight: scoreFontSettings.nilai.fontWeight,
-            fontFamily: scoreFontSettings.nilai.fontFamily,
-            // Preserve positioning
-            x: layer.x,
-            y: layer.y,
-            xPercent: layer.xPercent,
-            yPercent: layer.yPercent,
-          };
-        }
-        if (layer.id === 'nilai_prestasi') {
-          return { 
-            ...layer, 
-            text: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '',
-            fontSize: scoreFontSettings.additionalInfo.fontSize,
-            color: scoreFontSettings.additionalInfo.color,
-            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-            // Preserve positioning
-            x: layer.x,
-            y: layer.y,
-            xPercent: layer.xPercent,
-            yPercent: layer.yPercent,
-          };
-        }
-        if (layer.id === 'keterangan') {
-          return { 
-            ...layer, 
-            text: scoreData.keterangan,
-            fontSize: scoreFontSettings.additionalInfo.fontSize,
-            color: scoreFontSettings.additionalInfo.color,
-            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-            // Preserve positioning
-            x: layer.x,
-            y: layer.y,
-            xPercent: layer.xPercent,
-            yPercent: layer.yPercent,
-          };
-        }
-        if (layer.id === 'score_date') {
-          return { 
-            ...layer, 
-            text: formatDateString(scoreData.date, dateFormat),
-            fontSize: scoreFontSettings.date.fontSize,
-            color: scoreFontSettings.date.color,
-            fontWeight: scoreFontSettings.date.fontWeight,
-            fontFamily: scoreFontSettings.date.fontFamily,
-            // Preserve positioning
-            x: layer.x,
-            y: layer.y,
-            xPercent: layer.xPercent,
-            yPercent: layer.yPercent,
-          };
-        }
-        if (layer.id === 'pembina_nama') {
-          return { 
-            ...layer, 
-            text: scoreData.pembina.nama || '',
-            fontSize: scoreFontSettings.additionalInfo.fontSize,
-            color: scoreFontSettings.additionalInfo.color,
-            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-            // Preserve positioning
-            x: layer.x,
-            y: layer.y,
-            xPercent: layer.xPercent,
-            yPercent: layer.yPercent,
-          };
-        }
-        if (layer.id === 'pembina_jabatan') {
-          return { 
-            ...layer, 
-            text: scoreData.pembina.jabatan || '',
-            fontSize: scoreFontSettings.additionalInfo.fontSize,
-            color: scoreFontSettings.additionalInfo.color,
-            fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-            fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-            // Preserve positioning
-            x: layer.x,
-            y: layer.y,
-            xPercent: layer.xPercent,
-            yPercent: layer.yPercent,
-          };
-        }
-        return layer;
-      });
-    });
-  }, [scoreData, activeTemplateMode, formatNilaiPrestasi, scoreTextLayers.length, dateFormat, formatDateString, selectedTemplate]);
   
-  // Ensure generated score uses exact saved positions and styles
+  // DISABLED: Loading saved defaults for score to prevent old text boxes
+  // Score text layers are now created fresh each time by the auto-sync useEffect
+  // This ensures only the correct layers (without old headers/labels) are shown
+  /*
   useEffect(() => {
     if (!selectedTemplate || activeTemplateMode !== 'score') return;
     
@@ -731,6 +511,7 @@ function CertificateGeneratorContent() {
       })
     );
   }, [selectedTemplate, activeTemplateMode]);
+  */
 
   // Auto-save coordinates and font settings when score text layers are positioned
   useEffect(() => {
@@ -770,7 +551,7 @@ function CertificateGeneratorContent() {
         console.warn("⚠️ Failed to auto-save score coordinates and font settings:", error);
       }
     }
-  }, [scoreTextLayers, activeTemplateMode, selectedTemplate, scoreTextLayers.length, scoreFontSettings, overlayImages]);
+  }, [scoreTextLayers, activeTemplateMode, selectedTemplate, scoreFontSettings, overlayImages]);
   
   // Auto-save score font settings when they change AND immediately update text layers
   useEffect(() => {
@@ -806,7 +587,7 @@ function CertificateGeneratorContent() {
             fontWeight: scoreFontSettings.date.fontWeight,
             fontFamily: scoreFontSettings.date.fontFamily,
           };
-        } else if (layer.id === 'nilai_prestasi' || layer.id === 'keterangan' || layer.id === 'pembina_nama' || layer.id === 'pembina_jabatan') {
+        } else if (layer.id === 'nilai_prestasi') {
           return {
             ...layer,
             fontSize: scoreFontSettings.additionalInfo.fontSize,
@@ -940,6 +721,8 @@ function CertificateGeneratorContent() {
   const [previewMode, setPreviewMode] = useState<'certificate' | 'score' | 'combined'>('certificate');
   const [certificateImageUrl, setCertificateImageUrl] = useState<string | null>(null);
   const [scoreImageUrl, setScoreImageUrl] = useState<string | null>(null);
+  // Bust cache when window refocuses or template likely changed
+  const [templateImageBust, setTemplateImageBust] = useState<number>(Date.now());
   
   // Manual dual template toggle removed — use template.is_dual_template instead
   const [members, setMembers] = useState<Member[]>([]);
@@ -1127,12 +910,37 @@ function CertificateGeneratorContent() {
       aspectRatio: naturalWidth / naturalHeight
     });
     
-    console.log('Image loaded:', { naturalWidth, naturalHeight, aspectRatio: naturalWidth / naturalHeight });
-  }, []);
+    console.log('✅ Image loaded for', activeTemplateMode, 'mode:', { naturalWidth, naturalHeight, aspectRatio: naturalWidth / naturalHeight });
+  }, [activeTemplateMode]);
+  
+  // CRITICAL FIX: Reset imageDimensions and clear text layers when switching modes
+  useEffect(() => {
+    console.log('🔄 Template mode changed to:', activeTemplateMode);
+    // Reset imageDimensions to null to force handleImageLoad to be called again
+    // This ensures text layers get proper dimensions and scale for the new template
+    setImageDimensions(null);
+    
+    // CRITICAL: Clear scoreTextLayers to force recreation with correct layers only
+    // This removes any old/stale text boxes from previous sessions
+    if (activeTemplateMode === 'score') {
+      console.log('🗑️ Clearing old scoreTextLayers to force recreation...');
+      setScoreTextLayers([]);
+    }
+  }, [activeTemplateMode]);
 
   // Function untuk menghitung dimensi container berdasarkan gambar
   const calculateContainerDimensions = useCallback(() => {
-    if (!imageDimensions) return { width: 800, height: 600 };
+    // CRITICAL FIX: Always return proper scale, even when imageDimensions is null
+    // This prevents text layers from having fontSize of 0 (fontSize * 0 = 0)
+    if (!imageDimensions) {
+      return { 
+        width: 800, 
+        height: 600, 
+        scale: 1, // CRITICAL: Must be 1, not undefined
+        offsetX: 0, 
+        offsetY: 0 
+      };
+    }
     
     const maxWidth = 800; // Maksimal lebar container
     const maxHeight = 600; // Maksimal tinggi container
@@ -1248,6 +1056,18 @@ function CertificateGeneratorContent() {
 
   // When a template is loaded, populate preview image URLs for certificate and score
   useEffect(() => {
+    // Refresh template images when window regains focus to reflect latest edits
+    const onFocus = () => setTemplateImageBust(Date.now());
+    const onVisibility = () => { if (!document.hidden) setTemplateImageBust(Date.now()); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedTemplate) {
       setCertificateImageUrl(null);
       setScoreImageUrl(null);
@@ -1256,16 +1076,16 @@ function CertificateGeneratorContent() {
 
     // Prefer explicit certificate/score URLs stored on the template
     const certUrl = selectedTemplate.certificate_image_url
-      ? `${selectedTemplate.certificate_image_url}?v=${selectedTemplate.id}&t=${Date.now()}`
+      ? `${selectedTemplate.certificate_image_url}?v=${selectedTemplate.id}&t=${Date.now()}&b=${templateImageBust}`
       : getTemplateImageUrl(selectedTemplate) || null;
     const scUrl = selectedTemplate.score_image_url
-      ? `${selectedTemplate.score_image_url}?v=${selectedTemplate.id}&t=${Date.now()}`
+      ? `${selectedTemplate.score_image_url}?v=${selectedTemplate.id}&t=${Date.now()}&b=${templateImageBust}`
       : null;
     setCertificateImageUrl(certUrl);
     setScoreImageUrl(scUrl);
 
     console.log('🛰️ Preview image URLs set from template:', { certUrl, scUrl });
-  }, [selectedTemplate]);
+  }, [selectedTemplate, templateImageBust]);
 
   const updateCertificateData = (
     field: keyof CertificateData,
@@ -1453,6 +1273,13 @@ function CertificateGeneratorContent() {
   useEffect(() => {
     if (!selectedTemplate || !selectedTemplate.is_dual_template) return;
     
+    // CRITICAL: Skip loading saved defaults for score mode
+    // Let the auto-sync useEffect create fresh layers to avoid old/stale text boxes
+    if (activeTemplateMode === 'score') {
+      console.log('⏭️ Skipping saved defaults for score mode - will create fresh layers');
+      return;
+    }
+    
     const saveKey = `${selectedTemplate.id}_${activeTemplateMode}`;
     const savedDefaults = getTemplateDefaults(saveKey);
     
@@ -1480,10 +1307,14 @@ function CertificateGeneratorContent() {
                    '';
           } else {
             // Sync text content with score data for score mode
-            if (saved.id.startsWith('aspek_non_teknis_')) {
-              const no = parseInt(saved.id.split('_')[3]);
+            if (saved.id.startsWith('aspek_non_teknis_name_')) {
+              const no = parseInt(saved.id.split('_')[4]);
               const item = scoreData.aspek_non_teknis.find(i => i.no === no);
-              text = `${item?.nilai || 0}`;
+              text = item?.aspek || '';
+            } else if (saved.id.startsWith('aspek_non_teknis_nilai_')) {
+              const no = parseInt(saved.id.split('_')[4]);
+              const item = scoreData.aspek_non_teknis.find(i => i.no === no);
+              text = `${item?.nilai ?? ''}`;
             } else if (saved.id.startsWith('aspek_teknis_name_')) {
               const no = parseInt(saved.id.split('_')[3]);
               const item = scoreData.aspek_teknis.find(i => i.no === no);
@@ -1494,14 +1325,10 @@ function CertificateGeneratorContent() {
               text = `${item?.nilai || 0}`;
             } else if (saved.id === 'nilai_prestasi') {
               text = scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '';
-            } else if (saved.id === 'keterangan') {
-              text = scoreData.keterangan;
+            // REMOVED: keterangan - already in template
             } else if (saved.id === 'score_date') {
-              text = formatDateString(scoreData.date, dateFormat);
-            } else if (saved.id === 'pembina_nama') {
-              text = scoreData.pembina.nama;
-            } else if (saved.id === 'pembina_jabatan') {
-              text = scoreData.pembina.jabatan;
+              text = scoreData.date ? formatDateString(scoreData.date, dateFormat) : '';
+            // REMOVED: pembina_nama and pembina_jabatan - already in template
             }
           }
           
@@ -1545,7 +1372,7 @@ function CertificateGeneratorContent() {
     } else {
       console.log(`ℹ️ No saved defaults for ${activeTemplateMode} mode`);
     }
-  }, [activeTemplateMode, selectedTemplate, certificateData, scoreData, certificateTextLayers, scoreTextLayers, formatNilaiPrestasi, dateFormat, formatDateString]);
+  }, [activeTemplateMode, selectedTemplate, certificateData, scoreData, certificateTextLayers, formatNilaiPrestasi, dateFormat, formatDateString]);
 
   // FIX: Utility functions for normalized coordinates using standard canvas size
   const getNormalizedPosition = useCallback((x: number, y: number) => {
@@ -1674,10 +1501,14 @@ function CertificateGeneratorContent() {
         return;
       }
 
-      const savedDefaults = getTemplateDefaults(selectedTemplate.id);
+      // For dual templates, prefer mode-specific defaults key for certificate on initial load
+      const initialSaveKey = selectedTemplate.is_dual_template
+        ? `${selectedTemplate.id}_certificate`
+        : selectedTemplate.id;
+      const savedDefaults = getTemplateDefaults(initialSaveKey);
       
       if (savedDefaults) {
-        console.log(`🔄 Loading saved defaults for template: ${selectedTemplate.name}`);
+        console.log(`🔄 Loading saved defaults for template: ${selectedTemplate.name} (key: ${initialSaveKey})`);
         console.log(`📍 Saved coordinates:`, savedDefaults.textLayers.map(l => ({ id: l.id, x: l.x, y: l.y, xPercent: l.xPercent, yPercent: l.yPercent })));
         
         // Initialize with saved defaults directly
@@ -2624,18 +2455,7 @@ function CertificateGeneratorContent() {
         };
       }
       
-      // Update pembina nama
-      if (layer.id === 'pembina_nama') {
-        return { 
-          ...layer, 
-          text: scoreData.pembina?.nama || '',
-          // Preserve font settings from scoreFontSettings
-          fontSize: scoreFontSettings.additionalInfo.fontSize,
-          color: scoreFontSettings.additionalInfo.color,
-          fontWeight: scoreFontSettings.additionalInfo.fontWeight,
-          fontFamily: scoreFontSettings.additionalInfo.fontFamily,
-        };
-      }
+      // REMOVED: pembina_nama update - layer no longer exists
       
       // Update score date
       if (layer.id === 'score_date') {
@@ -2749,9 +2569,10 @@ function CertificateGeneratorContent() {
           reject(new Error("Failed to load score template image"));
         };
         
-        // Use the score template image URL
+        // Use the score template image URL with cache-busting to reflect latest edits
         if (template.score_image_url) {
-          scoreTemplateImg.src = template.score_image_url;
+          const cacheBusted = `${template.score_image_url}?v=${template.id}&t=${Date.now()}&b=${templateImageBust}`;
+          scoreTemplateImg.src = cacheBusted;
         } else {
           reject(new Error("No score template image available"));
         }
@@ -3141,6 +2962,31 @@ function CertificateGeneratorContent() {
           console.log("✅ Certificate with both images saved to database:", savedCertificate);
 
           toast.success("Certificate and Score generated and saved successfully!");
+
+          // Persist latest layouts as permanent defaults for dual templates (both modes)
+          try {
+            const certDefaults: TextLayerDefault[] = certificateTextLayers.map((layer) => ({
+              id: layer.id,
+              x: layer.x,
+              y: layer.y,
+              xPercent: layer.xPercent,
+              yPercent: layer.yPercent,
+              fontSize: layer.fontSize,
+              color: layer.color,
+              fontWeight: layer.fontWeight,
+              fontFamily: layer.fontFamily,
+            }));
+            saveTemplateDefaults({
+              templateId: `${selectedTemplate.id}_certificate`,
+              templateName: selectedTemplate.name,
+              textLayers: certDefaults,
+              overlayImages: certificateOverlayImages,
+              savedAt: new Date().toISOString(),
+            });
+            console.log("💾 Persisted certificate layout as permanent defaults.");
+          } catch (e) {
+            console.warn("⚠️ Failed to persist certificate defaults:", e);
+          }
           
           // Show success dialog
           const go = await confirmToast(
@@ -3386,10 +3232,8 @@ function CertificateGeneratorContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <Header />
-        <main className="pt-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <ModernLayout>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
             <div className="text-center">
               <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
                 <FileText className="w-12 h-12 text-gray-400" />
@@ -3401,19 +3245,15 @@ function CertificateGeneratorContent() {
                 Please wait while we load your template.
               </p>
             </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
+        </div>
+      </ModernLayout>
     );
   }
 
   if (!selectedTemplate) {
     return (
-      <div className="min-h-screen">
-        <Header />
-        <main className="pt-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <ModernLayout>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
             <div className="text-center">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">
                 Template Not Found
@@ -3426,18 +3266,15 @@ function CertificateGeneratorContent() {
                 Back to {t("templates.title")}
               </Button>
             </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
+        </div>
+      </ModernLayout>
     );
   }
 
 
   return (
-    <div className="min-h-screen">
-      <Header />
-      <main className="pt-7">
+    <ModernLayout>
+      <div className="py-6">
         <div className="max-w-7xl mx-auto py-1">
           {/* Header */}
           <div className="flex items-center justify-between mb-6 -ml-28">
@@ -3649,7 +3486,8 @@ function CertificateGeneratorContent() {
                         // Pastikan tidak ada transform atau scaling
                         transform: "none",
                         // Pastikan background putih konsisten
-                        backgroundColor: "#ffffff"
+                        backgroundColor: "#ffffff",
+                        zIndex: 0
                       }}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -3668,7 +3506,10 @@ function CertificateGeneratorContent() {
                           // Pastikan posisi deterministik
                           position: "absolute",
                           top: "0",
-                          left: "0"
+                          left: "0",
+                          // Pastikan gambar tidak menutupi interaksi dan tidak berada di atas text layer
+                          zIndex: 0,
+                          pointerEvents: "none"
                         }}
                         onLoad={handleImageLoad}
                       />
@@ -3719,6 +3560,7 @@ function CertificateGeneratorContent() {
                         top: `${img.y}px`,
                         width: `${img.width}px`,
                         height: `${img.height}px`,
+                        zIndex: 1,
                       }}
                       onMouseDown={(e) => handleImageDragStart(e, img.id)}
                       onClick={() => setSelectedImage(img.id)}
@@ -3757,6 +3599,14 @@ function CertificateGeneratorContent() {
                   ))}
 
                   {/* FIX: Draggable text layers with consistent positioning */}
+                  {textLayers.length === 0 && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                      style={{ zIndex: 3 }}
+                    >
+                      <span className="text-gray-400 text-sm">No text layers yet</span>
+                    </div>
+                  )}
                   {textLayers.map((layer) => {
                     // Calculate actual position using absolute x/y if available (from recent drag),
                     // otherwise use normalized coordinates for stable layout
@@ -3772,17 +3622,21 @@ function CertificateGeneratorContent() {
                       ? layer.y
                       : layer.yPercent * consistentDims.height;
                     
-                    // Debug log untuk melihat perbedaan dimensi (hanya untuk layer penting)
-                    if (layer.id === "name" || layer.id === 'nilai_prestasi' || layer.id.startsWith('aspek_teknis_name_')) { // Log untuk layer name dan score layers
+                    // Debug log untuk melihat perbedaan dimensi - log ALL layers in score mode
+                    if (activeTemplateMode === 'score' || layer.id === "name" || layer.id === 'nilai_prestasi' || layer.id.startsWith('aspek_teknis_name_')) {
                       console.log('👁️ RENDERING TEXT LAYER:', {
+                        mode: activeTemplateMode,
                         layerId: layer.id,
                         layerText: layer.text,
                         textLength: layer.text?.length || 0,
-                        hasText: layer.text && layer.text.length > 0,
+                        hasText: !!(layer.text && layer.text.length > 0),
                         actualX,
                         actualY,
                         fontSize: layer.fontSize,
-                        color: layer.color
+                        scaledFontSize: layer.fontSize * (consistentDims.scale || 1),
+                        scale: consistentDims.scale,
+                        color: layer.color,
+                        visible: layer.text && layer.text.length > 0 && layer.fontSize > 0 ? '✅ YES' : '❌ NO'
                       });
                     }
 
@@ -3804,6 +3658,7 @@ function CertificateGeneratorContent() {
                           position: "absolute",
                           left: `${actualX}px`,
                           top: `${actualY}px`,
+                          zIndex: 2,
                           // PERBAIKAN: Pastikan font styling konsisten dengan skala container
                           fontSize: `${layer.fontSize * (consistentDims.scale || 1)}px`,
                           color: layer.color,
@@ -4767,17 +4622,7 @@ function CertificateGeneratorContent() {
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-700">
-                      Keterangan
-                    </label>
-                    <textarea
-                      value={scoreData.keterangan}
-                      onChange={(e) => setScoreData({...scoreData, keterangan: e.target.value})}
-                      className="w-full h-16 px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Catatan tambahan (optional)"
-                    />
-                  </div>
+                  {/* REMOVED: Keterangan, Jabatan Pembina, Nama Pembina - already in template */}
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-700">
@@ -4810,36 +4655,6 @@ function CertificateGeneratorContent() {
                       <option value="mm/dd/yyyy">01/10/2025</option>
                       <option value="yyyy/mm/dd">2025/01/10</option>
                     </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-700">
-                      Jabatan Pembina
-                    </label>
-                    <Input
-                      value={scoreData.pembina.jabatan}
-                      onChange={(e) => setScoreData({
-                        ...scoreData, 
-                        pembina: {...scoreData.pembina, jabatan: e.target.value}
-                      })}
-                      className="h-8 text-xs"
-                      placeholder="e.g., Pembina Magang"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-700">
-                      Nama Pembina
-                    </label>
-                    <Input
-                      value={scoreData.pembina.nama}
-                      onChange={(e) => setScoreData({
-                        ...scoreData, 
-                        pembina: {...scoreData.pembina, nama: e.target.value}
-                      })}
-                      className="h-8 text-xs"
-                      placeholder="Nama lengkap pembina"
-                    />
                   </div>
                   
                   {/* Font Settings for Informasi Tambahan */}
@@ -5175,8 +4990,6 @@ function CertificateGeneratorContent() {
             </motion.div>
           </div>
         </div>
-      </main>
-      <Footer />
 
       {/* Import Excel Modal with upload, mapping, and preview */}
       <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
@@ -5312,7 +5125,8 @@ Example: 251010001 = 25(year) 10(month) 10(day) 001(sequence)`}
 
       {/* Toast Notifications */}
       <Toaster position="top-right" richColors />
-    </div>
+      </div>
+    </ModernLayout>
   );
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
-import Header from "@/components/header";
-import Footer from "@/components/footer";
+import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { useSearchParams } from "next/navigation";
@@ -72,13 +71,14 @@ function CertificatesContent() {
   // Send Email Modal state
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const sendingRef = useRef(false);
   const [sendFormErrors, setSendFormErrors] = useState<{ email?: string; subject?: string; message?: string }>({});
   const [sendForm, setSendForm] = useState<{ email: string; subject: string; message: string }>({
     email: "",
     subject: "",
     message: "",
   });
-  const [sendPreviewSrc, setSendPreviewSrc] = useState<string | null>(null);
+  const [sendPreviewSrcs, setSendPreviewSrcs] = useState<{ cert: string | null; score: string | null }>({ cert: null, score: null });
   const [sendCert, setSendCert] = useState<Certificate | null>(null);
 
   useEffect(() => {
@@ -118,7 +118,7 @@ function CertificatesContent() {
     };
   }, [refresh]);
 
-  // Export certificate to PDF using its generated image
+  // Export both certificate and score as a single PDF (main first, score second)
   async function exportToPDF(certificate: Certificate) {
     try {
       if (!certificate.certificate_image_url) {
@@ -134,55 +134,61 @@ function CertificatesContent() {
       }
       const { jsPDF } = mod;
 
-      // Normalize URL (local relative -> absolute) similar to preview logic
-      let srcRaw = certificate.certificate_image_url || "";
-      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
-        srcRaw = `/${srcRaw}`;
+      async function fetchImage(urlRaw: string) {
+        let srcRaw = urlRaw || "";
+        if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+          srcRaw = `/${srcRaw}`;
+        }
+        const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+        const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
+        const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+          ? `${window.location.origin}${localWithBust}`
+          : localWithBust;
+        const resp = await fetch(src);
+        if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+        const blob = await resp.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const bitmap = await createImageBitmap(blob);
+        const dims = { w: bitmap.width, h: bitmap.height };
+        bitmap.close();
+        return { dataUrl, dims, mime: blob.type };
       }
-      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
-      const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
-      const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
-        ? `${window.location.origin}${localWithBust}`
-        : localWithBust;
 
-      // Fetch image as blob to avoid CORS addImage issues
-      const resp = await fetch(src);
-      if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
-      const blob = await resp.blob();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      const main = await fetchImage(certificate.certificate_image_url);
+      const imgType = main.mime.includes('png') ? 'PNG' : 'JPEG';
 
-      // Create PDF sized to A4, fit image preserving aspect ratio
-      const isPNG = blob.type.includes('png');
-      const imgType = isPNG ? 'PNG' : 'JPEG';
-
-      const imgBitmap = await createImageBitmap(blob);
-      const imgW = imgBitmap.width;
-      const imgH = imgBitmap.height;
-      imgBitmap.close();
-
-      // Decide orientation based on image
-      const orientation = imgW >= imgH ? 'l' : 'p';
+      const orientation = main.dims.w >= main.dims.h ? 'l' : 'p';
       const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
 
-      // Fit image into page while preserving aspect ratio with small margin
-      const margin = 8; // mm
-      const maxW = pageW - margin * 2;
-      const maxH = pageH - margin * 2;
-      const scale = Math.min(maxW / imgW, maxH / imgH);
-      const drawW = imgW * scale;
-      const drawH = imgH * scale;
-      const x = (pageW - drawW) / 2;
-      const y = (pageH - drawH) / 2;
+      function addCenteredImage(dataUrl: string, dims: { w: number; h: number }) {
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 8;
+        const maxW = pageW - margin * 2;
+        const maxH = pageH - margin * 2;
+        const scale = Math.min(maxW / dims.w, maxH / dims.h);
+        const drawW = dims.w * scale;
+        const drawH = dims.h * scale;
+        const x = (pageW - drawW) / 2;
+        const y = (pageH - drawH) / 2;
+        doc.addImage(dataUrl, imgType, x, y, drawW, drawH, undefined, 'FAST');
+      }
 
-      doc.addImage(dataUrl, imgType, x, y, drawW, drawH, undefined, 'FAST');
-      const fileName = `${certificate.certificate_no || 'certificate'}.pdf`;
+      // Page 1: main
+      addCenteredImage(main.dataUrl, main.dims);
+      // Page 2: score if available
+      if (certificate.score_image_url) {
+        doc.addPage();
+        const score = await fetchImage(certificate.score_image_url);
+        addCenteredImage(score.dataUrl, score.dims);
+      }
+
+      const fileName = `${certificate.certificate_no || 'certificate'}-combined.pdf`;
       doc.save(fileName);
       toast.success("PDF exported");
     } catch (err) {
@@ -191,7 +197,7 @@ function CertificatesContent() {
     }
   }
 
-  // Export certificate to PNG
+  // Export both certificate and score to PNG (two files)
   async function exportToPNG(certificate: Certificate) {
     try {
       if (!certificate.certificate_image_url) {
@@ -199,33 +205,36 @@ function CertificatesContent() {
         return;
       }
 
-      // Normalize URL (local relative -> absolute) similar to PDF logic
-      let srcRaw = certificate.certificate_image_url || "";
-      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
-        srcRaw = `/${srcRaw}`;
+      async function downloadPng(urlRaw: string, name: string) {
+        let srcRaw = urlRaw || "";
+        if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+          srcRaw = `/${srcRaw}`;
+        }
+        const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+        const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
+        const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+          ? `${window.location.origin}${localWithBust}`
+          : localWithBust;
+        const resp = await fetch(src);
+        if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       }
-      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
-      const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
-      const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
-        ? `${window.location.origin}${localWithBust}`
-        : localWithBust;
 
-      // Fetch image as blob
-      const resp = await fetch(src);
-      if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
-      const blob = await resp.blob();
+      const base = certificate.certificate_no || 'certificate';
+      await downloadPng(certificate.certificate_image_url, `${base}.png`);
+      if (certificate.score_image_url) {
+        await downloadPng(certificate.score_image_url, `${base}-score.png`);
+      }
 
-      // Create download link
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${certificate.certificate_no || 'certificate'}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success("PNG downloaded successfully");
+      toast.success("PNGs downloaded successfully");
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PNG");
@@ -280,11 +289,18 @@ function CertificatesContent() {
       if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
         srcRaw = `/${srcRaw}`;
       }
-      const src = srcRaw.startsWith('/') && typeof window !== 'undefined'
-        ? `${window.location.origin}${srcRaw}`
-        : srcRaw;
+      const src = srcRaw.startsWith('/') && typeof window !== 'undefined' ? `${window.location.origin}${srcRaw}` : srcRaw;
+
+      // Normalize score url if exists
+      let scoreRaw = certificate.score_image_url || "";
+      if (scoreRaw && !/^https?:\/\//i.test(scoreRaw) && !scoreRaw.startsWith('/') && !scoreRaw.startsWith('data:')) {
+        scoreRaw = `/${scoreRaw}`;
+      }
+      const scoreSrc = scoreRaw
+        ? (scoreRaw.startsWith('/') && typeof window !== 'undefined' ? `${window.location.origin}${scoreRaw}` : scoreRaw)
+        : null;
       setSendCert(certificate);
-      setSendPreviewSrc(src);
+      setSendPreviewSrcs({ cert: src, score: scoreSrc });
       setSendForm({
         email: "",
         subject: certificate.certificate_no ? `Certificate #${certificate.certificate_no}` : "Your Certificate",
@@ -306,7 +322,8 @@ function CertificatesContent() {
 
   // Confirm and send from modal
   async function confirmSendEmail() {
-    if (!sendCert || !sendPreviewSrc || isSendingEmail) return;
+    if (!sendCert || !sendPreviewSrcs.cert) return;
+    if (isSendingEmail || sendingRef.current) return;
     
     // Clear previous errors
     setSendFormErrors({});
@@ -339,11 +356,13 @@ function CertificatesContent() {
     }
     
     setIsSendingEmail(true);
+    sendingRef.current = true;
     try {
       const payload = {
         recipientEmail,
         recipientName: sendCert.name,
-        imageUrl: sendPreviewSrc,
+        imageUrl: sendPreviewSrcs.cert,
+        scoreImageUrl: sendPreviewSrcs.score,
         certificateNo: sendCert.certificate_no,
         subject: (sendForm.subject || '').trim(),
         message: (sendForm.message || '').trim(),
@@ -373,13 +392,14 @@ function CertificatesContent() {
       }
       setSendModalOpen(false);
       setSendCert(null);
-      setSendPreviewSrc(null);
+      setSendPreviewSrcs({ cert: null, score: null });
       setSendForm({ email: '', subject: '', message: '' });
     } catch (err) {
       console.error('Email send error:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to send email. Please try again.');
     } finally {
       setIsSendingEmail(false);
+      sendingRef.current = false;
     }
   }
 
@@ -609,48 +629,49 @@ function CertificatesContent() {
   }
 
   return (
-    <div className="min-h-screen">
-      <Header />
-      <main className="pt-16">
-        <section className="bg-white py-14">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                  {t("certificates.title")}
-                </h1>
-                <p className="text-gray-500 mt-1">
-                  {t("certificates.subtitle")}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Input
-                  placeholder={t("certificates.search")}
-                  className="w-64"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                />
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">{t('templates.allCategories')}</option>
-                  <option value="MoU">MoU</option>
-                  <option value="Magang">Magang</option>
-                  <option value="Pelatihan">Pelatihan</option>
-                  <option value="Kunjungan Industri">Kunjungan Industri</option>
-                  <option value="Sertifikat">Sertifikat</option>
-                  <option value="Surat">Surat</option>
-                  <option value="Lainnya">Lainnya</option>
-                </select>
-                <Input
-                  placeholder="Filter by date"
-                  className="w-40"
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                />
+    <ModernLayout>
+      <section className="min-h-screen py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Header */}
+            <div className="mb-8 p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    {t("certificates.title")}
+                  </h1>
+                  <p className="text-gray-600 mt-2 text-lg">
+                    {t("certificates.subtitle")}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Input
+                    placeholder={t("certificates.search")}
+                    className="w-64 bg-gray-50 border-gray-200 focus:bg-white transition-colors"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                  />
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-48 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors"
+                  >
+                    <option value="">{t('templates.allCategories')}</option>
+                    <option value="MoU">MoU</option>
+                    <option value="Magang">Magang</option>
+                    <option value="Pelatihan">Pelatihan</option>
+                    <option value="Kunjungan Industri">Kunjungan Industri</option>
+                    <option value="Sertifikat">Sertifikat</option>
+                    <option value="Surat">Surat</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                  <Input
+                    placeholder="Filter by date"
+                    className="w-40 bg-gray-50 border-gray-200 focus:bg-white transition-colors"
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
@@ -848,10 +869,8 @@ function CertificatesContent() {
                 )}
               </motion.div>
             )}
-          </div>
-        </section>
-      </main>
-      <Footer />
+        </div>
+      </section>
 
       {/* Edit Certificate Sheet */}
       <Sheet
@@ -1153,16 +1172,12 @@ function CertificatesContent() {
                               ? `?v=${new Date(previewCertificate.updated_at).getTime()}`
                               : '';
                             // Only append cache bust for local public paths. Do NOT append for data URLs.
-                            const localWithBust = srcRaw.startsWith('/')
+                            const src = srcRaw.startsWith('/')
                               ? `${srcRaw}${cacheBust}`
                               : srcRaw;
-                            // Build absolute URL for local paths in the browser
-                            const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
-                              ? `${window.location.origin}${localWithBust}`
-                              : localWithBust;
 
                             // Use Next.js Image for all cases. For remote/data URLs, disable optimization.
-                              const isRemote = /^https?:\/\//i.test(srcRaw);
+                            const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
                             return (
                               <Image
@@ -1521,18 +1536,31 @@ function CertificatesContent() {
                 <p className="text-xs text-red-500 mt-1">{sendFormErrors.message}</p>
               )}
             </div>
-            {sendPreviewSrc && (
+            {(sendPreviewSrcs.cert || sendPreviewSrcs.score) && (
               <div className="space-y-2">
                 <label className="text-sm text-gray-600">Attachment Preview</label>
-                <div className="border rounded-lg p-2 bg-gray-50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="relative w-full h-64">
-                    <Image
-                      src={sendPreviewSrc}
-                      alt="Certificate preview"
-                      fill
-                      sizes="(max-width: 768px) 100vw, 640px"
-                      className="object-contain"
-                    />
+                    {sendPreviewSrcs.cert && (
+                      <Image
+                        src={sendPreviewSrcs.cert}
+                        alt="Certificate preview"
+                        fill
+                        className="object-contain rounded-md border border-gray-200"
+                        unoptimized
+                      />
+                    )}
+                  </div>
+                  <div className="relative w-full h-64">
+                    {sendPreviewSrcs.score && (
+                      <Image
+                        src={sendPreviewSrcs.score}
+                        alt="Score preview"
+                        fill
+                        className="object-contain rounded-md border border-gray-200"
+                        unoptimized
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -1570,7 +1598,7 @@ function CertificatesContent() {
 
       {/* Toast Notifications */}
       <Toaster position="top-right" richColors />
-    </div>
+    </ModernLayout>
   );
 }
 

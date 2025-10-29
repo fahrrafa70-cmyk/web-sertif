@@ -1,7 +1,6 @@
 "use client";
 
-import Header from "@/components/header";
-import Footer from "@/components/footer";
+import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Info, Users, Award, Shield, Mail } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
@@ -77,12 +76,10 @@ export default function AboutPage() {
   ];
 
   return (
-    <div className="min-h-screen">
-      <Header />
-      <main className="pt-16">
-        {/* Hero Section */}
-        <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <ModernLayout>
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6 text-center relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -100,8 +97,8 @@ export default function AboutPage() {
         </section>
 
         {/* About Content */}
-        <section className="py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
@@ -208,8 +205,6 @@ export default function AboutPage() {
             </div>
           </div>
         </section>
-      </main>
-      <Footer />
-    </div>
+    </ModernLayout>
   );
 }

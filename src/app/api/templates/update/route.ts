@@ -4,7 +4,17 @@ import { createClient } from '@supabase/supabase-js';
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, category, orientation, image_path, preview_image_path } = body;
+    const { 
+      id, 
+      name, 
+      category, 
+      orientation, 
+      image_path, 
+      preview_image_path,
+      certificate_image_url,
+      score_image_url,
+      is_dual_template
+    } = body;
 
     // Validate required fields
     if (!id) {
@@ -72,6 +82,17 @@ export async function PUT(request: NextRequest) {
     }
     if (preview_image_path) {
       updateData.preview_image_path = preview_image_path;
+    }
+
+    // Dual template fields (optional)
+    if (typeof certificate_image_url === 'string') {
+      updateData.certificate_image_url = certificate_image_url;
+    }
+    if (typeof score_image_url === 'string') {
+      updateData.score_image_url = score_image_url;
+    }
+    if (typeof is_dual_template === 'boolean') {
+      updateData.is_dual_template = is_dual_template;
     }
 
     console.log('💾 API: Updating template data in database:', updateData);

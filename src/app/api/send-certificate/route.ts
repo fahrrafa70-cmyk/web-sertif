@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       recipientEmail,
       recipientName,
       imageUrl,
+      scoreImageUrl,
       certificateNo,
       fromEmail,
       subject,
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
       recipientEmail?: string;
       recipientName?: string;
       imageUrl?: string;
+      scoreImageUrl?: string;
       certificateNo?: string;
       fromEmail?: string;
       subject?: string;
@@ -54,15 +56,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Build absolute URL for local public paths
-    let src = imageUrl as string;
-    if (src && !/^https?:\/\//i.test(src) && !src.startsWith("data:")) {
-      // ensure leading slash
-      if (!src.startsWith("/")) src = `/${src}`;
-      const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_ORIGIN || "http://localhost:3000";
-      src = `${origin}${src}`;
+    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_ORIGIN || "http://localhost:3000";
+    function absolutize(u?: string | null) {
+      if (!u) return null;
+      let s = u as string;
+      if (s && !/^https?:\/\//i.test(s) && !s.startsWith("data:")) {
+        if (!s.startsWith("/")) s = `/${s}`;
+        s = `${origin}${s}`;
+      }
+      return s;
     }
 
-    const { buffer, mime, filename } = await fetchImageBuffer(src);
+    const src = absolutize(imageUrl)!;
+    const scoreSrc = absolutize(scoreImageUrl);
+
+    const mainFile = await fetchImageBuffer(src);
+    const scoreFile = scoreSrc ? await fetchImageBuffer(scoreSrc) : null;
 
     // Dynamically import nodemailer on the server
     const { default: nodemailer } = await import("nodemailer");
@@ -126,10 +135,15 @@ Certificate Information:
       `,
       attachments: [
         {
-          filename,
-          content: buffer,
-          contentType: mime,
+          filename: mainFile.filename,
+          content: mainFile.buffer,
+          contentType: mainFile.mime,
         },
+        ...(scoreFile ? [{
+          filename: scoreFile.filename.replace('certificate.', 'score.'),
+          content: scoreFile.buffer,
+          contentType: scoreFile.mime,
+        }] : []),
       ],
     });
 

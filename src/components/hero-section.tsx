@@ -394,7 +394,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
     const q = certificateId.trim();
     if (!q) {
       // Show validation error for empty search
-      setSearchError(t('error.search.empty') || 'Please enter a certificate number, name, or link to search');
+      setSearchError(t('error.search.empty') || 'Please enter a certificate number or name to search');
       setSearchResults([]);
       setShowResults(false);
       return;
@@ -496,7 +496,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
           {/* Enhanced Main Title */}
           <motion.div variants={itemVariants} className="mb-5">
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold text-gradient mb-3 leading-tight">
-              E-Certificate
+              Search Certificate
             </h1>
           </motion.div>
 
@@ -540,7 +540,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                     disabled={searching}
                     className="h-10 px-4 sm:h-11 sm:px-5 gradient-primary text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {searching ? "Searching..." : t('hero.searchButton')}
+                    {searching ? "Searching..." : "Search"}
                     <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </div>

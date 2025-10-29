@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,18 @@ export function LoginModal() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+
+  // Reset form and errors when modal opens/closes
+  useEffect(() => {
+    if (!openLogin) {
+      // Reset form when modal closes
+      setEmail("");
+      setPassword("");
+      setShowPassword(false);
+      setEmailError("");
+      setPasswordError("");
+    }
+  }, [openLogin]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,8 +76,17 @@ export function LoginModal() {
     }
   }
 
+  // Handle modal close - prevent closing while loading
+  const handleOpenChange = (open: boolean) => {
+    // Don't allow closing modal while loading to prevent state inconsistency
+    if (!open && loading) {
+      return;
+    }
+    setOpenLogin(open);
+  };
+
   return (
-    <Dialog open={openLogin} onOpenChange={setOpenLogin}>
+    <Dialog open={openLogin} onOpenChange={handleOpenChange}>
       <DialogContent className="w-[480px] sm:w-[500px] p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
         <motion.div 
           className="grid grid-cols-1 min-h-[400px]"

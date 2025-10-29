@@ -18,7 +18,7 @@ const translations: Translations = {
   en: {
     // Navigation
     'nav.home': 'Home',
-    'nav.about': 'About E-Certificate',
+    'nav.about': 'About',
     'nav.templates': 'Templates',
     'nav.certificates': 'Certificates',
     'nav.myCertificates': 'My Certificates',
@@ -109,12 +109,12 @@ const translations: Translations = {
     'hero.subtitle': 'Digital Certificate Solutions',
     'hero.description': 'Create, manage, and verify digital certificates for trainings, internships, MoUs, and industrial visits with our professional multilingual platform.',
     'hero.searchPlaceholder': 'Search certificate by ID...',
-    'hero.searchButton': 'Search Certificate',
+    'hero.searchButton': 'Search',
     'hero.getStarted': 'Get Started',
     'hero.learnMore': 'Learn More',
     
     // About Section
-    'about.title': 'About E-Certificate',
+    'about.title': 'About',
     'about.description1': 'Our multilingual E-Certificate Management Platform revolutionizes how organizations create, manage, and verify certificates for various programs including trainings, internships, MoUs, and industrial visits.',
     'about.description2': 'Built with modern technology stack including Next.js, Shadcn UI, Tailwind CSS, and Supabase, our platform ensures scalability, security, and seamless user experience across multiple languages.',
     'about.features.multiUser': 'Multi-User Management',
@@ -280,7 +280,7 @@ const translations: Translations = {
     
     // Error Messages - Search
     'error.search.notFound': 'Certificate not found. Please check the certificate number or link and try again.',
-    'error.search.empty': 'Please enter a certificate number, name, or link to search',
+    'error.search.empty': 'Please enter a certificate number or name to search',
     'error.search.failed': 'Search failed. Please try again.',
     
     // Error Messages - Login
@@ -301,7 +301,7 @@ const translations: Translations = {
     'search.noResultsGeneral': 'No certificates found',
     'search.filteredBy': 'Filtered by',
     'search.showingResults': 'Showing results',
-    'search.searchByName': 'Search by name, ID, or link...',
+    'search.searchByName': 'Search by name or number...',
   },
   id: {
     // Navigation
@@ -393,7 +393,7 @@ const translations: Translations = {
     'hero.subtitle': 'Solusi Sertifikat Digital',
     'hero.description': 'Buat, kelola, dan verifikasi sertifikat digital untuk pelatihan, magang, MoU, dan kunjungan industri dengan platform multibahasa profesional kami.',
     'hero.searchPlaceholder': 'Cari sertifikat berdasarkan ID...',
-    'hero.searchButton': 'Cari Sertifikat',
+    'hero.searchButton': 'Cari',
     'hero.learnMore': 'Pelajari Lebih Lanjut',
     
     // About Section
@@ -560,7 +560,7 @@ const translations: Translations = {
     
     // Error Messages - Search
     'error.search.notFound': 'Sertifikat tidak ditemukan. Silakan periksa nomor sertifikat atau link dan coba lagi.',
-    'error.search.empty': 'Silakan masukkan nomor sertifikat, nama, atau link untuk mencari',
+    'error.search.empty': 'Silakan masukkan nomor sertifikat atau nama untuk mencari',
     'error.search.failed': 'Pencarian gagal. Silakan coba lagi.',
     
     // Error Messages - Login
@@ -581,7 +581,7 @@ const translations: Translations = {
     'search.noResultsGeneral': 'Tidak ada sertifikat ditemukan',
     'search.filteredBy': 'Difilter berdasarkan',
     'search.showingResults': 'Menampilkan hasil',
-    'search.searchByName': 'Cari berdasarkan nama, ID, atau link...',
+    'search.searchByName': 'Cari berdasarkan nama atau nomor sertifikat...',
   }
 };
 

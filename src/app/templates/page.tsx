@@ -1,7 +1,6 @@
 "use client";
 
-import Header from "@/components/header";
-import Footer from "@/components/footer";
+import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
@@ -62,7 +61,6 @@ export default function TemplatesPage() {
   const [previewImageFile, setPreviewImageFile] = useState<File | null>(null);
   const [previewImagePreview, setPreviewImagePreview] = useState<string | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
-  const [cleaningUp, setCleaningUp] = useState(false);
   
   // Dual template mode state
   const [isDualTemplate, setIsDualTemplate] = useState(false);
@@ -273,42 +271,6 @@ export default function TemplatesPage() {
     setPreviewTemplate(template);
   }
 
-  // DIAG: Cleanup orphaned image files
-  async function cleanupOrphanedImages() {
-    if (!canDelete) {
-      toast.error("You don't have permission to clean up images");
-      return;
-    }
-    
-    const ok = await confirmToast("This will delete any image files that don't have corresponding template records. Continue?", { confirmText: "Clean up", tone: "destructive" });
-    if (ok) {
-      try {
-        setCleaningUp(true);
-        console.log('🧹 Starting cleanup of orphaned images...');
-        
-        const response = await fetch('/api/cleanup-orphaned-images', {
-          method: 'POST',
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          toast.success(`Cleanup completed! Deleted ${result.stats.successfullyDeleted} orphaned files.`);
-          console.log('✅ Cleanup completed:', result);
-        } else {
-          toast.error(`Cleanup failed: ${result.error}`);
-          console.error('❌ Cleanup failed:', result);
-        }
-      } catch (error) {
-        console.error('💥 Cleanup request failed:', error);
-        toast.error("Failed to clean up orphaned images");
-      } finally {
-        setCleaningUp(false);
-      }
-    }
-  }
-
-
   function handleImageUpload(file: File | null) {
     if (file) {
       // Validate file type
@@ -404,18 +366,15 @@ export default function TemplatesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-      <Header />
-      <main className="pt-16">
-        {/* Hero Section */}
-        <motion.section 
-          className="relative py-20 overflow-hidden"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-indigo-600/5"></div>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+    <ModernLayout>
+      {/* Hero Section */}
+      <motion.section 
+        className="relative py-12 overflow-hidden min-h-screen"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative">
             <motion.div
               variants={staggerContainer}
               initial="hidden"
@@ -478,26 +437,6 @@ export default function TemplatesPage() {
                       <Plus className="w-5 h-5 mr-2" />
                       {t('templates.create')}
                     </Button>
-                    {role === "Admin" && (
-                      <Button 
-                        onClick={cleanupOrphanedImages}
-                        disabled={cleaningUp}
-                        variant="outline"
-                        className="h-12 px-6 border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400"
-                      >
-                        {cleaningUp ? (
-                          <>
-                            <div className="w-4 h-4 mr-2 border-2 border-orange-300 border-t-orange-600 rounded-full animate-spin"></div>
-                            {t('templates.cleaning')}
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            {t('templates.cleanupImages')}
-                          </>
-                        )}
-                      </Button>
-                    )}
                   </div>
                 )}
               </motion.div>
@@ -693,10 +632,8 @@ export default function TemplatesPage() {
                 )}
               </motion.div>
             )}
-          </div>
-        </motion.section>
-      </main>
-      <Footer />
+        </div>
+      </motion.section>
 
       {/* Enhanced Create Template Sheet */}
       <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -1487,7 +1424,7 @@ export default function TemplatesPage() {
 
     {/* Toast Notifications */}
     <Toaster position="top-right" richColors />
-  </div>
+  </ModernLayout>
   );
 }
 

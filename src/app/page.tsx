@@ -1,6 +1,6 @@
 "use client";
 
-import Header from "@/components/header";
+import ModernLayout from "@/components/modern-layout";
 import HeroSection from "@/components/hero-section";
 import { useAuth } from "@/contexts/auth-context";
 import { useEffect, useState } from "react";
@@ -51,17 +51,16 @@ export default function Home() {
     } catch {}
   }, []);
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main
-        className="overflow-hidden flex flex-col flex-1 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800"
+    <ModernLayout>
+      <div
+        className="overflow-hidden flex flex-col flex-1 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 -mt-16 lg:-ml-20"
         style={{
           height: `calc(100svh - ${headerH}px)`,
           minHeight: `${Math.max(0, Math.ceil(viewportH - headerH) + 2)}px`,
         }}
       >
         <HeroSection />
-      </main>
-    </div>
+      </div>
+    </ModernLayout>
   );
 }

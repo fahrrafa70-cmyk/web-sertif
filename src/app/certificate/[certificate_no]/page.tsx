@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { getCertificateByNumber, Certificate } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
 import Header from "@/components/header";
-import Footer from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye } from "lucide-react";
 import { motion } from "framer-motion";
@@ -81,7 +80,6 @@ export default function CertificatePage() {
             </div>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -121,7 +119,6 @@ export default function CertificatePage() {
             </div>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -282,7 +279,6 @@ export default function CertificatePage() {
             </motion.div>
           </div>
         </main>
-        <Footer />
       </div>
 
       {/* Full Image Preview Modal */}

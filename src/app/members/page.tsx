@@ -1,7 +1,6 @@
 "use client";
 
-import Header from "@/components/header";
-import Footer from "@/components/footer";
+import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -387,10 +386,8 @@ export default function MembersPage() {
   // Show loading while initializing
   if (!initialized) {
     return (
-      <div className="min-h-screen">
-        <Header />
-        <main className="pt-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <ModernLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
             <div className="text-center">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -403,19 +400,15 @@ export default function MembersPage() {
               </p>
             </div>
           </div>
-        </main>
-        <Footer />
-      </div>
+      </ModernLayout>
     );
   }
 
   // Redirect if not authorized
   if (role === "Public") {
     return (
-      <div className="min-h-screen">
-        <Header />
-        <main className="pt-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <ModernLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
             <div className="text-center">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">
                 {t('members.accessDenied.title')}
@@ -425,23 +418,21 @@ export default function MembersPage() {
               </p>
             </div>
           </div>
-        </main>
-        <Footer />
-      </div>
+      </ModernLayout>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <Header />
-      <main className="pt-16">
-        <section className="bg-white py-14">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('members.title')}</h1>
-                <p className="text-gray-500 mt-1">{t('members.subtitle')}</p>
-              </div>
+    <ModernLayout>
+        <section className="min-h-screen py-8">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Header Card */}
+            <div className="mb-8 p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{t('members.title')}</h1>
+                  <p className="text-gray-600 mt-2 text-lg">{t('members.subtitle')}</p>
+                </div>
               {(role === "Admin" || role === "Team") && (
                 <div className="flex gap-2">
                   <Button 
@@ -464,6 +455,7 @@ export default function MembersPage() {
                   </Button>
                 </div>
               )}
+              </div>
             </div>
 
             {showForm && (role === "Admin" || role === "Team") && (
@@ -717,8 +709,6 @@ export default function MembersPage() {
             )}
           </div>
         </section>
-      </main>
-      <Footer />
 
       {/* Excel Import Info Modal */}
       <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
@@ -822,7 +812,7 @@ export default function MembersPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </ModernLayout>
   );
 }
 
