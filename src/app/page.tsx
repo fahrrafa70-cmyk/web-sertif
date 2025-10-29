@@ -53,7 +53,7 @@ export default function Home() {
   return (
     <ModernLayout>
       <div
-        className="overflow-hidden flex flex-col flex-1 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 -mt-16 lg:-ml-20"
+        className="overflow-hidden flex flex-col flex-1 -mt-16 lg:-ml-20"
         style={{
           height: `calc(100svh - ${headerH}px)`,
           minHeight: `${Math.max(0, Math.ceil(viewportH - headerH) + 2)}px`,

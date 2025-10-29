@@ -66,7 +66,7 @@ export default function AboutSection() {
                   viewport={{ once: true }}
                   className="flex items-start space-x-3 p-4 rounded-lg hover:bg-gray-50 transition-colors duration-200"
                 >
-                  <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white">
+                  <div className="flex-shrink-0 w-10 h-10 gradient-primary rounded-lg flex items-center justify-center text-white">
                     {feature.icon}
                   </div>
                   <div>
@@ -86,7 +86,7 @@ export default function AboutSection() {
             >
               <Button
                 size="lg"
-                className="bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                className="gradient-primary text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:opacity-90"
               >
                 {t('nav.contact')}
                 <Mail className="ml-2 w-4 h-4" />

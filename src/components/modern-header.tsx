@@ -28,13 +28,25 @@ export default function ModernHeader() {
 
           {/* Logo - Centered on mobile, left on desktop */}
           <div className="absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0 flex items-center">
-            <Link href="/" className="flex items-center space-x-2 group">
-              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all">
-                <span className="text-white font-bold text-lg">E</span>
+            <Link href="/" className="flex items-center space-x-3 group">
+              {/* Icon with gradient background */}
+              <div className="relative">
+                <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+                  <span className="text-white font-bold text-2xl tracking-tight">E</span>
+                </div>
+                {/* Subtle glow effect on hover */}
+                <div className="absolute inset-0 gradient-primary rounded-2xl blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 -z-10"></div>
               </div>
-              <span className="text-lg font-bold text-gray-900">
-                E-Certificate
-              </span>
+              
+              {/* Text - Simple and clean */}
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-gray-900 leading-tight group-hover:text-gray-700 transition-colors">
+                  E-Certificate
+                </span>
+                <span className="text-[10px] font-medium text-gray-400 tracking-wider uppercase hidden sm:block">
+                  Certification System
+                </span>
+              </div>
             </Link>
           </div>
 

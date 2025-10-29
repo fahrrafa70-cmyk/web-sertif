@@ -8,11 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Member, createMember, getMembers, updateMember, deleteMember as deleteMemberService } from "@/lib/supabase/members";
-import { Certificate, getCertificatesByMember } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 export default function MembersPage() {
   const { t } = useLanguage();
@@ -25,6 +24,7 @@ export default function MembersPage() {
   const [initialized, setInitialized] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage] = useState<number>(8);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -37,13 +37,9 @@ export default function MembersPage() {
     notes: "",
   });
 
-  // Viewer state for member's certificates
-  const [viewerOpen, setViewerOpen] = useState<boolean>(false);
-  const [viewerMember, setViewerMember] = useState<Member | null>(null);
-  const [viewerCerts, setViewerCerts] = useState<Certificate[]>([]);
-  const [viewerLoading, setViewerLoading] = useState<boolean>(false);
-  const [imagePreviewOpen, setImagePreviewOpen] = useState<boolean>(false);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
+  // Detail modal state
+  const [detailModalOpen, setDetailModalOpen] = useState<boolean>(false);
+  const [detailMember, setDetailMember] = useState<Member | null>(null);
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState<boolean>(false);
@@ -66,19 +62,9 @@ export default function MembersPage() {
   const [showExcelInfoModal, setShowExcelInfoModal] = useState<boolean>(false);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
-  async function openViewer(member: Member) {
-    setViewerMember(member);
-    setViewerOpen(true);
-    try {
-      setViewerLoading(true);
-      const certs = await getCertificatesByMember(member.id);
-      setViewerCerts(certs);
-    } catch (e) {
-      console.error(e);
-      toast.error(e instanceof Error ? e.message : t('members.loadCertificatesFailed'));
-    } finally {
-      setViewerLoading(false);
-    }
+  function openDetailModal(member: Member) {
+    setDetailMember(member);
+    setDetailModalOpen(true);
   }
 
   const loadMembers = useCallback(async () => {
@@ -215,20 +201,6 @@ export default function MembersPage() {
     initializeComponent();
   }, [loadMembers]);
 
-  // Handle keyboard events for viewer modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (viewerOpen && e.key === "Escape") {
-        setViewerOpen(false);
-      }
-    };
-
-    if (viewerOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }
-  }, [viewerOpen]);
-
   // Handle keyboard events for edit modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -245,19 +217,19 @@ export default function MembersPage() {
     }
   }, [editOpen]);
 
-  // Handle keyboard events for image preview modal
+  // Handle keyboard events for detail modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (imagePreviewOpen && e.key === "Escape") {
-        setImagePreviewOpen(false);
+      if (detailModalOpen && e.key === "Escape") {
+        setDetailModalOpen(false);
       }
     };
 
-    if (imagePreviewOpen) {
+    if (detailModalOpen) {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
-  }, [imagePreviewOpen]);
+  }, [detailModalOpen]);
 
   function openEdit(member: Member) {
     setEditingMember(member);
@@ -369,17 +341,39 @@ export default function MembersPage() {
     }
   }
 
+  // Filter members based on search query
+  const filteredMembers = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return membersData;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return membersData.filter(member => 
+      member.name.toLowerCase().includes(query) ||
+      (member.email && member.email.toLowerCase().includes(query)) ||
+      (member.organization && member.organization.toLowerCase().includes(query)) ||
+      (member.phone && member.phone.toLowerCase().includes(query)) ||
+      (member.job && member.job.toLowerCase().includes(query)) ||
+      (member.city && member.city.toLowerCase().includes(query))
+    );
+  }, [membersData, searchQuery]);
+
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentMembers = useMemo(() => 
-    membersData.slice(indexOfFirstItem, indexOfLastItem), 
-    [membersData, indexOfFirstItem, indexOfLastItem]
+    filteredMembers.slice(indexOfFirstItem, indexOfLastItem), 
+    [filteredMembers, indexOfFirstItem, indexOfLastItem]
   );
   const totalPages = useMemo(() => 
-    Math.ceil(membersData.length / itemsPerPage), 
-    [membersData, itemsPerPage]
+    Math.ceil(filteredMembers.length / itemsPerPage), 
+    [filteredMembers, itemsPerPage]
   );
+
+  // Reset to first page when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
   
   const canDelete = role === "Admin";
 
@@ -387,19 +381,19 @@ export default function MembersPage() {
   if (!initialized) {
     return (
       <ModernLayout>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                {t('common.loading')}
-              </h1>
-              <p className="text-gray-500">
-                {t('members.loadingPage')}
-              </p>
+        <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-4">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+              {t('common.loading')}
+            </h1>
+            <p className="text-gray-500 text-sm">
+              {t('members.loadingPage')}
+            </p>
           </div>
+        </div>
       </ModernLayout>
     );
   }
@@ -408,16 +402,19 @@ export default function MembersPage() {
   if (role === "Public") {
     return (
       <ModernLayout>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                {t('members.accessDenied.title')}
-              </h1>
-              <p className="text-gray-500">
-                {t('members.accessDenied.message')}
-              </p>
+        <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-3xl">🔒</span>
             </div>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+              {t('members.accessDenied.title')}
+            </h1>
+            <p className="text-gray-500 text-sm">
+              {t('members.accessDenied.message')}
+            </p>
           </div>
+        </div>
       </ModernLayout>
     );
   }
@@ -425,13 +422,13 @@ export default function MembersPage() {
   return (
     <ModernLayout>
         <section className="min-h-screen py-8">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Header Card */}
-            <div className="mb-8 p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between gap-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Header */}
+            <div className="mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                 <div>
-                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{t('members.title')}</h1>
-                  <p className="text-gray-600 mt-2 text-lg">{t('members.subtitle')}</p>
+                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">{t('members.title')}</h1>
+                  <p className="text-gray-600 mt-1 text-base">{t('members.subtitle')}</p>
                 </div>
               {(role === "Admin" || role === "Team") && (
                 <div className="flex gap-2">
@@ -450,194 +447,222 @@ export default function MembersPage() {
                     onChange={handleExcelImport}
                     className="hidden"
                   />
-                  <Button onClick={() => setShowForm((s) => !s)} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                  <Button onClick={() => setShowForm((s) => !s)} className="gradient-primary text-white">
                     {showForm ? t('common.close') : t('members.addMember')}
                   </Button>
                 </div>
               )}
               </div>
+              
+              {/* Search Bar */}
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search members by name, email, organization..."
+                  className="pl-10 bg-white border-gray-200"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
 
             {showForm && (role === "Admin" || role === "Team") && (
-              <motion.form onSubmit={onSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 border rounded-xl">
+              <motion.form onSubmit={onSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">{t('members.form.fullName')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.fullName')}</label>
                   <Input value={form.name} placeholder={t('members.form.fullNamePlaceholder')} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">{t('members.form.email')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.email')}</label>
                   <Input type="email" value={form.email} placeholder="name@example.com" onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">{t('members.form.organization')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.organization')}</label>
                   <Input value={form.organization} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">{t('members.form.phone')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.phone')}</label>
                   <Input value={form.phone} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">{t('members.form.job')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.job')}</label>
                   <Input value={form.job} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, job: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">{t('members.form.dob')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.dob')}</label>
                   <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm text-gray-700">{t('members.form.address')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.address')}</label>
                   <Input value={form.address} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, address: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700">{t('members.form.city')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.city')}</label>
                   <Input value={form.city} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, city: e.target.value })} />
                 </div>
                 <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <label className="text-sm text-gray-700">{t('members.form.notes')}</label>
+                  <label className="text-sm text-gray-700 font-medium">{t('members.form.notes')}</label>
                   <Input value={form.notes} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
-                <div className="flex items-end">
-                  <Button type="submit" disabled={adding} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                <div className="flex items-end lg:col-span-3">
+                  <Button type="submit" disabled={adding} className="gradient-primary text-white">
                     {adding ? t('members.adding') : t('common.save')}
                   </Button>
                 </div>
               </motion.form>
             )}
 
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="mt-8 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>{t('members.table.name')}</TableHead>
-                    <TableHead>{t('members.table.organization')}</TableHead>
-                    <TableHead>{t('members.table.email')}</TableHead>
-                    <TableHead>{t('members.table.phone')}</TableHead>
-                    <TableHead>{t('members.table.job')}</TableHead>
-                    <TableHead>{t('members.table.city')}</TableHead>
-                    <TableHead className="text-right">{t('members.table.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {currentMembers.map((m, index) => (
-                    <TableRow key={m.id}>
-                      <TableCell className="text-gray-500">{indexOfFirstItem + index + 1}</TableCell>
-                      <TableCell className="font-medium">{m.name}</TableCell>
-                      <TableCell>{m.organization || "—"}</TableCell>
-                      <TableCell>{m.email || "—"}</TableCell>
-                      <TableCell>{m.phone || "—"}</TableCell>
-                      <TableCell>{m.job || "—"}</TableCell>
-                      <TableCell>{m.city || "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="secondary" onClick={() => openViewer(m)}>{t('members.viewCertificates')}</Button>
-                          {(role === "Admin" || role === "Team") && (
-                            <Button variant="outline" className="border-gray-300" onClick={() => openEdit(m)}>{t('common.edit')}</Button>
-                          )}
-                          {canDelete && (
-                            <Button 
-                              className="bg-gradient-to-r from-red-500 to-red-600 text-white" 
-                              onClick={() => deleteMember(m.id)}
-                              disabled={deleting === m.id}
-                            >
-                              {deleting === m.id ? t('members.deleting') : t('common.delete')}
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} 
+              whileInView={{ opacity: 1, y: 0 }} 
+              viewport={{ once: true }} 
+              transition={{ duration: 0.4 }} 
+              className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+            >
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/50">
+                      <TableHead className="w-16 text-center">#</TableHead>
+                      <TableHead className="min-w-[150px]">{t('members.table.name')}</TableHead>
+                      <TableHead className="min-w-[180px]">{t('members.table.organization')}</TableHead>
+                      <TableHead className="min-w-[180px]">{t('members.table.email')}</TableHead>
+                      <TableHead className="min-w-[130px]">{t('members.table.phone')}</TableHead>
+                      <TableHead className="min-w-[150px]">{t('members.table.job')}</TableHead>
+                      <TableHead className="min-w-[120px]">{t('members.table.city')}</TableHead>
+                      <TableHead className="text-right min-w-[250px]">{t('members.table.actions')}</TableHead>
                     </TableRow>
-                  ))}
-                  {loading && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-gray-500 py-12">
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                          <span>{t('members.loadingMembers')}</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {!loading && membersData.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-gray-500 py-12">
-                        <div className="text-center">
-                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="text-2xl text-gray-400">👥</span>
+                  </TableHeader>
+                  <TableBody>
+                    {currentMembers.map((m, index) => (
+                      <TableRow 
+                        key={m.id} 
+                        onClick={() => openDetailModal(m)}
+                        className="cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0"
+                      >
+                        <TableCell className="text-gray-500 text-center">{indexOfFirstItem + index + 1}</TableCell>
+                        <TableCell className="font-medium text-gray-900">{m.name}</TableCell>
+                        <TableCell className="text-gray-700">{m.organization || "—"}</TableCell>
+                        <TableCell className="text-gray-700">{m.email || "—"}</TableCell>
+                        <TableCell className="text-gray-700">{m.phone || "—"}</TableCell>
+                        <TableCell className="text-gray-700">{m.job || "—"}</TableCell>
+                        <TableCell className="text-gray-700">{m.city || "—"}</TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-2">
+                            {(role === "Admin" || role === "Team") && (
+                              <Button variant="outline" size="sm" className="border-gray-300" onClick={() => openEdit(m)}>{t('common.edit')}</Button>
+                            )}
+                            {canDelete && (
+                              <Button 
+                                size="sm"
+                                className="bg-gradient-to-r from-red-500 to-red-600 text-white" 
+                                onClick={() => deleteMember(m.id)}
+                                disabled={deleting === m.id}
+                              >
+                                {deleting === m.id ? t('members.deleting') : t('common.delete')}
+                              </Button>
+                            )}
                           </div>
-                          <h3 className="text-lg font-semibold text-gray-600 mb-2">{t('members.noMembersTitle')}</h3>
-                          <p className="text-gray-500 mb-4">{t('members.noMembersMessage')}</p>
-                          {(role === "Admin" || role === "Team") && (
-                            <button
-                              onClick={() => setShowForm(true)}
-                              className="text-blue-600 hover:text-blue-700 font-medium"
-                            >
-                              {t('members.addMember')}
-                            </button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {loading && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="py-20">
+                          <div className="flex flex-col items-center justify-center">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                            <span className="text-gray-600 text-sm font-medium">{t('members.loadingMembers')}</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {!loading && filteredMembers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-gray-500 py-16">
+                          <div className="text-center">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <span className="text-2xl text-gray-400">👥</span>
+                            </div>
+                            {searchQuery ? (
+                              <>
+                                <h3 className="text-lg font-semibold text-gray-600 mb-2">No members found</h3>
+                                <p className="text-gray-500 mb-4">No members match your search &quot;{searchQuery}&quot;</p>
+                                <button
+                                  onClick={() => setSearchQuery("")}
+                                  className="text-blue-600 hover:text-blue-700 font-medium"
+                                >
+                                  Clear search
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <h3 className="text-lg font-semibold text-gray-600 mb-2">{t('members.noMembersTitle')}</h3>
+                                <p className="text-gray-500 mb-4">{t('members.noMembersMessage')}</p>
+                                {(role === "Admin" || role === "Team") && (
+                                  <button
+                                    onClick={() => setShowForm(true)}
+                                    className="text-blue-600 hover:text-blue-700 font-medium"
+                                  >
+                                    {t('members.addMember')}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </motion.div>
             
             {/* Pagination Controls */}
-            {!loading && membersData.length > 0 && (
-              <div className="flex justify-center items-center mt-6 gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-2"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="text-sm text-gray-600 px-4">
-                  Halaman {currentPage} dari {totalPages}
+            {!loading && filteredMembers.length > 0 && (
+              <div className="flex justify-between items-center mt-4 px-2">
+                <div className="text-sm text-gray-500">
+                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredMembers.length)} of {filteredMembers.length} members
+                  {searchQuery && <span className="ml-1 text-gray-400">(filtered from {membersData.length})</span>}
                 </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-2"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-
-            {viewerOpen && (
-              <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center" onClick={() => setViewerOpen(false)}>
-                <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">{t('members.certificates')} — {viewerMember?.name}</h3>
-                    <Button variant="outline" onClick={() => setViewerOpen(false)}>{t('common.close')}</Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <div className="text-sm text-gray-600 px-3">
+                    Page {currentPage} of {totalPages}
                   </div>
-                  {viewerLoading ? (
-                    <p className="text-gray-500">{t('common.loading')}</p>
-                  ) : viewerCerts.length === 0 ? (
-                    <p className="text-gray-500">{t('members.noCertificatesForMember')}</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {viewerCerts.map((c) => (
-                        <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <div className="font-medium">{c.certificate_no}</div>
-                            <div className="text-sm text-gray-500">{c.category || "—"} · Issued {new Date(c.issue_date).toLocaleDateString()}</div>
-                          </div>
-                          <Button variant="outline" onClick={() => { if (c.certificate_image_url) { setImagePreviewUrl(c.certificate_image_url); setImagePreviewOpen(true); } }}>{t('common.preview')}</Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
               </div>
             )}
 
             {editOpen && (
               <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
-                <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-3xl p-6" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">{t('members.editMember')}</h3>
                     <Button variant="outline" onClick={() => setEditOpen(false)}>{t('common.close')}</Button>
@@ -680,7 +705,7 @@ export default function MembersPage() {
                       <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
                     </div>
                     <div className="flex items-end">
-                      <Button type="submit" disabled={editSaving} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                      <Button type="submit" disabled={editSaving} className="gradient-primary text-white">
                         {editSaving ? t('members.saving') : t('members.saveChanges')}
                       </Button>
                     </div>
@@ -689,30 +714,158 @@ export default function MembersPage() {
               </div>
             )}
 
-            {imagePreviewOpen && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setImagePreviewOpen(false)}>
-                <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between px-4 py-3 border-b">
-                    <div className="text-sm text-gray-600">{t('members.certificateImagePreview')}</div>
-                    <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>{t('common.close')}</Button>
+            {/* Member Detail Modal */}
+            {detailModalOpen && detailMember && (
+              <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-bold text-gray-900">
+                      Member Information
+                    </DialogTitle>
+                    <DialogDescription>
+                      Detailed information about {detailMember.name}
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                      {/* Name */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Full Name</label>
+                        <div className="mt-1 text-base text-gray-900">{detailMember.name}</div>
+                      </div>
+
+                      {/* Email */}
+                      {detailMember.email && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Email</label>
+                          <div className="mt-1 text-base text-gray-900">{detailMember.email}</div>
+                        </div>
+                      )}
+
+                      {/* Phone */}
+                      {detailMember.phone && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Phone</label>
+                          <div className="mt-1 text-base text-gray-900">{detailMember.phone}</div>
+                        </div>
+                      )}
+
+                      {/* Organization */}
+                      {detailMember.organization && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Organization / School</label>
+                          <div className="mt-1 text-base text-gray-900">{detailMember.organization}</div>
+                        </div>
+                      )}
+
+                      {/* Job */}
+                      {detailMember.job && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Job / Position</label>
+                          <div className="mt-1 text-base text-gray-900">{detailMember.job}</div>
+                        </div>
+                      )}
+
+                      {/* Date of Birth */}
+                      {detailMember.date_of_birth && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Date of Birth</label>
+                          <div className="mt-1 text-base text-gray-900">
+                            {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* City */}
+                      {detailMember.city && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">City</label>
+                          <div className="mt-1 text-base text-gray-900">{detailMember.city}</div>
+                        </div>
+                      )}
+
+                      {/* Address */}
+                      {detailMember.address && (
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium text-gray-500">Address</label>
+                          <div className="mt-1 text-base text-gray-900">{detailMember.address}</div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {detailMember.notes && (
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium text-gray-500">Notes</label>
+                          <div className="mt-1 text-base text-gray-900 whitespace-pre-wrap">{detailMember.notes}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="mt-8 pt-6 border-t border-gray-200">
+                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
+                        {detailMember.created_at && (
+                          <div>
+                            <span className="font-medium">Created:</span>{' '}
+                            {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        )}
+                        {detailMember.updated_at && (
+                          <div>
+                            <span className="font-medium">Updated:</span>{' '}
+                            {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-4 bg-gray-50">
-                    {imagePreviewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imagePreviewUrl} alt="Certificate" className="w-full h-auto rounded-lg border" />
-                    ) : (
-                      <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">{t('members.noImage')}</div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-between gap-3 mt-6 pt-4 border-t border-gray-200">
+                    <Button
+                      variant="outline"
+                      onClick={() => setDetailModalOpen(false)}
+                    >
+                      Close
+                    </Button>
+                    {(role === "Admin" || role === "Team") && (
+                      <Button
+                        className="gradient-primary text-white"
+                        onClick={() => {
+                          setDetailModalOpen(false);
+                          openEdit(detailMember);
+                        }}
+                      >
+                        Edit
+                      </Button>
                     )}
                   </div>
-                </div>
-              </div>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
         </section>
 
       {/* Excel Import Info Modal */}
       <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Info className="w-5 h-5 text-blue-500" />

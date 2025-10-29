@@ -21,6 +21,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { getMember, Member } from "@/lib/supabase/members";
 import {
   Dialog,
   DialogContent,
@@ -447,6 +448,11 @@ function CertificatesContent() {
   >(null);
   const canDelete = role === "Admin"; // Only Admin can delete
   
+  // Member detail modal state
+  const [memberDetailOpen, setMemberDetailOpen] = useState<boolean>(false);
+  const [detailMember, setDetailMember] = useState<Member | null>(null);
+  const [loadingMemberDetail, setLoadingMemberDetail] = useState<boolean>(false);
+  
   // REMOVED: templateImageDimensions state - no longer needed
   // We now use container dimensions directly for text scaling
 
@@ -628,50 +634,70 @@ function CertificatesContent() {
     }
   }
 
+  async function openMemberDetail(memberId: string | null) {
+    if (!memberId) {
+      toast.error('Member information not available');
+      return;
+    }
+    
+    try {
+      setLoadingMemberDetail(true);
+      setMemberDetailOpen(true);
+      const member = await getMember(memberId);
+      setDetailMember(member);
+    } catch (error) {
+      console.error('Failed to load member details:', error);
+      toast.error('Failed to load member details');
+      setMemberDetailOpen(false);
+    } finally {
+      setLoadingMemberDetail(false);
+    }
+  }
+
   return (
     <ModernLayout>
       <section className="min-h-screen py-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Header */}
-            <div className="mb-8 p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
-              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div className="mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                 <div>
-                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
                     {t("certificates.title")}
                   </h1>
-                  <p className="text-gray-600 mt-2 text-lg">
+                  <p className="text-gray-600 mt-1 text-base">
                     {t("certificates.subtitle")}
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Input
-                    placeholder={t("certificates.search")}
-                    className="w-64 bg-gray-50 border-gray-200 focus:bg-white transition-colors"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                  />
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-48 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors"
-                  >
-                    <option value="">{t('templates.allCategories')}</option>
-                    <option value="MoU">MoU</option>
-                    <option value="Magang">Magang</option>
-                    <option value="Pelatihan">Pelatihan</option>
-                    <option value="Kunjungan Industri">Kunjungan Industri</option>
-                    <option value="Sertifikat">Sertifikat</option>
-                    <option value="Surat">Surat</option>
-                    <option value="Lainnya">Lainnya</option>
-                  </select>
-                  <Input
-                    placeholder="Filter by date"
-                    className="w-40 bg-gray-50 border-gray-200 focus:bg-white transition-colors"
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                  />
-                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Input
+                  placeholder={t("certificates.search")}
+                  className="w-64 bg-white border-gray-200"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-48 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">{t('templates.allCategories')}</option>
+                  <option value="MoU">MoU</option>
+                  <option value="Magang">Magang</option>
+                  <option value="Pelatihan">Pelatihan</option>
+                  <option value="Kunjungan Industri">Kunjungan Industri</option>
+                  <option value="Sertifikat">Sertifikat</option>
+                  <option value="Surat">Surat</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+                <Input
+                  placeholder="Filter by date"
+                  className="w-40 bg-white border-gray-200"
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                />
               </div>
             </div>
 
@@ -680,17 +706,19 @@ function CertificatesContent() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center py-16"
+                className="min-h-[400px] flex items-center justify-center"
               >
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                  <FileText className="w-12 h-12 text-gray-400" />
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Loading certificates...
+                  </h3>
+                  <p className="text-gray-500 text-sm">
+                    Please wait while we fetch your certificates.
+                  </p>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                  Loading certificates...
-                </h3>
-                <p className="text-gray-500">
-                  Please wait while we fetch your certificates.
-                </p>
               </motion.div>
             )}
 
@@ -699,21 +727,23 @@ function CertificatesContent() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center py-16"
+                className="min-h-[400px] flex items-center justify-center"
               >
-                <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FileText className="w-12 h-12 text-red-400" />
+                <div className="text-center max-w-md">
+                  <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <span className="text-3xl">⚠️</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Error loading certificates
+                  </h3>
+                  <p className="text-gray-500 text-sm mb-6">{error}</p>
+                  <Button
+                    onClick={() => refresh()}
+                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                  >
+                    Try Again
+                  </Button>
                 </div>
-                <h3 className="text-xl font-semibold text-red-600 mb-2">
-                  Error loading certificates
-                </h3>
-                <p className="text-red-500 mb-6">{error}</p>
-                <Button
-                  onClick={() => refresh()}
-                  className="gradient-primary text-white shadow-lg hover:shadow-xl"
-                >
-                  Try Again
-                </Button>
               </motion.div>
             )}
 
@@ -724,120 +754,128 @@ function CertificatesContent() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4 }}
-                className="mt-8 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden"
+                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
               >
-                <Table>
-                  
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("certificates.certificateId")}</TableHead>
-                      <TableHead>{t("certificates.recipient")}</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>{t("certificates.issuedDate")}</TableHead>
-                      <TableHead>Expiry Date</TableHead>
-                      <TableHead className="text-right">
-                        {t("certificates.actions")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((certificate) => (
-                      <TableRow key={certificate.id}>
-                        <TableCell className="font-medium">
-                          {certificate.certificate_no}
-                        </TableCell>
-                        <TableCell>{certificate.name}</TableCell>
-                        <TableCell>{certificate.category || "—"}</TableCell>
-                        <TableCell>
-                          {new Date(
-                            certificate.issue_date,
-                          ).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          {certificate.expired_date
-                            ? new Date(
-                                certificate.expired_date,
-                              ).toLocaleDateString()
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              className="border-gray-300"
-                              onClick={() => openPreview(certificate)}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              {t("common.preview")}
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className="border-gray-300"
-                                >
-                                  <Download className="w-4 h-4 mr-1" />
-                                  Export
-                                  <ChevronDown className="w-4 h-4 ml-1" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
-                                  <FileText className="w-4 h-4 mr-2" />
-                                  Export as PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
-                                  <ImageIcon className="w-4 h-4 mr-2" />
-                                  Download PNG
-                                </DropdownMenuItem>
-                                {certificate.certificate_image_url && (
-                                  <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    Send via Email
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
-                                  <Link className="w-4 h-4 mr-2" />
-                                  Generate Certificate Link
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                            {(role === "Admin" || role === "Team") && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50/50">
+                        <TableHead className="min-w-[180px]">{t("certificates.certificateId")}</TableHead>
+                        <TableHead className="min-w-[200px]">{t("certificates.recipient")}</TableHead>
+                        <TableHead className="min-w-[150px]">Category</TableHead>
+                        <TableHead className="min-w-[140px]">{t("certificates.issuedDate")}</TableHead>
+                        <TableHead className="min-w-[140px]">Expiry Date</TableHead>
+                        <TableHead className="text-right min-w-[280px]">
+                          {t("certificates.actions")}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((certificate) => (
+                        <TableRow 
+                          key={certificate.id}
+                          onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
+                          className={certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0" : "border-b border-gray-100 last:border-0"}
+                        >
+                          <TableCell className="font-medium text-gray-900">
+                            {certificate.certificate_no}
+                          </TableCell>
+                          <TableCell className="text-gray-700">{certificate.name}</TableCell>
+                          <TableCell className="text-gray-700">{certificate.category || "—"}</TableCell>
+                          <TableCell className="text-gray-700">
+                            {new Date(
+                              certificate.issue_date,
+                            ).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-gray-700">
+                            {certificate.expired_date
+                              ? new Date(
+                                  certificate.expired_date,
+                                ).toLocaleDateString()
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-end gap-2">
                               <Button
                                 variant="outline"
+                                size="sm"
                                 className="border-gray-300"
-                                onClick={() => openEdit(certificate)}
+                                onClick={() => openPreview(certificate)}
                               >
-                                <Edit className="w-4 h-4 mr-1" />
-                                {t("common.edit")}
+                                <Eye className="w-4 h-4 mr-1" />
+                                {t("common.preview")}
                               </Button>
-                            )}
-                            {canDelete && (
-                              <button
-                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 shadow-sm hover:shadow-md"
-                                onClick={() => requestDelete(certificate.id)}
-                                disabled={deletingCertificateId === certificate.id}
-                                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                              >
-                                {deletingCertificateId === certificate.id ? (
-                                  <>
-                                    <div className="w-4 h-4 mr-1 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    Deleting...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Trash2 className="w-4 h-4 mr-1" />
-                                    {t("common.delete")}
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-gray-300"
+                                  >
+                                    <Download className="w-4 h-4 mr-1" />
+                                    Export
+                                    <ChevronDown className="w-4 h-4 ml-1" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Export as PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
+                                    <ImageIcon className="w-4 h-4 mr-2" />
+                                    Download PNG
+                                  </DropdownMenuItem>
+                                  {certificate.certificate_image_url && (
+                                    <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
+                                      <FileText className="w-4 h-4 mr-2" />
+                                      Send via Email
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
+                                    <Link className="w-4 h-4 mr-2" />
+                                    Generate Certificate Link
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              {(role === "Admin" || role === "Team") && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-gray-300"
+                                  onClick={() => openEdit(certificate)}
+                                >
+                                  <Edit className="w-4 h-4 mr-1" />
+                                  {t("common.edit")}
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1.5 shadow-sm hover:shadow-md"
+                                  onClick={() => requestDelete(certificate.id)}
+                                  disabled={deletingCertificateId === certificate.id}
+                                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                                >
+                                  {deletingCertificateId === certificate.id ? (
+                                    <>
+                                      <div className="w-4 h-4 mr-1 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                      Deleting...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Trash2 className="w-4 h-4 mr-1" />
+                                      {t("common.delete")}
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </motion.div>
             )}
 
@@ -976,7 +1014,7 @@ function CertificatesContent() {
                 {t("common.cancel")}
               </Button>
               <Button
-                className="bg-gradient-to-r from-orange-500 to-red-500 text-white"
+                className="gradient-primary text-white"
                 onClick={submitEdit}
               >
                 {t("common.save")}
@@ -1452,7 +1490,7 @@ function CertificatesContent() {
       {/* Send Certificate Email Modal */}
       <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
         <DialogContent 
-          className="max-w-xl w-full"
+          className="max-w-xl w-full max-h-[90vh] overflow-y-auto"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && e.target instanceof HTMLInputElement) {
               e.preventDefault();
@@ -1596,9 +1634,154 @@ function CertificatesContent() {
         </DialogContent>
       </Dialog>
 
+      {/* Member Detail Modal */}
+      {memberDetailOpen && (
+        <Dialog open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-gray-900">
+                Member Information
+              </DialogTitle>
+              <DialogDescription>
+                {detailMember ? `Detailed information about ${detailMember.name}` : 'Loading...'}
+              </DialogDescription>
+            </DialogHeader>
+            
+            {loadingMemberDetail ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <span className="text-gray-600 text-sm font-medium">Loading member details...</span>
+              </div>
+            ) : detailMember ? (
+              <div className="mt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  {/* Name */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Full Name</label>
+                    <div className="mt-1 text-base text-gray-900">{detailMember.name}</div>
+                  </div>
+
+                  {/* Email */}
+                  {detailMember.email && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Email</label>
+                      <div className="mt-1 text-base text-gray-900">{detailMember.email}</div>
+                    </div>
+                  )}
+
+                  {/* Phone */}
+                  {detailMember.phone && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Phone</label>
+                      <div className="mt-1 text-base text-gray-900">{detailMember.phone}</div>
+                    </div>
+                  )}
+
+                  {/* Organization */}
+                  {detailMember.organization && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Organization / School</label>
+                      <div className="mt-1 text-base text-gray-900">{detailMember.organization}</div>
+                    </div>
+                  )}
+
+                  {/* Job */}
+                  {detailMember.job && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Job / Position</label>
+                      <div className="mt-1 text-base text-gray-900">{detailMember.job}</div>
+                    </div>
+                  )}
+
+                  {/* Date of Birth */}
+                  {detailMember.date_of_birth && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Date of Birth</label>
+                      <div className="mt-1 text-base text-gray-900">
+                        {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* City */}
+                  {detailMember.city && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">City</label>
+                      <div className="mt-1 text-base text-gray-900">{detailMember.city}</div>
+                    </div>
+                  )}
+
+                  {/* Address */}
+                  {detailMember.address && (
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-gray-500">Address</label>
+                      <div className="mt-1 text-base text-gray-900">{detailMember.address}</div>
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {detailMember.notes && (
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-gray-500">Notes</label>
+                      <div className="mt-1 text-base text-gray-900 whitespace-pre-wrap">{detailMember.notes}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Metadata */}
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
+                    {detailMember.created_at && (
+                      <div>
+                        <span className="font-medium">Created:</span>{' '}
+                        {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    )}
+                    {detailMember.updated_at && (
+                      <div>
+                        <span className="font-medium">Updated:</span>{' '}
+                        {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Action Button */}
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+              <Button
+                variant="outline"
+                onClick={() => setMemberDetailOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Toast Notifications */}
       <Toaster position="top-right" richColors />
-    </ModernLayout>
+   </ModernLayout>
   );
 }
 

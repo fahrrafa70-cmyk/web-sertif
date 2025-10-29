@@ -387,7 +387,7 @@ export default function TemplatesPage() {
                 transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
                 className="mb-8"
               >
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-6 shadow-lg">
+                <div className="inline-flex items-center justify-center w-20 h-20 gradient-primary rounded-2xl mb-6 shadow-lg">
                   <FileText className="w-10 h-10 text-white" />
                 </div>
                 <h1 className="text-4xl sm:text-5xl font-bold text-gradient mb-4">

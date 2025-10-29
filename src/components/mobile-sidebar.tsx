@@ -123,14 +123,14 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               {/* Header */}
               <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-gray-50">
                 <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 gradient-primary rounded-lg flex items-center justify-center shadow-md">
-                    <span className="text-white font-bold text-base">E</span>
+                  <div className="w-11 h-11 gradient-primary rounded-xl flex items-center justify-center shadow-md">
+                    <span className="text-white font-bold text-xl tracking-tight">E</span>
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-gray-900">
                       E-Certificate
                     </h2>
-                    <p className="text-xs text-gray-500">Management Platform</p>
+                    <p className="text-xs text-gray-400 font-medium tracking-wide">Certification System</p>
                   </div>
                 </div>
                 <button
@@ -165,7 +165,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                               transition-all duration-200
                               ${
                                 active
-                                  ? "bg-blue-600 text-white shadow-lg"
+                                  ? "gradient-primary text-white shadow-lg"
                                   : "bg-gray-100 text-gray-600"
                               }
                             `}
@@ -174,14 +174,14 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                           </div>
                           <span
                             className={`text-base font-medium flex-1 ${
-                              active ? "text-blue-600" : "text-gray-700"
+                              active ? "text-gradient" : "text-gray-700"
                             }`}
                           >
                             {item.label}
                           </span>
                           <ChevronRight
                             className={`w-4 h-4 transition-colors ${
-                              active ? "text-blue-400" : "text-gray-300"
+                              active ? "text-cyan-400" : "text-gray-300"
                             }`}
                           />
                         </Link>

@@ -485,7 +485,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
 
   return (
     <>
-    <section className="relative w-full flex-1 flex items-center justify-center bg-white">
+    <section className="relative w-full flex-1 flex items-center justify-center bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-12 md:py-20">
         <motion.div
           variants={containerVariants}

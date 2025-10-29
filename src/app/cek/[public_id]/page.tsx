@@ -233,7 +233,7 @@ export default function PublicCertificatePage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Loading certificate...</p>
@@ -245,7 +245,7 @@ export default function PublicCertificatePage() {
   // Not found state
   if (notFound || !certificate) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -260,7 +260,7 @@ export default function PublicCertificatePage() {
           </p>
           <Button
             onClick={() => router.push('/')}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+            className="gradient-primary text-white"
           >
             Go to Home
           </Button>
@@ -271,7 +271,7 @@ export default function PublicCertificatePage() {
 
   // Success state - Display certificate
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex flex-col relative">
       {/* Floating Back to Home Button */}
       <Button
         onClick={() => router.push('/')}

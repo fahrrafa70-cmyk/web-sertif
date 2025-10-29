@@ -43,6 +43,17 @@ export async function getMembers(): Promise<Member[]> {
   return (data as Member[]) || [];
 }
 
+export async function getMember(id: string): Promise<Member> {
+  const { data, error } = await supabaseClient
+    .from('members')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw new Error(`Failed to fetch member: ${error.message}`);
+  if (!data) throw new Error('Member not found');
+  return data as Member;
+}
+
 export async function createMember(input: CreateMemberInput): Promise<Member> {
   const name = (input.name || '').trim();
   if (!name) throw new Error('Name is required');

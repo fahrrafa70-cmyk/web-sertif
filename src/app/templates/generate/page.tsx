@@ -38,81 +38,28 @@ import {
   TextLayerDefault,
   DEFAULT_SCORE_FONT_SETTINGS,
 } from "@/lib/storage/template-defaults";
-
-interface AspekTeknis {
-  no: number;
-  standar_kompetensi: string;
-  nilai: number;
-}
-
-interface AspekNonTeknis {
-  no: number;
-  aspek: string;
-  nilai: number;
-}
-
-interface ScoreData {
-  aspek_teknis: AspekTeknis[];
-  aspek_non_teknis: AspekNonTeknis[];
-  nilai_prestasi?: string | null;
-  score_date?: string;
-  date?: string;
-  pembina: {
-    nama: string;
-    jabatan: string;
-  };
-  keterangan?: string;
-}
-
-type CertificateData = {
-  certificate_no: string;
-  name: string;
-  description: string;
-  issue_date: string;
-  expired_date: string;
-};
-
-// Helper to compute selected style object from current selection
-
-type TextLayer = {
-  id: string;
-  text: string;
-  x: number;
-  y: number;
-  xPercent: number; // FIX: Always store normalized X position (0-1)
-  yPercent: number; // FIX: Always store normalized Y position (0-1)
-  fontSize: number;
-  color: string;
-  fontWeight: string;
-  fontFamily: string;
-  isEditing?: boolean;
-};
+import type {
+  AspekTeknis,
+  AspekNonTeknis,
+  ScoreData,
+  CertificateData,
+  TextLayer,
+  OverlayImage,
+  DateFormat,
+} from "@/types/certificate-generator";
+import {
+  getPredikat,
+  formatNilaiPrestasi,
+  formatDateString,
+  excelDateToISO,
+} from "@/lib/utils/certificate-formatters";
+import { useMembersSelection } from "@/hooks/use-members-selection";
 
 function CertificateGeneratorContent() {
   const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const templateId = searchParams?.get("template");
-
-  // Helper function to get predikat based on nilai
-  const getPredikat = useCallback((nilai: number): string => {
-    if (nilai >= 90 && nilai <= 100) return "Sangat Baik";
-    if (nilai >= 75 && nilai <= 89) return "Baik";
-    if (nilai >= 0 && nilai <= 74) return "Kurang Baik";
-    return "Tidak Valid";
-  }, []);
-
-  // Helper function to format nilai prestasi text
-  const formatNilaiPrestasi = useCallback((nilai: string): string => {
-    if (!nilai || nilai.trim() === '') return '';
-    
-    // Extract numeric value from input (e.g., "80.5" or "80")
-    const numericValue = parseFloat(nilai);
-    if (isNaN(numericValue)) return nilai;
-    
-    const predikat = getPredikat(numericValue);
-    return `${numericValue} (${predikat})`;
-  }, [getPredikat]);
 
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
@@ -132,40 +79,6 @@ function CertificateGeneratorContent() {
   // FIX: Standard canvas dimensions for consistent positioning - MUST be defined before useEffectya
   const STANDARD_CANVAS_WIDTH = 800;
   const STANDARD_CANVAS_HEIGHT = 600;
-  
-  // Format an ISO date (yyyy-mm-dd) into chosen format for canvas text
-  const formatDateString = useCallback((iso: string, fmt: string): string => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    const mmm = d.toLocaleString('en-US', { month: 'short' });
-    const mmmm = d.toLocaleString('en-US', { month: 'long' });
-    
-    // Indonesian month names
-    const indonesianMonths = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    const indonesianMonth = indonesianMonths[d.getMonth()];
-    
-    switch (fmt) {
-      case 'dd-mm-yyyy': return `${dd}-${mm}-${yyyy}`;
-      case 'mm-dd-yyyy': return `${mm}-${dd}-${yyyy}`;
-      case 'yyyy-mm-dd': return `${yyyy}-${mm}-${dd}`;
-      case 'dd-mmm-yyyy': return `${dd} ${mmm} ${yyyy}`;
-      case 'dd-mmmm-yyyy': return `${dd} ${mmmm} ${yyyy}`;
-      case 'mmm-dd-yyyy': return `${mmm} ${dd}, ${yyyy}`;
-      case 'mmmm-dd-yyyy': return `${mmmm} ${dd}, ${yyyy}`;
-      case 'dd/mm/yyyy': return `${dd}/${mm}/${yyyy}`;
-      case 'mm/dd/yyyy': return `${mm}/${dd}/${yyyy}`;
-      case 'yyyy/mm/dd': return `${yyyy}/${mm}/${dd}`;
-      case 'dd-indonesian-yyyy': return `${dd} ${indonesianMonth} ${yyyy}`;
-      default: return iso;
-    }
-  }, []);
   
   const [scoreData, setScoreData] = useState(() => {
     // Initialize with current date
@@ -753,9 +666,22 @@ function CertificateGeneratorContent() {
   const [templateImageBust, setTemplateImageBust] = useState<number>(Date.now());
   
   // Manual dual template toggle removed — use template.is_dual_template instead
-  const [members, setMembers] = useState<Member[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
+  
+  // Member selection using custom hook
+  const { 
+    members, 
+    membersLoading, 
+    selectedMemberId, 
+    handleSelectMember: selectMember,
+    setSelectedMemberId 
+  } = useMembersSelection({
+    role,
+    onMemberSelect: (member) => {
+      setCertificateData((prev) => ({ ...prev, name: member.name }));
+      setTextLayers((prev) => prev.map((l) => (l.id === "name" ? { ...l, text: member.name } : l)));
+    },
+  });
+  
   const [imageDimensions, setImageDimensions] = useState<{
     width: number;
     height: number;
@@ -840,28 +766,6 @@ function CertificateGeneratorContent() {
   });
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
   const [selectedFileName, setSelectedFileName] = useState<string>("");
-
-  // Excel helpers
-  const excelDateToISO = useCallback((val: unknown): string => {
-    try {
-      if (val == null || (typeof val === "string" && val === "")) return "";
-      if (typeof val === "number") {
-        const epoch = new Date(Date.UTC(1899, 11, 30));
-        const ms = val * 86400000;
-        const d = new Date(epoch.getTime() + ms);
-        return d.toISOString().slice(0, 10);
-      }
-      if (val instanceof Date) {
-        if (!isNaN(val.getTime())) return val.toISOString().slice(0, 10);
-      }
-      if (typeof val === "string") {
-        const d = new Date(val);
-        if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-        return val;
-      }
-      return String(val);
-    } catch { return String(val ?? ""); }
-  }, []);
 
   const handleExcelFile = useCallback(async (file: File) => {
     const buf = await file.arrayBuffer();
@@ -1160,24 +1064,7 @@ function CertificateGeneratorContent() {
     }
   }, [router]);
 
-  // Load members for selection (Admin/Team only)
-  useEffect(() => {
-    const load = async () => {
-      if (role === "Admin" || role === "Team") {
-        try {
-          setMembersLoading(true);
-          const data = await getMembers();
-          setMembers(data);
-        } catch (e) {
-          console.error(e);
-          toast.error(e instanceof Error ? e.message : "Failed to load members");
-        } finally {
-          setMembersLoading(false);
-        }
-      }
-    };
-    load();
-  }, [role]);
+  // Member loading is now handled by useMembersSelection hook
 
   // Find selected template
   useEffect(() => {
@@ -1802,15 +1689,7 @@ function CertificateGeneratorContent() {
     autoGenerateCertNo();
   }, [certificateData.issue_date]); // Only run when issue_date changes
 
-  // Update selection handler for member -> sync recipient name field and canvas text layer
-  const handleSelectMember = useCallback((memberId: string) => {
-    setSelectedMemberId(memberId);
-    const selected = members.find((m) => m.id === memberId);
-    if (selected) {
-      setCertificateData((prev) => ({ ...prev, name: selected.name }));
-      setTextLayers((prev) => prev.map((l) => (l.id === "name" ? { ...l, text: selected.name } : l)));
-    }
-  }, [members]);
+  // Member selection is now handled by useMembersSelection hook (selectMember function)
 
   // FIX: Dragging functionality with proper coordinate handling
   const handleMouseDown = useCallback(
@@ -4052,7 +3931,7 @@ function CertificateGeneratorContent() {
                     <select
                       className="w-full h-9 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={selectedMemberId}
-                      onChange={(e) => handleSelectMember(e.target.value)}
+                      onChange={(e) => selectMember(e.target.value)}
                       disabled={membersLoading}
                     >
                       <option value="">{membersLoading ? 'Loading members...' : '— Select a member —'}</option>

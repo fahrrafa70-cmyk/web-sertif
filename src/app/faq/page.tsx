@@ -48,18 +48,18 @@ export default function FAQPage() {
   return (
     <ModernLayout>
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white py-20">
+      <section className="bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-700 text-white py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6 text-center relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              <HelpCircle className="w-16 h-16 mx-auto mb-6 text-blue-200" />
+              <HelpCircle className="w-16 h-16 mx-auto mb-6 text-cyan-100" />
               <h1 className="text-4xl sm:text-5xl font-bold mb-6">
                 {t('faq.title')}
               </h1>
-              <p className="text-xl text-blue-100 max-w-3xl mx-auto">
+              <p className="text-xl text-cyan-50 max-w-3xl mx-auto">
                 {t('faq.subtitle')}
               </p>
             </motion.div>
