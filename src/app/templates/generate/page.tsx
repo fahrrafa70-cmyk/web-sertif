@@ -129,11 +129,19 @@ function CertificateGeneratorContent() {
   // Active text layers based on current mode - use useMemo to ensure reactivity
   const textLayers = useMemo(() => {
     const result = activeTemplateMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
+    const nilaiPrestasiLayer = result.find(l => l.id === 'nilai_prestasi');
     console.log('🔍 textLayers useMemo:', {
       mode: activeTemplateMode,
       resultCount: result.length,
       certificateCount: certificateTextLayers.length,
       scoreCount: scoreTextLayers.length,
+      nilaiPrestasiLayer: nilaiPrestasiLayer ? {
+        id: nilaiPrestasiLayer.id,
+        text: nilaiPrestasiLayer.text,
+        hasText: !!nilaiPrestasiLayer.text,
+        x: nilaiPrestasiLayer.x,
+        y: nilaiPrestasiLayer.y
+      } : '❌ NOT FOUND',
       firstFewLayers: result.slice(0, 3).map(l => ({ id: l.id, text: l.text?.substring(0, 20) }))
     });
     return result;
@@ -238,10 +246,12 @@ function CertificateGeneratorContent() {
       });
     });
     
-    // Add bottom section with nilai prestasi
+    // Add bottom section with nilai prestasi (ALWAYS visible like aspek teknis)
     layers.push({
       id: 'nilai_prestasi',
-      text: scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '',
+      text: scoreData.nilai_prestasi && scoreData.nilai_prestasi.trim() !== '' 
+        ? formatNilaiPrestasi(scoreData.nilai_prestasi) 
+        : '0',  // Show '0' instead of empty string, like aspek teknis
       x: Math.round(fixedWidth * SCORE_LAYOUT.bottom.prestasi.x),
       y: Math.round(fixedHeight * SCORE_LAYOUT.bottom.prestasi.y),
       xPercent: SCORE_LAYOUT.bottom.prestasi.x,
@@ -378,9 +388,11 @@ function CertificateGeneratorContent() {
           }
           return { ...layer, text: newText };
         }
-        // Update nilai prestasi
+        // Update nilai prestasi (SAME logic as aspek teknis - always show value)
         if (layer.id === 'nilai_prestasi') {
-          const newText = scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '';
+          const newText = scoreData.nilai_prestasi && scoreData.nilai_prestasi.trim() !== '' 
+            ? formatNilaiPrestasi(scoreData.nilai_prestasi) 
+            : '0';  // Default to '0' like aspek teknis
           if (layer.text !== newText) {
             console.log(`  ✏️ Updated nilai_prestasi: "${layer.text}" → "${newText}"`);
           }
@@ -397,7 +409,7 @@ function CertificateGeneratorContent() {
         return layer;
       })
     );
-  }, [scoreData, activeTemplateMode, dateFormat, formatDateString, formatNilaiPrestasi, scoreTextLayers.length]);
+  }, [scoreData, activeTemplateMode, dateFormat, formatDateString, formatNilaiPrestasi]);
   
   
   // DISABLED: Loading saved defaults for score to prevent old text boxes
@@ -1343,7 +1355,10 @@ function CertificateGeneratorContent() {
               const item = scoreData.aspek_teknis.find(i => i.no === no);
               text = `${item?.nilai || 0}`;
             } else if (saved.id === 'nilai_prestasi') {
-              text = scoreData.nilai_prestasi ? formatNilaiPrestasi(scoreData.nilai_prestasi) : '';
+              // FIXED: Always show value like aspek teknis
+              text = scoreData.nilai_prestasi && scoreData.nilai_prestasi.trim() !== ''
+                ? formatNilaiPrestasi(scoreData.nilai_prestasi)
+                : '0';
             // REMOVED: keterangan - already in template
             } else if (saved.id === 'score_date') {
               text = scoreData.date ? formatDateString(scoreData.date, dateFormat) : '';
@@ -2453,11 +2468,14 @@ function CertificateGeneratorContent() {
         }
       }
       
-      // Update nilai prestasi
+      // Update nilai prestasi (FIXED: Always show value like aspek teknis)
       if (layer.id === 'nilai_prestasi') {
+        const newText = scoreData.nilai_prestasi && scoreData.nilai_prestasi.trim() !== ''
+          ? formatNilaiPrestasi(scoreData.nilai_prestasi)
+          : '0';
         return { 
           ...layer, 
-          text: formatNilaiPrestasi(scoreData.nilai_prestasi || ''),
+          text: newText,
           // Preserve font settings from scoreFontSettings
           fontSize: scoreFontSettings.additionalInfo.fontSize,
           color: scoreFontSettings.additionalInfo.color,
@@ -4641,7 +4659,15 @@ function CertificateGeneratorContent() {
                     </label>
                     <Input
                       value={scoreData.nilai_prestasi}
-                      onChange={(e) => setScoreData({...scoreData, nilai_prestasi: e.target.value})}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        console.log('🔵 Nilai/Prestasi input changed:', {
+                          oldValue: scoreData.nilai_prestasi,
+                          newValue: newValue,
+                          formatted: newValue ? formatNilaiPrestasi(newValue) : '(empty)'
+                        });
+                        setScoreData({...scoreData, nilai_prestasi: newValue});
+                      }}
                       className="h-8 text-xs"
                       placeholder="e.g., 88.5 (akan otomatis menjadi 88.5 (Baik))"
                     />
