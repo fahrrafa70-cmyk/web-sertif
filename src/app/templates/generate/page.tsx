@@ -2673,7 +2673,8 @@ function CertificateGeneratorContent() {
                 const scaledFontSize = layer.fontSize * (consistentDims.scale || 1);
                 ctx.font = `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`;
                 ctx.fillStyle = layer.color;
-                ctx.textAlign = "left";
+                // Special alignment for name layer: text expands to the left
+                ctx.textAlign = layer.id === "name" ? "right" : "left";
                 ctx.textBaseline = "top";
 
                 // CRITICAL FIX: Use same coordinate logic as certificate
@@ -2805,7 +2806,8 @@ function CertificateGeneratorContent() {
               const scaledFontSize = layer.fontSize * (consistentDims.scale || 1);
               ctx.font = `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`;
               ctx.fillStyle = layer.color;
-              ctx.textAlign = "left";
+              // Special alignment for name layer: text expands to the left
+              ctx.textAlign = layer.id === "name" ? "right" : "left";
               ctx.textBaseline = "top";
 
               // Use absolute x/y if available (from drag), otherwise use normalized coordinates
@@ -2856,7 +2858,8 @@ function CertificateGeneratorContent() {
               const scaledFontSize = layer.fontSize * (consistentDims.scale || 1);
               ctx.font = `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`;
               ctx.fillStyle = layer.color;
-              ctx.textAlign = "left";
+              // Special alignment for name layer: text expands to the left
+              ctx.textAlign = layer.id === "name" ? "right" : "left";
               ctx.textBaseline = "alphabetic";
 
               // Use absolute x/y if available (from drag), otherwise use normalized coordinates
@@ -2910,7 +2913,8 @@ function CertificateGeneratorContent() {
               const scaledFontSize = layer.fontSize * (consistentDims.scale || 1);
               ctx.font = `${layer.fontWeight} ${scaledFontSize}px ${layer.fontFamily}`;
               ctx.fillStyle = layer.color;
-              ctx.textAlign = "left";
+              // Special alignment for name layer: text expands to the left
+              ctx.textAlign = layer.id === "name" ? "right" : "left";
               ctx.textBaseline = "alphabetic";
 
               // Use absolute x/y if available (from drag), otherwise use normalized coordinates
@@ -3816,6 +3820,11 @@ function CertificateGeneratorContent() {
                           fontFamily: layer.fontFamily,
                           // CRITICAL: Set line-height to 1 to match canvas rendering exactly
                           lineHeight: "1",
+                          // Special styling for name layer: text expands to the left
+                          ...(layer.id === "name" ? {
+                            textAlign: "right",
+                            transformOrigin: "right center",
+                          } : {}),
                           // Pastikan tidak ada transform atau scaling
                           transform: "none",
                           // Hindari animasi/transition saat drag
@@ -3884,6 +3893,11 @@ function CertificateGeneratorContent() {
                               color: layer.color,
                               fontWeight: layer.fontWeight,
                               fontFamily: layer.fontFamily,
+                              // Special styling for name input: text expands to the left
+                              ...(layer.id === "name" ? {
+                                textAlign: "right",
+                                direction: "ltr",
+                              } : {}),
                               // Pastikan tidak ada padding yang mempengaruhi posisi
                               padding: "0",
                               margin: "0",
