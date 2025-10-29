@@ -902,9 +902,9 @@ function CertificatesContent() {
 
             {/* Pagination Controls */}
             {!loading && !error && filtered.length > 0 && (
-              <div className="mt-6 flex items-center justify-between px-6 py-4 bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm text-gray-600">
-                  Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filtered.length)} of {filtered.length} certificates
+              <div className="flex justify-between items-center mt-4 px-2">
+                <div className="text-sm text-gray-500">
+                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filtered.length)} of {filtered.length} certificates
                   {(searchInput || categoryFilter || dateFilter) && <span className="ml-1 text-gray-400">(filtered from {certificates.length})</span>}
                 </div>
                 <div className="flex items-center gap-2">
