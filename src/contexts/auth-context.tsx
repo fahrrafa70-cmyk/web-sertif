@@ -161,18 +161,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
-      // Clear Supabase session
-      await supabaseClient.auth.signOut();
+      // Clear state immediately first
+      setRole(null);
+      setEmail(null);
+      setError(null);
       
       // Clear local storage
       try {
         window.localStorage.removeItem("ecert-role");
       } catch {}
       
-      // Clear state
-      setRole(null);
-      setEmail(null);
-      setError(null);
+      // Clear Supabase session
+      await supabaseClient.auth.signOut();
+      
+      // Small delay to ensure state updates are reflected in UI
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       // Redirect to home
       router.push("/");
@@ -188,18 +191,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const localSignOut = useCallback(async () => {
     try {
-      // Sign out of Supabase to clear persisted session
-      await supabaseClient.auth.signOut();
+      // Clear state immediately first
+      setRole(null);
+      setEmail(null);
+      setError(null);
       
       // Clear local storage
       try {
         window.localStorage.removeItem("ecert-role");
       } catch {}
       
-      // Clear state
-      setRole(null);
-      setEmail(null);
-      setError(null);
+      // Sign out of Supabase to clear persisted session
+      await supabaseClient.auth.signOut();
+      
+      // Small delay to ensure state updates are reflected in UI
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       // Redirect to home
       router.push("/");

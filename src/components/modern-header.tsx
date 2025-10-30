@@ -52,8 +52,10 @@ export default function ModernHeader() {
 
           {/* Right Section - Language + Avatar or Login */}
           <div className="flex items-center gap-3 ml-auto">
-            {/* Language Switcher */}
-            <LanguageSwitcher variant="compact" />
+            {/* Language Switcher - Hidden on mobile, shown on desktop */}
+            <div className="hidden lg:block">
+              <LanguageSwitcher variant="compact" />
+            </div>
 
             {/* User Avatar or Login Button */}
             {isAuthenticated ? (

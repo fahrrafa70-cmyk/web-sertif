@@ -496,7 +496,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
           {/* Enhanced Main Title */}
           <motion.div variants={itemVariants} className="mb-5">
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold text-gradient mb-3 leading-tight">
-              Search Certificate
+              {t('hero.title')}
             </h1>
           </motion.div>
 
@@ -540,7 +540,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                     disabled={searching}
                     className="h-10 px-4 sm:h-11 sm:px-5 gradient-primary text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {searching ? "Searching..." : "Search"}
+                    {searching ? t('hero.searching') : t('hero.searchButton')}
                     <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </div>
@@ -661,7 +661,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 className="mt-4"
               >
                 <div className="text-sm text-gray-600 mb-3">
-                  {t('search.showingResults')}: {searchResults.length} {searchResults.length === 1 ? 'certificate' : 'certificates'}
+                  {t('search.showingResults')}: {searchResults.length} {searchResults.length === 1 ? t('hero.certificate') : t('hero.certificates')}
                 </div>
                 <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
                   {searchResults.map((cert) => (
@@ -729,10 +729,10 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between px-6 py-4 border-b">
             <div>
-              <div className="text-lg font-semibold">Certificate Preview</div>
+              <div className="text-lg font-semibold">{t('hero.certificatePreview')}</div>
               <div className="text-sm text-gray-500">{previewCert!.certificate_no} · {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
             </div>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>{t('hero.close')}</Button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
             <div className="p-4 bg-gray-50">
@@ -740,23 +740,23 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={previewCert!.certificate_image_url ?? undefined} alt="Certificate" className="w-full h-auto rounded-lg border" />
               ) : (
-                <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">No preview image</div>
+                <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">{t('hero.noPreviewImage')}</div>
               )}
             </div>
             <div className="p-6">
               <div className="space-y-2">
-                <div className="text-sm text-gray-500">Recipient</div>
+                <div className="text-sm text-gray-500">{t('hero.recipient')}</div>
                 <div className="text-base font-medium">{previewCert!.members?.name || previewCert!.name}</div>
                 {previewCert!.members?.organization && (
                   <div className="text-sm text-gray-600">{previewCert!.members.organization}</div>
                 )}
               </div>
               <div className="mt-4 space-y-1 text-sm">
-                <div><span className="text-gray-500">Category:</span> {previewCert!.category || "—"}</div>
-                <div><span className="text-gray-500">Template:</span> {(previewCert as unknown as { templates?: { name?: string } }).templates?.name || "—"}</div>
-                <div><span className="text-gray-500">Issued:</span> {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
+                <div><span className="text-gray-500">{t('hero.category')}:</span> {previewCert!.category || "—"}</div>
+                <div><span className="text-gray-500">{t('hero.template')}:</span> {(previewCert as unknown as { templates?: { name?: string } }).templates?.name || "—"}</div>
+                <div><span className="text-gray-500">{t('hero.issued')}:</span> {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
                 {previewCert!.expired_date && (
-                  <div><span className="text-gray-500">Expires:</span> {new Date(previewCert!.expired_date as string).toLocaleDateString()}</div>
+                  <div><span className="text-gray-500">{t('hero.expires')}:</span> {new Date(previewCert!.expired_date as string).toLocaleDateString()}</div>
                 )}
               </div>
               <div className="mt-6 flex gap-3">
@@ -769,7 +769,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                   }}
                   className="px-4 py-2 rounded-md bg-blue-600 text-white"
                 >
-                  View Full Image
+                  {t('hero.viewFullImage')}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -778,28 +778,28 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                       className="border-gray-300"
                     >
                       <Download className="w-4 h-4 mr-1" />
-                      Export
+                      {t('hero.export')}
                       <ChevronDown className="w-4 h-4 ml-1" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => exportToPDF(previewCert!)}>
                       <FileText className="w-4 h-4 mr-2" />
-                      Export as PDF
+                      {t('hero.exportAsPDF')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => exportToPNG(previewCert!)}>
                       <ImageIcon className="w-4 h-4 mr-2" />
-                      Download PNG
+                      {t('hero.downloadPNG')}
                     </DropdownMenuItem>
                     {previewCert!.certificate_image_url && (
                       <DropdownMenuItem onClick={() => openSendEmailModal(previewCert!)}>
                         <FileText className="w-4 h-4 mr-2" />
-                        Send via Email
+                        {t('hero.sendViaEmail')}
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onClick={() => generateCertificateLink(previewCert!)}>
                       <Link className="w-4 h-4 mr-2" />
-                      Generate Certificate Link
+                      {t('hero.generateLink')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -813,8 +813,8 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
       <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={() => setImagePreviewOpen(false)}>
         <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
-            <div className="text-sm text-gray-600">Certificate Image</div>
-            <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>Close</Button>
+            <div className="text-sm text-gray-600">{t('hero.certificateImage')}</div>
+            <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>{t('hero.close')}</Button>
           </div>
           <div className="p-4 bg-gray-50 overflow-auto flex-1">
             {imagePreviewUrl ? (
@@ -832,21 +832,21 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
         <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between px-6 py-4 border-b">
             <div>
-              <div className="text-lg font-semibold">Send Certificate via Email</div>
-              <div className="text-sm text-gray-500">Configure email details</div>
+              <div className="text-lg font-semibold">{t('hero.sendEmailTitle')}</div>
+              <div className="text-sm text-gray-500">{t('hero.sendEmailSubtitle')}</div>
             </div>
-            <Button variant="outline" onClick={() => setSendModalOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setSendModalOpen(false)}>{t('hero.close')}</Button>
           </div>
           <div className="p-6 space-y-4">
             {sendPreviewSrc && (
               <div className="mb-4">
-                <div className="text-sm text-gray-600 mb-2">Certificate Preview:</div>
+                <div className="text-sm text-gray-600 mb-2">{t('hero.certificatePreviewLabel')}</div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={sendPreviewSrc} alt="Certificate Preview" className="w-full h-auto rounded-lg border max-h-48 object-contain" />
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Recipient Email</label>
+              <label className="text-sm font-medium text-gray-700">{t('hero.recipientEmail')}</label>
               <Input
                 type="email"
                 value={sendForm.email}
@@ -872,14 +872,14 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Subject</label>
+              <label className="text-sm font-medium text-gray-700">{t('hero.subject')}</label>
               <Input
                 value={sendForm.subject}
                 onChange={(e) => {
                   setSendForm({ ...sendForm, subject: e.target.value });
                   if (sendFormErrors.subject) setSendFormErrors((err) => ({ ...err, subject: undefined }));
                 }}
-                placeholder="Email subject"
+                placeholder={t('hero.emailSubjectPlaceholder')}
                 className={`w-full ${sendFormErrors.subject ? 'border-red-500' : ''}`}
                 disabled={isSendingEmail}
                 onKeyDown={(e) => {
@@ -897,14 +897,14 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Message</label>
+              <label className="text-sm font-medium text-gray-700">{t('hero.message')}</label>
               <textarea
                 value={sendForm.message}
                 onChange={(e) => {
                   setSendForm({ ...sendForm, message: e.target.value });
                   if (sendFormErrors.message) setSendFormErrors((err) => ({ ...err, message: undefined }));
                 }}
-                placeholder="Email message"
+                placeholder={t('hero.emailMessagePlaceholder')}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300'}`}
                 rows={4}
                 disabled={isSendingEmail}
@@ -929,7 +929,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 onClick={() => setSendModalOpen(false)}
                 disabled={isSendingEmail}
               >
-                Cancel
+                {t('hero.cancel')}
               </Button>
                <Button 
                  onClick={confirmSendEmail} 
@@ -942,10 +942,10 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Sending...
+                    {t('hero.sending')}
                   </>
                 ) : (
-                  'Send Email'
+                  t('hero.sendEmail')
                 )}
               </Button>
             </div>

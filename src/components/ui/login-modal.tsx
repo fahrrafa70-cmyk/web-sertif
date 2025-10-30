@@ -107,9 +107,9 @@ export function LoginModal() {
                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                   <Mail className="w-4 h-4" />
                 </div>
-                Welcome Back
+                {t('login.welcomeBack')}
               </DialogTitle>
-              <p className="text-white text-sm mt-1">Sign in to your account to continue</p>
+              <p className="text-white text-sm mt-1">{t('login.signInMessage')}</p>
             </DialogHeader>
           </motion.div>
 
@@ -129,7 +129,7 @@ export function LoginModal() {
               >
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Mail className="w-4 h-4" />
-                  Email Address
+                  {t('login.emailAddress')}
                 </label>
                 <Input
                   type="email"
@@ -145,7 +145,7 @@ export function LoginModal() {
                       ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" 
                       : "border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
                   }`}
-                  placeholder="Enter your email"
+                  placeholder={t('login.enterEmail')}
                 />
                 {emailError && (
                   <motion.p
@@ -166,7 +166,7 @@ export function LoginModal() {
               >
                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Lock className="w-4 h-4" />
-                  Password
+                  {t('login.password')}
                 </label>
                 <div className="relative">
                   <Input
@@ -183,7 +183,7 @@ export function LoginModal() {
                         ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" 
                         : "border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
                     }`}
-                    placeholder="Enter your password"
+                    placeholder={t('login.enterPassword')}
                   />
                   <button
                     type="button"
@@ -217,10 +217,10 @@ export function LoginModal() {
                   {loading ? (
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      Signing in...
+                      {t('login.signingIn')}
                     </div>
                   ) : (
-                    "Sign In"
+                    t('login.signIn')
                   )}
                 </Button>
               </motion.div>

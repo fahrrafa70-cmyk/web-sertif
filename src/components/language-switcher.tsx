@@ -40,7 +40,7 @@ export function LanguageSwitcher({ variant = 'default', className }: LanguageSwi
             <Globe className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuContent align="end" className="w-40 z-[70]">
           {languages.map((lang) => (
             <DropdownMenuItem
               key={lang.code}
@@ -76,7 +76,7 @@ export function LanguageSwitcher({ variant = 'default', className }: LanguageSwi
             <ChevronDown className="w-3 h-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuContent align="end" className="w-40 z-[70]">
           {languages.map((lang) => (
             <DropdownMenuItem
               key={lang.code}
@@ -111,7 +111,7 @@ export function LanguageSwitcher({ variant = 'default', className }: LanguageSwi
           <ChevronDown className="w-4 h-4 text-gray-500" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-48 z-[70]">
         <div className="px-2 py-1.5 text-sm font-medium text-gray-500">
           {t('language.switch')}
         </div>
