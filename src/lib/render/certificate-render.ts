@@ -1,3 +1,9 @@
+/**
+ * Certificate Renderer Utility
+ * Renders certificate template + text layers to PNG DataURL
+ * Reusable across Generate page and Quick Generate modal
+ */
+
 export interface RenderTextLayer {
   id: string;
   text: string;
