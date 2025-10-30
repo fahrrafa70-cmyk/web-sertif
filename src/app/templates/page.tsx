@@ -9,7 +9,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, Search, Eye, Edit, Trash2, Palette, Layout, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Plus, Search, Eye, Edit, Trash2, Palette, Layout, X, Settings } from "lucide-react";
 import { staggerContainer } from "@/components/page-transition";
 import { useTemplates } from "@/hooks/use-templates";
 import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl } from "@/lib/supabase/templates";
@@ -527,6 +528,18 @@ export default function TemplatesPage() {
                       <div className={`absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white text-xs font-medium shadow-lg`}>
                         {tpl.category}
                       </div>
+                      {/* Layout Status Badge */}
+                      <div className="absolute top-3 left-3">
+                        {tpl.is_layout_configured ? (
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white shadow-md">
+                            ✓ Ready
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white shadow-md">
+                            ⚠ Not Configured
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     <CardHeader className="pb-3">
@@ -561,11 +574,12 @@ export default function TemplatesPage() {
                             className="w-full gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300" 
                             onClick={() => {
                               if (role === "Admin" || role === "Team") {
-                                router.push(`/templates/generate?template=${tpl.id}`);
+                                router.push(`/templates/configure?template=${tpl.id}`);
                               }
                             }}
                           >
-                            {t('templates.useThisTemplate')}
+                            <Settings className="w-4 h-4 mr-2" />
+                            Configure Layout
                           </Button>
                         )}
 
@@ -1410,11 +1424,12 @@ export default function TemplatesPage() {
                     <Button 
                       className="gradient-primary text-white shadow-lg hover:shadow-xl" 
                       onClick={() => {
-                        router.push(`/templates/generate?template=${previewTemplate.id}`);
+                        router.push(`/templates/configure?template=${previewTemplate.id}`);
                         setPreviewTemplate(null);
                       }}
                     >
-                      {t('templates.useThisTemplate')}
+                      <Settings className="w-4 h-4 mr-2" />
+                      Configure Layout
                     </Button>
                   )}
                 </div>
