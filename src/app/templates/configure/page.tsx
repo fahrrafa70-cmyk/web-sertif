@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Move, Check, X } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Check, X, AlignLeft, AlignCenter, AlignRight, AlignJustify } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { Template } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
@@ -47,6 +47,8 @@ function ConfigureLayoutContent() {
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
+  const [renamingLayerId, setRenamingLayerId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   
   // Canvas ref
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -109,7 +111,8 @@ function ConfigureLayoutContent() {
         fontSize: 48,
         color: "#000000",
         fontWeight: "bold",
-        fontFamily: "Arial"
+        fontFamily: "Arial",
+        textAlign: "center"
       },
       {
         id: "certificate_no",
@@ -120,7 +123,8 @@ function ConfigureLayoutContent() {
         fontSize: 24,
         color: "#000000",
         fontWeight: "normal",
-        fontFamily: "Arial"
+        fontFamily: "Arial",
+        textAlign: "left"
       },
       {
         id: "issue_date",
@@ -131,7 +135,8 @@ function ConfigureLayoutContent() {
         fontSize: 20,
         color: "#000000",
         fontWeight: "normal",
-        fontFamily: "Arial"
+        fontFamily: "Arial",
+        textAlign: "left"
       }
     ];
     setTextLayers(defaultLayers);
@@ -219,7 +224,8 @@ function ConfigureLayoutContent() {
       fontSize: 24,
       color: "#000000",
       fontWeight: "normal",
-      fontFamily: "Arial"
+      fontFamily: "Arial",
+      textAlign: "left"
     };
     setTextLayers(prev => [...prev, newLayer]);
     setSelectedLayerId(newId);
@@ -288,6 +294,38 @@ function ConfigureLayoutContent() {
     }
   };
 
+  // Handle layer rename (double-click)
+  const handleLayerDoubleClick = (layerId: string) => {
+    setRenamingLayerId(layerId);
+    setRenameValue(layerId);
+  };
+
+  const handleRenameSubmit = (oldId: string) => {
+    if (!renameValue.trim() || renameValue === oldId) {
+      setRenamingLayerId(null);
+      return;
+    }
+    
+    // Check if new ID already exists
+    if (textLayers.some(l => l.id === renameValue && l.id !== oldId)) {
+      toast.error('Layer ID already exists');
+      return;
+    }
+    
+    // Update layer ID
+    setTextLayers(prev => prev.map(l => 
+      l.id === oldId ? { ...l, id: renameValue.trim() } : l
+    ));
+    
+    // Update selected layer if it was the renamed one
+    if (selectedLayerId === oldId) {
+      setSelectedLayerId(renameValue.trim());
+    }
+    
+    setRenamingLayerId(null);
+    toast.success('Layer renamed successfully');
+  };
+
   // Get selected layer
   const selectedLayer = textLayers.find(l => l.id === selectedLayerId);
 
@@ -309,7 +347,7 @@ function ConfigureLayoutContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+      <div className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -361,7 +399,7 @@ function ConfigureLayoutContent() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8 mt-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Canvas Preview */}
           <div className="lg:col-span-2">
@@ -410,6 +448,7 @@ function ConfigureLayoutContent() {
                         color: layer.color,
                         fontWeight: layer.fontWeight,
                         fontFamily: layer.fontFamily,
+                        textAlign: layer.textAlign || 'left',
                         whiteSpace: 'nowrap',
                         userSelect: 'none',
                         zIndex: isSelected ? 10 : 1
@@ -458,7 +497,27 @@ function ConfigureLayoutContent() {
                         <div className="flex items-center gap-2 flex-1">
                           <Type className="w-4 h-4 text-gray-400" />
                           <div className="flex-1">
-                            <div className="font-medium text-sm">{layer.id}</div>
+                            {renamingLayerId === layer.id ? (
+                              <Input
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onBlur={() => handleRenameSubmit(layer.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleRenameSubmit(layer.id);
+                                  if (e.key === 'Escape') setRenamingLayerId(null);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                autoFocus
+                                className="h-6 text-sm"
+                              />
+                            ) : (
+                              <div 
+                                className="font-medium text-sm"
+                                onDoubleClick={() => handleLayerDoubleClick(layer.id)}
+                              >
+                                {layer.id}
+                              </div>
+                            )}
                             <div className="text-xs text-gray-500">
                               {layer.fontSize}px • {layer.fontFamily}
                             </div>
@@ -588,6 +647,45 @@ function ConfigureLayoutContent() {
                           className="h-8 flex-1 text-sm"
                         />
                       </div>
+                    </div>
+
+                    {/* Text Align */}
+                    <div>
+                      <Label className="text-xs">Text Align</Label>
+                      <Select 
+                        value={selectedLayer.textAlign || 'left'} 
+                        onValueChange={(value: 'left' | 'center' | 'right' | 'justify') => updateLayer(selectedLayer.id, { textAlign: value })}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">
+                            <div className="flex items-center gap-2">
+                              <AlignLeft className="w-4 h-4" />
+                              Left
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="center">
+                            <div className="flex items-center gap-2">
+                              <AlignCenter className="w-4 h-4" />
+                              Center
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="right">
+                            <div className="flex items-center gap-2">
+                              <AlignRight className="w-4 h-4" />
+                              Right
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="justify">
+                            <div className="flex items-center gap-2">
+                              <AlignJustify className="w-4 h-4" />
+                              Justify
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
