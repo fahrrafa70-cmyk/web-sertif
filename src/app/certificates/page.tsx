@@ -45,10 +45,8 @@ import {
   getTemplateImageUrl,
   Template,
   getTemplateLayout,
-  isTemplateReadyForQuickGenerate,
 } from "@/lib/supabase/templates";
 import { getTemplateDefaults, TemplateDefaults, TextLayerDefault } from '@/lib/storage/template-defaults';
-import type { TemplateLayoutConfig } from '@/types/template-layout';
 import Image from "next/image";
 import { confirmToast } from "@/lib/ui/confirm";
 import { Suspense } from "react";
