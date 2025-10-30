@@ -14,6 +14,8 @@ export interface TextLayerConfig {
   fontWeight: string;
   fontFamily: string;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
+  defaultText?: string; // Default text to use in generation (optional)
+  useDefaultText?: boolean; // Whether to use defaultText instead of dynamic data
 }
 
 export interface OverlayImageConfig {

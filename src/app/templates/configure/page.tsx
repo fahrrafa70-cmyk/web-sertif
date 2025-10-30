@@ -50,6 +50,9 @@ function ConfigureLayoutContent() {
   const [renamingLayerId, setRenamingLayerId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   
+  // Preview text state (for testing display only, not saved)
+  const [previewTexts, setPreviewTexts] = useState<Record<string, string>>({});
+  
   // Canvas ref
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasScale, setCanvasScale] = useState(1);
@@ -431,7 +434,11 @@ function ConfigureLayoutContent() {
                 
                 {/* Text Layers */}
                 {textLayers.map(layer => {
-                  const text = DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || layer.id;
+                  // Priority: preview text > default text > dummy data > layer id
+                  const text = previewTexts[layer.id] || 
+                               layer.defaultText || 
+                               DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
+                               layer.id;
                   const isSelected = selectedLayerId === layer.id;
                   
                   return (
@@ -554,6 +561,51 @@ function ConfigureLayoutContent() {
                     Layer Properties: {selectedLayer.id}
                   </h3>
                   <div className="space-y-4">
+                    {/* Preview Text (for testing display only) */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <Label className="text-xs font-semibold text-blue-900">Preview Text (Testing Only)</Label>
+                      <Input
+                        type="text"
+                        value={previewTexts[selectedLayer.id] || ''}
+                        onChange={(e) => setPreviewTexts(prev => ({
+                          ...prev,
+                          [selectedLayer.id]: e.target.value
+                        }))}
+                        placeholder="Type to test how text looks..."
+                        className="h-8 text-sm mt-2"
+                      />
+                      <p className="text-xs text-blue-700 mt-1">
+                        💡 This is for preview only, not saved to database
+                      </p>
+                    </div>
+
+                    {/* Default Text & Checkbox */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-xs font-semibold text-green-900">Default Text</Label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedLayer.useDefaultText || false}
+                            onChange={(e) => updateLayer(selectedLayer.id, { useDefaultText: e.target.checked })}
+                            className="w-4 h-4 text-green-600 rounded"
+                          />
+                          <span className="text-xs text-green-900">Use in generation</span>
+                        </label>
+                      </div>
+                      <Input
+                        type="text"
+                        value={selectedLayer.defaultText || ''}
+                        onChange={(e) => updateLayer(selectedLayer.id, { defaultText: e.target.value })}
+                        placeholder="Set default text for generation..."
+                        className="h-8 text-sm"
+                        disabled={!selectedLayer.useDefaultText}
+                      />
+                      <p className="text-xs text-green-700 mt-1">
+                        ✅ This will be saved and used in generation (can be overridden)
+                      </p>
+                    </div>
+
                     {/* Position */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
