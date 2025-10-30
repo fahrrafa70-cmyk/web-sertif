@@ -1,21 +1,37 @@
 "use client";
 
 /**
- * Template Layout Configuration Page
- * Simplified interface for configuring template layout (drag-drop, fonts, positions)
- * Does NOT generate certificates - only saves layout configuration to database
+ * Template Layout Configuration Page with Full Drag-Drop Interface
+ * Allows visual configuration of text layers with drag, resize, and font customization
  */
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Check } from "lucide-react";
-import { getTemplate, getTemplateImageUrl, saveTemplateLayout } from "@/lib/supabase/templates";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Save, Plus, Trash2, Type, Move, Check, X } from "lucide-react";
+import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { Template } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
-import type { TemplateLayoutConfig } from "@/types/template-layout";
+import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import Image from "next/image";
+
+// Dummy data for preview
+const DUMMY_DATA = {
+  name: "John Doe",
+  certificate_no: "CERT-2025-001",
+  issue_date: "30 October 2025",
+  expired_date: "30 October 2028",
+  description: "For outstanding achievement"
+};
+
+interface TextLayer extends TextLayerConfig {
+  isEditing?: boolean;
+  isDragging?: boolean;
+}
 
 function ConfigureLayoutContent() {
   const router = useRouter();
@@ -26,8 +42,17 @@ function ConfigureLayoutContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [templateImageUrl, setTemplateImageUrl] = useState<string | null>(null);
+  
+  // Text layers state
+  const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
+  
+  // Canvas ref
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [canvasScale, setCanvasScale] = useState(1);
 
-  // Load template
+  // Load template and existing layout
   useEffect(() => {
     async function loadTemplate() {
       if (!templateId) {
@@ -50,6 +75,17 @@ function ConfigureLayoutContent() {
         const imgUrl = await getTemplateImageUrl(tpl);
         setTemplateImageUrl(imgUrl);
         
+        // Load existing layout if available
+        const existingLayout = await getTemplateLayout(templateId);
+        if (existingLayout && existingLayout.certificate) {
+          console.log('📦 Loading existing layout configuration');
+          setTextLayers(existingLayout.certificate.textLayers as TextLayer[]);
+        } else {
+          // Initialize with default text layers
+          console.log('🆕 Initializing default text layers');
+          initializeDefaultLayers();
+        }
+        
         setLoading(false);
       } catch (error) {
         console.error("Failed to load template:", error);
@@ -61,51 +97,171 @@ function ConfigureLayoutContent() {
     loadTemplate();
   }, [templateId, router]);
 
+  // Initialize default text layers
+  const initializeDefaultLayers = () => {
+    const defaultLayers: TextLayer[] = [
+      {
+        id: "name",
+        x: 400,
+        y: 300,
+        xPercent: 400 / STANDARD_CANVAS_WIDTH,
+        yPercent: 300 / STANDARD_CANVAS_HEIGHT,
+        fontSize: 48,
+        color: "#000000",
+        fontWeight: "bold",
+        fontFamily: "Arial"
+      },
+      {
+        id: "certificate_no",
+        x: 100,
+        y: 100,
+        xPercent: 100 / STANDARD_CANVAS_WIDTH,
+        yPercent: 100 / STANDARD_CANVAS_HEIGHT,
+        fontSize: 24,
+        color: "#000000",
+        fontWeight: "normal",
+        fontFamily: "Arial"
+      },
+      {
+        id: "issue_date",
+        x: 100,
+        y: 500,
+        xPercent: 100 / STANDARD_CANVAS_WIDTH,
+        yPercent: 500 / STANDARD_CANVAS_HEIGHT,
+        fontSize: 20,
+        color: "#000000",
+        fontWeight: "normal",
+        fontFamily: "Arial"
+      }
+    ];
+    setTextLayers(defaultLayers);
+  };
+
+  // Calculate canvas scale based on container width
+  useEffect(() => {
+    const updateScale = () => {
+      if (canvasRef.current) {
+        const containerWidth = canvasRef.current.offsetWidth;
+        const scale = containerWidth / STANDARD_CANVAS_WIDTH;
+        setCanvasScale(scale);
+      }
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
+
+  // Handle text layer drag
+  const handleLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedLayerId(layerId);
+    setDraggedLayerId(layerId);
+    
+    const layer = textLayers.find(l => l.id === layerId);
+    if (!layer || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const canvasRect = canvas.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLayerX = layer.x;
+    const startLayerY = layer.y;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = (moveEvent.clientX - startX) / canvasScale;
+      const deltaY = (moveEvent.clientY - startY) / canvasScale;
+      
+      const newX = Math.max(0, Math.min(STANDARD_CANVAS_WIDTH, startLayerX + deltaX));
+      const newY = Math.max(0, Math.min(STANDARD_CANVAS_HEIGHT, startLayerY + deltaY));
+
+      setTextLayers(prev => prev.map(l => 
+        l.id === layerId 
+          ? { 
+              ...l, 
+              x: Math.round(newX), 
+              y: Math.round(newY),
+              xPercent: newX / STANDARD_CANVAS_WIDTH,
+              yPercent: newY / STANDARD_CANVAS_HEIGHT,
+              isDragging: true
+            }
+          : l
+      ));
+    };
+
+    const handleMouseUp = () => {
+      setDraggedLayerId(null);
+      setTextLayers(prev => prev.map(l => ({ ...l, isDragging: false })));
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Update text layer property
+  const updateLayer = (layerId: string, updates: Partial<TextLayer>) => {
+    setTextLayers(prev => prev.map(l => 
+      l.id === layerId ? { ...l, ...updates } : l
+    ));
+  };
+
+  // Add new text layer
+  const addTextLayer = () => {
+    const newId = `custom_${Date.now()}`;
+    const newLayer: TextLayer = {
+      id: newId,
+      x: 200,
+      y: 200,
+      xPercent: 200 / STANDARD_CANVAS_WIDTH,
+      yPercent: 200 / STANDARD_CANVAS_HEIGHT,
+      fontSize: 24,
+      color: "#000000",
+      fontWeight: "normal",
+      fontFamily: "Arial"
+    };
+    setTextLayers(prev => [...prev, newLayer]);
+    setSelectedLayerId(newId);
+    toast.success("New text layer added");
+  };
+
+  // Delete text layer
+  const deleteLayer = (layerId: string) => {
+    // Prevent deleting required fields
+    const requiredFields = ['name', 'certificate_no', 'issue_date'];
+    if (requiredFields.includes(layerId)) {
+      toast.error("Cannot delete required field");
+      return;
+    }
+    
+    setTextLayers(prev => prev.filter(l => l.id !== layerId));
+    if (selectedLayerId === layerId) {
+      setSelectedLayerId(null);
+    }
+    toast.success("Text layer deleted");
+  };
+
+  // Save layout configuration
   const handleSave = async () => {
     if (!template) return;
+    
+    // Validate required fields
+    const requiredFields = ['name', 'certificate_no', 'issue_date'];
+    const existingIds = textLayers.map(l => l.id);
+    const missingFields = requiredFields.filter(f => !existingIds.includes(f));
+    
+    if (missingFields.length > 0) {
+      toast.error(`Missing required fields: ${missingFields.join(', ')}`);
+      return;
+    }
     
     setSaving(true);
     
     try {
-      // Create dummy layout config for now
-      // TODO: Replace with actual drag-drop configuration
       const layoutConfig: TemplateLayoutConfig = {
         certificate: {
-          textLayers: [
-            {
-              id: "name",
-              x: 400,
-              y: 300,
-              xPercent: 400 / STANDARD_CANVAS_WIDTH,
-              yPercent: 300 / STANDARD_CANVAS_HEIGHT,
-              fontSize: 48,
-              color: "#000000",
-              fontWeight: "bold",
-              fontFamily: "Arial"
-            },
-            {
-              id: "certificate_no",
-              x: 100,
-              y: 100,
-              xPercent: 100 / STANDARD_CANVAS_WIDTH,
-              yPercent: 100 / STANDARD_CANVAS_HEIGHT,
-              fontSize: 24,
-              color: "#000000",
-              fontWeight: "normal",
-              fontFamily: "Arial"
-            },
-            {
-              id: "issue_date",
-              x: 100,
-              y: 500,
-              xPercent: 100 / STANDARD_CANVAS_WIDTH,
-              yPercent: 500 / STANDARD_CANVAS_HEIGHT,
-              fontSize: 20,
-              color: "#000000",
-              fontWeight: "normal",
-              fontFamily: "Arial"
-            }
-          ]
+          textLayers: textLayers.map(({ isDragging, isEditing, ...layer }) => layer)
         },
         canvas: {
           width: STANDARD_CANVAS_WIDTH,
@@ -131,6 +287,9 @@ function ConfigureLayoutContent() {
       setSaving(false);
     }
   };
+
+  // Get selected layer
+  const selectedLayer = textLayers.find(l => l.id === selectedLayerId);
 
   if (loading) {
     return (
@@ -167,27 +326,36 @@ function ConfigureLayoutContent() {
                   Configure Layout: {template.name}
                 </h1>
                 <p className="text-sm text-gray-500">
-                  Set up text positions and styling for Quick Generate
+                  Drag text layers to position them on the template
                 </p>
               </div>
             </div>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="gradient-primary text-white"
-            >
-              {saving ? (
-                <>
-                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Layout
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={addTextLayer}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Text Layer
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="gradient-primary text-white"
+              >
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Layout
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -199,27 +367,67 @@ function ConfigureLayoutContent() {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Template Preview
+                Template Preview (Drag to Position)
               </h2>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-                {templateImageUrl ? (
-                  <div className="relative w-full" style={{ aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}` }}>
+              <div 
+                ref={canvasRef}
+                className="relative border-2 border-gray-300 rounded-lg bg-gray-50 overflow-hidden"
+                style={{ 
+                  aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
+                  cursor: 'default'
+                }}
+                onClick={() => setSelectedLayerId(null)}
+              >
+                {/* Template Background */}
+                {templateImageUrl && (
+                  <div className="absolute inset-0">
                     <Image
                       src={templateImageUrl}
                       alt={template.name}
                       fill
-                      className="object-contain"
+                      className="object-contain pointer-events-none"
                       unoptimized
                     />
                   </div>
-                ) : (
-                  <div className="flex items-center justify-center h-96">
-                    <p className="text-gray-400">No template image</p>
-                  </div>
                 )}
+                
+                {/* Text Layers */}
+                {textLayers.map(layer => {
+                  const text = DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || layer.id;
+                  const isSelected = selectedLayerId === layer.id;
+                  
+                  return (
+                    <div
+                      key={layer.id}
+                      className={`absolute cursor-move transition-all ${
+                        isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                      } ${layer.isDragging ? 'opacity-70' : ''}`}
+                      style={{
+                        left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
+                        top: `${(layer.y / STANDARD_CANVAS_HEIGHT) * 100}%`,
+                        transform: 'translate(-50%, -50%)',
+                        fontSize: `${layer.fontSize * canvasScale}px`,
+                        color: layer.color,
+                        fontWeight: layer.fontWeight,
+                        fontFamily: layer.fontFamily,
+                        whiteSpace: 'nowrap',
+                        userSelect: 'none',
+                        zIndex: isSelected ? 10 : 1
+                      }}
+                      onMouseDown={(e) => handleLayerMouseDown(layer.id, e)}
+                    >
+                      {text}
+                      {isSelected && (
+                        <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                          {layer.id}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <p className="text-sm text-gray-500 mt-4">
-                💡 <strong>Coming Soon:</strong> Drag & drop interface to position text layers, adjust fonts, and customize styling.
+                💡 <strong>Tip:</strong> Click and drag text to reposition. Select a layer to edit its properties in the right panel.
               </p>
             </div>
           </div>
@@ -227,70 +435,186 @@ function ConfigureLayoutContent() {
           {/* Configuration Panel */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+              {/* Text Layers List */}
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Quick Save (Demo)
+                  Text Layers ({textLayers.length})
                 </h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  Click &ldquo;Save Layout&rdquo; to save a demo configuration with default text positions.
-                </p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                    <span>Name field (center, large)</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                    <span>Certificate number (top-left)</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                    <span>Issue date (bottom-left)</span>
-                  </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {textLayers.map(layer => {
+                    const isRequired = ['name', 'certificate_no', 'issue_date'].includes(layer.id);
+                    const isSelected = selectedLayerId === layer.id;
+                    
+                    return (
+                      <div
+                        key={layer.id}
+                        className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          isSelected 
+                            ? 'border-blue-500 bg-blue-50' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedLayerId(layer.id)}
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <Type className="w-4 h-4 text-gray-400" />
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{layer.id}</div>
+                            <div className="text-xs text-gray-500">
+                              {layer.fontSize}px • {layer.fontFamily}
+                            </div>
+                          </div>
+                          {isRequired && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                              Required
+                            </span>
+                          )}
+                        </div>
+                        {!isRequired && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteLayer(layer.id);
+                            }}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                  Template Info
-                </h3>
-                <dl className="space-y-2 text-sm">
-                  <div>
-                    <dt className="text-gray-500">Category</dt>
-                    <dd className="font-medium text-gray-900">{template.category}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Orientation</dt>
-                    <dd className="font-medium text-gray-900">{template.orientation}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Status</dt>
-                    <dd>
-                      {template.is_layout_configured ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          ✓ Configured
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          ⚠ Not Configured
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+              {/* Layer Properties */}
+              {selectedLayer && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">
+                    Layer Properties: {selectedLayer.id}
+                  </h3>
+                  <div className="space-y-4">
+                    {/* Position */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">X Position</Label>
+                        <Input
+                          type="number"
+                          value={selectedLayer.x}
+                          onChange={(e) => updateLayer(selectedLayer.id, { 
+                            x: parseInt(e.target.value) || 0,
+                            xPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_WIDTH
+                          })}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Y Position</Label>
+                        <Input
+                          type="number"
+                          value={selectedLayer.y}
+                          onChange={(e) => updateLayer(selectedLayer.id, { 
+                            y: parseInt(e.target.value) || 0,
+                            yPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_HEIGHT
+                          })}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
 
+                    {/* Font Size */}
+                    <div>
+                      <Label className="text-xs">Font Size</Label>
+                      <Input
+                        type="number"
+                        value={selectedLayer.fontSize}
+                        onChange={(e) => updateLayer(selectedLayer.id, { fontSize: parseInt(e.target.value) || 12 })}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+
+                    {/* Font Family */}
+                    <div>
+                      <Label className="text-xs">Font Family</Label>
+                      <Select 
+                        value={selectedLayer.fontFamily} 
+                        onValueChange={(value) => updateLayer(selectedLayer.id, { fontFamily: value })}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Arial">Arial</SelectItem>
+                          <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                          <SelectItem value="Courier New">Courier New</SelectItem>
+                          <SelectItem value="Georgia">Georgia</SelectItem>
+                          <SelectItem value="Verdana">Verdana</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Font Weight */}
+                    <div>
+                      <Label className="text-xs">Font Weight</Label>
+                      <Select 
+                        value={selectedLayer.fontWeight} 
+                        onValueChange={(value) => updateLayer(selectedLayer.id, { fontWeight: value })}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="bold">Bold</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Color */}
+                    <div>
+                      <Label className="text-xs">Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="color"
+                          value={selectedLayer.color}
+                          onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
+                          className="h-8 w-16"
+                        />
+                        <Input
+                          type="text"
+                          value={selectedLayer.color}
+                          onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
+                          className="h-8 flex-1 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Validation */}
               <div className="border-t border-gray-200 pt-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                  Next Steps
+                  Validation
                 </h3>
-                <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
-                  <li>Save this demo layout</li>
-                  <li>Go to Certificates page</li>
-                  <li>Click &ldquo;Quick Generate&rdquo;</li>
-                  <li>Select this template</li>
-                  <li>Generate certificates instantly!</li>
-                </ol>
+                <div className="space-y-2 text-sm">
+                  {['name', 'certificate_no', 'issue_date'].map(fieldId => {
+                    const exists = textLayers.some(l => l.id === fieldId);
+                    return (
+                      <div key={fieldId} className="flex items-center gap-2">
+                        {exists ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <X className="w-4 h-4 text-red-500" />
+                        )}
+                        <span className={exists ? 'text-gray-700' : 'text-red-600'}>
+                          {fieldId.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
