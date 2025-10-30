@@ -597,12 +597,20 @@ function CertificatesContent() {
     const textLayers: RenderTextLayer[] = defaults.textLayers.map((layer) => {
       let text = '';
       
-      // Map common field IDs to certificate data
-      if (layer.id === 'name') text = member.name;
-      if (layer.id === 'certificate_no') text = certData.certificate_no;
-      if (layer.id === 'description') text = certData.description;
-      if (layer.id === 'issue_date') text = certData.issue_date;
-      if (layer.id === 'expired_date') text = certData.expired_date;
+      // Check if layer uses default text
+      if (layer.useDefaultText && layer.defaultText) {
+
+        text = layer.defaultText;
+      } else {
+        // Map common field IDs to certificate data
+        if (layer.id === 'name') text = member.name;
+        else if (layer.id === 'certificate_no') text = certData.certificate_no;
+        else if (layer.id === 'description') text = certData.description;
+        else if (layer.id === 'issue_date') text = certData.issue_date;
+        else if (layer.id === 'expired_date') text = certData.expired_date;
+        // For custom layers without mapping, use defaultText if available
+        else if (layer.defaultText) text = layer.defaultText;
+      }
       
       return {
         id: layer.id,
@@ -615,6 +623,9 @@ function CertificatesContent() {
         color: layer.color,
         fontWeight: layer.fontWeight,
         fontFamily: layer.fontFamily,
+        textAlign: layer.textAlign,
+        maxWidth: layer.maxWidth,
+        lineHeight: layer.lineHeight,
       };
     });
     
@@ -639,6 +650,9 @@ function CertificatesContent() {
       color: layer.color,
       fontWeight: layer.fontWeight || 'normal',
       fontFamily: layer.fontFamily || 'Arial',
+      textAlign: layer.textAlign,
+      maxWidth: layer.maxWidth,
+      lineHeight: layer.lineHeight,
     }));
     
     // Create certificate data to save

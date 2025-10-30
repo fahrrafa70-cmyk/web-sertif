@@ -16,6 +16,8 @@ export interface TextLayerConfig {
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   defaultText?: string; // Default text to use in generation (optional)
   useDefaultText?: boolean; // Whether to use defaultText instead of dynamic data
+  maxWidth?: number; // Maximum width for text wrapping (in pixels)
+  lineHeight?: number; // Line height multiplier (default 1.2)
 }
 
 export interface OverlayImageConfig {

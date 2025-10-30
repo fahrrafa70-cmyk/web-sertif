@@ -47,6 +47,7 @@ function ConfigureLayoutContent() {
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
+  const [resizingLayerId, setResizingLayerId] = useState<string | null>(null);
   const [renamingLayerId, setRenamingLayerId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   
@@ -200,6 +201,38 @@ function ConfigureLayoutContent() {
     const handleMouseUp = () => {
       setDraggedLayerId(null);
       setTextLayers(prev => prev.map(l => ({ ...l, isDragging: false })));
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle resize handle drag
+  const handleResizeMouseDown = (layerId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setResizingLayerId(layerId);
+    
+    const layer = textLayers.find(l => l.id === layerId);
+    if (!layer || !canvasRef.current) return;
+
+    const startX = e.clientX;
+    const startWidth = layer.maxWidth || 0;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = (moveEvent.clientX - startX) / canvasScale;
+      const newWidth = Math.max(50, startWidth + deltaX); // Minimum 50px
+
+      setTextLayers(prev => prev.map(l => 
+        l.id === layerId 
+          ? { ...l, maxWidth: Math.round(newWidth) }
+          : l
+      ));
+    };
+
+    const handleMouseUp = () => {
+      setResizingLayerId(null);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -440,40 +473,94 @@ function ConfigureLayoutContent() {
                                DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
                                layer.id;
                   const isSelected = selectedLayerId === layer.id;
+                  const isResizing = resizingLayerId === layer.id;
+                  
+                  // Calculate transform based on alignment
+                  const getTransform = () => {
+                    if (!layer.maxWidth) {
+                      // Single line: always center
+                      return 'translate(-50%, -50%)';
+                    }
+                    // Multi-line with maxWidth: adjust horizontal based on alignment
+                    const align = layer.textAlign || 'left';
+                    if (align === 'center') return 'translate(-50%, -50%)';
+                    if (align === 'right') return 'translate(-100%, -50%)'; // Anchor at right
+                    return 'translate(0%, -50%)'; // Anchor at left
+                  };
                   
                   return (
                     <div
                       key={layer.id}
-                      className={`absolute cursor-move transition-all ${
-                        isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
-                      } ${layer.isDragging ? 'opacity-70' : ''}`}
+                      className="absolute"
                       style={{
                         left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
                         top: `${(layer.y / STANDARD_CANVAS_HEIGHT) * 100}%`,
-                        transform: 'translate(-50%, -50%)',
-                        fontSize: `${layer.fontSize * canvasScale}px`,
-                        color: layer.color,
-                        fontWeight: layer.fontWeight,
-                        fontFamily: layer.fontFamily,
-                        textAlign: layer.textAlign || 'left',
-                        whiteSpace: 'nowrap',
-                        userSelect: 'none',
+                        transform: getTransform(),
                         zIndex: isSelected ? 10 : 1
                       }}
-                      onMouseDown={(e) => handleLayerMouseDown(layer.id, e)}
                     >
-                      {text}
+                      {/* Text content */}
+                      <div
+                        className={`relative cursor-move transition-all ${
+                          isSelected ? 'bg-blue-50/30' : ''
+                        } ${layer.isDragging ? 'opacity-70' : ''}`}
+                        style={{
+                          fontSize: `${layer.fontSize * canvasScale}px`,
+                          color: layer.color,
+                          fontWeight: layer.fontWeight,
+                          fontFamily: layer.fontFamily,
+                          textAlign: layer.textAlign || 'left',
+                          whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
+                          width: layer.maxWidth ? `${layer.maxWidth * canvasScale}px` : 'auto',
+                          lineHeight: layer.lineHeight || 1.2,
+                          wordWrap: 'break-word',
+                          overflowWrap: 'break-word',
+                          userSelect: 'none',
+                          padding: isSelected ? '4px 8px' : '0',
+                          border: isSelected ? '2px dashed #3b82f6' : 'none',
+                          borderRadius: '4px'
+                        }}
+                        onMouseDown={(e) => handleLayerMouseDown(layer.id, e)}
+                      >
+                        {text}
+                      </div>
+                      
+                      {/* Label and resize handle */}
                       {isSelected && (
-                        <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                          {layer.id}
-                        </div>
+                        <>
+                          {/* Layer name label */}
+                          <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                            {layer.id}
+                            {layer.maxWidth && (
+                              <span className="ml-2 opacity-75">{Math.round(layer.maxWidth)}px</span>
+                            )}
+                          </div>
+                          
+                          {/* Resize handle (right edge) */}
+                          {layer.maxWidth && (
+                            <div
+                              className={`absolute top-0 -right-1 w-3 h-full cursor-ew-resize bg-blue-500 hover:bg-blue-600 rounded-r ${
+                                isResizing ? 'bg-blue-600' : ''
+                              }`}
+                              style={{
+                                height: '100%'
+                              }}
+                              onMouseDown={(e) => handleResizeMouseDown(layer.id, e)}
+                              title="Drag to resize width"
+                            >
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="w-0.5 h-4 bg-white rounded"></div>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );
                 })}
               </div>
               <p className="text-sm text-gray-500 mt-4">
-                💡 <strong>Tip:</strong> Click and drag text to reposition. Select a layer to edit its properties in the right panel.
+                💡 <strong>Tip:</strong> Click and drag text to move. Drag the blue handle on the right to resize width.
               </p>
             </div>
           </div>
@@ -561,50 +648,41 @@ function ConfigureLayoutContent() {
                     Layer Properties: {selectedLayer.id}
                   </h3>
                   <div className="space-y-4">
-                    {/* Preview Text (for testing display only) */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <Label className="text-xs font-semibold text-blue-900">Preview Text (Testing Only)</Label>
-                      <Input
-                        type="text"
-                        value={previewTexts[selectedLayer.id] || ''}
-                        onChange={(e) => setPreviewTexts(prev => ({
-                          ...prev,
-                          [selectedLayer.id]: e.target.value
-                        }))}
-                        placeholder="Type to test how text looks..."
-                        className="h-8 text-sm mt-2"
-                      />
-                      <p className="text-xs text-blue-700 mt-1">
-                        💡 This is for preview only, not saved to database
-                      </p>
-                    </div>
-
-                    {/* Default Text & Checkbox */}
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-xs font-semibold text-green-900">Default Text</Label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedLayer.useDefaultText || false}
-                            onChange={(e) => updateLayer(selectedLayer.id, { useDefaultText: e.target.checked })}
-                            className="w-4 h-4 text-green-600 rounded"
-                          />
-                          <span className="text-xs text-green-900">Use in generation</span>
-                        </label>
+                    {/* Default Text - Only for custom layers */}
+                    {!['name', 'certificate_no', 'issue_date'].includes(selectedLayer.id) && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-sm font-semibold text-green-900">Default Text</Label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedLayer.useDefaultText || false}
+                              onChange={(e) => updateLayer(selectedLayer.id, { useDefaultText: e.target.checked })}
+                              className="w-4 h-4 text-green-600 rounded"
+                            />
+                            <span className="text-xs font-medium text-green-900">Use in generation</span>
+                          </label>
+                        </div>
+                        <Input
+                          type="text"
+                          value={selectedLayer.defaultText || ''}
+                          onChange={(e) => {
+                            const newValue = e.target.value;
+                            updateLayer(selectedLayer.id, { defaultText: newValue });
+                            // Update preview text as well
+                            setPreviewTexts(prev => ({
+                              ...prev,
+                              [selectedLayer.id]: newValue
+                            }));
+                          }}
+                          placeholder="Enter default text for this layer..."
+                          className="h-9 text-sm"
+                        />
+                        <p className="text-xs text-green-700 mt-2">
+                          ✅ This text will be saved and used in generation
+                        </p>
                       </div>
-                      <Input
-                        type="text"
-                        value={selectedLayer.defaultText || ''}
-                        onChange={(e) => updateLayer(selectedLayer.id, { defaultText: e.target.value })}
-                        placeholder="Set default text for generation..."
-                        className="h-8 text-sm"
-                        disabled={!selectedLayer.useDefaultText}
-                      />
-                      <p className="text-xs text-green-700 mt-1">
-                        ✅ This will be saved and used in generation (can be overridden)
-                      </p>
-                    </div>
+                    )}
 
                     {/* Position */}
                     <div className="grid grid-cols-2 gap-3">
@@ -643,6 +721,65 @@ function ConfigureLayoutContent() {
                         onChange={(e) => updateLayer(selectedLayer.id, { fontSize: parseInt(e.target.value) || 12 })}
                         className="h-8 text-sm"
                       />
+                    </div>
+
+                    {/* Max Width (for text wrapping) */}
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-xs font-semibold text-purple-900">Text Wrap</Label>
+                        <Button
+                          size="sm"
+                          variant={selectedLayer.maxWidth ? "default" : "outline"}
+                          onClick={() => {
+                            if (selectedLayer.maxWidth) {
+                              updateLayer(selectedLayer.id, { maxWidth: undefined });
+                            } else {
+                              updateLayer(selectedLayer.id, { maxWidth: 300 });
+                            }
+                          }}
+                          className="h-6 text-xs"
+                        >
+                          {selectedLayer.maxWidth ? 'Enabled' : 'Disabled'}
+                        </Button>
+                      </div>
+                      {selectedLayer.maxWidth ? (
+                        <>
+                          <div className="text-xs text-purple-700 mb-2">
+                            👉 <strong>Drag the blue handle</strong> on the right edge to resize
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={selectedLayer.maxWidth || ''}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                updateLayer(selectedLayer.id, { maxWidth: val > 0 ? val : undefined });
+                              }}
+                              className="h-7 text-sm"
+                            />
+                            <span className="text-xs text-purple-700">px</span>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-xs text-purple-700">
+                          Enable to allow multi-line text with drag resize
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Line Height */}
+                    <div>
+                      <Label className="text-xs">Line Height</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={selectedLayer.lineHeight || 1.2}
+                        onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
+                        className="h-8 text-sm"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Spacing between lines (1.0 - 2.0)
+                      </p>
                     </div>
 
                     {/* Font Family */}

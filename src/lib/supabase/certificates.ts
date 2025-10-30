@@ -77,6 +77,9 @@ export interface TextLayer {
   color: string;
   fontWeight: string;
   fontFamily: string;
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  maxWidth?: number;
+  lineHeight?: number;
   isEditing?: boolean;
 }
 

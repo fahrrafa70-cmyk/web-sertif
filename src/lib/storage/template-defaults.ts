@@ -13,6 +13,11 @@ export interface TextLayerDefault {
   color: string;
   fontWeight: string;
   fontFamily: string;
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  defaultText?: string;
+  useDefaultText?: boolean;
+  maxWidth?: number;
+  lineHeight?: number;
 }
 
 export interface OverlayImageDefault {

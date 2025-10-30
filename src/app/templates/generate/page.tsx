@@ -2202,9 +2202,11 @@ function CertificateGeneratorContent() {
   };
 
   // Function to save generated PNG to local storage
-  const saveGeneratedPNG = async (imageDataUrl: string): Promise<string> => {
+  const saveGeneratedPNG = async (imageDataUrl: string, certificateNo?: string, suffix?: string): Promise<string> => {
     try {
-      const fileName = `generated_${Date.now()}.png`;
+      // Use certificate number if provided, otherwise fallback to timestamp
+      const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
+      const fileName = suffix ? `${baseName}_${suffix}.png` : `${baseName}.png`;
       
       const response = await fetch('/api/save-generated-certificate', {
         method: 'POST',
@@ -2917,7 +2919,7 @@ function CertificateGeneratorContent() {
           // Save both images to local storage separately
           try {
             console.log("💾 Saving certificate PNG to local storage...");
-            const certificateLocalUrl = await saveGeneratedPNG(certificateImageDataUrl);
+            const certificateLocalUrl = await saveGeneratedPNG(certificateImageDataUrl, finalCertificateNo, 'certificate');
             console.log("✅ Certificate PNG saved locally:", certificateLocalUrl);
             setCertificateImageUrl(certificateLocalUrl);
           } catch (e) {
@@ -3063,7 +3065,7 @@ function CertificateGeneratorContent() {
         let finalPreviewUrl: string = mergedImageDataUrl;
         try {
           console.log("💾 Saving PNG to local storage...");
-          const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl);
+          const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl, finalCertificateNo);
           console.log("✅ PNG saved locally:", localImageUrl);
           finalPreviewUrl = localImageUrl;
           
@@ -4911,7 +4913,7 @@ function CertificateGeneratorContent() {
                         // Save both images to local storage separately
                         try {
                           console.log("💾 Saving certificate PNG to local storage...");
-                          const certificateLocalUrl = await saveGeneratedPNG(certificateImageDataUrl);
+                          const certificateLocalUrl = await saveGeneratedPNG(certificateImageDataUrl, finalCertificateNo, 'certificate');
                           console.log("✅ Certificate PNG saved locally:", certificateLocalUrl);
                           setCertificateImageUrl(certificateLocalUrl);
                         } catch (e) {
@@ -4920,7 +4922,7 @@ function CertificateGeneratorContent() {
                         
                         try {
                           console.log("💾 Saving score PNG to local storage...");
-                          const scoreLocalUrl = await saveGeneratedPNG(scoreImageDataUrl);
+                          const scoreLocalUrl = await saveGeneratedPNG(scoreImageDataUrl, finalCertificateNo, 'score');
                           console.log("✅ Score PNG saved locally:", scoreLocalUrl);
                           setScoreImageUrl(scoreLocalUrl);
                         } catch (e) {
