@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Member } from "@/lib/supabase/members";
 import { DateFormat, DATE_FORMATS } from "@/types/certificate-generator";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { generateCertificateNumber } from "@/lib/supabase/certificates";
 
 interface QuickGenerateModalProps {
   open: boolean;
@@ -52,6 +53,20 @@ export function QuickGenerateModal({
   const [excelData, setExcelData] = useState<Array<Record<string, unknown>>>([]);
   const [generating, setGenerating] = useState(false);
   
+  // Certificate data for member source - Initialize with default values
+  const [certificateNo, setCertificateNo] = useState('');
+  const [description, setDescription] = useState('');
+  const [issueDate, setIssueDate] = useState(() => {
+    const now = new Date();
+    return now.toISOString().split('T')[0];
+  });
+  const [expiredDate, setExpiredDate] = useState(() => {
+    const now = new Date();
+    const expiry = new Date(now);
+    expiry.setFullYear(expiry.getFullYear() + 3);
+    return expiry.toISOString().split('T')[0];
+  });
+  
   // Debug: Log data availability
   React.useEffect(() => {
     if (open) {
@@ -64,11 +79,33 @@ export function QuickGenerateModal({
     }
   }, [open, templates, members]);
   
-  // Certificate data for member source
-  const [certificateNo, setCertificateNo] = useState('');
-  const [description, setDescription] = useState('');
-  const [issueDate, setIssueDate] = useState('');
-  const [expiredDate, setExpiredDate] = useState('');
+  // Auto-generate certificate number when modal opens or issue date changes
+  useEffect(() => {
+    const autoGenerateCertNo = async () => {
+      if (open && issueDate && !certificateNo) {
+        try {
+          const issueDateTime = new Date(issueDate);
+          const newCertNo = await generateCertificateNumber(issueDateTime);
+          setCertificateNo(newCertNo);
+          console.log('✨ Auto-generated certificate number:', newCertNo);
+        } catch (error) {
+          console.error('Failed to auto-generate certificate number:', error);
+        }
+      }
+    };
+    
+    autoGenerateCertNo();
+  }, [open, issueDate, certificateNo]);
+  
+  // Auto-update expired date when issue date changes (3 years from issue date)
+  useEffect(() => {
+    if (issueDate) {
+      const issue = new Date(issueDate);
+      const expiry = new Date(issue);
+      expiry.setFullYear(expiry.getFullYear() + 3);
+      setExpiredDate(expiry.toISOString().split('T')[0]);
+    }
+  }, [issueDate]);
   
   const excelInputRef = useRef<HTMLInputElement>(null);
 
@@ -142,7 +179,7 @@ export function QuickGenerateModal({
       setIssueDate('');
       setExpiredDate('');
       
-      toast.success('Certificate(s) generated successfully!');
+      // Toast success is handled in parent component (handleQuickGenerate)
       onClose();
     } catch (error) {
       console.error('Generate error:', error);
