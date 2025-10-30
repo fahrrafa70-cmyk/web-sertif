@@ -44,8 +44,11 @@ import {
   getTemplate,
   getTemplateImageUrl,
   Template,
+  getTemplateLayout,
+  isTemplateReadyForQuickGenerate,
 } from "@/lib/supabase/templates";
 import { getTemplateDefaults, TemplateDefaults, TextLayerDefault } from '@/lib/storage/template-defaults';
+import type { TemplateLayoutConfig } from '@/types/template-layout';
 import Image from "next/image";
 import { confirmToast } from "@/lib/ui/confirm";
 import { Suspense } from "react";
@@ -464,16 +467,41 @@ function CertificatesContent() {
     const loadingToast = toast.loading('Generating certificate(s)...');
     
     try {
+      // PRIORITY 1: Try to load layout from database (NEW)
+      console.log('📊 Checking template layout configuration...');
+      const layoutConfig = await getTemplateLayout(params.template.id);
       
-      // Load template defaults for coordinates
-      const templateId = params.template.is_dual_template 
-        ? `${params.template.id}_certificate` 
-        : params.template.id;
-      const defaults = getTemplateDefaults(templateId);
+      let defaults: TemplateDefaults | null = null;
       
-      if (!defaults || !defaults.textLayers) {
-        throw new Error('Template defaults not found. Please set up template first.');
+      if (layoutConfig && layoutConfig.certificate) {
+        // Use database layout (NEW METHOD)
+        console.log('✅ Using layout from database');
+        defaults = {
+          templateId: params.template.id,
+          templateName: params.template.name,
+          textLayers: layoutConfig.certificate.textLayers,
+          overlayImages: layoutConfig.certificate.overlayImages,
+          savedAt: layoutConfig.lastSavedAt
+        };
+      } else {
+        // FALLBACK: Try localStorage (OLD METHOD - deprecated)
+        console.warn('⚠️ No database layout found, trying localStorage fallback...');
+        const templateId = params.template.is_dual_template 
+          ? `${params.template.id}_certificate` 
+          : params.template.id;
+        defaults = getTemplateDefaults(templateId);
+        
+        if (defaults) {
+          console.warn('⚠️ Using localStorage layout - please migrate to database');
+        }
       }
+      
+      // Validate we have layout configuration
+      if (!defaults || !defaults.textLayers || defaults.textLayers.length === 0) {
+        throw new Error('Template layout not configured. Please configure the template layout first in Templates page.');
+      }
+      
+      console.log(`✅ Layout loaded: ${defaults.textLayers.length} text layers`);
 
       if (params.dataSource === 'member' && params.member && params.certificateData) {
         // Single certificate generation from member

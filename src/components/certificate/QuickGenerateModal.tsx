@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { FileSpreadsheet, Users, Calendar, Zap } from "lucide-react";
 import { Template } from "@/lib/supabase/templates";
 import { Member } from "@/lib/supabase/members";
@@ -222,8 +223,21 @@ export function QuickGenerateModal({
                   <div className="p-2 text-sm text-gray-500">Loading templates...</div>
                 ) : (
                   templates.map(template => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name} {template.is_dual_template && '(Certificate + Score)'}
+                    <SelectItem 
+                      key={template.id} 
+                      value={template.id}
+                      disabled={!template.is_layout_configured}
+                    >
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>
+                          {template.name} {template.is_dual_template && '(Certificate + Score)'}
+                        </span>
+                        {!template.is_layout_configured && (
+                          <Badge variant="secondary" className="bg-yellow-500 text-white text-xs">
+                            Not Configured
+                          </Badge>
+                        )}
+                      </div>
                     </SelectItem>
                   ))
                 )}
