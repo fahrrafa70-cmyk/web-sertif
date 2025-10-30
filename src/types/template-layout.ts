@@ -13,6 +13,7 @@ export interface TextLayerConfig {
   color: string;
   fontWeight: string;
   fontFamily: string;
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
 }
 
 export interface OverlayImageConfig {
