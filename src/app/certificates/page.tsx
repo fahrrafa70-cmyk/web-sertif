@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
-import { Certificate, TextLayer as CertificateTextLayer } from "@/lib/supabase/certificates";
+import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
@@ -459,9 +459,9 @@ function CertificatesContent() {
 
   // Quick Generate: Handle certificate generation
   const handleQuickGenerate = async (params: QuickGenerateParams) => {
+    const loadingToast = toast.loading('Generating certificate(s)...');
+    
     try {
-      toast.loading('Generating certificate(s)...');
-      
       // Load template defaults for coordinates
       const templateId = params.template.is_dual_template 
         ? `${params.template.id}_certificate` 
@@ -469,7 +469,7 @@ function CertificatesContent() {
       const defaults = getTemplateDefaults(templateId);
       
       if (!defaults || !defaults.textLayers) {
-        throw new Error('Template defaults not found. Please set up template first.');
+        throw new Error('Template defaults not found. Please set up template in Generate page first.');
       }
 
       if (params.dataSource === 'member' && params.member && params.certificateData) {
@@ -481,12 +481,13 @@ function CertificatesContent() {
           defaults,
           params.dateFormat
         );
-        toast.dismiss();
+        toast.dismiss(loadingToast);
         toast.success('Certificate generated successfully!');
       } else if (params.dataSource === 'excel' && params.excelData) {
         // Bulk certificate generation from Excel
         const total = params.excelData.length;
         let generated = 0;
+        let currentToast = loadingToast;
         
         for (const row of params.excelData) {
           try {
@@ -521,20 +522,22 @@ function CertificatesContent() {
             );
             
             generated++;
-            toast.loading(`Generating certificates... ${generated}/${total}`);
+            // Update the same toast instead of creating new ones
+            toast.dismiss(currentToast);
+            currentToast = toast.loading(`Generating certificates... ${generated}/${total}`);
           } catch (error) {
             console.error('Failed to generate certificate for row:', row, error);
           }
         }
         
-        toast.dismiss();
+        toast.dismiss(currentToast);
         toast.success(`Successfully generated ${generated}/${total} certificate(s)!`);
       }
       
       // Refresh certificates list
       await refresh();
     } catch (error) {
-      toast.dismiss();
+      toast.dismiss(loadingToast);
       console.error('Quick Generate error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to generate certificate');
     }
@@ -548,12 +551,56 @@ function CertificatesContent() {
     defaults: TemplateDefaults,
     dateFormat: string
   ) => {
-    // This is a simplified version - full implementation would use canvas like generate page
-    // For now, create certificate record with placeholder image
-    console.log('Generating certificate:', { template: template.name, member: member.name, certData });
+    console.log('🎨 Generating certificate:', { 
+      template: template.name, 
+      member: member.name, 
+      certData 
+    });
     
-    // TODO: Implement full canvas-based generation using template defaults
-    toast.info('Certificate generation with canvas rendering - Coming soon!');
+    // Prepare text layers with member data
+    const textLayers: CertificateTextLayer[] = defaults.textLayers.map((layer) => {
+      let text = layer.id === 'name' ? member.name : '';
+      
+      // Map common field IDs to certificate data
+      if (layer.id === 'certificate_no') text = certData.certificate_no;
+      if (layer.id === 'description') text = certData.description;
+      if (layer.id === 'issue_date') text = certData.issue_date;
+      if (layer.id === 'expired_date') text = certData.expired_date;
+      
+      return {
+        id: layer.id,
+        text: text,
+        x: layer.x,
+        y: layer.y,
+        xPercent: layer.xPercent,
+        yPercent: layer.yPercent,
+        fontSize: layer.fontSize,
+        color: layer.color,
+        fontWeight: layer.fontWeight,
+        fontFamily: layer.fontFamily,
+      };
+    });
+    
+    // Create certificate data to save
+    const certificateDataToSave: CreateCertificateData = {
+      certificate_no: certData.certificate_no,
+      name: member.name.trim(),
+      description: certData.description.trim() || undefined,
+      issue_date: certData.issue_date,
+      expired_date: certData.expired_date || undefined,
+      category: template.category || undefined,
+      template_id: template.id,
+      member_id: member.id.startsWith('temp-') ? undefined : member.id, // Don't save temp IDs from Excel
+      text_layers: textLayers,
+      // Note: certificate_image_url will be undefined - user needs to generate from Generate page for full rendering
+      certificate_image_url: undefined,
+    };
+    
+    // Save certificate to database
+    const savedCertificate = await createCertificate(certificateDataToSave);
+    console.log('✅ Certificate created successfully:', savedCertificate.certificate_no);
+    
+    return savedCertificate;
   };
 
   const filtered = useMemo(() => {
