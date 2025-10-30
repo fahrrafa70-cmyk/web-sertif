@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Check, X, AlignLeft, AlignCenter, AlignRight, AlignJustify } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Check, X } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { Template } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
@@ -105,45 +105,54 @@ function ConfigureLayoutContent() {
 
   // Initialize default text layers
   const initializeDefaultLayers = () => {
-    const defaultLayers: TextLayer[] = [
+    const defaultLayers: TextLayerConfig[] = [
       {
-        id: "name",
+        id: 'name',
         x: 400,
         y: 300,
         xPercent: 400 / STANDARD_CANVAS_WIDTH,
         yPercent: 300 / STANDARD_CANVAS_HEIGHT,
         fontSize: 48,
-        color: "#000000",
-        fontWeight: "bold",
-        fontFamily: "Arial",
-        textAlign: "center"
+        color: '#000000',
+        fontWeight: 'bold',
+        fontFamily: 'Arial',
+        textAlign: 'center',
+        maxWidth: 400,
+        lineHeight: 1.2,
       },
       {
-        id: "certificate_no",
-        x: 100,
+        id: 'certificate_no',
+        x: 200,
         y: 100,
-        xPercent: 100 / STANDARD_CANVAS_WIDTH,
+        xPercent: 200 / STANDARD_CANVAS_WIDTH,
         yPercent: 100 / STANDARD_CANVAS_HEIGHT,
-        fontSize: 24,
-        color: "#000000",
-        fontWeight: "normal",
-        fontFamily: "Arial",
-        textAlign: "left"
+        fontSize: 16,
+        color: '#000000',
+        fontWeight: 'normal',
+        fontFamily: 'Arial',
+        textAlign: 'left',
+        maxWidth: 300,
+        lineHeight: 1.2,
       },
       {
-        id: "issue_date",
-        x: 100,
+        id: 'issue_date',
+        x: 600,
         y: 500,
-        xPercent: 100 / STANDARD_CANVAS_WIDTH,
+        xPercent: 600 / STANDARD_CANVAS_WIDTH,
         yPercent: 500 / STANDARD_CANVAS_HEIGHT,
-        fontSize: 20,
-        color: "#000000",
-        fontWeight: "normal",
-        fontFamily: "Arial",
-        textAlign: "left"
-      }
+        fontSize: 14,
+        color: '#000000',
+        fontWeight: 'normal',
+        fontFamily: 'Arial',
+        textAlign: 'center',
+        maxWidth: 300,
+        lineHeight: 1.2,
+      },
     ];
     setTextLayers(defaultLayers);
+    if (defaultLayers.length > 0) {
+      setSelectedLayerId(defaultLayers[0].id);
+    }
   };
 
   // Calculate canvas scale based on container width
@@ -210,24 +219,46 @@ function ConfigureLayoutContent() {
   };
 
   // Handle resize handle drag
-  const handleResizeMouseDown = (layerId: string, e: React.MouseEvent) => {
+  const handleResizeMouseDown = (layerId: string, e: React.MouseEvent, direction: 'right' | 'left' | 'top' | 'bottom' | 'corner' = 'right') => {
     e.stopPropagation();
-    setResizingLayerId(layerId);
+    setResizingLayerId(layerId + '_' + direction);
     
     const layer = textLayers.find(l => l.id === layerId);
     if (!layer || !canvasRef.current) return;
 
     const startX = e.clientX;
-    const startWidth = layer.maxWidth || 0;
+    const startY = e.clientY;
+    const startWidth = layer.maxWidth || 300;
+    const startHeight = layer.fontSize * (layer.lineHeight || 1.2);
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = (moveEvent.clientX - startX) / canvasScale;
-      const newWidth = Math.max(50, startWidth + deltaX); // Minimum 50px
+      const deltaY = (moveEvent.clientY - startY) / canvasScale;
+      
+      const updates: Partial<TextLayer> = {};
+      
+      if (direction === 'right' || direction === 'left') {
+        // Resize width only
+        const delta = direction === 'right' ? deltaX : -deltaX;
+        const newWidth = Math.max(50, startWidth + delta);
+        updates.maxWidth = Math.round(newWidth);
+      } else if (direction === 'bottom' || direction === 'top') {
+        // Resize height by adjusting lineHeight
+        const delta = direction === 'bottom' ? deltaY : -deltaY;
+        const newHeight = Math.max(startHeight * 0.5, startHeight + delta);
+        const newLineHeight = Math.max(0.5, Math.min(3.0, newHeight / layer.fontSize));
+        updates.lineHeight = Math.round(newLineHeight * 10) / 10;
+      } else if (direction === 'corner') {
+        // Resize both width and height
+        const newWidth = Math.max(50, startWidth + deltaX);
+        const newHeight = Math.max(startHeight * 0.5, startHeight + deltaY);
+        const newLineHeight = Math.max(0.5, Math.min(3.0, newHeight / layer.fontSize));
+        updates.maxWidth = Math.round(newWidth);
+        updates.lineHeight = Math.round(newLineHeight * 10) / 10;
+      }
 
       setTextLayers(prev => prev.map(l => 
-        l.id === layerId 
-          ? { ...l, maxWidth: Math.round(newWidth) }
-          : l
+        l.id === layerId ? { ...l, ...updates } : l
       ));
     };
 
@@ -250,22 +281,22 @@ function ConfigureLayoutContent() {
 
   // Add new text layer
   const addTextLayer = () => {
-    const newId = `custom_${Date.now()}`;
-    const newLayer: TextLayer = {
-      id: newId,
-      x: 200,
+    const newLayer: TextLayerConfig = {
+      id: `custom_${Date.now()}`,
+      x: 400,
       y: 200,
-      xPercent: 200 / STANDARD_CANVAS_WIDTH,
+      xPercent: 400 / STANDARD_CANVAS_WIDTH,
       yPercent: 200 / STANDARD_CANVAS_HEIGHT,
       fontSize: 24,
-      color: "#000000",
-      fontWeight: "normal",
-      fontFamily: "Arial",
-      textAlign: "left"
+      color: '#000000',
+      fontWeight: 'normal',
+      fontFamily: 'Arial',
+      textAlign: 'left',
+      maxWidth: 300,
+      lineHeight: 1.2,
     };
-    setTextLayers(prev => [...prev, newLayer]);
-    setSelectedLayerId(newId);
-    toast.success("New text layer added");
+    setTextLayers([...textLayers, newLayer]);
+    setSelectedLayerId(newLayer.id);
   };
 
   // Delete text layer
@@ -473,15 +504,9 @@ function ConfigureLayoutContent() {
                                DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
                                layer.id;
                   const isSelected = selectedLayerId === layer.id;
-                  const isResizing = resizingLayerId === layer.id;
                   
                   // Calculate transform based on alignment
                   const getTransform = () => {
-                    if (!layer.maxWidth) {
-                      // Single line: always center
-                      return 'translate(-50%, -50%)';
-                    }
-                    // Multi-line with maxWidth: adjust horizontal based on alignment
                     const align = layer.textAlign || 'left';
                     if (align === 'center') return 'translate(-50%, -50%)';
                     if (align === 'right') return 'translate(-100%, -50%)'; // Anchor at right
@@ -512,6 +537,7 @@ function ConfigureLayoutContent() {
                           textAlign: layer.textAlign || 'left',
                           whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
                           width: layer.maxWidth ? `${layer.maxWidth * canvasScale}px` : 'auto',
+                          minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * canvasScale}px`,
                           lineHeight: layer.lineHeight || 1.2,
                           wordWrap: 'break-word',
                           overflowWrap: 'break-word',
@@ -520,39 +546,91 @@ function ConfigureLayoutContent() {
                           border: isSelected ? '2px dashed #3b82f6' : 'none',
                           borderRadius: '4px'
                         }}
-                        onMouseDown={(e) => handleLayerMouseDown(layer.id, e)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedLayerId(layer.id);
+                        }}
+                        onMouseDown={(e) => {
+                          if (!isSelected) {
+                            e.stopPropagation();
+                            setSelectedLayerId(layer.id);
+                          } else {
+                            handleLayerMouseDown(layer.id, e);
+                          }
+                        }}
                       >
                         {text}
                       </div>
                       
-                      {/* Label and resize handle */}
+                      {/* Label and resize handles (Word-style) */}
                       {isSelected && (
                         <>
                           {/* Layer name label */}
-                          <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                          <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
                             {layer.id}
                             {layer.maxWidth && (
                               <span className="ml-2 opacity-75">{Math.round(layer.maxWidth)}px</span>
                             )}
                           </div>
                           
-                          {/* Resize handle (right edge) */}
-                          {layer.maxWidth && (
-                            <div
-                              className={`absolute top-0 -right-1 w-3 h-full cursor-ew-resize bg-blue-500 hover:bg-blue-600 rounded-r ${
-                                isResizing ? 'bg-blue-600' : ''
-                              }`}
-                              style={{
-                                height: '100%'
-                              }}
-                              onMouseDown={(e) => handleResizeMouseDown(layer.id, e)}
-                              title="Drag to resize width"
-                            >
-                              <div className="w-full h-full flex items-center justify-center">
-                                <div className="w-0.5 h-4 bg-white rounded"></div>
-                              </div>
-                            </div>
-                          )}
+                          {/* Resize handle (right edge) - Invisible, only cursor change */}
+                          <div
+                            className="absolute top-0 -right-2 w-4 h-full cursor-ew-resize"
+                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'right')}
+                            title="Drag to resize width"
+                          />
+                          
+                          {/* Resize handle (bottom edge) - Invisible, only cursor change */}
+                          <div
+                            className="absolute -bottom-2 left-0 h-4 w-full cursor-ns-resize"
+                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'bottom')}
+                            title="Drag to resize height"
+                          />
+                          
+                          {/* Resize handle (bottom-right corner) - Small visible circle on hover */}
+                          <div
+                            className="absolute -bottom-2 -right-2 w-4 h-4 cursor-nwse-resize group"
+                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
+                            title="Drag to resize width and height"
+                          >
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                          </div>
+                          
+                          {/* Resize handle (bottom-left corner) */}
+                          <div
+                            className="absolute -bottom-2 -left-2 w-4 h-4 cursor-nesw-resize group"
+                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
+                          >
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute bottom-0 left-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                          </div>
+                          
+                          {/* Resize handle (top-right corner) */}
+                          <div
+                            className="absolute -top-2 -right-2 w-4 h-4 cursor-nesw-resize group"
+                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
+                          >
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                          </div>
+                          
+                          {/* Resize handle (top-left corner) */}
+                          <div
+                            className="absolute -top-2 -left-2 w-4 h-4 cursor-nwse-resize group"
+                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
+                          >
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-0 left-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                          </div>
+                          
+                          {/* Resize handle (left edge) */}
+                          <div
+                            className="absolute top-0 -left-2 w-4 h-full cursor-ew-resize"
+                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'left')}
+                          />
+                          
+                          {/* Resize handle (top edge) */}
+                          <div
+                            className="absolute -top-2 left-0 h-4 w-full cursor-ns-resize"
+                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'top')}
+                          />
                         </>
                       )}
                     </div>
@@ -560,7 +638,7 @@ function ConfigureLayoutContent() {
                 })}
               </div>
               <p className="text-sm text-gray-500 mt-4">
-                💡 <strong>Tip:</strong> Click and drag text to move. Drag the blue handle on the right to resize width.
+                💡 <strong>Tip:</strong> Click text to select. Drag to move. Hover edges/corners to resize (like Microsoft Word).
               </p>
             </div>
           </div>
@@ -643,24 +721,24 @@ function ConfigureLayoutContent() {
 
               {/* Layer Properties */}
               {selectedLayer && (
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">
-                    Layer Properties: {selectedLayer.id}
+                <div className="border-t border-gray-200 pt-4">
+                  <h3 className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                    {selectedLayer.id}
                   </h3>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {/* Default Text - Only for custom layers */}
                     {!['name', 'certificate_no', 'issue_date'].includes(selectedLayer.id) && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <Label className="text-sm font-semibold text-green-900">Default Text</Label>
-                          <label className="flex items-center gap-2 cursor-pointer">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-xs font-semibold text-green-900">Default Text</Label>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={selectedLayer.useDefaultText || false}
                               onChange={(e) => updateLayer(selectedLayer.id, { useDefaultText: e.target.checked })}
-                              className="w-4 h-4 text-green-600 rounded"
+                              className="w-3.5 h-3.5 text-green-600 rounded"
                             />
-                            <span className="text-xs font-medium text-green-900">Use in generation</span>
+                            <span className="text-xs text-green-900">Use</span>
                           </label>
                         </div>
                         <Input
@@ -675,17 +753,14 @@ function ConfigureLayoutContent() {
                               [selectedLayer.id]: newValue
                             }));
                           }}
-                          placeholder="Enter default text for this layer..."
-                          className="h-9 text-sm"
+                          placeholder="Enter text..."
+                          className="h-7 text-xs"
                         />
-                        <p className="text-xs text-green-700 mt-2">
-                          ✅ This text will be saved and used in generation
-                        </p>
                       </div>
                     )}
 
-                    {/* Position */}
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Position - Compact Grid */}
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs">X Position</Label>
                         <Input
@@ -695,7 +770,7 @@ function ConfigureLayoutContent() {
                             x: parseInt(e.target.value) || 0,
                             xPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_WIDTH
                           })}
-                          className="h-8 text-sm"
+                          className="h-7 text-xs"
                         />
                       </div>
                       <div>
@@ -707,7 +782,7 @@ function ConfigureLayoutContent() {
                             y: parseInt(e.target.value) || 0,
                             yPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_HEIGHT
                           })}
-                          className="h-8 text-sm"
+                          className="h-7 text-xs"
                         />
                       </div>
                     </div>
@@ -719,162 +794,95 @@ function ConfigureLayoutContent() {
                         type="number"
                         value={selectedLayer.fontSize}
                         onChange={(e) => updateLayer(selectedLayer.id, { fontSize: parseInt(e.target.value) || 12 })}
-                        className="h-8 text-sm"
+                        className="h-7 text-xs"
                       />
                     </div>
 
-                    {/* Max Width (for text wrapping) */}
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-xs font-semibold text-purple-900">Text Wrap</Label>
-                        <Button
-                          size="sm"
-                          variant={selectedLayer.maxWidth ? "default" : "outline"}
-                          onClick={() => {
-                            if (selectedLayer.maxWidth) {
-                              updateLayer(selectedLayer.id, { maxWidth: undefined });
-                            } else {
-                              updateLayer(selectedLayer.id, { maxWidth: 300 });
-                            }
-                          }}
-                          className="h-6 text-xs"
+                    {/* Font Family & Weight - Side by Side */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Font Family</Label>
+                        <Select 
+                          value={selectedLayer.fontFamily} 
+                          onValueChange={(value) => updateLayer(selectedLayer.id, { fontFamily: value })}
                         >
-                          {selectedLayer.maxWidth ? 'Enabled' : 'Disabled'}
-                        </Button>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Arial">Arial</SelectItem>
+                            <SelectItem value="Times New Roman">Times</SelectItem>
+                            <SelectItem value="Courier New">Courier</SelectItem>
+                            <SelectItem value="Georgia">Georgia</SelectItem>
+                            <SelectItem value="Verdana">Verdana</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      {selectedLayer.maxWidth ? (
-                        <>
-                          <div className="text-xs text-purple-700 mb-2">
-                            👉 <strong>Drag the blue handle</strong> on the right edge to resize
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              value={selectedLayer.maxWidth || ''}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value);
-                                updateLayer(selectedLayer.id, { maxWidth: val > 0 ? val : undefined });
-                              }}
-                              className="h-7 text-sm"
-                            />
-                            <span className="text-xs text-purple-700">px</span>
-                          </div>
-                        </>
-                      ) : (
-                        <p className="text-xs text-purple-700">
-                          Enable to allow multi-line text with drag resize
-                        </p>
-                      )}
+                      <div>
+                        <Label className="text-xs">Weight</Label>
+                        <Select 
+                          value={selectedLayer.fontWeight} 
+                          onValueChange={(value) => updateLayer(selectedLayer.id, { fontWeight: value })}
+                        >
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="normal">Normal</SelectItem>
+                            <SelectItem value="bold">Bold</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Color & Text Align - Side by Side */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Color</Label>
+                        <div className="flex gap-1">
+                          <Input
+                            type="color"
+                            value={selectedLayer.color}
+                            onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
+                            className="h-7 w-12 p-1"
+                          />
+                          <Input
+                            type="text"
+                            value={selectedLayer.color}
+                            onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
+                            className="h-7 flex-1 text-xs"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Align</Label>
+                        <Select 
+                          value={selectedLayer.textAlign || 'left'} 
+                          onValueChange={(value: 'left' | 'center' | 'right' | 'justify') => updateLayer(selectedLayer.id, { textAlign: value })}
+                        >
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="left">Left</SelectItem>
+                            <SelectItem value="center">Center</SelectItem>
+                            <SelectItem value="right">Right</SelectItem>
+                            <SelectItem value="justify">Justify</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     {/* Line Height */}
                     <div>
-                      <Label className="text-xs">Line Height</Label>
+                      <Label className="text-xs">Line Height <span className="text-gray-400">(1.0 - 2.0)</span></Label>
                       <Input
                         type="number"
                         step="0.1"
                         value={selectedLayer.lineHeight || 1.2}
                         onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
-                        className="h-8 text-sm"
+                        className="h-7 text-xs"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Spacing between lines (1.0 - 2.0)
-                      </p>
-                    </div>
-
-                    {/* Font Family */}
-                    <div>
-                      <Label className="text-xs">Font Family</Label>
-                      <Select 
-                        value={selectedLayer.fontFamily} 
-                        onValueChange={(value) => updateLayer(selectedLayer.id, { fontFamily: value })}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Arial">Arial</SelectItem>
-                          <SelectItem value="Times New Roman">Times New Roman</SelectItem>
-                          <SelectItem value="Courier New">Courier New</SelectItem>
-                          <SelectItem value="Georgia">Georgia</SelectItem>
-                          <SelectItem value="Verdana">Verdana</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Font Weight */}
-                    <div>
-                      <Label className="text-xs">Font Weight</Label>
-                      <Select 
-                        value={selectedLayer.fontWeight} 
-                        onValueChange={(value) => updateLayer(selectedLayer.id, { fontWeight: value })}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="bold">Bold</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Color */}
-                    <div>
-                      <Label className="text-xs">Color</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="color"
-                          value={selectedLayer.color}
-                          onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
-                          className="h-8 w-16"
-                        />
-                        <Input
-                          type="text"
-                          value={selectedLayer.color}
-                          onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
-                          className="h-8 flex-1 text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Text Align */}
-                    <div>
-                      <Label className="text-xs">Text Align</Label>
-                      <Select 
-                        value={selectedLayer.textAlign || 'left'} 
-                        onValueChange={(value: 'left' | 'center' | 'right' | 'justify') => updateLayer(selectedLayer.id, { textAlign: value })}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="left">
-                            <div className="flex items-center gap-2">
-                              <AlignLeft className="w-4 h-4" />
-                              Left
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="center">
-                            <div className="flex items-center gap-2">
-                              <AlignCenter className="w-4 h-4" />
-                              Center
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="right">
-                            <div className="flex items-center gap-2">
-                              <AlignRight className="w-4 h-4" />
-                              Right
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="justify">
-                            <div className="flex items-center gap-2">
-                              <AlignJustify className="w-4 h-4" />
-                              Justify
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                 </div>

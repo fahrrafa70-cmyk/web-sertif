@@ -631,6 +631,15 @@ function CertificatesContent() {
     
     // Render certificate to PNG DataURL
     console.log('🖼️ Rendering certificate image...');
+    console.log('📊 Text layers to render:', textLayers.map(l => ({
+      id: l.id,
+      text: l.text?.substring(0, 20) + '...',
+      xPercent: l.xPercent,
+      yPercent: l.yPercent,
+      textAlign: l.textAlign,
+      maxWidth: l.maxWidth
+    })));
+    
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,

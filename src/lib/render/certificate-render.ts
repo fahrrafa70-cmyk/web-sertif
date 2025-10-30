@@ -56,6 +56,13 @@ export async function renderCertificateToDataURL(
 
   // Load template image
   const img = await loadImage(templateImageUrl);
+  
+  console.log('🖼️ Template image loaded:', {
+    naturalWidth: img.naturalWidth,
+    naturalHeight: img.naturalHeight,
+    targetWidth: width,
+    targetHeight: height
+  });
 
   // Create offscreen canvas
   const canvas = document.createElement('canvas');
@@ -78,6 +85,16 @@ export async function renderCertificateToDataURL(
     // xPercent and yPercent are normalized (0-1) coordinates
     const x = Math.round((layer.xPercent || 0) * width);
     const y = Math.round((layer.yPercent || 0) * height);
+    
+    console.log(`📝 Rendering layer "${layer.id}":`, {
+      text: layer.text.substring(0, 30),
+      xPercent: layer.xPercent,
+      yPercent: layer.yPercent,
+      x, y,
+      textAlign: layer.textAlign,
+      maxWidth: layer.maxWidth,
+      fontSize: layer.fontSize
+    });
 
     // Set font
     const fontWeight = layer.fontWeight || 'normal';
@@ -91,33 +108,24 @@ export async function renderCertificateToDataURL(
     // Set text baseline - use middle for vertical centering
     ctx.textBaseline = 'middle';
 
-    // Draw text with word wrap if maxWidth is set
-    if (layer.maxWidth && layer.maxWidth > 0) {
-      // For wrapped text, x is anchor point based on alignment
-      const align = layer.textAlign || 'left';
-      
-      // CRITICAL: Scale maxWidth based on canvas size
-      // maxWidth is stored in pixels relative to STANDARD_CANVAS_WIDTH
-      const scaleFactor = width / STANDARD_CANVAS_WIDTH;
-      const scaledMaxWidth = layer.maxWidth * scaleFactor;
-      
-      drawWrappedText(
-        ctx, 
-        layer.text, 
-        x, 
-        y, 
-        scaledMaxWidth, 
-        fontSize, 
-        layer.lineHeight || 1.2,
-        align
-      );
-    } else {
-      // For single line text, x,y is the center point
-      // Apply alignment
-      const align = layer.textAlign === 'justify' ? 'left' : (layer.textAlign || 'left');
-      ctx.textAlign = align as CanvasTextAlign;
-      ctx.fillText(layer.text, x, y);
-    }
+    // All layers now have maxWidth, so always use wrapped text rendering
+    const align = layer.textAlign || 'left';
+    
+    // CRITICAL: Scale maxWidth based on canvas size
+    // maxWidth is stored in pixels relative to STANDARD_CANVAS_WIDTH
+    const scaleFactor = width / STANDARD_CANVAS_WIDTH;
+    const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
+    
+    drawWrappedText(
+      ctx, 
+      layer.text, 
+      x, 
+      y, 
+      scaledMaxWidth, 
+      fontSize, 
+      layer.lineHeight || 1.2,
+      align
+    );
   }
 
   // Convert to PNG DataURL
