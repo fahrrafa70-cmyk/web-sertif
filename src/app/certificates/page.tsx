@@ -549,7 +549,6 @@ function CertificatesContent() {
     dateFormat: string
   ) => {
     // This is a simplified version - full implementation would use canvas like generate page
-    // For now, create certificate record with placeholder image
     console.log('Generating certificate:', { template: template.name, member: member.name, certData });
     
     // TODO: Implement full canvas-based generation using template defaults
