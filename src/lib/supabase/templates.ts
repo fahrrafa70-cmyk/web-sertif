@@ -1,4 +1,5 @@
 import { supabaseClient } from './client';
+import type { TemplateLayoutConfig, LayoutValidationResult } from '@/types/template-layout';
 
 // Test Supabase connection
 export async function testSupabaseConnection(): Promise<boolean> {
@@ -38,6 +39,11 @@ export interface Template {
   certificate_image_url?: string; // URL for certificate image (front)
   score_image_url?: string; // URL for score image (back)
   is_dual_template?: boolean; // Whether this is a dual template
+  // Layout configuration (NEW)
+  layout_config?: Record<string, unknown> | null; // JSONB layout configuration
+  layout_config_updated_at?: string | null; // When layout was last updated
+  layout_config_updated_by?: string | null; // Who updated the layout
+  is_layout_configured?: boolean; // Whether layout is ready for Quick Generate
 }
 
 export interface CreateTemplateData {
@@ -540,6 +546,184 @@ export async function deleteTemplate(id: string): Promise<void> {
     
   } catch (error) {
     console.error('💥 Template deletion process failed:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// LAYOUT CONFIGURATION MANAGEMENT
+// ============================================================================
+
+/**
+ * Save layout configuration to template
+ */
+export async function saveTemplateLayout(
+  templateId: string,
+  layoutConfig: TemplateLayoutConfig,
+  userId?: string
+): Promise<void> {
+  console.log('💾 Saving template layout configuration...', { templateId });
+  
+  try {
+    const updateData: Record<string, unknown> = {
+      layout_config: layoutConfig,
+      layout_config_updated_at: new Date().toISOString(),
+      is_layout_configured: true
+    };
+    
+    if (userId) {
+      updateData.layout_config_updated_by = userId;
+    }
+    
+    const { error } = await supabaseClient
+      .from('templates')
+      .update(updateData)
+      .eq('id', templateId);
+    
+    if (error) {
+      throw new Error(`Failed to save layout configuration: ${error.message}`);
+    }
+    
+    console.log('✅ Layout configuration saved successfully');
+  } catch (error) {
+    console.error('💥 Failed to save layout configuration:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get layout configuration from template
+ */
+export async function getTemplateLayout(
+  templateId: string
+): Promise<TemplateLayoutConfig | null> {
+  try {
+    const template = await getTemplate(templateId);
+    
+    if (!template || !template.layout_config) {
+      return null;
+    }
+    
+    return template.layout_config as unknown as TemplateLayoutConfig;
+  } catch (error) {
+    console.error('Failed to get template layout:', error);
+    return null;
+  }
+}
+
+/**
+ * Validate layout configuration completeness
+ */
+export function validateLayoutConfig(
+  config: TemplateLayoutConfig | null
+): LayoutValidationResult {
+  const result: LayoutValidationResult = {
+    isValid: true,
+    missingFields: [],
+    errors: []
+  };
+  
+  if (!config) {
+    result.isValid = false;
+    result.errors.push('Layout configuration is missing');
+    return result;
+  }
+  
+  // Check certificate mode (required)
+  if (!config.certificate) {
+    result.isValid = false;
+    result.errors.push('Certificate mode configuration is missing');
+    return result;
+  }
+  
+  // Check required text layers
+  const requiredFields = ['name', 'certificate_no', 'issue_date'];
+  const existingLayerIds = config.certificate.textLayers?.map(l => l.id) || [];
+  
+  for (const field of requiredFields) {
+    if (!existingLayerIds.includes(field)) {
+      result.missingFields.push(field);
+    }
+  }
+  
+  if (result.missingFields.length > 0) {
+    result.isValid = false;
+    result.errors.push(`Missing required fields: ${result.missingFields.join(', ')}`);
+  }
+  
+  // Check canvas configuration
+  if (!config.canvas || !config.canvas.width || !config.canvas.height) {
+    result.isValid = false;
+    result.errors.push('Canvas configuration is missing or invalid');
+  }
+  
+  return result;
+}
+
+/**
+ * Check if template is ready for Quick Generate
+ */
+export async function isTemplateReadyForQuickGenerate(
+  templateId: string
+): Promise<{ ready: boolean; message?: string }> {
+  try {
+    const template = await getTemplate(templateId);
+    
+    if (!template) {
+      return { ready: false, message: 'Template not found' };
+    }
+    
+    if (!template.is_layout_configured) {
+      return { 
+        ready: false, 
+        message: 'Template layout is not configured. Please configure it in Templates page first.' 
+      };
+    }
+    
+    const layoutConfig = template.layout_config as TemplateLayoutConfig | null;
+    const validation = validateLayoutConfig(layoutConfig);
+    
+    if (!validation.isValid) {
+      return {
+        ready: false,
+        message: validation.errors.join('; ')
+      };
+    }
+    
+    return { ready: true };
+  } catch (error) {
+    console.error('Error checking template readiness:', error);
+    return { 
+      ready: false, 
+      message: 'Failed to check template configuration' 
+    };
+  }
+}
+
+/**
+ * Clear layout configuration from template
+ */
+export async function clearTemplateLayout(templateId: string): Promise<void> {
+  console.log('🗑️ Clearing template layout configuration...', { templateId });
+  
+  try {
+    const { error } = await supabaseClient
+      .from('templates')
+      .update({
+        layout_config: null,
+        layout_config_updated_at: null,
+        layout_config_updated_by: null,
+        is_layout_configured: false
+      })
+      .eq('id', templateId);
+    
+    if (error) {
+      throw new Error(`Failed to clear layout configuration: ${error.message}`);
+    }
+    
+    console.log('✅ Layout configuration cleared successfully');
+  } catch (error) {
+    console.error('💥 Failed to clear layout configuration:', error);
     throw error;
   }
 }
