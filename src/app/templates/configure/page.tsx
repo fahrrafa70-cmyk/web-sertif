@@ -427,7 +427,7 @@ function ConfigureLayoutContent() {
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Configure Layout: {template.name}
+                  {template.name}
                 </h1>
               </div>
             </div>
@@ -475,19 +475,25 @@ function ConfigureLayoutContent() {
                 className="relative border-2 border-gray-300 rounded-lg bg-gray-50 overflow-hidden"
                 style={{ 
                   aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
-                  cursor: 'default'
+                  cursor: 'default',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none'
                 }}
                 onClick={() => setSelectedLayerId(null)}
               >
                 {/* Template Background */}
                 {templateImageUrl && (
-                  <div className="absolute inset-0">
+                  <div className="absolute inset-0" style={{ userSelect: 'none', pointerEvents: 'none' }}>
                     <Image
                       src={templateImageUrl}
                       alt={template.name}
                       fill
-                      className="object-contain pointer-events-none"
+                      className="object-contain"
+                      style={{ userSelect: 'none', pointerEvents: 'none' }}
                       unoptimized
+                      draggable={false}
                     />
                   </div>
                 )}
@@ -538,9 +544,11 @@ function ConfigureLayoutContent() {
                           wordWrap: 'break-word',
                           overflowWrap: 'break-word',
                           userSelect: 'none',
-                          padding: isSelected ? '4px 8px' : '0',
-                          border: isSelected ? '2px dashed #3b82f6' : 'none',
-                          borderRadius: '4px'
+                          // Always have padding and border to prevent layout shift
+                          padding: '4px 8px',
+                          border: isSelected ? '2px dashed #3b82f6' : '2px dashed transparent',
+                          borderRadius: '4px',
+                          boxSizing: 'border-box'
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -572,6 +580,7 @@ function ConfigureLayoutContent() {
                           {/* Resize handle (right edge) - Invisible, only cursor change */}
                           <div
                             className="absolute top-0 -right-2 w-4 h-full cursor-ew-resize"
+                            style={{ userSelect: 'none' }}
                             onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'right')}
                             title="Drag to resize width"
                           />
@@ -579,6 +588,7 @@ function ConfigureLayoutContent() {
                           {/* Resize handle (bottom edge) - Invisible, only cursor change */}
                           <div
                             className="absolute -bottom-2 left-0 h-4 w-full cursor-ns-resize"
+                            style={{ userSelect: 'none' }}
                             onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'bottom')}
                             title="Drag to resize height"
                           />
@@ -586,45 +596,51 @@ function ConfigureLayoutContent() {
                           {/* Resize handle (bottom-right corner) - Small visible circle on hover */}
                           <div
                             className="absolute -bottom-2 -right-2 w-4 h-4 cursor-nwse-resize group"
+                            style={{ userSelect: 'none' }}
                             onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
                             title="Drag to resize width and height"
                           >
-                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ userSelect: 'none' }}></div>
                           </div>
                           
                           {/* Resize handle (bottom-left corner) */}
                           <div
                             className="absolute -bottom-2 -left-2 w-4 h-4 cursor-nesw-resize group"
+                            style={{ userSelect: 'none' }}
                             onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
                           >
-                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute bottom-0 left-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute bottom-0 left-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ userSelect: 'none' }}></div>
                           </div>
                           
                           {/* Resize handle (top-right corner) */}
                           <div
                             className="absolute -top-2 -right-2 w-4 h-4 cursor-nesw-resize group"
+                            style={{ userSelect: 'none' }}
                             onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
                           >
-                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ userSelect: 'none' }}></div>
                           </div>
                           
                           {/* Resize handle (top-left corner) */}
                           <div
                             className="absolute -top-2 -left-2 w-4 h-4 cursor-nwse-resize group"
+                            style={{ userSelect: 'none' }}
                             onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
                           >
-                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-0 left-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-0 left-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ userSelect: 'none' }}></div>
                           </div>
                           
                           {/* Resize handle (left edge) */}
                           <div
                             className="absolute top-0 -left-2 w-4 h-full cursor-ew-resize"
+                            style={{ userSelect: 'none' }}
                             onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'left')}
                           />
                           
                           {/* Resize handle (top edge) */}
                           <div
                             className="absolute -top-2 left-0 h-4 w-full cursor-ns-resize"
+                            style={{ userSelect: 'none' }}
                             onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'top')}
                           />
                         </>

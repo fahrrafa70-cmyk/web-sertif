@@ -196,10 +196,10 @@ export function QuickGenerateModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Zap className="w-6 h-6 text-yellow-500" />
-            Quick Generate Certificate
+            Generate Certificate
           </DialogTitle>
           <DialogDescription>
-            Generate certificates quickly by selecting a template and data source
+            Generate certificates by selecting a template and data source
           </DialogDescription>
         </DialogHeader>
 

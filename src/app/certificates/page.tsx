@@ -422,7 +422,7 @@ function CertificatesContent() {
 
   // Quick Generate: Load templates and members when modal opens
   const handleOpenQuickGenerate = async () => {
-    console.log('🚀 Opening Quick Generate Modal...');
+    console.log('Opening Generate Modal...');
     setQuickGenerateOpen(true);
     
     if (templates.length === 0 || members.length === 0) {
@@ -446,7 +446,7 @@ function CertificatesContent() {
         toast.dismiss(loadingToast);
         toast.success(`Loaded ${templatesData.length} templates and ${membersData.length} members`);
       } catch (error) {
-        console.error('❌ Failed to load Quick Generate data:', error);
+        console.error('❌ Failed to load Generate data:', error);
         toast.dismiss(loadingToast);
         toast.error('Failed to load templates and members');
       } finally {
@@ -976,7 +976,7 @@ function CertificatesContent() {
                     className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center gap-2"
                   >
                     <Zap className="w-5 h-5" />
-                    Quick Generate
+                    Generate
                   </Button>
                 )}
               </div>
