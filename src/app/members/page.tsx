@@ -531,14 +531,13 @@ export default function MembersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50/50">
-                      <TableHead className="w-16 text-center">#</TableHead>
-                      <TableHead className="min-w-[150px]">{t('members.table.name')}</TableHead>
-                      <TableHead className="min-w-[180px]">{t('members.table.organization')}</TableHead>
-                      <TableHead className="min-w-[180px]">{t('members.table.email')}</TableHead>
-                      <TableHead className="min-w-[130px]">{t('members.table.phone')}</TableHead>
-                      <TableHead className="min-w-[150px]">{t('members.table.job')}</TableHead>
-                      <TableHead className="min-w-[120px]">{t('members.table.city')}</TableHead>
-                      <TableHead className="text-right min-w-[250px]">{t('members.table.actions')}</TableHead>
+                      <TableHead className="w-10 text-center px-2">#</TableHead>
+                      <TableHead className="min-w-[120px] px-2">{t('members.table.name')}</TableHead>
+                      <TableHead className="min-w-[130px] px-2">{t('members.table.organization')}</TableHead>
+                      <TableHead className="min-w-[150px] px-2">{t('members.table.contact')}</TableHead>
+                      <TableHead className="min-w-[80px] px-2">{t('members.table.job')}</TableHead>
+                      <TableHead className="min-w-[100px] px-2">{t('members.table.city')}</TableHead>
+                      <TableHead className="text-right min-w-[140px] px-2">{t('members.table.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -548,15 +547,21 @@ export default function MembersPage() {
                         onClick={() => openDetailModal(m)}
                         className="cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0"
                       >
-                        <TableCell className="text-gray-500 text-center">{indexOfFirstItem + index + 1}</TableCell>
-                        <TableCell className="font-medium text-gray-900">{m.name}</TableCell>
-                        <TableCell className="text-gray-700">{m.organization || "—"}</TableCell>
-                        <TableCell className="text-gray-700">{m.email || "—"}</TableCell>
-                        <TableCell className="text-gray-700">{m.phone || "—"}</TableCell>
-                        <TableCell className="text-gray-700">{m.job || "—"}</TableCell>
-                        <TableCell className="text-gray-700">{m.city || "—"}</TableCell>
-                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end gap-2">
+                        <TableCell className="text-gray-500 text-center px-2 py-1.5">{indexOfFirstItem + index + 1}</TableCell>
+                        <TableCell className="font-medium text-gray-900 px-2 py-1.5">{m.name}</TableCell>
+                        <TableCell className="text-gray-700 px-2 py-1.5">{m.organization || "—"}</TableCell>
+                        <TableCell className="text-gray-700 px-2 py-1.5">
+                          <div className="flex flex-col">
+                            <span className="text-gray-900">{m.email || "—"}</span>
+                            {m.phone && (
+                              <span className="text-xs text-gray-500 mt-0.5">{m.phone}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-gray-700 px-2 py-1.5">{m.job || "—"}</TableCell>
+                        <TableCell className="text-gray-700 px-2 py-1.5">{m.city || "—"}</TableCell>
+                        <TableCell className="text-right px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-1.5">
                             {(role === "Admin" || role === "Team") && (
                               <Button variant="outline" size="sm" className="border-gray-300" onClick={() => openEdit(m)}>{t('common.edit')}</Button>
                             )}
@@ -576,7 +581,7 @@ export default function MembersPage() {
                     ))}
                     {loading && (
                       <TableRow>
-                        <TableCell colSpan={8} className="py-20">
+                        <TableCell colSpan={7} className="py-20">
                           <div className="flex flex-col items-center justify-center">
                             <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mb-4 shadow-sm">
                               <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -588,7 +593,7 @@ export default function MembersPage() {
                     )}
                     {!loading && filteredMembers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-gray-500 py-16">
+                        <TableCell colSpan={7} className="text-center text-gray-500 py-16">
                           <div className="text-center">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                               <span className="text-2xl text-gray-400">👥</span>
