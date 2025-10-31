@@ -196,10 +196,10 @@ export function QuickGenerateModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Zap className="w-6 h-6 text-yellow-500" />
-            Quick Generate Certificate
+            Generate Certificate
           </DialogTitle>
           <DialogDescription>
-            Generate certificates quickly by selecting a template and data source
+            Generate certificates by selecting a template and data source
           </DialogDescription>
         </DialogHeader>
 
@@ -243,11 +243,6 @@ export function QuickGenerateModal({
                 )}
               </SelectContent>
             </Select>
-            {selectedTemplate && (
-              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                <strong>Selected:</strong> {selectedTemplate.name} - {selectedTemplate.orientation}
-              </div>
-            )}
           </div>
 
           {/* Step 2: Date Format */}
@@ -322,7 +317,7 @@ export function QuickGenerateModal({
                     <Input 
                       value={certificateNo}
                       onChange={(e) => setCertificateNo(e.target.value)}
-                      placeholder="CERT-001"
+                      placeholder="Certificate Number"
                     />
                   </div>
                   <div className="space-y-2">
@@ -330,7 +325,7 @@ export function QuickGenerateModal({
                     <Input 
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Certificate of Achievement"
+                      placeholder="Description"
                     />
                   </div>
                 </div>

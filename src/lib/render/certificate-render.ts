@@ -81,40 +81,48 @@ export async function renderCertificateToDataURL(
   for (const layer of textLayers) {
     if (!layer.text) continue; // Skip empty text
 
-    // CRITICAL: Always use percent for scaling across different canvas sizes
-    // xPercent and yPercent are normalized (0-1) coordinates
+    // Calculate position based on percentage (stored relative to standard canvas size)
     const x = Math.round((layer.xPercent || 0) * width);
     const y = Math.round((layer.yPercent || 0) * height);
+    
+    // CRITICAL: Scale maxWidth based on canvas size
+    const scaleFactor = width / STANDARD_CANVAS_WIDTH;
+    const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
+    
+    // CRITICAL: Adjust x coordinate based on alignment to match preview behavior
+    // In preview, we use CSS transform to position the anchor point
+    // Here we need to adjust x coordinate manually
+    const align = layer.textAlign || 'left';
+    
+    // Set font - CRITICAL: Scale fontSize based on canvas size!
+    const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
+    const baseFontSize = Math.max(1, layer.fontSize || 16);
+    const scaledFontSize = Math.round(baseFontSize * scaleFactor);
+    const fontFamily = layer.fontFamily || 'Arial';
+    ctx.font = `${fontWeight} ${scaledFontSize}px ${fontFamily}`;
     
     console.log(`📝 Rendering layer "${layer.id}":`, {
       text: layer.text.substring(0, 30),
       xPercent: layer.xPercent,
       yPercent: layer.yPercent,
-      x, y,
-      textAlign: layer.textAlign,
+      x,
+      y,
+      textAlign: align,
       maxWidth: layer.maxWidth,
-      fontSize: layer.fontSize
+      scaledMaxWidth,
+      lineHeight: layer.lineHeight,
+      baseFontSize,
+      scaledFontSize,
+      scaleFactor
     });
-
-    // Set font
-    const fontWeight = layer.fontWeight || 'normal';
-    const fontSize = Math.max(1, layer.fontSize || 16);
-    const fontFamily = layer.fontFamily || 'Arial';
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
 
     // Set color
     ctx.fillStyle = layer.color || '#000000';
 
-    // Set text baseline - use middle for vertical centering
-    ctx.textBaseline = 'middle';
-
-    // All layers now have maxWidth, so always use wrapped text rendering
-    const align = layer.textAlign || 'left';
-    
-    // CRITICAL: Scale maxWidth based on canvas size
-    // maxWidth is stored in pixels relative to STANDARD_CANVAS_WIDTH
-    const scaleFactor = width / STANDARD_CANVAS_WIDTH;
-    const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
+    // CRITICAL: Set text baseline to 'top' to match preview behavior
+    // Preview uses CSS with top positioning, so we need to match that
+    // We'll handle vertical centering manually in drawWrappedText
+    ctx.textBaseline = 'top';
     
     drawWrappedText(
       ctx, 
@@ -122,7 +130,7 @@ export async function renderCertificateToDataURL(
       x, 
       y, 
       scaledMaxWidth, 
-      fontSize, 
+      scaledFontSize, 
       layer.lineHeight || 1.2,
       align
     );
@@ -165,10 +173,16 @@ function drawWrappedText(
     lines.push(currentLine);
   }
 
-  // Calculate total height for vertical centering
+  // Calculate line height
   const lineHeightPx = fontSize * lineHeight;
-  const totalHeight = lines.length * lineHeightPx;
-  const startY = y - (totalHeight / 2) + (lineHeightPx / 2);
+  
+  // CRITICAL: Match preview behavior exactly
+  // Preview uses CSS transform: translate(0%, -50%) which centers the text
+  // With textBaseline='top', we need to offset y upward by half of line height
+  // to match the visual center point
+  // NOTE: We don't include padding/border in this calculation because
+  // the stored y coordinate represents the text center, not element center
+  const startY = y - (lineHeightPx / 2);
 
   // Set canvas text alignment
   ctx.textAlign = textAlign === 'center' ? 'center' : (textAlign === 'right' ? 'right' : 'left');
