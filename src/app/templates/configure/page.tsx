@@ -423,16 +423,12 @@ function ConfigureLayoutContent() {
                 size="sm"
                 onClick={() => router.push("/templates")}
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Templates
+                <ArrowLeft className="w-4 h-4 mr-2 border-2 border-gray-300 size-2 rounded-full" />
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
                   Configure Layout: {template.name}
                 </h1>
-                <p className="text-sm text-gray-500">
-                  Drag text layers to position them on the template
-                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -472,7 +468,7 @@ function ConfigureLayoutContent() {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Template Preview (Drag to Position)
+                Template Preview
               </h2>
               <div 
                 ref={canvasRef}
@@ -637,9 +633,6 @@ function ConfigureLayoutContent() {
                   );
                 })}
               </div>
-              <p className="text-sm text-gray-500 mt-4">
-                💡 <strong>Tip:</strong> Click text to select. Drag to move. Hover edges/corners to resize (like Microsoft Word).
-              </p>
             </div>
           </div>
 
