@@ -1025,9 +1025,7 @@ function CertificatesContent() {
                 className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
+                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     Loading certificates...
                   </h3>
@@ -1381,7 +1379,7 @@ function CertificatesContent() {
         }
       >
         <DialogContent 
-          className="preview-modal-content max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+          className="preview-modal-content relative max-w-4xl w-full max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();
@@ -1389,11 +1387,11 @@ function CertificatesContent() {
             }
           }}
         >
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-gradient">
+          <DialogHeader className="space-y-1.5">
+            <DialogTitle className="text-2xl font-bold text-gradient dark:text-white">
               Certificate Preview
             </DialogTitle>
-            <DialogDescription className="text-lg">
+            <DialogDescription className="text-lg text-gray-600 dark:text-gray-300">
               View certificate details and information
             </DialogDescription>
           </DialogHeader>
@@ -1414,10 +1412,10 @@ function CertificatesContent() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.4, delay: 0.1 }}
                     >
-                      <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Certificate Number
                       </label>
-                      <div className="text-2xl font-bold text-gray-900">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                         {previewCertificate.certificate_no}
                       </div>
                     </motion.div>
@@ -1428,10 +1426,10 @@ function CertificatesContent() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.4, delay: 0.2 }}
                     >
-                      <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Recipient Name
                       </label>
-                      <div className="text-2xl font-bold text-gray-900">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                         {previewCertificate.name}
                       </div>
                     </motion.div>
@@ -1443,7 +1441,7 @@ function CertificatesContent() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.4, delay: 0.3 }}
                       >
-                        <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Category
                         </label>
                         <div className="inline-block px-4 py-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium">
@@ -1459,10 +1457,10 @@ function CertificatesContent() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.4, delay: 0.4 }}
                       >
-                        <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Description
                         </label>
-                        <div className="text-gray-700 leading-relaxed">
+                        <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
                           {previewCertificate.description}
                         </div>
                       </motion.div>
@@ -1475,10 +1473,10 @@ function CertificatesContent() {
                       transition={{ duration: 0.4, delay: 0.5 }}
                     >
                       <div className="space-y-2">
-                        <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Issue Date
                         </label>
-                        <div className="text-lg text-gray-700">
+                        <div className="text-lg text-gray-700 dark:text-gray-300">
                           {new Date(
                             previewCertificate.issue_date,
                           ).toLocaleDateString()}
@@ -1486,10 +1484,10 @@ function CertificatesContent() {
                       </div>
                       {previewCertificate.expired_date && (
                         <div className="space-y-2">
-                          <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                          <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                             Expiry Date
                           </label>
-                          <div className="text-lg text-gray-700">
+                          <div className="text-lg text-gray-700 dark:text-gray-300">
                             {new Date(
                               previewCertificate.expired_date,
                             ).toLocaleDateString()}
@@ -1506,7 +1504,7 @@ function CertificatesContent() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
                   >
-                    <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                    <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                       Certificate Preview
                     </label>
                     {/* Toggle for dual templates - only show if score image exists */}
@@ -1514,22 +1512,22 @@ function CertificatesContent() {
                       <div className="flex gap-2 mb-2">
                         <button
                           onClick={() => setPreviewMode('certificate')}
-                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'certificate' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
                           Certificate
                         </button>
                         <button
                           onClick={() => setPreviewMode('score')}
-                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'score' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
                           Score
                         </button>
                       </div>
                     )}
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 border-2 border-dashed border-blue-200 dark:border-blue-500/40">
                       <div
                         ref={previewContainerRef}
-                        className="bg-white rounded-xl shadow-xl relative"
+                        className="bg-white dark:bg-gray-950 rounded-xl shadow-xl relative"
                         style={{
                           width: "100%",
                           maxWidth: "100%",
@@ -1701,20 +1699,20 @@ function CertificatesContent() {
                               previewCertificate.text_layers.length === 0) && (
                               <div className="relative z-10 text-center p-6 xl:p-10">
                                 <div className="mb-4 xl:mb-6">
-                                  <h3 className="text-2xl xl:text-3xl font-bold text-gray-800 mb-2">
-                                    CERTIFICATE
-                                  </h3>
-                                  <div className="w-16 xl:w-20 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
-                                </div>
-
-                                <p className="text-gray-600 mb-3 xl:mb-4">
-                                  This is to certify that
-                                </p>
-                                <h4 className="text-xl xl:text-2xl font-bold text-gray-800 mb-3 xl:mb-4">
+                                  <h3 className="text-2xl xl:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                                     CERTIFICATE
+                                   </h3>
+                                   <div className="w-16 xl:w-20 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
+                                 </div>
+ 
+                                <p className="text-gray-600 dark:text-gray-400 mb-3 xl:mb-4">
+                                   This is to certify that
+                                 </p>
+                                <h4 className="text-xl xl:text-2xl font-bold text-gray-800 dark:text-gray-100 mb-3 xl:mb-4">
                                   {previewCertificate.name}
                                 </h4>
                                 {previewCertificate.description && (
-                                  <p className="text-gray-600 mb-6">
+                                  <p className="text-gray-600 dark:text-gray-400 mb-6">
                                     has successfully completed the
                                     <br />
                                     <span className="font-semibold">
@@ -1722,8 +1720,8 @@ function CertificatesContent() {
                                     </span>
                                   </p>
                                 )}
-
-                                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-6">
+ 
+                                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-6">
                                   <div>
                                     <p className="font-semibold">
                                       Certificate No:
@@ -1738,34 +1736,11 @@ function CertificatesContent() {
                                       ).toLocaleDateString()}
                                     </p>
                                   </div>
-                                  {previewCertificate.expired_date && (
-                                    <div>
-                                      <p className="font-semibold">
-                                        Expiry Date:
-                                      </p>
-                                      <p>
-                                        {new Date(
-                                          previewCertificate.expired_date,
-                                        ).toLocaleDateString()}
-                                      </p>
-                                    </div>
-                                  )}
                                 </div>
-
-                                {/* QR Code Placeholder */}
-                                <div className="w-16 h-16 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                                  <div className="w-12 h-12 bg-gray-300 rounded grid grid-cols-3 gap-1 p-1">
-                                    {[...Array(9)].map((_, i) => (
-                                      <div
-                                        key={i}
-                                        className="bg-gray-600 rounded-sm"
-                                      ></div>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                <p className="text-xs text-gray-500">
-                                  Verify at: e-certificate.my.id/verify
+ 
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  This is a fallback preview. Configure template text layers
+                                  for a fully customized certificate design.
                                 </p>
                               </div>
                             )}
@@ -1778,7 +1753,7 @@ function CertificatesContent() {
 
                 {/* Action Buttons */}
                 <motion.div
-                  className="flex justify-between gap-4 pt-6 border-t border-gray-200"
+                  className="flex justify-between gap-4 pt-6 border-t border-gray-200 dark:border-gray-700"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.6 }}
@@ -1809,19 +1784,10 @@ function CertificatesContent() {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="border-gray-300 hover:border-gray-400"
-                      onClick={() => setPreviewCertificate(null)}
-                      size="icon"
-                      aria-label="Close"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
                     {(role === "Admin" || role === "Team") && (
                       <Button
                         variant="outline"
-                        className="border-blue-300 text-blue-600 hover:bg-blue-50 px-6"
+                        className="border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-500/60 dark:text-blue-300 dark:hover:bg-blue-500/10 px-6"
                         onClick={() => {
                           setPreviewCertificate(null);
                           openEdit(previewCertificate);

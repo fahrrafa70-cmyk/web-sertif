@@ -172,7 +172,7 @@ export default function HeroSection() {
       
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(`Public certificate link copied!\n${certificateLink}`);
+        toast.success('Public certificate link copied');
       } else {
         const textArea = document.createElement('textarea');
         textArea.value = certificateLink;
@@ -180,7 +180,7 @@ export default function HeroSection() {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(`Public certificate link copied!\n${certificateLink}`);
+        toast.success('Public certificate link copied');
       }
       
       console.log('Generated public certificate link:', certificateLink);
@@ -660,7 +660,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-4"
               >
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-left">
                   {t('search.showingResults')}: {searchResults.length} {searchResults.length === 1 ? t('hero.certificate') : t('hero.certificates')}
                 </div>
                 <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
@@ -669,7 +669,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                       key={cert.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer text-left"
                       onClick={() => {
                         setPreviewCert(cert);
                         setPreviewOpen(true);
@@ -697,7 +697,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                         )}
                         
                         {/* Certificate Info */}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 text-left">
                           <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{cert.members?.name || cert.name}</div>
                           <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{cert.certificate_no}</div>
                           <div className="flex items-center gap-2 mt-2">
@@ -730,7 +730,6 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
           <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
             <div>
               <div className="text-lg font-semibold dark:text-gray-100">{t('hero.certificatePreview')}</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{previewCert!.certificate_no} · {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
             </div>
             <Button variant="outline" onClick={() => setPreviewOpen(false)} size="icon" aria-label="Close">
               <X className="w-4 h-4" />
@@ -739,8 +738,32 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
             <div className="p-4 bg-gray-50 dark:bg-gray-900">
               {previewCert!.certificate_image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewCert!.certificate_image_url ?? undefined} alt="Certificate" className="w-full h-auto rounded-lg border" />
+                <div
+                  className="relative w-full cursor-zoom-in group"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setImagePreviewUrl(previewCert!.certificate_image_url!);
+                    setImagePreviewOpen(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setImagePreviewUrl(previewCert!.certificate_image_url!);
+                      setImagePreviewOpen(true);
+                    }
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewCert!.certificate_image_url ?? undefined}
+                    alt="Certificate"
+                    className="w-full h-auto rounded-lg border transition-transform duration-200 group-hover:scale-[1.01]"
+                  />
+                  <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    {t('hero.viewFullImage')}
+                  </div>
+                </div>
               ) : (
                 <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
               )}
@@ -748,7 +771,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
             <div className="p-6">
               <div className="space-y-2">
                 <div className="text-sm text-gray-500 dark:text-gray-400">{t('hero.recipient')}</div>
-                <div className="text-base font-medium dark:text-gray-100">{previewCert!.members?.name || previewCert!.name}</div>
+                <div className="text-2xl font-semibold dark:text-gray-100">{previewCert!.members?.name || previewCert!.name}</div>
                 {previewCert!.members?.organization && (
                   <div className="text-sm text-gray-600 dark:text-gray-400">{previewCert!.members.organization}</div>
                 )}
@@ -762,17 +785,6 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 )}
               </div>
               <div className="mt-6 flex gap-3">
-                <Button
-                  onClick={() => {
-                    if (previewCert!.certificate_image_url) {
-                      setImagePreviewUrl(previewCert!.certificate_image_url);
-                      setImagePreviewOpen(true);
-                    }
-                  }}
-                  className="px-4 py-2 rounded-md bg-blue-600 text-white"
-                >
-                  {t('hero.viewFullImage')}
-                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button

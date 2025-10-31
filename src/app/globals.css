@@ -417,6 +417,13 @@
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
     filter: brightness(1) !important;
   }
+
+  .dark .preview-modal-content {
+    background: rgba(15, 23, 42, 0.93) !important;
+    border-color: rgba(148, 163, 184, 0.35) !important;
+    box-shadow: 0 35px 60px -20px rgba(2, 6, 23, 0.75) !important;
+    color: rgba(226, 232, 240, 0.96) !important;
+  }
   
   /* Ensure modal content is properly centered on all screen sizes */
   @media (max-width: 768px) {
