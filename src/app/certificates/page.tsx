@@ -73,7 +73,7 @@ function CertificatesContent() {
   const [quickGenerateOpen, setQuickGenerateOpen] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [loadingQuickGenData, setLoadingQuickGenData] = useState(false);
+  const [, setLoadingQuickGenData] = useState(false);
 
   // Use certificates hook for Supabase integration
   const {
@@ -594,6 +594,7 @@ function CertificatesContent() {
       member: member.name, 
       certData 
     });
+    console.log('🗓️ Using date format:', dateFormat);
     
     // Get template image URL
     const templateImageUrl = await getTemplateImageUrl(template);
@@ -764,10 +765,6 @@ function CertificatesContent() {
   
   // REMOVED: templateImageDimensions state - no longer needed
   // We now use container dimensions directly for text scaling
-
-  // Standard canvas dimensions used in generation (must match generator)
-  const STANDARD_CANVAS_WIDTH = 800;
-  const STANDARD_CANVAS_HEIGHT = 600;
 
   // Ref for preview container to calculate actual dimensions
   const previewContainerRef = useRef<HTMLDivElement>(null);

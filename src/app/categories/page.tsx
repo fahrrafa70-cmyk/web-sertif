@@ -1,6 +1,6 @@
 "use client";
 
-import Header from "@/components/header";
+import { SiteHeader } from "@/components/site-header";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,8 +15,8 @@ const CATEGORIES = [
 export default function CategoriesPage() {
   const { t } = useLanguage();
   return (
-    <div className="min-h-screen">
-      <Header />
+    <div className="min-h-screen bg-gray-50">
+      <SiteHeader />
       <main className="pt-16">
         <section className="bg-white py-14">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -2,10 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, LogOut, ChevronDown } from "lucide-react";
+import { LogOut, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
-import Link from "next/link";
 
 export default function UserAvatar() {
   const { t } = useLanguage();
@@ -69,7 +68,7 @@ export default function UserAvatar() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
-        className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
         aria-label="User menu"
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -78,7 +77,7 @@ export default function UserAvatar() {
           {getInitials()}
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-600 transition-transform ${
+          className={`w-4 h-4 text-gray-600 dark:text-gray-300 transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -92,19 +91,19 @@ export default function UserAvatar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50"
+            className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50"
           >
             {/* User Info */}
-            <div className="px-4 py-3 border-b border-gray-100">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
                   {getInitials()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {email?.split("@")[0] || "User"}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {email || ""}
                   </p>
                 </div>
@@ -116,13 +115,13 @@ export default function UserAvatar() {
             </div>
 
             {/* Logout */}
-            <div className="border-t border-gray-100 py-1">
+            <div className="border-t border-gray-100 dark:border-gray-700 py-1">
               <button
                 onClick={() => {
                   localSignOut();
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 <span>{t("auth.logout")}</span>

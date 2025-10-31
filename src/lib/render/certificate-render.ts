@@ -4,10 +4,6 @@
  * Reusable across Generate page and Quick Generate modal
  */
 
-// Standard canvas dimensions for reference
-const STANDARD_CANVAS_WIDTH = 800;
-const STANDARD_CANVAS_HEIGHT = 600;
-
 export interface RenderTextLayer {
   id: string;
   text: string;
@@ -119,10 +115,23 @@ export async function renderCertificateToDataURL(
     // Set color
     ctx.fillStyle = layer.color || '#000000';
 
+<<<<<<< Updated upstream
     // CRITICAL: Set text baseline to 'top' to match preview behavior
     // Preview uses CSS with top positioning, so we need to match that
     // We'll handle vertical centering manually in drawWrappedText
     ctx.textBaseline = 'top';
+=======
+    // Set text baseline - use middle for vertical centering
+    ctx.textBaseline = 'middle';
+
+    // All layers now have maxWidth, so always use wrapped text rendering
+    const align = layer.textAlign || 'left';
+    
+    // CRITICAL: Scale maxWidth based on canvas size
+    // maxWidth is stored in pixels relative to STANDARD_CANVAS_WIDTH
+    const scaleFactor = width / 800; // Assuming STANDARD_CANVAS_WIDTH was 800
+    const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
+>>>>>>> Stashed changes
     
     drawWrappedText(
       ctx, 

@@ -5,7 +5,7 @@
  * Allows visual configuration of text layers with drag, resize, and font customization
  */
 
-import { Suspense, useState, useEffect, useRef, useCallback } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,8 +46,6 @@ function ConfigureLayoutContent() {
   // Text layers state
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-  const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
-  const [resizingLayerId, setResizingLayerId] = useState<string | null>(null);
   const [renamingLayerId, setRenamingLayerId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   
@@ -183,13 +181,10 @@ function ConfigureLayoutContent() {
   const handleLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedLayerId(layerId);
-    setDraggedLayerId(layerId);
     
     const layer = textLayers.find(l => l.id === layerId);
     if (!layer || !canvasRef.current) return;
 
-    const canvas = canvasRef.current;
-    const canvasRect = canvas.getBoundingClientRect();
     const startX = e.clientX;
     const startY = e.clientY;
     const startLayerX = layer.x;
@@ -217,7 +212,6 @@ function ConfigureLayoutContent() {
     };
 
     const handleMouseUp = () => {
-      setDraggedLayerId(null);
       setTextLayers(prev => prev.map(l => ({ ...l, isDragging: false })));
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -230,7 +224,6 @@ function ConfigureLayoutContent() {
   // Handle resize handle drag
   const handleResizeMouseDown = (layerId: string, e: React.MouseEvent, direction: 'right' | 'left' | 'top' | 'bottom' | 'corner' = 'right') => {
     e.stopPropagation();
-    setResizingLayerId(layerId + '_' + direction);
     
     const layer = textLayers.find(l => l.id === layerId);
     if (!layer || !canvasRef.current) return;
@@ -272,7 +265,6 @@ function ConfigureLayoutContent() {
     };
 
     const handleMouseUp = () => {
-      setResizingLayerId(null);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -343,7 +335,12 @@ function ConfigureLayoutContent() {
     try {
       const layoutConfig: TemplateLayoutConfig = {
         certificate: {
-          textLayers: textLayers.map(({ isDragging, isEditing, ...layer }) => layer)
+          textLayers: textLayers.map(layer => {
+            const { isDragging, isEditing, ...rest } = layer;
+            void isDragging;
+            void isEditing;
+            return rest;
+          })
         },
         canvas: {
           width: STANDARD_CANVAS_WIDTH,
@@ -426,10 +423,10 @@ function ConfigureLayoutContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading template...</p>
+          <p className="text-gray-600 dark:text-gray-300">Loading template...</p>
         </div>
       </div>
     );
@@ -440,9 +437,9 @@ function ConfigureLayoutContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 text-gray-900 dark:text-gray-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-sm">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 fixed top-0 left-0 right-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -451,11 +448,11 @@ function ConfigureLayoutContent() {
                 size="sm"
                 onClick={() => router.push("/templates")}
               >
-                <ArrowLeft className="w-4 h-4 mr-2 border-2 border-gray-300 size-2 rounded-full" />
+                <ArrowLeft className="w-4 h-4 mr-2 border-2 border-gray-300 dark:border-gray-600 rounded-full" />
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {template.name}
+                  Configure Layout: {template.name}
                 </h1>
               </div>
             </div>
@@ -494,13 +491,13 @@ function ConfigureLayoutContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Canvas Preview */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                 Template Preview
               </h2>
               <div 
                 ref={canvasRef}
-                className="relative border-2 border-gray-300 rounded-lg bg-gray-50 overflow-hidden"
+                className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 overflow-hidden"
                 style={{ 
                   aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
                   cursor: 'default',
@@ -682,10 +679,10 @@ function ConfigureLayoutContent() {
 
           {/* Configuration Panel */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-6 space-y-6">
               {/* Text Layers List */}
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                   Text Layers ({textLayers.length})
                 </h2>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -698,13 +695,13 @@ function ConfigureLayoutContent() {
                         key={layer.id}
                         className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
                           isSelected 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' 
+                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                         }`}
                         onClick={() => setSelectedLayerId(layer.id)}
                       >
                         <div className="flex items-center gap-2 flex-1">
-                          <Type className="w-4 h-4 text-gray-400" />
+                          <Type className="w-4 h-4 text-gray-400 dark:text-gray-300" />
                           <div className="flex-1">
                             {renamingLayerId === layer.id ? (
                               <Input
@@ -717,22 +714,22 @@ function ConfigureLayoutContent() {
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                                 autoFocus
-                                className="h-6 text-sm"
+                                className="h-6 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                               />
                             ) : (
                               <div 
-                                className="font-medium text-sm"
+                                className="font-medium text-sm text-gray-900 dark:text-gray-100"
                                 onDoubleClick={() => handleLayerDoubleClick(layer.id)}
                               >
                                 {layer.id}
                               </div>
                             )}
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               {layer.fontSize}px • {layer.fontFamily}
                             </div>
                           </div>
                           {isRequired && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                            <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded">
                               Required
                             </span>
                           )}
@@ -745,7 +742,7 @@ function ConfigureLayoutContent() {
                               e.stopPropagation();
                               deleteLayer(layer.id);
                             }}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -758,24 +755,24 @@ function ConfigureLayoutContent() {
 
               {/* Layer Properties */}
               {selectedLayer && (
-                <div className="border-t border-gray-200 pt-4">
-                  <h3 className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
+                  <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
                     {selectedLayer.id}
                   </h3>
                   <div className="space-y-3">
                     {/* Default Text - Only for custom layers */}
                     {!['name', 'certificate_no', 'issue_date'].includes(selectedLayer.id) && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-900/40 rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <Label className="text-xs font-semibold text-green-900">Default Text</Label>
+                          <Label className="text-xs font-semibold text-green-900 dark:text-green-300">Default Text</Label>
                           <label className="flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={selectedLayer.useDefaultText || false}
                               onChange={(e) => updateLayer(selectedLayer.id, { useDefaultText: e.target.checked })}
-                              className="w-3.5 h-3.5 text-green-600 rounded"
+                              className="w-3.5 h-3.5 text-green-600 rounded border-green-300 dark:border-green-500"
                             />
-                            <span className="text-xs text-green-900">Use</span>
+                            <span className="text-xs text-green-900 dark:text-green-300">Use</span>
                           </label>
                         </div>
                         <Input
@@ -791,7 +788,7 @@ function ConfigureLayoutContent() {
                             }));
                           }}
                           placeholder="Enter text..."
-                          className="h-7 text-xs"
+                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
                     )}
@@ -799,7 +796,7 @@ function ConfigureLayoutContent() {
                     {/* Position - Compact Grid */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-xs">X Position</Label>
+                        <Label className="text-xs text-gray-700 dark:text-gray-300">X Position</Label>
                         <Input
                           type="number"
                           value={selectedLayer.x}
@@ -807,11 +804,11 @@ function ConfigureLayoutContent() {
                             x: parseInt(e.target.value) || 0,
                             xPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_WIDTH
                           })}
-                          className="h-7 text-xs"
+                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
                       <div>
-                        <Label className="text-xs">Y Position</Label>
+                        <Label className="text-xs text-gray-700 dark:text-gray-300">Y Position</Label>
                         <Input
                           type="number"
                           value={selectedLayer.y}
@@ -819,88 +816,73 @@ function ConfigureLayoutContent() {
                             y: parseInt(e.target.value) || 0,
                             yPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_HEIGHT
                           })}
-                          className="h-7 text-xs"
+                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
                     </div>
 
                     {/* Font Size */}
                     <div>
-                      <Label className="text-xs">Font Size</Label>
+                      <Label className="text-xs text-gray-700 dark:text-gray-300">Font Size</Label>
                       <Input
                         type="number"
                         value={selectedLayer.fontSize}
                         onChange={(e) => updateLayer(selectedLayer.id, { fontSize: parseInt(e.target.value) || 12 })}
-                        className="h-7 text-xs"
+                        className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                       />
                     </div>
 
                     {/* Font Family & Weight - Side by Side */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-xs">Font Family</Label>
+                        <Label className="text-xs text-gray-700 dark:text-gray-300">Font Family</Label>
                         <Select 
                           value={selectedLayer.fontFamily} 
                           onValueChange={(value) => updateLayer(selectedLayer.id, { fontFamily: value })}
                         >
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
+                          <SelectTrigger className="h-7 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
+                            <SelectValue placeholder="Font" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                             <SelectItem value="Arial">Arial</SelectItem>
-                            <SelectItem value="Times New Roman">Times</SelectItem>
-                            <SelectItem value="Courier New">Courier</SelectItem>
+                            <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                            <SelectItem value="Roboto">Roboto</SelectItem>
                             <SelectItem value="Georgia">Georgia</SelectItem>
                             <SelectItem value="Verdana">Verdana</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <Label className="text-xs">Weight</Label>
+                        <Label className="text-xs text-gray-700 dark:text-gray-300">Weight</Label>
                         <Select 
-                          value={selectedLayer.fontWeight} 
+                          value={selectedLayer.fontWeight || 'normal'}
                           onValueChange={(value) => updateLayer(selectedLayer.id, { fontWeight: value })}
                         >
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
+                          <SelectTrigger className="h-7 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
+                            <SelectValue placeholder="Weight" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
+                            <SelectItem value="light">Light</SelectItem>
                             <SelectItem value="normal">Normal</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
                             <SelectItem value="bold">Bold</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
 
-                    {/* Color & Text Align - Side by Side */}
+                    {/* Text Align & Line Height */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-xs">Color</Label>
-                        <div className="flex gap-1">
-                          <Input
-                            type="color"
-                            value={selectedLayer.color}
-                            onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
-                            className="h-7 w-12 p-1"
-                          />
-                          <Input
-                            type="text"
-                            value={selectedLayer.color}
-                            onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
-                            className="h-7 flex-1 text-xs"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Align</Label>
+                        <Label className="text-xs text-gray-700 dark:text-gray-300">Text Align</Label>
                         <Select 
-                          value={selectedLayer.textAlign || 'left'} 
-                          onValueChange={(value: 'left' | 'center' | 'right' | 'justify') => updateLayer(selectedLayer.id, { textAlign: value })}
+                          value={selectedLayer.textAlign || 'left'}
+                          onValueChange={(value) => updateLayer(selectedLayer.id, { textAlign: value as TextLayer['textAlign'] })}
                         >
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
+                          <SelectTrigger className="h-7 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
+                            <SelectValue placeholder="Align" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                             <SelectItem value="left">Left</SelectItem>
                             <SelectItem value="center">Center</SelectItem>
                             <SelectItem value="right">Right</SelectItem>
@@ -908,22 +890,88 @@ function ConfigureLayoutContent() {
                           </SelectContent>
                         </Select>
                       </div>
+                      <div>
+                        <Label className="text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={selectedLayer.lineHeight || 1.2}
+                          onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
+                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                        />
+                      </div>
                     </div>
 
-                    {/* Line Height */}
+                    {/* Max Width */}
                     <div>
-                      <Label className="text-xs">Line Height <span className="text-gray-400">(1.0 - 2.0)</span></Label>
+                      <Label className="text-xs text-gray-700 dark:text-gray-300">Max Width (px)</Label>
                       <Input
                         type="number"
-                        step="0.1"
-                        value={selectedLayer.lineHeight || 1.2}
-                        onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
-                        className="h-7 text-xs"
+                        value={selectedLayer.maxWidth || 0}
+                        onChange={(e) => updateLayer(selectedLayer.id, { maxWidth: parseInt(e.target.value) || 0 })}
+                        className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                      />
+                    </div>
+
+                    {/* Color Picker */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-gray-700 dark:text-gray-300">Text Color</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={selectedLayer.color || '#000000'}
+                          onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
+                          className="h-8 w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent"
+                        />
+                        <Input
+                          type="text"
+                          value={selectedLayer.color || '#000000'}
+                          onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
+                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Preview Text Input */}
+                    <div>
+                      <Label className="text-xs text-gray-700 dark:text-gray-300">Preview Text</Label>
+                      <Input
+                        type="text"
+                        value={previewTexts[selectedLayer.id] || ''}
+                        onChange={(e) => setPreviewTexts(prev => ({
+                          ...prev,
+                          [selectedLayer.id]: e.target.value
+                        }))}
+                        className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                       />
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* Validation */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                  Validation
+                </h3>
+                <div className="space-y-2 text-sm">
+                  {['name', 'certificate_no', 'issue_date'].map(fieldId => {
+                    const exists = textLayers.some(l => l.id === fieldId);
+                    return (
+                      <div key={fieldId} className="flex items-center gap-2">
+                        {exists ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <X className="w-4 h-4 text-red-500" />
+                        )}
+                        <span className={exists ? 'text-gray-700' : 'text-red-600'}>
+                          {fieldId.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -937,10 +985,10 @@ function ConfigureLayoutContent() {
 export default function ConfigureLayoutPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading configuration...</p>
+          <p className="text-gray-600 dark:text-gray-300">Loading configuration...</p>
         </div>
       </div>
     }>

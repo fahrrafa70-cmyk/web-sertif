@@ -67,9 +67,8 @@ export default function ModernHeader() {
               <UserAvatar />
             ) : (
               <Button
-                variant="outline"
                 size="sm"
-                className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 h-9"
+                className="gradient-primary text-white border-0 hover:opacity-90 transition-opacity shadow-md hover:shadow-lg h-9"
                 onClick={() => setOpenLogin(true)}
               >
                 Login

@@ -10,6 +10,9 @@ export interface AppUser {
   organization?: string | null;
   phone?: string | null;
   role: UserRole | string; // keep flexible if DB uses enum text with case variants
+  auth_provider?: 'email' | 'google' | 'github' | null;
+  avatar_url?: string | null;
+  provider_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }

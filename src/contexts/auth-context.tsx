@@ -3,7 +3,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabase/client";
-import { getUserRoleByEmail, signInWithEmailPassword } from "@/lib/supabase/auth";
+import { 
+  getUserRoleByEmail, 
+  signInWithEmailPassword,
+  signInWithGoogle,
+  signInWithGitHub,
+  createOrUpdateUserFromOAuth
+} from "@/lib/supabase/auth";
 
 type Role = "admin" | "team" | "user" | null;
 
@@ -16,6 +22,7 @@ type AuthState = {
   openLogin: boolean;
   setOpenLogin: (open: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithOAuth: (provider: 'google' | 'github') => Promise<void>;
   signOut: () => Promise<void>;
   localSignOut: () => Promise<void>;
 };
@@ -81,7 +88,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (event === "SIGNED_IN" && session?.user?.email) {
         const normalized = session.user.email.toLowerCase().trim();
         setEmail(normalized);
+        
         try {
+          // Check if this is an OAuth user (not email/password)
+          // Get provider from identities array (most reliable way)
+          const identity = session.user.identities?.[0];
+          const authProvider = identity?.provider as 'google' | 'github' | 'email' | undefined;
+          
+          // If OAuth user (google or github), create/update user in users table
+          if (authProvider === 'google' || authProvider === 'github') {
+            try {
+              await createOrUpdateUserFromOAuth(session.user, authProvider);
+              console.log(`OAuth user processed: ${normalized} via ${authProvider}`);
+            } catch (oauthErr) {
+              console.error('Error creating/updating OAuth user:', oauthErr);
+              // Continue even if user creation fails - will try to fetch role anyway
+            }
+          }
+          
+          // Fetch role after ensuring user exists in users table
           const fetchedRole = await getUserRoleByEmail(normalized);
           setRole(fetchedRole);
           
@@ -159,6 +184,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const signInWithOAuth = useCallback(async (provider: 'google' | 'github') => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Close modal immediately as OAuth will redirect
+      setOpenLogin(false);
+      
+      if (provider === 'google') {
+        await signInWithGoogle();
+      } else if (provider === 'github') {
+        await signInWithGitHub();
+      }
+      
+      // Note: We don't reset loading here because OAuth redirects away
+      // Loading will be reset when user returns and auth state changes
+    } catch (err: unknown) {
+      console.error('OAuth sign in error:', err);
+      let message = 'Failed to initiate OAuth login';
+      
+      if (typeof err === 'object' && err && 'message' in err) {
+        message = String((err as { message?: string }).message);
+      }
+      
+      setError(message);
+      setLoading(false);
+      setOpenLogin(true); // Reopen modal on error
+      throw new Error(message);
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       // Clear state immediately first
@@ -228,9 +283,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     openLogin,
     setOpenLogin,
     signIn,
+    signInWithOAuth,
     signOut,
     localSignOut,
-  }), [role, email, loading, error, openLogin, signIn, signOut, localSignOut]);
+  }), [role, email, loading, error, openLogin, signIn, signInWithOAuth, signOut, localSignOut]);
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

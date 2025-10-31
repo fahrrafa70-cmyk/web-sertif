@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getCertificateByNumber, Certificate } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
-import Header from "@/components/header";
+import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye } from "lucide-react";
 import { motion } from "framer-motion";
@@ -64,7 +64,7 @@ export default function CertificatePage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <Header />
+        <SiteHeader />
         <main className="pt-16">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
             <div className="text-center">
@@ -87,7 +87,7 @@ export default function CertificatePage() {
   if (!certificate) {
     return (
       <div className="min-h-screen">
-        <Header />
+        <SiteHeader />
         <main className="pt-16">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
             <div className="text-center">
@@ -126,7 +126,7 @@ export default function CertificatePage() {
   return (
     <>
       <div className="min-h-screen">
-        <Header />
+        <SiteHeader />
         <main className="pt-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             {/* Header */}

@@ -327,6 +327,7 @@ const translations: Translations = {
     'login.enterPassword': 'Enter your password',
     'login.signIn': 'Sign In',
     'login.signingIn': 'Signing in...',
+    'login.orContinueWith': 'Or continue with',
     
     // Error Messages - Login
     'error.login.invalidEmail': 'Please enter a valid email address.',
@@ -652,6 +653,7 @@ const translations: Translations = {
     'login.enterPassword': 'Masukkan kata sandi Anda',
     'login.signIn': 'Masuk',
     'login.signingIn': 'Sedang masuk...',
+    'login.orContinueWith': 'Atau lanjutkan dengan',
     
     // Error Messages - Login
     'error.login.invalidEmail': 'Silakan masukkan alamat email yang valid.',
