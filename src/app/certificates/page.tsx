@@ -474,13 +474,22 @@ function CertificatesContent() {
       if (layoutConfig && layoutConfig.certificate) {
         // Use database layout (NEW METHOD)
         console.log('✅ Using layout from database');
+        
+        // Migrate old data: ensure all layers have maxWidth and lineHeight
+        const migratedLayers = layoutConfig.certificate.textLayers.map(layer => ({
+          ...layer,
+          maxWidth: layer.maxWidth || 300, // Default maxWidth if missing
+          lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
+        }));
+        
         defaults = {
           templateId: params.template.id,
           templateName: params.template.name,
-          textLayers: layoutConfig.certificate.textLayers,
+          textLayers: migratedLayers,
           overlayImages: layoutConfig.certificate.overlayImages,
           savedAt: layoutConfig.lastSavedAt
         };
+        console.log('✅ Migrated layers with default maxWidth and lineHeight');
       } else {
         // FALLBACK: Try localStorage (OLD METHOD - deprecated)
         console.warn('⚠️ No database layout found, trying localStorage fallback...');

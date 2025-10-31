@@ -243,11 +243,6 @@ export function QuickGenerateModal({
                 )}
               </SelectContent>
             </Select>
-            {selectedTemplate && (
-              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                <strong>Selected:</strong> {selectedTemplate.name} - {selectedTemplate.orientation}
-              </div>
-            )}
           </div>
 
           {/* Step 2: Date Format */}

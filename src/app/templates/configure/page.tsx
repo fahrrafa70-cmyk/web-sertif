@@ -85,7 +85,16 @@ function ConfigureLayoutContent() {
         const existingLayout = await getTemplateLayout(templateId);
         if (existingLayout && existingLayout.certificate) {
           console.log('📦 Loading existing layout configuration');
-          setTextLayers(existingLayout.certificate.textLayers as TextLayer[]);
+          
+          // Migrate old data: ensure all layers have maxWidth and lineHeight
+          const migratedLayers = (existingLayout.certificate.textLayers as TextLayer[]).map(layer => ({
+            ...layer,
+            maxWidth: layer.maxWidth || 300, // Default maxWidth if missing
+            lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
+          }));
+          
+          setTextLayers(migratedLayers);
+          console.log('✅ Migrated layers with default maxWidth and lineHeight');
         } else {
           // Initialize with default text layers
           console.log('🆕 Initializing default text layers');
@@ -452,7 +461,7 @@ function ConfigureLayoutContent() {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Save Layout
+                    Save
                   </>
                 )}
               </Button>
@@ -896,30 +905,6 @@ function ConfigureLayoutContent() {
                   </div>
                 </div>
               )}
-
-              {/* Validation */}
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                  Validation
-                </h3>
-                <div className="space-y-2 text-sm">
-                  {['name', 'certificate_no', 'issue_date'].map(fieldId => {
-                    const exists = textLayers.some(l => l.id === fieldId);
-                    return (
-                      <div key={fieldId} className="flex items-center gap-2">
-                        {exists ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 text-red-500" />
-                        )}
-                        <span className={exists ? 'text-gray-700' : 'text-red-600'}>
-                          {fieldId.replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           </div>
         </div>
