@@ -452,7 +452,7 @@ function ConfigureLayoutContent() {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Save Layout
+                    Save
                   </>
                 )}
               </Button>

@@ -386,10 +386,10 @@ export default function MembersPage() {
             <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
               <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
               {t('common.loading')}
             </h1>
-            <p className="text-gray-500 text-sm">
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
               {t('members.loadingPage')}
             </p>
           </div>
@@ -407,10 +407,10 @@ export default function MembersPage() {
             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl">🔒</span>
             </div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
               {t('members.accessDenied.title')}
             </h1>
-            <p className="text-gray-500 text-sm">
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
               {t('members.accessDenied.message')}
             </p>
           </div>
@@ -428,7 +428,7 @@ export default function MembersPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                 <div>
                   <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">{t('members.title')}</h1>
-                  <p className="text-gray-600 mt-1 text-base">{t('members.subtitle')}</p>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1 text-base">{t('members.subtitle')}</p>
                 </div>
               {(role === "Admin" || role === "Team") && (
                 <div className="flex gap-2">
@@ -459,7 +459,7 @@ export default function MembersPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   placeholder="Search members by name, email, organization..."
-                  className="pl-10 bg-white border-gray-200"
+                  className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -477,7 +477,7 @@ export default function MembersPage() {
             {showForm && (role === "Admin" || role === "Team") && (
               <motion.form onSubmit={onSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.fullName')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')}</label>
                   <Input value={form.name} placeholder={t('members.form.fullNamePlaceholder')} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="space-y-2">
@@ -525,12 +525,12 @@ export default function MembersPage() {
               whileInView={{ opacity: 1, y: 0 }} 
               viewport={{ once: true }} 
               transition={{ duration: 0.4 }} 
-              className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
             >
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50/50">
+                    <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
                       <TableHead className="w-10 text-center px-2">#</TableHead>
                       <TableHead className="min-w-[120px] px-2">{t('members.table.name')}</TableHead>
                       <TableHead className="min-w-[130px] px-2">{t('members.table.organization')}</TableHead>
@@ -548,18 +548,18 @@ export default function MembersPage() {
                         className="cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0"
                       >
                         <TableCell className="text-gray-500 text-center px-2 py-1.5">{indexOfFirstItem + index + 1}</TableCell>
-                        <TableCell className="font-medium text-gray-900 px-2 py-1.5">{m.name}</TableCell>
-                        <TableCell className="text-gray-700 px-2 py-1.5">{m.organization || "—"}</TableCell>
-                        <TableCell className="text-gray-700 px-2 py-1.5">
+                        <TableCell className="font-medium text-gray-900 dark:text-gray-100 px-2 py-1.5">{m.name}</TableCell>
+                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5">{m.organization || "—"}</TableCell>
+                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5">
                           <div className="flex flex-col">
-                            <span className="text-gray-900">{m.email || "—"}</span>
+                            <span className="text-gray-900 dark:text-gray-100">{m.email || "—"}</span>
                             {m.phone && (
                               <span className="text-xs text-gray-500 mt-0.5">{m.phone}</span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-gray-700 px-2 py-1.5">{m.job || "—"}</TableCell>
-                        <TableCell className="text-gray-700 px-2 py-1.5">{m.city || "—"}</TableCell>
+                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5">{m.job || "—"}</TableCell>
+                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5">{m.city || "—"}</TableCell>
                         <TableCell className="text-right px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
                             {(role === "Admin" || role === "Team") && (
@@ -669,7 +669,7 @@ export default function MembersPage() {
               <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
                 <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">{t('members.editMember')}</h3>
+                    <h3 className="text-lg font-semibold dark:text-gray-100">{t('members.editMember')}</h3>
                     <Button variant="outline" onClick={() => setEditOpen(false)}>{t('common.close')}</Button>
                   </div>
                   <form onSubmit={submitEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -724,7 +724,7 @@ export default function MembersPage() {
               <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle className="text-2xl font-bold text-gray-900">
+                    <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       Member Information
                     </DialogTitle>
                     <DialogDescription>
@@ -736,23 +736,23 @@ export default function MembersPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                       {/* Name */}
                       <div>
-                        <label className="text-sm font-medium text-gray-500">Full Name</label>
-                        <div className="mt-1 text-base text-gray-900">{detailMember.name}</div>
+                        <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
+                        <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.name}</div>
                       </div>
 
                       {/* Email */}
                       {detailMember.email && (
                         <div>
-                          <label className="text-sm font-medium text-gray-500">Email</label>
-                          <div className="mt-1 text-base text-gray-900">{detailMember.email}</div>
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.email}</div>
                         </div>
                       )}
 
                       {/* Phone */}
                       {detailMember.phone && (
                         <div>
-                          <label className="text-sm font-medium text-gray-500">Phone</label>
-                          <div className="mt-1 text-base text-gray-900">{detailMember.phone}</div>
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.phone}</div>
                         </div>
                       )}
 
@@ -760,7 +760,7 @@ export default function MembersPage() {
                       {detailMember.organization && (
                         <div>
                           <label className="text-sm font-medium text-gray-500">Organization / School</label>
-                          <div className="mt-1 text-base text-gray-900">{detailMember.organization}</div>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.organization}</div>
                         </div>
                       )}
 
@@ -768,7 +768,7 @@ export default function MembersPage() {
                       {detailMember.job && (
                         <div>
                           <label className="text-sm font-medium text-gray-500">Job / Position</label>
-                          <div className="mt-1 text-base text-gray-900">{detailMember.job}</div>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.job}</div>
                         </div>
                       )}
 
@@ -776,7 +776,7 @@ export default function MembersPage() {
                       {detailMember.date_of_birth && (
                         <div>
                           <label className="text-sm font-medium text-gray-500">Date of Birth</label>
-                          <div className="mt-1 text-base text-gray-900">
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">
                             {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
                               year: 'numeric', 
                               month: 'long', 
@@ -790,7 +790,7 @@ export default function MembersPage() {
                       {detailMember.city && (
                         <div>
                           <label className="text-sm font-medium text-gray-500">City</label>
-                          <div className="mt-1 text-base text-gray-900">{detailMember.city}</div>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.city}</div>
                         </div>
                       )}
 
@@ -798,7 +798,7 @@ export default function MembersPage() {
                       {detailMember.address && (
                         <div className="md:col-span-2">
                           <label className="text-sm font-medium text-gray-500">Address</label>
-                          <div className="mt-1 text-base text-gray-900">{detailMember.address}</div>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.address}</div>
                         </div>
                       )}
 

@@ -394,7 +394,7 @@ export default function TemplatesPage() {
                 <h1 className="text-4xl sm:text-5xl font-bold text-gradient mb-4">
                   {t('templates.title')}
                 </h1>
-                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                   {t('templates.subtitle')}
                 </p>
               </motion.div>
@@ -418,7 +418,7 @@ export default function TemplatesPage() {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full sm:w-56 h-12 px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full sm:w-56 h-12 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
                 >
                   <option value="">{t('templates.allCategories')}</option>
                   <option value="MoU">MoU</option>
@@ -453,8 +453,8 @@ export default function TemplatesPage() {
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
                   <FileText className="w-12 h-12 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">{t('templates.loading')}</h3>
-                <p className="text-gray-500">{t('common.loading')}</p>
+                <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('templates.loading')}</h3>
+                <p className="text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
               </motion.div>
             )}
 
@@ -497,15 +497,15 @@ export default function TemplatesPage() {
                 >
                   <Card className="h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group overflow-hidden">
                     {/* Template Preview (uniform 16:9 frame so cards have equal height) */}
-                    <div className="relative aspect-video bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200 overflow-hidden">
+                    <div className="relative aspect-video bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-200 dark:border-gray-700 overflow-hidden">
                       {getTemplatePreviewUrl(tpl) && !failedImages.has(tpl.id) ? (
-                        <div className="absolute inset-0">
+                        <div className="absolute inset-0 dark:bg-gray-800">
                           <Image 
                             src={getTemplatePreviewUrl(tpl)!}
                             alt={tpl.name}
                             fill
                             sizes="(max-width: 1280px) 50vw, 33vw"
-                            className="object-contain"
+                            className="object-contain dark:brightness-150 dark:contrast-125"
                             unoptimized
                             onError={() => {
                               // Mark image as failed and show fallback
@@ -519,7 +519,7 @@ export default function TemplatesPage() {
                           <div className="absolute inset-0 flex items-center justify-center">
                             <div className="text-center">
                               <Layout className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                              <div className="text-sm font-medium text-gray-600">{tpl.orientation}</div>
+                              <div className="text-sm font-medium text-gray-600 dark:text-gray-300">{tpl.orientation}</div>
                             </div>
                           </div>
                         </>
@@ -543,10 +543,10 @@ export default function TemplatesPage() {
                     </div>
 
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                      <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                         {tpl.name}
                       </CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <div className="flex items-center gap-1">
                           <Layout className="w-4 h-4" />
                           {tpl.orientation}
@@ -562,7 +562,7 @@ export default function TemplatesPage() {
                       <div className="space-y-2">
                         <Button 
                           variant="outline" 
-                          className="w-full border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200" 
+                          className="w-full border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200" 
                           onClick={() => openPreview(tpl)}
                         >
                           <Eye className="w-4 h-4 mr-2" />
@@ -588,7 +588,7 @@ export default function TemplatesPage() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              className="flex-1 border-gray-200 hover:border-blue-300 hover:bg-blue-50" 
+                              className="flex-1 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20" 
                               onClick={() => openEdit(tpl)}
                             >
                               <Edit className="w-4 h-4 mr-1" />
@@ -597,7 +597,7 @@ export default function TemplatesPage() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              className={`flex-1 border-gray-200 ${canDelete ? 'hover:border-red-300 hover:bg-red-50 hover:text-red-600' : 'opacity-50 cursor-not-allowed'}`}
+                              className={`flex-1 border-gray-200 dark:border-gray-700 ${canDelete ? 'hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' : 'opacity-50 cursor-not-allowed'}`}
                               onClick={() => canDelete && requestDelete(tpl.id)}
                               disabled={!canDelete || deletingTemplateId === tpl.id}
                             >
@@ -633,8 +633,8 @@ export default function TemplatesPage() {
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <FileText className="w-12 h-12 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">{t('templates.noTemplates')}</h3>
-                <p className="text-gray-500 mb-6">{t('templates.subtitle')}</p>
+                <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('templates.noTemplates')}</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">{t('templates.subtitle')}</p>
                 {(role === "Admin" || role === "Team") && (
                   <Button 
                     onClick={openCreate} 

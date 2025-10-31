@@ -965,7 +965,7 @@ function CertificatesContent() {
                   <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
                     {t("certificates.title")}
                   </h1>
-                  <p className="text-gray-600 mt-1 text-base">
+                  <p className="text-gray-600 dark:text-gray-400 mt-1 text-base">
                     {t("certificates.subtitle")}
                   </p>
                 </div>
@@ -983,14 +983,14 @@ function CertificatesContent() {
               <div className="flex flex-wrap items-center gap-3">
                 <Input
                   placeholder={t("certificates.search")}
-                  className="w-64 bg-white border-gray-200"
+                  className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                 />
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-48 px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-48 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
                 >
                   <option value="">{t('templates.allCategories')}</option>
                   <option value="MoU">MoU</option>
@@ -1003,7 +1003,7 @@ function CertificatesContent() {
                 </select>
                 <Input
                   placeholder="Filter by date"
-                  className="w-40 bg-white border-gray-200"
+                  className="w-40 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                   type="date"
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value)}
@@ -1022,10 +1022,10 @@ function CertificatesContent() {
                   <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
                     <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     Loading certificates...
                   </h3>
-                  <p className="text-gray-500 text-sm">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
                     Please wait while we fetch your certificates.
                   </p>
                 </div>
@@ -1043,7 +1043,7 @@ function CertificatesContent() {
                   <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
                     <span className="text-3xl">⚠️</span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     Error loading certificates
                   </h3>
                   <p className="text-gray-500 text-sm mb-6">{error}</p>
@@ -1064,12 +1064,12 @@ function CertificatesContent() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4 }}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
               >
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50/50">
+                      <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
                         <TableHead className="min-w-[180px]">{t("certificates.certificateId")}</TableHead>
                         <TableHead className="min-w-[200px]">{t("certificates.recipient")}</TableHead>
                         <TableHead className="min-w-[150px]">Category</TableHead>
@@ -1085,14 +1085,14 @@ function CertificatesContent() {
                         <TableRow 
                           key={certificate.id}
                           onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
-                          className={certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0" : "border-b border-gray-100 last:border-0"}
+                          className={certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0" : "border-b border-gray-100 dark:border-gray-700 last:border-0"}
                         >
-                          <TableCell className="font-medium text-gray-900">
+                          <TableCell className="font-medium text-gray-900 dark:text-gray-100">
                             {certificate.certificate_no}
                           </TableCell>
-                          <TableCell className="text-gray-700">{certificate.name}</TableCell>
-                          <TableCell className="text-gray-700">{certificate.category || "—"}</TableCell>
-                          <TableCell className="text-gray-700">
+                          <TableCell className="text-gray-700 dark:text-gray-300">{certificate.name}</TableCell>
+                          <TableCell className="text-gray-700 dark:text-gray-300">{certificate.category || "—"}</TableCell>
+                          <TableCell className="text-gray-700 dark:text-gray-300">
                             {new Date(
                               certificate.issue_date,
                             ).toLocaleDateString()}
@@ -1206,7 +1206,7 @@ function CertificatesContent() {
                     <ChevronLeft className="h-4 w-4 mr-1" />
                     Previous
                   </Button>
-                  <div className="text-sm text-gray-600 px-3">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 px-3">
                     Page {currentPage} of {totalPages}
                   </div>
                   <Button 

@@ -104,6 +104,11 @@ const translations: Translations = {
     'language.indonesia': 'Indonesia',
     'language.switch': 'Switch Language',
     
+    // Theme
+    'theme.switch': 'Switch Theme',
+    'theme.light': 'Light',
+    'theme.dark': 'Dark',
+    
     // Hero Section
     'hero.title': 'Search Certificate',
     'hero.subtitle': 'Digital Certificate Solutions',
@@ -427,6 +432,11 @@ const translations: Translations = {
     'language.english': 'English',
     'language.indonesia': 'Indonesia',
     'language.switch': 'Ganti Bahasa',
+    
+    // Theme
+    'theme.switch': 'Ganti Tema',
+    'theme.light': 'Terang',
+    'theme.dark': 'Gelap',
     
     // Hero Section
     'hero.title': 'Cari Sertifikat',

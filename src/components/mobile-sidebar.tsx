@@ -17,6 +17,7 @@ import {
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/contexts/auth-context";
 import { LanguageSwitcher } from "./language-switcher";
+import { ThemeSwitcher } from "./theme-switcher";
 
 interface MobileSidebarProps {
   isOpen: boolean;
@@ -192,9 +193,15 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               </div>
 
               {/* Footer */}
-              <div className="p-6 border-t border-gray-200">
+              <div className="p-6 border-t border-gray-200 dark:border-gray-800">
                 <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-600 mb-2">
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                    {t("theme.switch") || "Theme"}
+                  </p>
+                  <ThemeSwitcher variant="default" className="w-full mb-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
                     {t("language.switch")}
                   </p>
                   <LanguageSwitcher variant="default" className="w-full" />

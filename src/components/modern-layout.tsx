@@ -9,7 +9,7 @@ interface ModernLayoutProps {
 
 export default function ModernLayout({ children }: ModernLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header - Full Width */}
       <ModernHeader />
 
@@ -17,7 +17,7 @@ export default function ModernLayout({ children }: ModernLayoutProps) {
       <ModernSidebar />
 
       {/* Main Content */}
-      <main className="lg:ml-20 pt-16 min-h-screen bg-gray-50">
+      <main className="lg:ml-20 pt-16 min-h-screen bg-gray-50 dark:bg-gray-900">
         {children}
       </main>
     </div>
