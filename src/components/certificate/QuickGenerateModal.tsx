@@ -317,7 +317,7 @@ export function QuickGenerateModal({
                     <Input 
                       value={certificateNo}
                       onChange={(e) => setCertificateNo(e.target.value)}
-                      placeholder="CERT-001"
+                      placeholder="Certificate Number"
                     />
                   </div>
                   <div className="space-y-2">
@@ -325,7 +325,7 @@ export function QuickGenerateModal({
                     <Input 
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Certificate of Achievement"
+                      placeholder="Description"
                     />
                   </div>
                 </div>

@@ -353,6 +353,25 @@ function ConfigureLayoutContent() {
         lastSavedAt: new Date().toISOString()
       };
 
+      // Debug: Log layers being saved
+      console.log('💾 Saving layout configuration:');
+      if (layoutConfig.certificate) {
+        layoutConfig.certificate.textLayers.forEach(layer => {
+          if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+            console.log(`  - ${layer.id}:`, {
+              x: layer.x,
+              y: layer.y,
+              xPercent: layer.xPercent,
+              yPercent: layer.yPercent,
+              textAlign: layer.textAlign,
+              fontSize: layer.fontSize,
+              lineHeight: layer.lineHeight,
+              maxWidth: layer.maxWidth
+            });
+          }
+        });
+      }
+
       await saveTemplateLayout(template.id, layoutConfig);
       
       toast.success("Layout configuration saved successfully!");

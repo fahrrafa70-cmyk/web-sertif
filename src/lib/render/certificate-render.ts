@@ -93,17 +93,13 @@ export async function renderCertificateToDataURL(
     // In preview, we use CSS transform to position the anchor point
     // Here we need to adjust x coordinate manually
     const align = layer.textAlign || 'left';
-    if (align === 'center') {
-      // Center align: x should be at center of textbox
-      // No adjustment needed, x is already the center point
-    } else if (align === 'right') {
-      // Right align: x should be at right edge of textbox
-      // No adjustment needed, x is already the right edge
-    } else {
-      // Left align: x should be at left edge of textbox
-      // No adjustment needed, x is already the left edge
-    }
-    // x coordinate sudah benar karena xPercent disimpan relatif terhadap anchor point yang sesuai dengan alignment
+    
+    // Set font - CRITICAL: Scale fontSize based on canvas size!
+    const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
+    const baseFontSize = Math.max(1, layer.fontSize || 16);
+    const scaledFontSize = Math.round(baseFontSize * scaleFactor);
+    const fontFamily = layer.fontFamily || 'Arial';
+    ctx.font = `${fontWeight} ${scaledFontSize}px ${fontFamily}`;
     
     console.log(`📝 Rendering layer "${layer.id}":`, {
       text: layer.text.substring(0, 30),
@@ -113,14 +109,12 @@ export async function renderCertificateToDataURL(
       y,
       textAlign: align,
       maxWidth: layer.maxWidth,
-      scaledMaxWidth
+      scaledMaxWidth,
+      lineHeight: layer.lineHeight,
+      baseFontSize,
+      scaledFontSize,
+      scaleFactor
     });
-
-    // Set font
-    const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
-    const fontSize = Math.max(1, layer.fontSize || 16);
-    const fontFamily = layer.fontFamily || 'Arial';
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
 
     // Set color
     ctx.fillStyle = layer.color || '#000000';
@@ -136,7 +130,7 @@ export async function renderCertificateToDataURL(
       x, 
       y, 
       scaledMaxWidth, 
-      fontSize, 
+      scaledFontSize, 
       layer.lineHeight || 1.2,
       align
     );
@@ -183,16 +177,12 @@ function drawWrappedText(
   const lineHeightPx = fontSize * lineHeight;
   
   // CRITICAL: Match preview behavior exactly
-  // Preview has: border(2px) + padding(4px) + text + padding(4px) + border(2px)
-  // CSS transform: translate(0%, -50%) centers the ENTIRE element (including padding/border)
-  // Total element height = 2 + 4 + lineHeightPx + 4 + 2 = lineHeightPx + 12
-  // Offset from center = (lineHeightPx + 12) / 2
-  // With textBaseline='top', we start from top of text, so we need to offset:
-  // y - offset + border(2) + padding(4) = y - (lineHeightPx + 12)/2 + 6
-  const PREVIEW_PADDING = 4;
-  const PREVIEW_BORDER = 2;
-  const elementHeight = lineHeightPx + (PREVIEW_PADDING * 2) + (PREVIEW_BORDER * 2);
-  const startY = y - (elementHeight / 2) + PREVIEW_BORDER + PREVIEW_PADDING;
+  // Preview uses CSS transform: translate(0%, -50%) which centers the text
+  // With textBaseline='top', we need to offset y upward by half of line height
+  // to match the visual center point
+  // NOTE: We don't include padding/border in this calculation because
+  // the stored y coordinate represents the text center, not element center
+  const startY = y - (lineHeightPx / 2);
 
   // Set canvas text alignment
   ctx.textAlign = textAlign === 'center' ? 'center' : (textAlign === 'right' ? 'right' : 'left');
