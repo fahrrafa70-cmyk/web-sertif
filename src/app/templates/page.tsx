@@ -1417,8 +1417,10 @@ export default function TemplatesPage() {
                     variant="outline" 
                     className="border-gray-300 hover:border-gray-400" 
                     onClick={() => setPreviewTemplate(null)}
+                    size="icon"
+                    aria-label="Close"
                   >
-                    {t('common.close')}
+                    <X className="w-4 h-4" />
                   </Button>
                   {(role === "Admin" || role === "Team") && previewTemplate && (
                     <Button 

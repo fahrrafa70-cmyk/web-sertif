@@ -732,7 +732,9 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
               <div className="text-lg font-semibold dark:text-gray-100">{t('hero.certificatePreview')}</div>
               <div className="text-sm text-gray-500 dark:text-gray-400">{previewCert!.certificate_no} · {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
             </div>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)}>{t('hero.close')}</Button>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)} size="icon" aria-label="Close">
+              <X className="w-4 h-4" />
+            </Button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
             <div className="p-4 bg-gray-50 dark:bg-gray-900">
@@ -814,7 +816,9 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700 flex-shrink-0">
             <div className="text-sm text-gray-600 dark:text-gray-400">{t('hero.certificateImage')}</div>
-            <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>{t('hero.close')}</Button>
+            <Button variant="outline" onClick={() => setImagePreviewOpen(false)} size="icon" aria-label="Close">
+              <X className="w-4 h-4" />
+            </Button>
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-900 overflow-auto flex-1">
             {imagePreviewUrl ? (
@@ -835,7 +839,9 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
               <div className="text-lg font-semibold dark:text-gray-100">{t('hero.sendEmailTitle')}</div>
               <div className="text-sm text-gray-500 dark:text-gray-400">{t('hero.sendEmailSubtitle')}</div>
             </div>
-            <Button variant="outline" onClick={() => setSendModalOpen(false)}>{t('hero.close')}</Button>
+            <Button variant="outline" onClick={() => setSendModalOpen(false)} size="icon" aria-label="Close">
+              <X className="w-4 h-4" />
+            </Button>
           </div>
           <div className="p-6 space-y-4">
             {sendPreviewSrc && (

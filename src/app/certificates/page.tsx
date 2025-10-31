@@ -38,7 +38,7 @@ import {
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
-import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -1805,10 +1805,12 @@ function CertificatesContent() {
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
-                      className="border-gray-300 hover:border-gray-400 px-6"
+                      className="border-gray-300 hover:border-gray-400"
                       onClick={() => setPreviewCertificate(null)}
+                      size="icon"
+                      aria-label="Close"
                     >
-                      Close
+                      <X className="w-4 h-4" />
                     </Button>
                     {(role === "Admin" || role === "Team") && (
                       <Button
@@ -2114,8 +2116,10 @@ function CertificatesContent() {
               <Button
                 variant="outline"
                 onClick={() => setMemberDetailOpen(false)}
+                size="icon"
+                aria-label="Close"
               >
-                Close
+                <X className="w-4 h-4" />
               </Button>
             </div>
           </DialogContent>

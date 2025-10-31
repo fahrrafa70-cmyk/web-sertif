@@ -11,7 +11,7 @@ import { Member, createMember, getMembers, updateMember, deleteMember as deleteM
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 
 export default function MembersPage() {
   const { t } = useLanguage();
@@ -670,7 +670,9 @@ export default function MembersPage() {
                 <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold dark:text-gray-100">{t('members.editMember')}</h3>
-                    <Button variant="outline" onClick={() => setEditOpen(false)}>{t('common.close')}</Button>
+                    <Button variant="outline" onClick={() => setEditOpen(false)} size="icon" aria-label="Close">
+                      <X className="w-4 h-4" />
+                    </Button>
                   </div>
                   <form onSubmit={submitEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
@@ -847,8 +849,10 @@ export default function MembersPage() {
                     <Button
                       variant="outline"
                       onClick={() => setDetailModalOpen(false)}
+                      size="icon"
+                      aria-label="Close"
                     >
-                      Close
+                      <X className="w-4 h-4" />
                     </Button>
                     {(role === "Admin" || role === "Team") && (
                       <Button
