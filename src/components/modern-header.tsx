@@ -6,6 +6,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { LanguageSwitcher } from "./language-switcher";
+import { ThemeSwitcher } from "./theme-switcher";
 import UserAvatar from "./user-avatar";
 import MobileSidebar from "./mobile-sidebar";
 
@@ -15,12 +16,12 @@ export default function ModernHeader() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <div className="h-16 px-4 lg:px-4 flex items-center justify-between">
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+            className="lg:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             aria-label="Open Menu"
           >
             <Menu className="w-5 h-5" />
@@ -40,18 +41,22 @@ export default function ModernHeader() {
               
               {/* Text - Simple and clean */}
               <div className="flex flex-col">
-                <span className="text-xl font-bold text-gray-900 leading-tight group-hover:text-gray-700 transition-colors">
+                <span className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
                   E-Certificate
                 </span>
-                <span className="text-[10px] font-medium text-gray-400 tracking-wider uppercase hidden sm:block">
+                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 tracking-wider uppercase hidden sm:block">
                   Certification System
                 </span>
               </div>
             </Link>
           </div>
 
-          {/* Right Section - Language + Avatar or Login */}
-          <div className="flex items-center gap-3 ml-auto">
+          {/* Right Section - Theme + Language + Avatar or Login */}
+          <div className="flex items-center gap-2 ml-auto">
+            {/* Theme Switcher - Hidden on mobile, shown on desktop */}
+            <div className="hidden lg:block">
+              <ThemeSwitcher variant="compact" />
+            </div>
             {/* Language Switcher - Hidden on mobile, shown on desktop */}
             <div className="hidden lg:block">
               <LanguageSwitcher variant="compact" />
@@ -64,7 +69,7 @@ export default function ModernHeader() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9"
+                className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 h-9"
                 onClick={() => setOpenLogin(true)}
               >
                 Login

@@ -485,7 +485,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
 
   return (
     <>
-    <section className="relative w-full flex-1 flex items-center justify-center bg-gray-50">
+    <section className="relative w-full flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-12 md:py-20">
         <motion.div
           variants={containerVariants}
@@ -509,9 +509,9 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
             {/* Search Bar */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center gap-2.5 bg-gray-50 rounded-2xl p-1.5 border border-gray-200 shadow-sm transition-all duration-200">
+                <div className="flex-1 flex items-center gap-2.5 bg-gray-50 dark:bg-gray-800 rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200">
                   <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                     <Input
                       value={certificateId}
                       onChange={(e) => {
@@ -531,7 +531,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                         }
                       }}
                       placeholder={t('search.searchByName')}
-                      className="h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 focus-visible:ring-0 text-sm sm:text-base text-gray-900"
+                      className="h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
                     />
                   </div>
                   <Button
@@ -550,7 +550,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                   type="button"
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className="h-12 px-4 border-gray-300 hover:bg-gray-50"
+                  className="h-12 px-4 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <Filter className="w-4 h-4" />
                 </Button>
@@ -574,18 +574,18 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-3 p-4 bg-white border border-gray-200 rounded-xl shadow-sm"
+                className="mb-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Category Filter */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                       {t('search.category')}
                     </label>
                     <select
                       value={filters.category}
                       onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-10"
+                      className="w-full h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] dark:bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27white%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-10 text-gray-900 dark:text-gray-100"
                     >
                       <option value="">{t('search.allCategories')}</option>
                       {categories.map(cat => (
@@ -596,7 +596,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
 
                   {/* Date Range */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                       {t('search.dateRange')}
                     </label>
                     <div className="flex gap-2">
@@ -605,7 +605,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                           type="date"
                           value={filters.startDate}
                           onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                          className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer"
+                          className="w-full h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer text-gray-900 dark:text-gray-100"
                           placeholder={t('search.startDate')}
                         />
                       </div>
@@ -614,7 +614,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                           type="date"
                           value={filters.endDate}
                           onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                          className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer"
+                          className="w-full h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer text-gray-900 dark:text-gray-100"
                           placeholder={t('search.endDate')}
                         />
                       </div>
@@ -630,7 +630,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                       variant="ghost"
                       size="sm"
                       onClick={clearFilters}
-                      className="text-gray-600 hover:text-gray-900"
+                      className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                     >
                       <X className="w-4 h-4 mr-1" />
                       {t('search.clearFilters')}
@@ -642,12 +642,12 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
 
             {/* Active Filters Indicator */}
             {(filters.category || filters.startDate || filters.endDate) && !showFilters && (
-              <div className="mb-3 flex items-center gap-2 text-sm text-gray-600">
+              <div className="mb-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <span className="font-medium">{t('search.filteredBy')}:</span>
-                {filters.category && <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md">{filters.category}</span>}
-                {filters.startDate && <span className="px-2 py-1 bg-green-100 text-green-700 rounded-md">{filters.startDate}</span>}
-                {filters.endDate && <span className="px-2 py-1 bg-green-100 text-green-700 rounded-md">{filters.endDate}</span>}
-                <button onClick={clearFilters} className="text-red-600 hover:text-red-800">
+                {filters.category && <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md">{filters.category}</span>}
+                {filters.startDate && <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md">{filters.startDate}</span>}
+                {filters.endDate && <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md">{filters.endDate}</span>}
+                <button onClick={clearFilters} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -660,7 +660,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-4"
               >
-                <div className="text-sm text-gray-600 mb-3">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                   {t('search.showingResults')}: {searchResults.length} {searchResults.length === 1 ? t('hero.certificate') : t('hero.certificates')}
                 </div>
                 <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
@@ -669,7 +669,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                       key={cert.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                       onClick={() => {
                         setPreviewCert(cert);
                         setPreviewOpen(true);
@@ -678,7 +678,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                       <div className="flex items-start gap-4 p-4">
                         {/* Certificate Thumbnail */}
                         {cert.certificate_image_url ? (
-                          <div className="flex-shrink-0 w-32 h-24 bg-gray-100 rounded-lg overflow-hidden">
+                          <div className="flex-shrink-0 w-32 h-24 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img 
                               src={cert.certificate_image_url} 
@@ -698,20 +698,20 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                         
                         {/* Certificate Info */}
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-900 truncate">{cert.members?.name || cert.name}</div>
-                          <div className="text-sm text-gray-600 mt-1">{cert.certificate_no}</div>
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{cert.members?.name || cert.name}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{cert.certificate_no}</div>
                           <div className="flex items-center gap-2 mt-2">
                             {cert.category && (
-                              <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-md">
+                              <span className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
                                 {cert.category}
                               </span>
                             )}
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               {new Date(cert.issue_date).toLocaleDateString()}
                             </span>
                           </div>
                           {cert.members?.organization && (
-                            <div className="mt-1 text-xs text-gray-500 truncate">{cert.members.organization}</div>
+                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">{cert.members.organization}</div>
                           )}
                         </div>
                       </div>
@@ -726,37 +726,37 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
     </section>
     {previewOpen && previewCert && (
       <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-4" onClick={() => setPreviewOpen(false)}>
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
             <div>
-              <div className="text-lg font-semibold">{t('hero.certificatePreview')}</div>
-              <div className="text-sm text-gray-500">{previewCert!.certificate_no} · {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
+              <div className="text-lg font-semibold dark:text-gray-100">{t('hero.certificatePreview')}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{previewCert!.certificate_no} · {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
             </div>
             <Button variant="outline" onClick={() => setPreviewOpen(false)}>{t('hero.close')}</Button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-            <div className="p-4 bg-gray-50">
+            <div className="p-4 bg-gray-50 dark:bg-gray-900">
               {previewCert!.certificate_image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={previewCert!.certificate_image_url ?? undefined} alt="Certificate" className="w-full h-auto rounded-lg border" />
               ) : (
-                <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">{t('hero.noPreviewImage')}</div>
+                <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
               )}
             </div>
             <div className="p-6">
               <div className="space-y-2">
-                <div className="text-sm text-gray-500">{t('hero.recipient')}</div>
-                <div className="text-base font-medium">{previewCert!.members?.name || previewCert!.name}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('hero.recipient')}</div>
+                <div className="text-base font-medium dark:text-gray-100">{previewCert!.members?.name || previewCert!.name}</div>
                 {previewCert!.members?.organization && (
-                  <div className="text-sm text-gray-600">{previewCert!.members.organization}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">{previewCert!.members.organization}</div>
                 )}
               </div>
               <div className="mt-4 space-y-1 text-sm">
-                <div><span className="text-gray-500">{t('hero.category')}:</span> {previewCert!.category || "—"}</div>
-                <div><span className="text-gray-500">{t('hero.template')}:</span> {(previewCert as unknown as { templates?: { name?: string } }).templates?.name || "—"}</div>
-                <div><span className="text-gray-500">{t('hero.issued')}:</span> {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
+                <div><span className="text-gray-500 dark:text-gray-400">{t('hero.category')}:</span> {previewCert!.category || "—"}</div>
+                <div><span className="text-gray-500 dark:text-gray-400">{t('hero.template')}:</span> {(previewCert as unknown as { templates?: { name?: string } }).templates?.name || "—"}</div>
+                <div><span className="text-gray-500 dark:text-gray-400">{t('hero.issued')}:</span> {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
                 {previewCert!.expired_date && (
-                  <div><span className="text-gray-500">{t('hero.expires')}:</span> {new Date(previewCert!.expired_date as string).toLocaleDateString()}</div>
+                  <div><span className="text-gray-500 dark:text-gray-400">{t('hero.expires')}:</span> {new Date(previewCert!.expired_date as string).toLocaleDateString()}</div>
                 )}
               </div>
               <div className="mt-6 flex gap-3">
@@ -811,17 +811,17 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
     )}
     {imagePreviewOpen && (
       <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={() => setImagePreviewOpen(false)}>
-        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
-            <div className="text-sm text-gray-600">{t('hero.certificateImage')}</div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700 flex-shrink-0">
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('hero.certificateImage')}</div>
             <Button variant="outline" onClick={() => setImagePreviewOpen(false)}>{t('hero.close')}</Button>
           </div>
-          <div className="p-4 bg-gray-50 overflow-auto flex-1">
+          <div className="p-4 bg-gray-50 dark:bg-gray-900 overflow-auto flex-1">
             {imagePreviewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imagePreviewUrl} alt="Certificate" className="w-full h-auto rounded-lg border" />
             ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500 border rounded-lg bg-white">No image</div>
+              <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">No image</div>
             )}
           </div>
         </div>
@@ -829,24 +829,24 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
     )}
     {sendModalOpen && (
       <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4" onClick={() => setSendModalOpen(false)}>
-        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
             <div>
-              <div className="text-lg font-semibold">{t('hero.sendEmailTitle')}</div>
-              <div className="text-sm text-gray-500">{t('hero.sendEmailSubtitle')}</div>
+              <div className="text-lg font-semibold dark:text-gray-100">{t('hero.sendEmailTitle')}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('hero.sendEmailSubtitle')}</div>
             </div>
             <Button variant="outline" onClick={() => setSendModalOpen(false)}>{t('hero.close')}</Button>
           </div>
           <div className="p-6 space-y-4">
             {sendPreviewSrc && (
               <div className="mb-4">
-                <div className="text-sm text-gray-600 mb-2">{t('hero.certificatePreviewLabel')}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">{t('hero.certificatePreviewLabel')}</div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={sendPreviewSrc} alt="Certificate Preview" className="w-full h-auto rounded-lg border max-h-48 object-contain" />
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">{t('hero.recipientEmail')}</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.recipientEmail')}</label>
               <Input
                 type="email"
                 value={sendForm.email}
@@ -872,7 +872,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">{t('hero.subject')}</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.subject')}</label>
               <Input
                 value={sendForm.subject}
                 onChange={(e) => {
@@ -897,7 +897,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">{t('hero.message')}</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.message')}</label>
               <textarea
                 value={sendForm.message}
                 onChange={(e) => {
@@ -905,7 +905,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                   if (sendFormErrors.message) setSendFormErrors((err) => ({ ...err, message: undefined }));
                 }}
                 placeholder={t('hero.emailMessagePlaceholder')}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                 rows={4}
                 disabled={isSendingEmail}
                 onKeyDown={(e) => {

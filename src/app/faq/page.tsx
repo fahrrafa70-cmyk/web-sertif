@@ -67,7 +67,7 @@ export default function FAQPage() {
         </section>
 
         {/* FAQ Content */}
-        <section className="py-20">
+        <section className="py-20 bg-gray-50 dark:bg-gray-900">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-6">
             <div className="space-y-6">
               {faqs.map((faq, index) => (
@@ -77,19 +77,19 @@ export default function FAQPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                   viewport={{ once: true }}
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300"
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300"
                 >
                   <button
                     onClick={() => toggleItem(index)}
-                    className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors duration-200"
+                    className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
                   >
-                    <h3 className="text-lg font-semibold text-gray-900 pr-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 pr-4">
                       {faq.question}
                     </h3>
                     {openItems.includes(index) ? (
-                      <ChevronUp className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                      <ChevronUp className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                      <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                     )}
                   </button>
                   
@@ -101,7 +101,7 @@ export default function FAQPage() {
                       transition={{ duration: 0.3 }}
                       className="px-6 pb-4"
                     >
-                      <p className="text-gray-600 leading-relaxed">
+                      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                         {faq.answer}
                       </p>
                     </motion.div>

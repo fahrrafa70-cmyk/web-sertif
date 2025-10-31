@@ -97,7 +97,7 @@ export default function AboutPage() {
         </section>
 
         {/* About Content */}
-        <section className="py-20">
+        <section className="py-20 bg-gray-50 dark:bg-gray-900">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <motion.div
@@ -106,16 +106,16 @@ export default function AboutPage() {
                 transition={{ duration: 0.8 }}
                 viewport={{ once: true }}
               >
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">
                   {t('about.title')}
                 </h2>
-                <p className="text-lg text-gray-600 leading-relaxed mb-6">
+                <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
                   {t('about.description1')}
                 </p>
-                <p className="text-lg text-gray-600 leading-relaxed mb-6">
+                <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
                   {t('about.description2')}
                 </p>
-                <p className="text-lg text-gray-600 leading-relaxed">
+                <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
                   {t('about.description2')}
                 </p>
               </motion.div>
@@ -125,33 +125,33 @@ export default function AboutPage() {
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8 }}
                 viewport={{ once: true }}
-                className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-8"
+                className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-8 border border-gray-200 dark:border-gray-700"
               >
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">Key Statistics</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Key Statistics</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                       {statsLoading ? "—" : `${stats.certificates.toLocaleString()}`}
                     </div>
-                    <div className="text-gray-600">Certificates Issued</div>
+                    <div className="text-gray-600 dark:text-gray-300">Certificates Issued</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                       {statsLoading ? "—" : `${stats.templates.toLocaleString()}`}
                     </div>
-                    <div className="text-gray-600">Templates Available</div>
+                    <div className="text-gray-600 dark:text-gray-300">Templates Available</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                       {statsLoading ? "—" : `${stats.members.toLocaleString()}`}
                     </div>
-                    <div className="text-gray-600">Registered Members</div>
+                    <div className="text-gray-600 dark:text-gray-300">Registered Members</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                       {statsLoading ? "—" : `${stats.categories.toLocaleString()}`}
                     </div>
-                    <div className="text-gray-600">Certificate Categories</div>
+                    <div className="text-gray-600 dark:text-gray-300">Certificate Categories</div>
                   </div>
                 </div>
               </motion.div>
@@ -160,7 +160,7 @@ export default function AboutPage() {
         </section>
 
         {/* Features Section */}
-        <section className="py-20 bg-gray-50">
+        <section className="py-20 bg-gray-50 dark:bg-gray-900">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -169,10 +169,10 @@ export default function AboutPage() {
               viewport={{ once: true }}
               className="text-center mb-16"
             >
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                 {t('about.title')}
               </h2>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
                 {t('about.description1')}
               </p>
             </motion.div>
@@ -185,17 +185,17 @@ export default function AboutPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                   viewport={{ once: true }}
-                  className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow duration-300"
+                  className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 dark:border-gray-700"
                 >
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0 w-12 h-12 gradient-primary rounded-lg flex items-center justify-center text-white">
                       {feature.icon}
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                         {feature.title}
                       </h3>
-                      <p className="text-gray-600 leading-relaxed">
+                      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                         {feature.description}
                       </p>
                     </div>

@@ -78,7 +78,7 @@ export default function ModernSidebar() {
   return (
     <>
       {/* Desktop Sidebar - Fixed Left */}
-      <aside className="hidden lg:flex fixed left-0 top-16 h-[calc(100vh-4rem)] w-20 bg-gray-50 flex-col items-center z-40">
+      <aside className="hidden lg:flex fixed left-0 top-16 h-[calc(100vh-4rem)] w-20 bg-gray-50 dark:bg-gray-900 flex-col items-center z-40">
         {/* Spacer for alignment */}
         <div className="mt-6 mb-6"></div>
 
@@ -106,7 +106,7 @@ export default function ModernSidebar() {
                       ${
                         active
                           ? "gradient-primary text-white shadow-md"
-                          : "bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900 shadow-sm"
+                          : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 shadow-sm"
                       }
                     `}
                   >
@@ -120,10 +120,10 @@ export default function ModernSidebar() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
-                    className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg whitespace-nowrap z-50 pointer-events-none"
+                    className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg whitespace-nowrap z-50 pointer-events-none"
                   >
                     {item.label}
-                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900 dark:border-r-gray-700" />
                   </motion.div>
                 )}
               </div>
