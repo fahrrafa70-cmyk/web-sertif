@@ -55,6 +55,8 @@ import { getTemplates } from "@/lib/supabase/templates";
 import { getMembers } from "@/lib/supabase/members";
 import { renderCertificateToDataURL, RenderTextLayer } from "@/lib/render/certificate-render";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
+import { formatDateString } from "@/lib/utils/certificate-formatters";
+import { generateCertificateNumber } from "@/lib/supabase/certificates";
 
 function CertificatesContent() {
   const { t } = useLanguage();
@@ -462,7 +464,7 @@ function CertificatesContent() {
 
   // Quick Generate: Handle certificate generation
   const handleQuickGenerate = async (params: QuickGenerateParams) => {
-    const loadingToast = toast.loading('Generating certificate(s)...');
+    const loadingToast = toast.loading(t('quickGenerate.generatingCertificates'));
     
     try {
       // PRIORITY 1: Try to load layout from database (NEW)
@@ -510,17 +512,49 @@ function CertificatesContent() {
       
       console.log(`✅ Layout loaded: ${defaults.textLayers.length} text layers`);
 
-      if (params.dataSource === 'member' && params.member && params.certificateData) {
-        // Single certificate generation from member
-        await generateSingleCertificate(
-          params.template,
-          params.member,
-          params.certificateData,
-          defaults,
-          params.dateFormat
-        );
-        toast.dismiss(loadingToast);
-        toast.success('Certificate generated successfully!');
+      if (params.dataSource === 'member') {
+        // Member-based generation (single or multiple)
+        if (params.members && params.members.length > 0 && params.certificateData) {
+          // Multiple members - show progress like Excel
+          const total = params.members.length;
+          let generated = 0;
+          let currentToast = loadingToast;
+          
+          for (const member of params.members) {
+            try {
+              await generateSingleCertificate(
+                params.template,
+                member,
+                params.certificateData,
+                defaults,
+                params.dateFormat
+              );
+              
+              generated++;
+              // Update the same toast instead of creating new ones
+              toast.dismiss(currentToast);
+              currentToast = toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`);
+            } catch (error) {
+              console.error('Failed to generate certificate for member:', member.name, error);
+            }
+          }
+          
+          toast.dismiss(currentToast);
+          toast.success(`${t('quickGenerate.successMultiple')} ${generated}/${total} ${t('quickGenerate.certificatesGenerated')}`);
+        } else if (params.member && params.certificateData) {
+          // Single certificate generation from member
+          await generateSingleCertificate(
+            params.template,
+            params.member,
+            params.certificateData,
+            defaults,
+            params.dateFormat
+          );
+          toast.dismiss(loadingToast);
+          toast.success(t('quickGenerate.successSingle'));
+        } else {
+          throw new Error('No member(s) provided for certificate generation');
+        }
       } else if (params.dataSource === 'excel' && params.excelData) {
         // Bulk certificate generation from Excel
         const total = params.excelData.length;
@@ -529,10 +563,20 @@ function CertificatesContent() {
         
         for (const row of params.excelData) {
           try {
-            const certNo = String(row.certificate_no || row.cert_no || `CERT-${Date.now()}`);
+            // Extract data from Excel row
             const name = String(row.name || row.recipient || '');
             const description = String(row.description || '');
-            const issueDate = String(row.issue_date || row.date || new Date().toISOString().split('T')[0]);
+            let issueDate = String(row.issue_date || row.date || '');
+            
+            // CRITICAL: Auto-generate issue_date if empty (use current date)
+            if (!issueDate) {
+              issueDate = new Date().toISOString().split('T')[0];
+            }
+            
+            // CRITICAL: certificate_no will be auto-generated in generateSingleCertificate if empty
+            const certNo = String(row.certificate_no || row.cert_no || '');
+            
+            // CRITICAL: expired_date will be auto-generated in generateSingleCertificate if empty
             const expiredDate = String(row.expired_date || row.expiry || '');
             
             // Create temporary member object from Excel data
@@ -551,6 +595,7 @@ function CertificatesContent() {
               updated_at: new Date().toISOString()
             };
             
+            // generateSingleCertificate will auto-generate certificate_no and expired_date if empty
             await generateSingleCertificate(
               params.template,
               tempMember,
@@ -562,14 +607,14 @@ function CertificatesContent() {
             generated++;
             // Update the same toast instead of creating new ones
             toast.dismiss(currentToast);
-            currentToast = toast.loading(`Generating certificates... ${generated}/${total}`);
+            currentToast = toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`);
           } catch (error) {
             console.error('Failed to generate certificate for row:', row, error);
           }
         }
         
         toast.dismiss(currentToast);
-        toast.success(`Successfully generated ${generated}/${total} certificate(s)!`);
+        toast.success(`${t('quickGenerate.successMultiple')} ${generated}/${total} ${t('quickGenerate.certificatesGenerated')}`);
       }
       
       // Refresh certificates list
@@ -596,6 +641,50 @@ function CertificatesContent() {
     });
     console.log('🗓️ Using date format:', dateFormat);
     
+    // CRITICAL: Auto-generate certificate_no if empty
+    let finalCertificateNo = certData.certificate_no?.trim();
+    if (!finalCertificateNo && certData.issue_date) {
+      console.log('📝 Auto-generating certificate number...');
+      try {
+        const issueDate = new Date(certData.issue_date);
+        finalCertificateNo = await generateCertificateNumber(issueDate);
+        console.log('✨ Auto-generated certificate number:', finalCertificateNo);
+      } catch (error) {
+        console.error('❌ Failed to auto-generate certificate number:', error);
+        // Fallback: use timestamp-based number
+        finalCertificateNo = `CERT-${Date.now()}`;
+      }
+    }
+    
+    // CRITICAL: Auto-generate expired_date if empty (3 years from issue_date)
+    let finalExpiredDate = certData.expired_date?.trim();
+    if (!finalExpiredDate && certData.issue_date) {
+      console.log('📅 Auto-generating expired date...');
+      const issue = new Date(certData.issue_date);
+      const expiry = new Date(issue);
+      expiry.setFullYear(expiry.getFullYear() + 3);
+      finalExpiredDate = expiry.toISOString().split('T')[0];
+      console.log('✨ Auto-generated expired date:', finalExpiredDate);
+    }
+    
+    // CRITICAL: Ensure issue_date is set (use current date if empty)
+    let finalIssueDate = certData.issue_date?.trim();
+    if (!finalIssueDate) {
+      console.log('📅 Setting default issue date (today)...');
+      finalIssueDate = new Date().toISOString().split('T')[0];
+      console.log('✨ Default issue date:', finalIssueDate);
+    }
+    
+    // Use final values for rendering
+    const finalCertData = {
+      certificate_no: finalCertificateNo || certData.certificate_no,
+      description: certData.description || '',
+      issue_date: finalIssueDate,
+      expired_date: finalExpiredDate || certData.expired_date
+    };
+    
+    console.log('✅ Final certificate data for rendering:', finalCertData);
+    
     // Get template image URL
     const templateImageUrl = await getTemplateImageUrl(template);
     
@@ -612,12 +701,17 @@ function CertificatesContent() {
 
         text = layer.defaultText;
       } else {
-        // Map common field IDs to certificate data
+        // Map common field IDs to certificate data (use finalCertData which has auto-generated values)
         if (layer.id === 'name') text = member.name;
-        else if (layer.id === 'certificate_no') text = certData.certificate_no;
-        else if (layer.id === 'description') text = certData.description;
-        else if (layer.id === 'issue_date') text = certData.issue_date;
-        else if (layer.id === 'expired_date') text = certData.expired_date;
+        else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
+        else if (layer.id === 'description') text = finalCertData.description || '';
+        else if (layer.id === 'issue_date') {
+          // CRITICAL FIX: Apply date format to issue_date
+          text = formatDateString(finalCertData.issue_date, dateFormat);
+        } else if (layer.id === 'expired_date') {
+          // CRITICAL FIX: Apply date format to expired_date if available
+          text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
+        }
         // For custom layers without mapping, use defaultText if available
         else if (layer.defaultText) text = layer.defaultText;
       }
@@ -658,29 +752,36 @@ function CertificatesContent() {
     });
     
     // Prepare certificate text layers for database (includes text data)
-    const certificateTextLayers: CertificateTextLayer[] = textLayers.map(layer => ({
-      id: layer.id,
-      text: layer.text,
-      x: layer.x || 0,
-      y: layer.y || 0,
-      xPercent: layer.xPercent || 0,
-      yPercent: layer.yPercent || 0,
-      fontSize: layer.fontSize,
-      color: layer.color,
-      fontWeight: layer.fontWeight || 'normal',
-      fontFamily: layer.fontFamily || 'Arial',
-      textAlign: layer.textAlign,
-      maxWidth: layer.maxWidth,
-      lineHeight: layer.lineHeight,
-    }));
+    // Remove textAlign for certificate_no and issue_date (they always use left alignment)
+    const certificateTextLayers: CertificateTextLayer[] = textLayers.map(layer => {
+      const baseLayer = {
+        id: layer.id,
+        text: layer.text,
+        x: layer.x || 0,
+        y: layer.y || 0,
+        xPercent: layer.xPercent || 0,
+        yPercent: layer.yPercent || 0,
+        fontSize: layer.fontSize,
+        color: layer.color,
+        fontWeight: layer.fontWeight || 'normal',
+        fontFamily: layer.fontFamily || 'Arial',
+        maxWidth: layer.maxWidth,
+        lineHeight: layer.lineHeight,
+      };
+      // Only include textAlign if it's not certificate_no or issue_date
+      if (layer.id !== 'certificate_no' && layer.id !== 'issue_date') {
+        return { ...baseLayer, textAlign: layer.textAlign };
+      }
+      return baseLayer;
+    });
     
-    // Create certificate data to save
+    // Create certificate data to save (use finalCertData which has auto-generated values)
     const certificateDataToSave: CreateCertificateData = {
-      certificate_no: certData.certificate_no,
+      certificate_no: finalCertData.certificate_no,
       name: member.name.trim(),
-      description: certData.description.trim() || undefined,
-      issue_date: certData.issue_date,
-      expired_date: certData.expired_date || undefined,
+      description: finalCertData.description.trim() || undefined,
+      issue_date: finalCertData.issue_date,
+      expired_date: finalCertData.expired_date || undefined,
       category: template.category || undefined,
       template_id: template.id,
       member_id: member.id.startsWith('temp-') ? undefined : member.id, // Don't save temp IDs from Excel
@@ -1624,6 +1725,22 @@ function CertificatesContent() {
                                     : 1;
                                   
                                   const scaledFontSize = layer.fontSize * containerScale;
+                                  const scaledMaxWidth = layer.maxWidth ? layer.maxWidth * containerScale : undefined;
+
+                                  // CRITICAL FIX: Match configure page transform behavior based on textAlign
+                                  // Configure page uses:
+                                  // - center: translate(-50%, -50%) → (x,y) is the CENTER
+                                  // - right: translate(-100%, -50%) → (x,y) is the RIGHT edge, center Y
+                                  // - left: translate(0%, -50%) → (x,y) is the LEFT edge, center Y
+                                  // certificate_no and issue_date always use left alignment
+                                  const textAlign = (layer.id === 'certificate_no' || layer.id === 'issue_date') 
+                                    ? 'left' 
+                                    : (layer.textAlign || 'left');
+                                  const getTransform = () => {
+                                    if (textAlign === 'center') return 'translate(-50%, -50%)';
+                                    if (textAlign === 'right') return 'translate(-100%, -50%)';
+                                    return 'translate(0%, -50%)'; // left
+                                  };
 
                                   return (
                                     <div
@@ -1636,10 +1753,15 @@ function CertificatesContent() {
                                         color: layer.color,
                                         fontWeight: layer.fontWeight,
                                         fontFamily: layer.fontFamily,
+                                        textAlign: textAlign,
+                                        whiteSpace: scaledMaxWidth ? 'normal' : 'nowrap',
+                                        width: scaledMaxWidth ? `${scaledMaxWidth}px` : 'auto',
+                                        lineHeight: layer.lineHeight || 1.2,
+                                        wordWrap: 'break-word',
+                                        overflowWrap: 'break-word',
                                         userSelect: "none",
                                         pointerEvents: "none",
-                                        transform: "translate(0, 0)",
-                                        textAlign: "left",
+                                        transform: getTransform(),
                                       }}
                                     >
                                       {layer.text}
@@ -1670,6 +1792,19 @@ function CertificatesContent() {
                                 : 1;
                               
                               const scaledFontSize = layer.fontSize * containerScale;
+                              const scaledMaxWidth = layer.maxWidth ? layer.maxWidth * containerScale : undefined;
+
+                              // CRITICAL FIX: Match configure page transform behavior based on textAlign
+                              // Configure page uses:
+                              // - center: translate(-50%, -50%) → (x,y) is the CENTER
+                              // - right: translate(-100%, -50%) → (x,y) is the RIGHT edge, center Y
+                              // - left: translate(0%, -50%) → (x,y) is the LEFT edge, center Y
+                              const textAlign = layer.textAlign || 'left';
+                              const getTransform = () => {
+                                if (textAlign === 'center') return 'translate(-50%, -50%)';
+                                if (textAlign === 'right') return 'translate(-100%, -50%)';
+                                return 'translate(0%, -50%)'; // left
+                              };
                               
                               return (
                                 <div
@@ -1682,11 +1817,15 @@ function CertificatesContent() {
                                     color: layer.color,
                                     fontWeight: layer.fontWeight,
                                     fontFamily: layer.fontFamily,
+                                    textAlign: textAlign,
+                                    whiteSpace: scaledMaxWidth ? 'normal' : 'nowrap',
+                                    width: scaledMaxWidth ? `${scaledMaxWidth}px` : 'auto',
+                                    lineHeight: layer.lineHeight || 1.2,
+                                    wordWrap: 'break-word',
+                                    overflowWrap: 'break-word',
                                     userSelect: "none",
                                     pointerEvents: "none",
-                                    // CRITICAL FIX: Use same positioning as Certificate system for consistency
-                                    transform: "translate(0, 0)",
-                                    textAlign: "left",
+                                    transform: getTransform(),
                                   }}
                                 >
                                   {content}

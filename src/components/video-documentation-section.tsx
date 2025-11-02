@@ -81,11 +81,11 @@ export default function VideoDocumentationSection() {
           >
             <div className="bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl p-6 shadow-2xl">
               <div className="grid grid-cols-1 gap-4">
-                <div className="bg-white rounded-xl p-2 shadow-md">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-2 shadow-md border border-gray-200 dark:border-gray-700">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/template/1760879828593-hylf7mf2w36.png" alt="Certificate image 1" className="w-full h-auto rounded-md border" />
                 </div>
-                <div className="bg-white rounded-xl p-2 shadow-md">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-2 shadow-md border border-gray-200 dark:border-gray-700">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/template/1760848158433-h665mi1gvba.png" alt="Certificate image 2" className="w-full h-auto rounded-md border" />
                 </div>
@@ -137,9 +137,9 @@ export default function VideoDocumentationSection() {
             </div>
 
             {/* Additional Info */}
-            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
-              <h4 className="text-lg font-semibold text-gray-900 mb-3">Key Features Highlighted</h4>
-              <ul className="space-y-2 text-gray-600">
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Key Features Highlighted</h4>
+              <ul className="space-y-2 text-gray-600 dark:text-gray-400">
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
                   {t('about.features.multiUser')}

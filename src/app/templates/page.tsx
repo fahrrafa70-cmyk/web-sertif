@@ -505,7 +505,7 @@ export default function TemplatesPage() {
                             alt={tpl.name}
                             fill
                             sizes="(max-width: 1280px) 50vw, 33vw"
-                            className="object-contain dark:brightness-150 dark:contrast-125"
+                            className="object-contain dark:opacity-90 dark:brightness-95"
                             unoptimized
                             onError={() => {
                               // Mark image as failed and show fallback
@@ -772,7 +772,7 @@ export default function TemplatesPage() {
                   type="file"
                   accept=".png,.jpg,.jpeg"
                   onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
                 />
                 {imagePreview && (
                   <div className="relative">
@@ -818,7 +818,7 @@ export default function TemplatesPage() {
                       type="file"
                       accept=".png,.jpg,.jpeg"
                       onChange={(e) => handleCertificateImageUpload(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
                     />
                     {certificateImagePreview && (
                       <div className="relative">
@@ -970,12 +970,12 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Template Name</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Template Name</label>
                   <Input 
                     value={draft?.name ?? ""} 
                     onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))} 
                     placeholder="Enter template name"
-                    className="rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+                    className="rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 dark:bg-gray-900 dark:text-gray-100"
                   />
                 </motion.div>
 
@@ -986,11 +986,11 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.1 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Category</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Category</label>
                   <select 
                     value={draft?.category ?? ""} 
                     onChange={(e) => setDraft((d) => (d ? { ...d, category: e.target.value } : d))} 
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select category</option>
                     <option value="MoU">MoU</option>
@@ -1010,7 +1010,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.2 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Orientation</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Orientation</label>
                   <div className="grid grid-cols-2 gap-3">
                     <Button 
                       variant={draft?.orientation === "Landscape" ? "default" : "outline"} 
@@ -1038,7 +1038,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.25 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Template Mode</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Template Mode</label>
                   <div className="grid grid-cols-2 gap-3">
                     <Button 
                       variant={!isDualTemplate ? "default" : "outline"} 
@@ -1074,8 +1074,8 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.3 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700">Current Template Image</label>
-                      <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Template Image</label>
+                      <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {imagePreview ? (
                           <div className="relative w-full h-40">
                             <Image
@@ -1116,13 +1116,13 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.4 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700">Change Template Image</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Change Template Image</label>
                       <div className="space-y-3">
                         <input
                           type="file"
                           accept=".png,.jpg,.jpeg"
                           onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
-                          className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
                         />
                         {imagePreview && (
                           <Button
@@ -1150,8 +1150,8 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.3 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700">Current Certificate Image (Front)</label>
-                      <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Certificate Image (Front)</label>
+                      <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {certificateImagePreview ? (
                           <div className="relative w-full h-40">
                             <Image
@@ -1192,13 +1192,13 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.4 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700">Change Certificate Image</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Change Certificate Image</label>
                       <div className="space-y-3">
                         <input
                           type="file"
                           accept=".png,.jpg,.jpeg"
                           onChange={(e) => handleCertificateImageUpload(e.target.files?.[0] || null)}
-                          className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
                         />
                         {certificateImagePreview && (
                           <Button
@@ -1221,8 +1221,8 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.5 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700">Current Score Image (Back)</label>
-                      <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Score Image (Back)</label>
+                      <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {scoreImagePreview ? (
                           <div className="relative w-full h-40">
                             <Image
@@ -1263,7 +1263,7 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.6 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700">Change Score Image</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Change Score Image</label>
                       <div className="space-y-3">
                         <input
                           type="file"
@@ -1294,8 +1294,8 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.5 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Current Preview Image (Thumbnail)</label>
-                  <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Preview Image (Thumbnail)</label>
+                  <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                     {previewImagePreview ? (
                       <div className="relative w-full h-32">
                         <Image
@@ -1336,7 +1336,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.6 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Change Preview Image</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Change Preview Image</label>
                   <div className="space-y-3">
                     <input
                       type="file"
@@ -1360,7 +1360,7 @@ export default function TemplatesPage() {
 
                 {/* Action Buttons */}
                 <motion.div 
-                  className="flex justify-end gap-4 pt-6 border-t border-gray-200"
+                  className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.7 }}
@@ -1393,14 +1393,14 @@ export default function TemplatesPage() {
                 <SheetDescription>Preview the selected template.</SheetDescription>
               </SheetHeader>
               <div className="p-4 space-y-6">
-                <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                   {previewTemplate && getTemplatePreviewUrl(previewTemplate) ? (
-                    <div className="relative w-full aspect-video">
+                    <div className="relative w-full aspect-video bg-gray-50 dark:bg-gray-800">
                       <Image
                         src={getTemplatePreviewUrl(previewTemplate)!}
                         alt={previewTemplate.name}
                         fill
-                        className="object-contain bg-gray-50"
+                        className="object-contain dark:opacity-90 dark:brightness-95"
                         unoptimized
                       />
                     </div>

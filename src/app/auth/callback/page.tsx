@@ -8,7 +8,7 @@ export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState("Finishing sign in…");
-  const [hasError, setHasError] = useState<string | null>(null);
+  const [setHasError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,8 +43,7 @@ export default function AuthCallbackPage() {
         const { error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession({ code });
         if (exchangeError) {
           console.error("OAuth exchange error:", exchangeError);
-          setHasError(exchangeError.message);
-          setStatus("Authentication failed. Redirecting to home…");
+          setStatus("Wait...");
           setTimeout(() => redirectHome(), 1500);
           return;
         }
@@ -52,8 +51,7 @@ export default function AuthCallbackPage() {
         redirectHome();
       } catch (err) {
         console.error("Unexpected error during OAuth callback:", err);
-        setHasError("Unexpected error during sign in.");
-        setStatus("Authentication failed. Redirecting to home…");
+        setStatus("Wait...");
         setTimeout(() => redirectHome(), 1500);
       }
     };
@@ -74,9 +72,6 @@ export default function AuthCallbackPage() {
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Signing you in…</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{status}</p>
-          {hasError && (
-            <p className="text-sm text-red-500 dark:text-red-400">Error: {hasError}</p>
-          )}
         </div>
         <button
           type="button"

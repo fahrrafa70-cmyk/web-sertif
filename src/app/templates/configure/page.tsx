@@ -18,6 +18,7 @@ import { toast, Toaster } from "sonner";
 import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import Image from "next/image";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 // Dummy data for preview
 const DUMMY_DATA = {
@@ -55,6 +56,9 @@ function ConfigureLayoutContent() {
   // Canvas ref
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasScale, setCanvasScale] = useState(1);
+  
+  // Preview modal state
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   // Load template and existing layout
   useEffect(() => {
@@ -85,11 +89,21 @@ function ConfigureLayoutContent() {
           console.log('📦 Loading existing layout configuration');
           
           // Migrate old data: ensure all layers have maxWidth and lineHeight
-          const migratedLayers = (existingLayout.certificate.textLayers as TextLayer[]).map(layer => ({
-            ...layer,
-            maxWidth: layer.maxWidth || 300, // Default maxWidth if missing
-            lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
-          }));
+          // Remove textAlign for certificate_no and issue_date (they always use left alignment)
+          const migratedLayers = (existingLayout.certificate.textLayers as TextLayer[]).map(layer => {
+            const migrated = {
+              ...layer,
+              maxWidth: layer.maxWidth || 300, // Default maxWidth if missing
+              lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
+            };
+            // Remove textAlign property for certificate_no and issue_date
+            if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+              const { textAlign, ...rest } = migrated;
+              void textAlign;
+              return rest;
+            }
+            return migrated;
+          });
           
           setTextLayers(migratedLayers);
           console.log('✅ Migrated layers with default maxWidth and lineHeight');
@@ -137,7 +151,7 @@ function ConfigureLayoutContent() {
         color: '#000000',
         fontWeight: 'normal',
         fontFamily: 'Arial',
-        textAlign: 'left',
+        // No textAlign for certificate_no - always uses left alignment
         maxWidth: 300,
         lineHeight: 1.2,
       },
@@ -151,7 +165,7 @@ function ConfigureLayoutContent() {
         color: '#000000',
         fontWeight: 'normal',
         fontFamily: 'Arial',
-        textAlign: 'center',
+        // No textAlign for issue_date - always uses left alignment
         maxWidth: 300,
         lineHeight: 1.2,
       },
@@ -273,11 +287,124 @@ function ConfigureLayoutContent() {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Helper: Measure text width using temporary canvas
+  // Uses absolute pixel measurements (not scaled) to match coordinate system
+  const measureTextWidth = (text: string, fontSize: number, fontFamily: string, fontWeight: string, maxWidth?: number): number => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 0;
+    
+    // Use absolute font size (not scaled) for measurement to match coordinate system
+    // The coordinate system is based on STANDARD_CANVAS_WIDTH (800px)
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    
+    // If maxWidth is set, measure wrapped text width (longest line)
+    if (maxWidth && maxWidth > 0) {
+      const words = text.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const metrics = ctx.measureText(testLine);
+        
+        if (metrics.width > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+      
+      // Return width of longest line (or maxWidth, whichever is smaller)
+      let maxLineWidth = 0;
+      for (const line of lines) {
+        const metrics = ctx.measureText(line);
+        maxLineWidth = Math.max(maxLineWidth, metrics.width);
+      }
+      return Math.min(maxLineWidth, maxWidth);
+    }
+    
+    // Single line text - return actual text width
+    return ctx.measureText(text).width;
+  };
+
   // Update text layer property
   const updateLayer = (layerId: string, updates: Partial<TextLayer>) => {
-    setTextLayers(prev => prev.map(l => 
-      l.id === layerId ? { ...l, ...updates } : l
-    ));
+    setTextLayers(prev => {
+      const layer = prev.find(l => l.id === layerId);
+      if (!layer) return prev;
+      
+      // CRITICAL FIX: If textAlign is changing, adjust x coordinate to maintain visual position
+      // The stored x coordinate represents the anchor point (left/center/right edge)
+      // CSS transform translates this anchor to the visual position
+      // When alignment changes, we need to recalculate x so the visual position stays the same
+      // NOTE: certificate_no and issue_date don't support textAlign changes - they always use left
+      if (updates.textAlign && updates.textAlign !== layer.textAlign && 
+          layer.id !== 'certificate_no' && layer.id !== 'issue_date') {
+        const oldAlign = layer.textAlign || 'left';
+        const newAlign = updates.textAlign;
+        
+        // Get text content for measurement
+        const text = previewTexts[layerId] || 
+                     layer.defaultText || 
+                     DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
+                     layer.id;
+        
+        // Measure text width (with maxWidth constraint if applicable)
+        const textWidth = measureTextWidth(
+          text,
+          layer.fontSize,
+          layer.fontFamily,
+          layer.fontWeight,
+          layer.maxWidth
+        );
+        
+        // Calculate the current visual center position based on old alignment and stored x
+        // CSS transforms: left(0%,-50%), center(-50%,-50%), right(-100%,-50%)
+        // The stored x is the anchor point, transform shifts it to visual position
+        let currentVisualCenterX = layer.x;
+        if (oldAlign === 'center') {
+          // x is already the center (transform(-50%,-50%) makes it the visual center)
+          currentVisualCenterX = layer.x;
+        } else if (oldAlign === 'right') {
+          // x is right edge, transform(-100%,-50%) shifts it left by 100% of element width
+          // So visual center is at: x - (textWidth / 2)
+          currentVisualCenterX = layer.x - (textWidth / 2);
+        } else {
+          // left: x is left edge, transform(0%,-50%) doesn't shift horizontally
+          // So visual center is at: x + (textWidth / 2)
+          currentVisualCenterX = layer.x + (textWidth / 2);
+        }
+        
+        // Calculate new x coordinate (anchor point) to maintain the same visual center
+        let newX = currentVisualCenterX;
+        if (newAlign === 'center') {
+          // For center, x IS the center, so newX = visualCenter
+          newX = currentVisualCenterX;
+        } else if (newAlign === 'right') {
+          // For right, x is right edge, visual center is at x - textWidth/2
+          // So: x = visualCenter + textWidth/2
+          newX = currentVisualCenterX + (textWidth / 2);
+        } else {
+          // left: x is left edge, visual center is at x + textWidth/2
+          // So: x = visualCenter - textWidth/2
+          newX = currentVisualCenterX - (textWidth / 2);
+        }
+        
+        // Clamp and update x and xPercent
+        newX = Math.max(0, Math.min(STANDARD_CANVAS_WIDTH, Math.round(newX)));
+        updates.x = newX;
+        updates.xPercent = newX / STANDARD_CANVAS_WIDTH;
+      }
+      
+      return prev.map(l => 
+        l.id === layerId ? { ...l, ...updates } : l
+      );
+    });
   };
 
   // Add new text layer
@@ -339,6 +466,12 @@ function ConfigureLayoutContent() {
             const { isDragging, isEditing, ...rest } = layer;
             void isDragging;
             void isEditing;
+            // Remove textAlign property for certificate_no and issue_date
+            if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+              const { textAlign, ...restWithoutTextAlign } = rest;
+              void textAlign;
+              return restWithoutTextAlign;
+            }
             return rest;
           })
         },
@@ -349,25 +482,6 @@ function ConfigureLayoutContent() {
         version: "1.0",
         lastSavedAt: new Date().toISOString()
       };
-
-      // Debug: Log layers being saved
-      console.log('💾 Saving layout configuration:');
-      if (layoutConfig.certificate) {
-        layoutConfig.certificate.textLayers.forEach(layer => {
-          if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
-            console.log(`  - ${layer.id}:`, {
-              x: layer.x,
-              y: layer.y,
-              xPercent: layer.xPercent,
-              yPercent: layer.yPercent,
-              textAlign: layer.textAlign,
-              fontSize: layer.fontSize,
-              lineHeight: layer.lineHeight,
-              maxWidth: layer.maxWidth
-            });
-          }
-        });
-      }
 
       await saveTemplateLayout(template.id, layoutConfig);
       
@@ -451,19 +565,12 @@ function ConfigureLayoutContent() {
                 <ArrowLeft className="w-4 h-4 mr-2 border-2 border-gray-300 dark:border-gray-600 rounded-full" />
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Configure Layout: {template.name}
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {template.name}
                 </h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={addTextLayer}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Text Layer
-              </Button>
               <Button
                 onClick={handleSave}
                 disabled={saving}
@@ -477,7 +584,7 @@ function ConfigureLayoutContent() {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Save Layout
+                    Save
                   </>
                 )}
               </Button>
@@ -488,16 +595,16 @@ function ConfigureLayoutContent() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8 mt-20">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Canvas Preview */}
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Compact Canvas for Editing */}
+          <div className="lg:col-span-3">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                Template Preview
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+
+              </div>
               <div 
                 ref={canvasRef}
-                className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 overflow-hidden"
+                className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden"
                 style={{ 
                   aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
                   cursor: 'default',
@@ -533,7 +640,12 @@ function ConfigureLayoutContent() {
                   const isSelected = selectedLayerId === layer.id;
                   
                   // Calculate transform based on alignment
+                  // certificate_no and issue_date always use left alignment (no textAlign property)
                   const getTransform = () => {
+                    // Force left alignment for certificate_no and issue_date
+                    if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                      return 'translate(0%, -50%)'; // Always left-aligned
+                    }
                     const align = layer.textAlign || 'left';
                     if (align === 'center') return 'translate(-50%, -50%)';
                     if (align === 'right') return 'translate(-100%, -50%)'; // Anchor at right
@@ -561,7 +673,8 @@ function ConfigureLayoutContent() {
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
-                          textAlign: layer.textAlign || 'left',
+                          // certificate_no and issue_date always use left alignment
+                          textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                           whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
                           width: layer.maxWidth ? `${layer.maxWidth * canvasScale}px` : 'auto',
                           minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * canvasScale}px`,
@@ -679,12 +792,22 @@ function ConfigureLayoutContent() {
 
           {/* Configuration Panel */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-6 space-y-6">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-6 space-y-6 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
               {/* Text Layers List */}
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Text Layers ({textLayers.length})
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Text Layers ({textLayers.length})
+                  </h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addTextLayer}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Text Layer
+                  </Button>
+                </div>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {textLayers.map(layer => {
                     const isRequired = ['name', 'certificate_no', 'issue_date'].includes(layer.id);
@@ -873,24 +996,27 @@ function ConfigureLayoutContent() {
 
                     {/* Text Align & Line Height */}
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs text-gray-700 dark:text-gray-300">Text Align</Label>
-                        <Select 
-                          value={selectedLayer.textAlign || 'left'}
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { textAlign: value as TextLayer['textAlign'] })}
-                        >
-                          <SelectTrigger className="h-7 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
-                            <SelectValue placeholder="Align" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                            <SelectItem value="left">Left</SelectItem>
-                            <SelectItem value="center">Center</SelectItem>
-                            <SelectItem value="right">Right</SelectItem>
-                            <SelectItem value="justify">Justify</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
+                      {/* Hide Text Align for certificate_no and issue_date - they always use left alignment */}
+                      {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && (
+                        <div>
+                          <Label className="text-xs text-gray-700 dark:text-gray-300">Text Align</Label>
+                          <Select 
+                            value={selectedLayer.textAlign || 'left'}
+                            onValueChange={(value) => updateLayer(selectedLayer.id, { textAlign: value as TextLayer['textAlign'] })}
+                          >
+                            <SelectTrigger className="h-7 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
+                              <SelectValue placeholder="Align" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
+                              <SelectItem value="left">Left</SelectItem>
+                              <SelectItem value="center">Center</SelectItem>
+                              <SelectItem value="right">Right</SelectItem>
+                              <SelectItem value="justify">Justify</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <div className={['certificate_no', 'issue_date'].includes(selectedLayer.id) ? 'col-span-2' : ''}>
                         <Label className="text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
                         <Input
                           type="number"
@@ -950,32 +1076,128 @@ function ConfigureLayoutContent() {
               )}
 
               {/* Validation */}
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                  Validation
-                </h3>
-                <div className="space-y-2 text-sm">
-                  {['name', 'certificate_no', 'issue_date'].map(fieldId => {
-                    const exists = textLayers.some(l => l.id === fieldId);
-                    return (
-                      <div key={fieldId} className="flex items-center gap-2">
-                        {exists ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 text-red-500" />
-                        )}
-                        <span className={exists ? 'text-gray-700' : 'text-red-600'}>
-                          {fieldId.replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              
             </div>
           </div>
         </div>
       </div>
+
+      {/* Full Preview Modal */}
+      <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              Template Preview
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400">
+              Informasi dan preview template sertifikat
+            </DialogDescription>
+          </DialogHeader>
+          
+          {/* Template Information */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Nama Template</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.name}</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Kategori</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.category || '-'}</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Format</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.orientation || '-'}</p>
+            </div>
+          </div>
+
+          {/* Preview Canvas */}
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Preview Template</h3>
+            <div 
+              className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden mx-auto"
+              style={{ 
+                width: '100%',
+                aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
+                maxWidth: '800px',
+                cursor: 'default',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none'
+              }}
+            >
+              {/* Template Background */}
+              {templateImageUrl && (
+                <div className="absolute inset-0" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                  <Image
+                    src={templateImageUrl}
+                    alt={template.name}
+                    fill
+                    className="object-contain"
+                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                    unoptimized
+                    draggable={false}
+                  />
+                </div>
+              )}
+              
+              {/* Text Layers */}
+              {textLayers.map(layer => {
+                // Priority: preview text > default text > dummy data > layer id
+                const text = previewTexts[layer.id] || 
+                             layer.defaultText || 
+                             DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
+                             layer.id;
+                
+                // Calculate transform based on alignment
+                const getTransform = () => {
+                  // Force left alignment for certificate_no and issue_date
+                  if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                    return 'translate(0%, -50%)'; // Always left-aligned
+                  }
+                  const align = layer.textAlign || 'left';
+                  if (align === 'center') return 'translate(-50%, -50%)';
+                  if (align === 'right') return 'translate(-100%, -50%)';
+                  return 'translate(0%, -50%)';
+                };
+                
+                return (
+                  <div
+                    key={layer.id}
+                    className="absolute"
+                    style={{
+                      left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
+                      top: `${(layer.y / STANDARD_CANVAS_HEIGHT) * 100}%`,
+                      transform: getTransform(),
+                      zIndex: 1
+                    }}
+                  >
+                    <div
+                      className="relative"
+                      style={{
+                        fontSize: `${layer.fontSize}px`,
+                        color: layer.color,
+                        fontWeight: layer.fontWeight,
+                        fontFamily: layer.fontFamily,
+                        textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
+                        whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
+                        width: layer.maxWidth ? `${layer.maxWidth}px` : 'auto',
+                        minHeight: `${layer.fontSize * (layer.lineHeight || 1.2)}px`,
+                        lineHeight: layer.lineHeight || 1.2,
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                        userSelect: 'none',
+                      }}
+                    >
+                      {text}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Toaster position="top-right" richColors />
     </div>

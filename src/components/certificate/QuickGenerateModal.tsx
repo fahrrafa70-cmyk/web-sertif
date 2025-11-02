@@ -14,7 +14,7 @@ import { Member } from "@/lib/supabase/members";
 import { DateFormat, DATE_FORMATS } from "@/types/certificate-generator";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { generateCertificateNumber } from "@/lib/supabase/certificates";
+import { useLanguage } from "@/contexts/language-context";
 
 interface QuickGenerateModalProps {
   open: boolean;
@@ -30,8 +30,9 @@ export interface QuickGenerateParams {
   dateFormat: DateFormat;
   // For Excel
   excelData?: Array<Record<string, unknown>>;
-  // For Member
+  // For Member (can be single or multiple - handled in modal)
   member?: Member;
+  members?: Member[]; // Array of members for bulk generation
   certificateData?: {
     certificate_no: string;
     description: string;
@@ -47,16 +48,15 @@ export function QuickGenerateModal({
   members,
   onGenerate 
 }: QuickGenerateModalProps) {
+  const { t } = useLanguage();
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [dataSource, setDataSource] = useState<'excel' | 'member'>('member');
   const [dateFormat, setDateFormat] = useState<DateFormat>('dd-mm-yyyy');
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]); // Multiple members
   const [excelData, setExcelData] = useState<Array<Record<string, unknown>>>([]);
   const [generating, setGenerating] = useState(false);
   
   // Certificate data for member source - Initialize with default values
-  const [certificateNo, setCertificateNo] = useState('');
-  const [description, setDescription] = useState('');
   const [issueDate, setIssueDate] = useState(() => {
     const now = new Date();
     return now.toISOString().split('T')[0];
@@ -80,23 +80,6 @@ export function QuickGenerateModal({
     }
   }, [open, templates, members]);
   
-  // Auto-generate certificate number when modal opens or issue date changes
-  useEffect(() => {
-    const autoGenerateCertNo = async () => {
-      if (open && issueDate && !certificateNo) {
-        try {
-          const issueDateTime = new Date(issueDate);
-          const newCertNo = await generateCertificateNumber(issueDateTime);
-          setCertificateNo(newCertNo);
-          console.log('✨ Auto-generated certificate number:', newCertNo);
-        } catch (error) {
-          console.error('Failed to auto-generate certificate number:', error);
-        }
-      }
-    };
-    
-    autoGenerateCertNo();
-  }, [open, issueDate, certificateNo]);
   
   // Auto-update expired date when issue date changes (3 years from issue date)
   useEffect(() => {
@@ -121,70 +104,83 @@ export function QuickGenerateModal({
       const data = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as Array<Record<string, unknown>>;
       
       setExcelData(data);
-      toast.success(`Loaded ${data.length} rows from Excel`);
+      toast.success(`${t('quickGenerate.loadedRows')} ${data.length} ${t('quickGenerate.rowsFromExcel')}`);
     } catch (error) {
       console.error('Excel parse error:', error);
-      toast.error('Failed to parse Excel file');
+      toast.error(t('quickGenerate.parseExcelError'));
     }
   };
 
   const handleGenerate = async () => {
     if (!selectedTemplate) {
-      toast.error('Please select a template');
+      toast.error(t('quickGenerate.selectTemplateError'));
       return;
     }
 
-    if (dataSource === 'member' && !selectedMember) {
-      toast.error('Please select a member');
-      return;
-    }
-
-    if (dataSource === 'member' && !certificateNo) {
-      toast.error('Please enter certificate number');
+    if (dataSource === 'member' && selectedMembers.length === 0) {
+      toast.error(t('quickGenerate.selectMemberError'));
       return;
     }
 
     if (dataSource === 'excel' && excelData.length === 0) {
-      toast.error('Please upload Excel file');
+      toast.error(t('quickGenerate.uploadExcelError'));
       return;
     }
 
     try {
       setGenerating(true);
       
-      const params: QuickGenerateParams = {
-        template: selectedTemplate,
-        dataSource,
-        dateFormat,
-        ...(dataSource === 'excel' ? {
-          excelData
-        } : {
-          member: selectedMember!,
+      // For multiple members, pass all at once for progress tracking
+      if (dataSource === 'member') {
+        const selectedMemberObjects = selectedMembers
+          .map(id => members.find(m => m.id === id))
+          .filter((m): m is Member => m !== undefined);
+
+        const params: QuickGenerateParams = {
+          template: selectedTemplate,
+          dataSource: 'member',
+          dateFormat,
+          members: selectedMemberObjects, // Pass array of members
           certificateData: {
-            certificate_no: certificateNo,
-            description,
+            certificate_no: '', // Will be auto-generated
+            description: '',
             issue_date: issueDate,
             expired_date: expiredDate
           }
-        })
-      };
+        };
 
-      await onGenerate(params);
+        await onGenerate(params);
+      } else {
+        // Excel source - single call
+        const params: QuickGenerateParams = {
+          template: selectedTemplate,
+          dataSource: 'excel',
+          dateFormat,
+          excelData
+        };
+        await onGenerate(params);
+      }
       
       // Reset form
       setSelectedTemplate(null);
-      setSelectedMember(null);
+      setSelectedMembers([]);
       setExcelData([]);
-      setCertificateNo('');
-      setDescription('');
-      setIssueDate('');
-      setExpiredDate('');
+      setIssueDate(() => {
+        const now = new Date();
+        return now.toISOString().split('T')[0];
+      });
+      setExpiredDate(() => {
+        const now = new Date();
+        const expiry = new Date(now);
+        expiry.setFullYear(expiry.getFullYear() + 3);
+        return expiry.toISOString().split('T')[0];
+      });
       
       // Toast success is handled in parent component (handleQuickGenerate)
       onClose();
     } catch (error) {
       console.error('Generate error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to generate certificate');
+      toast.error(error instanceof Error ? error.message : t('quickGenerate.generateError'));
     } finally {
       setGenerating(false);
     }
@@ -196,10 +192,10 @@ export function QuickGenerateModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Zap className="w-6 h-6 text-yellow-500" />
-            Generate Certificate
+            {t('quickGenerate.title')}
           </DialogTitle>
           <DialogDescription>
-            Generate certificates by selecting a template and data source
+            {t('quickGenerate.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -208,7 +204,7 @@ export function QuickGenerateModal({
           <div className="space-y-3">
             <Label className="text-base font-semibold flex items-center gap-2">
               <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
-              Select Template
+              {t('quickGenerate.selectTemplate')}
             </Label>
             <Select value={selectedTemplate?.id || ''} onValueChange={(id) => {
               const template = templates.find(t => t.id === id);
@@ -216,11 +212,11 @@ export function QuickGenerateModal({
               console.log('✅ Template selected:', template?.name);
             }}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose a template..." />
+                <SelectValue placeholder={t('quickGenerate.chooseTemplate')} />
               </SelectTrigger>
               <SelectContent position="popper" className="z-[9999] max-h-[300px]" sideOffset={5}>
                 {templates.length === 0 ? (
-                  <div className="p-2 text-sm text-gray-500">Loading templates...</div>
+                  <div className="p-2 text-sm text-gray-500">{t('quickGenerate.loadingTemplates')}</div>
                 ) : (
                   templates.map(template => (
                     <SelectItem 
@@ -230,11 +226,11 @@ export function QuickGenerateModal({
                     >
                       <div className="flex items-center justify-between w-full gap-2">
                         <span>
-                          {template.name} {template.is_dual_template && '(Certificate + Score)'}
+                          {template.name} {template.is_dual_template}
                         </span>
                         {!template.is_layout_configured && (
                           <Badge variant="secondary" className="bg-yellow-500 text-white text-xs">
-                            Not Configured
+                            {t('quickGenerate.notConfigured')}
                           </Badge>
                         )}
                       </div>
@@ -245,94 +241,86 @@ export function QuickGenerateModal({
             </Select>
           </div>
 
-          {/* Step 2: Date Format */}
+          {/* Step 2: Data Source */}
           <div className="space-y-3">
             <Label className="text-base font-semibold flex items-center gap-2">
               <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
-              <Calendar className="w-4 h-4" />
-              Date Format
-            </Label>
-            <Select value={dateFormat} onValueChange={(value) => setDateFormat(value as DateFormat)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper" className="z-[9999] max-h-[300px]" sideOffset={5}>
-                {DATE_FORMATS.map(format => (
-                  <SelectItem key={format} value={format}>
-                    {format} {format === 'dd-indonesian-yyyy' && '(e.g., 29 Oktober 2025)'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Step 3: Data Source */}
-          <div className="space-y-3">
-            <Label className="text-base font-semibold flex items-center gap-2">
-              <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
-              Data Source
+              {t('quickGenerate.dataSource')}
             </Label>
             
             <Tabs value={dataSource} onValueChange={(value) => setDataSource(value as 'excel' | 'member')}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="member" className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  Select Member
+                  {t('quickGenerate.selectMember')}
                 </TabsTrigger>
                 <TabsTrigger value="excel" className="flex items-center gap-2">
                   <FileSpreadsheet className="w-4 h-4" />
-                  Upload Excel
+                  {t('quickGenerate.uploadExcel')}
                 </TabsTrigger>
               </TabsList>
 
               {/* Member Tab */}
               <TabsContent value="member" className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Select Member</Label>
-                  <Select value={selectedMember?.id || ''} onValueChange={(id) => {
-                    const member = members.find(m => m.id === id);
-                    setSelectedMember(member || null);
-                    console.log('✅ Member selected:', member?.name);
-                  }}>
+                <div className="space-y-3">
+                  <Label>{t('quickGenerate.selectMembers')}</Label>
+                  <div className="border border-gray-300 rounded-lg max-h-[200px] overflow-y-auto p-2 space-y-2">
+                    {members.length === 0 ? (
+                      <div className="p-2 text-sm text-gray-500 text-center">{t('quickGenerate.loadingMembers')}</div>
+                    ) : (
+                      members.map(member => (
+                        <label 
+                          key={member.id}
+                          className="flex items-center gap-3 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedMembers.includes(member.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedMembers([...selectedMembers, member.id]);
+                              } else {
+                                setSelectedMembers(selectedMembers.filter(id => id !== member.id));
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="flex-1 text-sm">
+                            {member.name} - {member.organization || t('quickGenerate.noOrganization')}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {selectedMembers.length > 0 && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {selectedMembers.length} {t('quickGenerate.membersSelected')}.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    {t('quickGenerate.dateFormat')}
+                  </Label>
+                  <Select value={dateFormat} onValueChange={(value) => setDateFormat(value as DateFormat)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose a member..." />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent position="popper" className="z-[9999] max-h-[300px]" sideOffset={5}>
-                      {members.length === 0 ? (
-                        <div className="p-2 text-sm text-gray-500">Loading members...</div>
-                      ) : (
-                        members.map(member => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name} - {member.organization || 'No Organization'}
-                          </SelectItem>
-                        ))
-                      )}
+                      {DATE_FORMATS.map(format => (
+                        <SelectItem key={format} value={format}>
+                          {format} {format === 'dd-indonesian-yyyy' && '(e.g., 29 Oktober 2025)'}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Certificate Number *</Label>
-                    <Input 
-                      value={certificateNo}
-                      onChange={(e) => setCertificateNo(e.target.value)}
-                      placeholder="Certificate Number"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Input 
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Description"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Issue Date *</Label>
+                    <Label>{t('quickGenerate.issueDate')} *</Label>
                     <Input 
                       type="date"
                       value={issueDate}
@@ -340,7 +328,7 @@ export function QuickGenerateModal({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Expired Date</Label>
+                    <Label>{t('quickGenerate.expiredDate')}</Label>
                     <Input 
                       type="date"
                       value={expiredDate}
@@ -366,22 +354,22 @@ export function QuickGenerateModal({
                     onClick={() => excelInputRef.current?.click()}
                     className="mb-2"
                   >
-                    Choose Excel File
+                    {t('quickGenerate.chooseExcelFile')}
                   </Button>
                   <p className="text-sm text-gray-500">
                     {excelData.length > 0 
-                      ? `${excelData.length} rows loaded` 
-                      : 'Upload .xlsx or .xls file'}
+                      ? `${excelData.length} ${t('quickGenerate.rowsLoaded')}` 
+                      : t('quickGenerate.uploadExcelHint')}
                   </p>
                 </div>
 
                 {excelData.length > 0 && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <p className="text-sm text-green-800">
-                      ✓ Excel file loaded successfully with {excelData.length} row(s)
+                      ✓ {t('quickGenerate.loadedRows')} {excelData.length} {t('quickGenerate.rowsFromExcel')}
                     </p>
                     <p className="text-xs text-green-600 mt-1">
-                      This will generate {excelData.length} certificate(s) at once
+                      {t('quickGenerate.willGenerate')} {excelData.length} {t('quickGenerate.certificatesAtOnce')}
                     </p>
                   </div>
                 )}
@@ -393,7 +381,7 @@ export function QuickGenerateModal({
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={generating}>
-            Cancel
+            {t('quickGenerate.cancel')}
           </Button>
           <Button 
             onClick={handleGenerate}
@@ -403,12 +391,18 @@ export function QuickGenerateModal({
             {generating ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Generating...
+                {t('quickGenerate.generating')}
               </>
             ) : (
               <>
                 <Zap className="w-4 h-4 mr-2" />
-                Generate {dataSource === 'excel' && excelData.length > 0 && `(${excelData.length})`}
+                {t('quickGenerate.generate')} {
+                  dataSource === 'excel' && excelData.length > 0 
+                    ? `(${excelData.length})`
+                    : dataSource === 'member' && selectedMembers.length > 0
+                    ? `(${selectedMembers.length})`
+                    : ''
+                }
               </>
             )}
           </Button>

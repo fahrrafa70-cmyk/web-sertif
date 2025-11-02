@@ -158,7 +158,7 @@ export default function CertificatePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+              className="bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
             >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
                 {/* Certificate Image */}
@@ -288,11 +288,11 @@ export default function CertificatePage() {
           onClick={() => setImagePreviewOpen(false)}
         >
           <div 
-            className="bg-white rounded-xl shadow-2xl max-w-5xl w-full overflow-hidden" 
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-5xl w-full overflow-hidden" 
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <div className="text-sm text-gray-600">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
                 Certificate Image - {certificate.certificate_no}
               </div>
               <Button 

@@ -475,41 +475,41 @@ export default function MembersPage() {
             </div>
 
             {showForm && (role === "Admin" || role === "Team") && (
-              <motion.form onSubmit={onSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
+              <motion.form onSubmit={onSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
                 <div className="space-y-2">
                   <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')}</label>
                   <Input value={form.name} placeholder={t('members.form.fullNamePlaceholder')} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.email')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
                   <Input type="email" value={form.email} placeholder="name@example.com" onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.organization')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
                   <Input value={form.organization} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.phone')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.phone')}</label>
                   <Input value={form.phone} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.job')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.job')}</label>
                   <Input value={form.job} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, job: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.dob')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.dob')}</label>
                   <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.address')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.address')}</label>
                   <Input value={form.address} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, address: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.city')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.city')}</label>
                   <Input value={form.city} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, city: e.target.value })} />
                 </div>
                 <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <label className="text-sm text-gray-700 font-medium">{t('members.form.notes')}</label>
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.notes')}</label>
                   <Input value={form.notes} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
                 <div className="flex items-end lg:col-span-3">
@@ -586,33 +586,33 @@ export default function MembersPage() {
                             <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mb-4 shadow-sm">
                               <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                             </div>
-                            <span className="text-gray-600 text-sm font-medium">{t('members.loadingMembers')}</span>
+                            <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">{t('members.loadingMembers')}</span>
                           </div>
                         </TableCell>
                       </TableRow>
                     )}
                     {!loading && filteredMembers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-gray-500 py-16">
+                        <TableCell colSpan={7} className="text-center text-gray-500 dark:text-gray-400 py-16">
                           <div className="text-center">
-                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <span className="text-2xl text-gray-400">👥</span>
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <span className="text-2xl text-gray-400 dark:text-gray-500">👥</span>
                             </div>
                             {searchQuery ? (
                               <>
-                                <h3 className="text-lg font-semibold text-gray-600 mb-2">No members found</h3>
-                                <p className="text-gray-500 mb-4">No members match your search &quot;{searchQuery}&quot;</p>
+                                <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('members.search.noResults')}</h3>
+                                <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.search.noMatch')} &quot;{searchQuery}&quot;</p>
                                 <button
                                   onClick={() => setSearchQuery("")}
-                                  className="text-blue-600 hover:text-blue-700 font-medium"
+                                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-500 font-medium"
                                 >
-                                  Clear search
+                                  {t('members.search.clearSearch')}
                                 </button>
                               </>
                             ) : (
                               <>
-                                <h3 className="text-lg font-semibold text-gray-600 mb-2">{t('members.noMembersTitle')}</h3>
-                                <p className="text-gray-500 mb-4">{t('members.noMembersMessage')}</p>
+                                <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('members.noMembersTitle')}</h3>
+                                <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.noMembersMessage')}</p>
                                 {(role === "Admin" || role === "Team") && (
                                   <button
                                     onClick={() => setShowForm(true)}
@@ -666,49 +666,49 @@ export default function MembersPage() {
             )}
 
             {editOpen && (
-              <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
-                <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
+              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold dark:text-gray-100">{t('members.editMember')}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('members.editMember')}</h3>
                     <Button variant="outline" onClick={() => setEditOpen(false)} size="icon" aria-label="Close">
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
                   <form onSubmit={submitEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">{t('members.form.fullName')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')}</label>
                       <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">{t('members.form.email')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
                       <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">{t('members.form.organization')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
                       <Input value={editForm.organization} onChange={(e) => setEditForm({ ...editForm, organization: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">{t('members.form.phone')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.phone')}</label>
                       <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">{t('members.form.job')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.job')}</label>
                       <Input value={editForm.job} onChange={(e) => setEditForm({ ...editForm, job: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">{t('members.form.dob')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.dob')}</label>
                       <Input type="date" value={editForm.date_of_birth} onChange={(e) => setEditForm({ ...editForm, date_of_birth: e.target.value })} />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm text-gray-700">{t('members.form.address')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.address')}</label>
                       <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700">{t('members.form.city')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.city')}</label>
                       <Input value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
                     </div>
                     <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                      <label className="text-sm text-gray-700">{t('members.form.notes')}</label>
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.notes')}</label>
                       <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
                     </div>
                     <div className="flex items-end">
@@ -727,10 +727,10 @@ export default function MembersPage() {
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      Member Information
+                      {t('members.detail.title')}
                     </DialogTitle>
-                    <DialogDescription>
-                      Detailed information about {detailMember.name}
+                    <DialogDescription className="text-gray-600 dark:text-gray-400">
+                      {t('members.detail.description')} {detailMember.name}
                     </DialogDescription>
                   </DialogHeader>
                   
@@ -845,16 +845,8 @@ export default function MembersPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex justify-between gap-3 mt-6 pt-4 border-t border-gray-200">
-                    <Button
-                      variant="outline"
-                      onClick={() => setDetailModalOpen(false)}
-                      size="icon"
-                      aria-label="Close"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                    {(role === "Admin" || role === "Team") && (
+                  {(role === "Admin" || role === "Team") && (
+                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
                       <Button
                         className="gradient-primary text-white"
                         onClick={() => {
@@ -864,8 +856,8 @@ export default function MembersPage() {
                       >
                         Edit
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </DialogContent>
               </Dialog>
             )}
@@ -876,33 +868,33 @@ export default function MembersPage() {
       <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <Info className="w-5 h-5 text-blue-500" />
               {t('members.excel.title')}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-gray-600 dark:text-gray-400">
               {t('members.excel.description')}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             {/* Column Requirements */}
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <h3 className="font-semibold text-sm mb-3">{t('members.excel.requiredColumns')}</h3>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+              <h3 className="font-semibold text-sm mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.requiredColumns')}</h3>
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <span className="text-red-500 font-bold">*</span>
                   <div>
-                    <span className="font-medium">Name</span>
-                    <p className="text-xs text-gray-600">{t('members.excel.nameRequired')}</p>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">Name</span>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">{t('members.excel.nameRequired')}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <h3 className="font-semibold text-sm mb-3">{t('members.excel.optionalColumns')}</h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+              <h3 className="font-semibold text-sm mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.optionalColumns')}</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 dark:text-gray-300">
                 <div>• <span className="font-medium">Email</span></div>
                 <div>• <span className="font-medium">Organization</span></div>
                 <div>• <span className="font-medium">Phone</span></div>
@@ -915,30 +907,30 @@ export default function MembersPage() {
             </div>
 
             {/* Example Table */}
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold text-sm mb-3">{t('members.excel.exampleFormat')}</h3>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-900">
+              <h3 className="font-semibold text-sm mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.exampleFormat')}</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs border-collapse">
                   <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border p-2 text-left">Name*</th>
-                      <th className="border p-2 text-left">Email</th>
-                      <th className="border p-2 text-left">Organization</th>
-                      <th className="border p-2 text-left">Phone</th>
+                    <tr className="bg-gray-100 dark:bg-gray-800">
+                      <th className="border border-gray-300 dark:border-gray-600 p-2 text-left text-gray-900 dark:text-gray-100">Name*</th>
+                      <th className="border border-gray-300 dark:border-gray-600 p-2 text-left text-gray-900 dark:text-gray-100">Email</th>
+                      <th className="border border-gray-300 dark:border-gray-600 p-2 text-left text-gray-900 dark:text-gray-100">Organization</th>
+                      <th className="border border-gray-300 dark:border-gray-600 p-2 text-left text-gray-900 dark:text-gray-100">Phone</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="border p-2">John Doe</td>
-                      <td className="border p-2">john@example.com</td>
-                      <td className="border p-2">ABC Corp</td>
-                      <td className="border p-2">08123456789</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">John Doe</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">john@example.com</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">ABC Corp</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">08123456789</td>
                     </tr>
                     <tr>
-                      <td className="border p-2">Jane Smith</td>
-                      <td className="border p-2">jane@example.com</td>
-                      <td className="border p-2">XYZ Inc</td>
-                      <td className="border p-2">08198765432</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">Jane Smith</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">jane@example.com</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">XYZ Inc</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">08198765432</td>
                     </tr>
                   </tbody>
                 </table>
@@ -946,8 +938,8 @@ export default function MembersPage() {
             </div>
 
             {/* Notes */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-800">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-xs text-blue-800 dark:text-blue-300">
                 <strong>{t('members.excel.note')}</strong> {t('members.excel.noteText')}
               </p>
             </div>

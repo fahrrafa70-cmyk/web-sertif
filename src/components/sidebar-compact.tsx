@@ -140,18 +140,18 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
             }}
           >
             <div 
-              className="sidebar-content h-full w-[85vw] sm:w-96 max-w-[24rem] shadow-xl border-r border-gray-200 bg-white"
+              className="sidebar-content h-full w-[85vw] sm:w-96 max-w-[24rem] shadow-xl border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
               style={{
                 pointerEvents: 'auto',
                 height: '100vh',
                 width: '85vw',
                 maxWidth: '24rem',
-                backgroundColor: '#ffffff'
+                backgroundColor: 'var(--background)'
               }}
             >
-              <div className="flex flex-col h-full bg-white">
+              <div className="flex flex-col h-full bg-white dark:bg-gray-900">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-white">
+                <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center flex-shrink-0">
                       <span className="text-white font-bold text-base sm:text-lg">e</span>
@@ -172,7 +172,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                 </div>
 
                 {/* Main Content (scrollable to always fit viewport height) */}
-                <div className="flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8 bg-white overflow-y-auto overscroll-contain min-h-0 pr-2">
+                <div className="flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8 bg-white dark:bg-gray-900 overflow-y-auto overscroll-contain min-h-0 pr-2">
                   {/* Navigation */}
                   <div>
                     <h3 className="text-sm sm:text-base font-semibold text-gray-600 uppercase tracking-wider mb-3 sm:mb-4 px-2">
@@ -223,10 +223,10 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                               onClick={onClose}
                               className={`flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl transition-all duration-150 group border border-transparent hover:border-blue-100 hover:bg-blue-50 ${
                                 index % 3 === 0
-                                  ? "bg-white"
+                                  ? "bg-white dark:bg-gray-900"
                                   : index % 3 === 1
-                                  ? "bg-gray-50"
-                                  : "bg-white"
+                                  ? "bg-gray-50 dark:bg-gray-800"
+                                  : "bg-white dark:bg-gray-900"
                               }`}
                             >
                               <div className="text-gray-500 group-hover:text-blue-600 transition-colors duration-150 flex-shrink-0">
@@ -276,7 +276,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+                <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                   <div className="space-y-2">
                     {!isAuthenticated ? (
                       <Button
@@ -295,7 +295,7 @@ export default function Sidebar({ isOpen, onClose, role: roleProp }: SidebarProp
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start text-sm sm:text-base h-9 sm:h-10 border-gray-300 text-gray-700 hover:bg-gray-50 hover-lift"
+                        className="w-full justify-start text-sm sm:text-base h-9 sm:h-10 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover-lift"
                         onClick={() => {
                           localSignOut();
                           onClose();

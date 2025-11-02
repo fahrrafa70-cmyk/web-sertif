@@ -118,17 +118,17 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ duration: 0.25, ease: "easeOut" }}
-            className="fixed top-0 left-0 h-full w-[85vw] max-w-sm bg-white shadow-xl z-[60] lg:hidden"
+            className="fixed top-0 left-0 h-full w-[85vw] max-w-sm bg-white dark:bg-gray-900 shadow-xl border-r border-gray-200 dark:border-gray-700 z-[60] lg:hidden"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <div className="flex items-center space-x-3">
                   <div className="w-11 h-11 gradient-primary rounded-xl flex items-center justify-center shadow-md">
                     <span className="text-white font-bold text-xl tracking-tight">E</span>
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                       E-Certificate
                     </h2>
                     <p className="text-xs text-gray-400 font-medium tracking-wide">Certification System</p>

@@ -72,7 +72,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background fixed z-50 grid w-full max-w-lg gap-4 border p-6 shadow-lg sm:rounded-lg transition-all duration-200 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=closed]:scale-95",
+          "bg-background fixed z-50 grid w-full max-w-lg gap-4 border border-gray-200 dark:border-gray-700 p-6 shadow-lg sm:rounded-lg transition-all duration-200 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=closed]:scale-95",
           className
         )}
         style={{
