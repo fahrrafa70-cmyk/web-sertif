@@ -1009,12 +1009,12 @@ function CertificatesContent() {
         category: draft.category || undefined,
       });
 
-      toast.success("Certificate updated successfully!");
+      toast.success(t("certificates.updateSuccess"));
       setIsEditOpen(null);
       setDraft(null);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to update certificate",
+        error instanceof Error ? error.message : t("certificates.updateFailed"),
       );
     }
   }
@@ -1037,7 +1037,7 @@ function CertificatesContent() {
         localStorageRole:
           typeof window !== "undefined" ? window.localStorage.getItem("ecert-role") : null
       });
-      toast.error("You don't have permission to delete certificates");
+      toast.error(t("certificates.deleteNoPermission"));
       return;
     }
 
@@ -1050,9 +1050,13 @@ function CertificatesContent() {
       certificate_no: certificate?.certificate_no
     });
 
+    const deleteMessage = t("certificates.deleteConfirm")
+      .replace("{name}", certificateName)
+      .replace("{number}", certificate?.certificate_no || "");
+
     const confirmed = await confirmToast(
-      `Are you sure you want to delete certificate for "${certificateName}"?\n\nCertificate Number: ${certificate?.certificate_no}\n\nThis action cannot be undone.`,
-      { confirmText: "Delete", tone: "destructive" }
+      deleteMessage,
+      { confirmText: t("common.delete"), tone: "destructive" }
     );
 
     if (confirmed) {
@@ -1061,15 +1065,15 @@ function CertificatesContent() {
         setDeletingCertificateId(id);
         await deleteCert(id);
         console.log("✅ Delete successful!");
-        toast.success(
-          `Certificate for "${certificateName}" deleted successfully!`,
-        );
+        const successMessage = t("certificates.deleteSuccess")
+          .replace("{name}", certificateName);
+        toast.success(successMessage);
       } catch (error) {
         console.error("❌ Delete error:", error);
         toast.error(
           error instanceof Error
             ? error.message
-            : "Failed to delete certificate. Please try again.",
+            : t("certificates.deleteFailed"),
         );
       } finally {
         setDeletingCertificateId(null);
@@ -1107,7 +1111,7 @@ function CertificatesContent() {
 
   async function openMemberDetail(memberId: string | null) {
     if (!memberId) {
-      toast.error('Member information not available');
+      toast.error(t('certificates.memberInfoNotAvailable'));
       return;
     }
     
@@ -1118,7 +1122,7 @@ function CertificatesContent() {
       setDetailMember(member);
     } catch (error) {
       console.error('Failed to load member details:', error);
-      toast.error('Failed to load member details');
+      toast.error(t('certificates.loadMemberDetailsFailed'));
       setMemberDetailOpen(false);
     } finally {
       setLoadingMemberDetail(false);
@@ -1148,7 +1152,7 @@ function CertificatesContent() {
                       className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
                       <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="text-sm sm:text-base">Generate</span>
+                      <span className="text-sm sm:text-base">{t("certificates.generate")}</span>
                     </Button>
                   )}
                 </div>
@@ -1174,7 +1178,7 @@ function CertificatesContent() {
                     <option value="Lainnya">Lainnya</option>
                   </select>
                   <Input
-                    placeholder="Filter by date"
+                    placeholder={t("certificates.filterByDate")}
                     className="w-full sm:w-40 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
                     type="date"
                     value={dateFilter}
@@ -1194,10 +1198,10 @@ function CertificatesContent() {
                 <div className="text-center">
                   <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    Loading certificates...
+                    {t("certificates.loading")}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Please wait while we fetch your certificates.
+                    {t("certificates.loadingMessage")}
                   </p>
                 </div>
               </motion.div>
@@ -1215,14 +1219,14 @@ function CertificatesContent() {
                     <span className="text-3xl">⚠️</span>
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    Error loading certificates
+                    {t("certificates.errorLoading")}
                   </h3>
                   <p className="text-gray-500 text-sm mb-6">{error}</p>
                   <Button
                     onClick={() => refresh()}
                     className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
                   >
-                    Try Again
+                    {t("certificates.tryAgain")}
                   </Button>
                 </div>
               </motion.div>
@@ -1244,9 +1248,9 @@ function CertificatesContent() {
                         <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
                           <TableHead className="min-w-[180px]">{t("certificates.certificateId")}</TableHead>
                           <TableHead className="min-w-[200px]">{t("certificates.recipient")}</TableHead>
-                          <TableHead className="min-w-[150px]">Category</TableHead>
+                          <TableHead className="min-w-[150px]">{t("certificates.category")}</TableHead>
                           <TableHead className="min-w-[140px]">{t("certificates.issuedDate")}</TableHead>
-                          <TableHead className="min-w-[140px]">Expiry Date</TableHead>
+                          <TableHead className="min-w-[140px]">{t("certificates.expiryDate")}</TableHead>
                           <TableHead className="text-right min-w-[280px]">
                             {t("certificates.actions")}
                           </TableHead>
@@ -1295,28 +1299,28 @@ function CertificatesContent() {
                                     className="border-gray-300"
                                   >
                                     <Download className="w-4 h-4 mr-1" />
-                                    Export
+                                    {t("certificates.export")}
                                     <ChevronDown className="w-4 h-4 ml-1" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
                                     <FileText className="w-4 h-4 mr-2" />
-                                    Export as PDF
+                                    {t("certificates.exportPdf")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
                                     <ImageIcon className="w-4 h-4 mr-2" />
-                                    Download PNG
+                                    {t("certificates.downloadPng")}
                                   </DropdownMenuItem>
                                   {certificate.certificate_image_url && (
                                     <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
                                       <FileText className="w-4 h-4 mr-2" />
-                                      Send via Email
+                                      {t("certificates.sendEmail")}
                                     </DropdownMenuItem>
                                   )}
                                   <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
                                     <Link className="w-4 h-4 mr-2" />
-                                    Generate Certificate Link
+                                    {t("certificates.generateLink")}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1341,7 +1345,7 @@ function CertificatesContent() {
                                   {deletingCertificateId === certificate.id ? (
                                     <>
                                       <div className="w-4 h-4 mr-1 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                      Deleting...
+                                      {t("certificates.deleting")}
                                     </>
                                   ) : (
                                     <>
@@ -1388,7 +1392,7 @@ function CertificatesContent() {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                              Category
+                              {t("certificates.category")}
                             </div>
                             <div className="text-gray-700 dark:text-gray-300 text-sm">
                               {certificate.category || "—"}
@@ -1406,7 +1410,7 @@ function CertificatesContent() {
                         {certificate.expired_date && (
                           <div>
                             <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                              Expiry Date
+                              {t("certificates.expiryDate")}
                             </div>
                             <div className="text-gray-700 dark:text-gray-300 text-sm">
                               {new Date(certificate.expired_date).toLocaleDateString()}
@@ -1432,27 +1436,27 @@ function CertificatesContent() {
                                   className="border-gray-300 text-xs flex-1 sm:flex-initial"
                                 >
                                   <Download className="w-3 h-3 mr-1" />
-                                  Export
+                                  {t("certificates.export")}
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
                                   <FileText className="w-4 h-4 mr-2" />
-                                  Export as PDF
+                                  {t("certificates.exportPdf")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
                                   <ImageIcon className="w-4 h-4 mr-2" />
-                                  Download PNG
+                                  {t("certificates.downloadPng")}
                                 </DropdownMenuItem>
                                 {certificate.certificate_image_url && (
                                   <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
                                     <FileText className="w-4 h-4 mr-2" />
-                                    Send via Email
+                                    {t("certificates.sendEmail")}
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
                                   <Link className="w-4 h-4 mr-2" />
-                                  Generate Certificate Link
+                                  {t("certificates.generateLink")}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1500,8 +1504,15 @@ function CertificatesContent() {
             {!loading && !error && filtered.length > 0 && (
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mt-4 px-2">
                 <div className="text-xs sm:text-sm text-gray-500">
-                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filtered.length)} of {filtered.length} certificates
-                  {(searchInput || categoryFilter || dateFilter) && <span className="ml-1 text-gray-400 hidden sm:inline">(filtered from {certificates.length})</span>}
+                  {t("certificates.showing")
+                    .replace("{start}", String(indexOfFirstItem + 1))
+                    .replace("{end}", String(Math.min(indexOfLastItem, filtered.length)))
+                    .replace("{total}", String(filtered.length))}
+                  {(searchInput || categoryFilter || dateFilter) && (
+                    <span className="ml-1 text-gray-400 hidden sm:inline">
+                      {t("certificates.filteredFrom").replace("{total}", String(certificates.length))}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Button 
@@ -1511,10 +1522,12 @@ function CertificatesContent() {
                     disabled={currentPage === 1}
                   >
                     <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
+                    {t("certificates.previous")}
                   </Button>
                   <div className="text-sm text-gray-600 dark:text-gray-400 px-3">
-                    Page {currentPage} of {totalPages}
+                    {t("certificates.page")
+                      .replace("{current}", String(currentPage))
+                      .replace("{total}", String(totalPages))}
                   </div>
                   <Button 
                     variant="outline" 
@@ -1522,7 +1535,7 @@ function CertificatesContent() {
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
                   >
-                    Next
+                    {t("certificates.next")}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
@@ -1540,11 +1553,10 @@ function CertificatesContent() {
                   <FileText className="w-12 h-12 text-gray-400" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                  No certificates found
+                  {t("certificates.noCertificates")}
                 </h3>
                 <p className="text-gray-500 mb-6">
-                  Try adjusting your search criteria or create a new
-                  certificate.
+                  {t("certificates.noCertificatesMessage")}
                 </p>
                 {(role === "Admin" || role === "Team") && (
                   <Button
@@ -1552,7 +1564,7 @@ function CertificatesContent() {
                     className="gradient-primary text-white shadow-lg hover:shadow-xl"
                   >
                     <FileText className="w-5 h-5 mr-2" />
-                    Create Certificate
+                    {t("certificates.create")}
                   </Button>
                 )}
               </motion.div>
@@ -1570,12 +1582,12 @@ function CertificatesContent() {
             <SheetTitle className="text-lg sm:text-xl">
               {t("common.edit")} {t("certificates.title")}
             </SheetTitle>
-            <SheetDescription className="text-sm">Update certificate details.</SheetDescription>
+            <SheetDescription className="text-sm">{t("certificates.updateDetails")}</SheetDescription>
           </SheetHeader>
           <div className="px-2 sm:px-4 pb-4 space-y-3 sm:space-y-4">
             <div className="space-y-2">
               <label className="text-sm text-gray-600">
-                Certificate Number
+                {t("certificates.certificateId")}
               </label>
               <Input
                 value={draft?.certificate_no ?? ""}
@@ -1598,7 +1610,7 @@ function CertificatesContent() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Description</label>
+              <label className="text-sm text-gray-600">{t("certificates.description")}</label>
               <textarea
                 value={draft?.description ?? ""}
                 onChange={(e) =>
@@ -1611,7 +1623,7 @@ function CertificatesContent() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Category</label>
+              <label className="text-sm text-gray-600">{t("certificates.category")}</label>
               <select
                 value={draft?.category ?? ""}
                 onChange={(e) =>
@@ -1619,7 +1631,7 @@ function CertificatesContent() {
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">Select category</option>
+                <option value="">{t("certificates.selectCategory")}</option>
                 <option value="MoU">MoU</option>
                 <option value="Magang">Magang</option>
                 <option value="Pelatihan">Pelatihan</option>
@@ -1644,7 +1656,7 @@ function CertificatesContent() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Expiry Date</label>
+              <label className="text-sm text-gray-600">{t("certificates.expiryDate")}</label>
               <Input
                 type="date"
                 value={draft?.expired_date ?? ""}
@@ -1692,10 +1704,10 @@ function CertificatesContent() {
         >
           <DialogHeader className="space-y-1 sm:space-y-1.5 flex-shrink-0 pb-2 sm:pb-4">
             <DialogTitle className="text-xl sm:text-2xl font-bold text-gradient dark:text-white">
-              Certificate Preview
+              {t("certificates.preview")}
             </DialogTitle>
             <DialogDescription className="text-sm sm:text-lg text-gray-600 dark:text-gray-300">
-              View certificate details and information
+              {t("certificates.previewDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1">
@@ -2192,20 +2204,20 @@ function CertificatesContent() {
                               <div className="relative z-10 text-center p-6 xl:p-10">
                                 <div className="mb-4 xl:mb-6">
                                   <h3 className="text-2xl xl:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                                     CERTIFICATE
+                                     {t("certificates.certificateTitle")}
                                    </h3>
                                    <div className="w-16 xl:w-20 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
                                  </div>
  
                                 <p className="text-gray-600 dark:text-gray-400 mb-3 xl:mb-4">
-                                   This is to certify that
+                                   {t("certificates.certifyText")}
                                  </p>
                                 <h4 className="text-xl xl:text-2xl font-bold text-gray-800 dark:text-gray-100 mb-3 xl:mb-4">
                                   {previewCertificate.name}
                                 </h4>
                                 {previewCertificate.description && (
                                   <p className="text-gray-600 dark:text-gray-400 mb-6">
-                                    has successfully completed the
+                                    {t("certificates.completedText")}
                                     <br />
                                     <span className="font-semibold">
                                       {previewCertificate.description}
@@ -2216,12 +2228,12 @@ function CertificatesContent() {
                                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-6">
                                   <div>
                                     <p className="font-semibold">
-                                      Certificate No:
+                                      {t("certificates.certificateNo")}
                                     </p>
                                     <p>{previewCertificate.certificate_no}</p>
                                   </div>
                                   <div>
-                                    <p className="font-semibold">Issue Date:</p>
+                                    <p className="font-semibold">{t("certificates.issueDate")}</p>
                                     <p>
                                       {new Date(
                                         previewCertificate.issue_date,
@@ -2231,8 +2243,7 @@ function CertificatesContent() {
                                 </div>
  
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  This is a fallback preview. Configure template text layers
-                                  for a fully customized certificate design.
+                                  {t("certificates.fallbackPreview")}
                                 </p>
                               </div>
                             )}

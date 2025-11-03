@@ -71,7 +71,7 @@ export function useCertificates() {
         try {
           const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
           dataCache.delete(CACHE_KEYS.CERTIFICATES);
-        } catch (e) {
+        } catch {
           // Ignore
         }
       }
@@ -110,7 +110,7 @@ export function useCertificates() {
         try {
           const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
           dataCache.delete(CACHE_KEYS.CERTIFICATES);
-        } catch (e) {
+        } catch {
           // Ignore
         }
       }
@@ -144,7 +144,7 @@ export function useCertificates() {
         try {
           const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
           dataCache.delete(CACHE_KEYS.CERTIFICATES);
-        } catch (e) {
+        } catch {
           // Ignore
         }
       }

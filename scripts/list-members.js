@@ -3,6 +3,7 @@
  * Usage: node scripts/list-members.js
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
 
@@ -20,9 +21,9 @@ async function listMembers() {
   try {
     console.log('🔍 Fetching members from database...\n');
     
-    const { data, error, count } = await supabase
+    const { data, error } = await supabase
       .from('members')
-      .select('*', { count: 'exact' })
+      .select('*')
       .order('created_at', { ascending: false });
     
     if (error) {

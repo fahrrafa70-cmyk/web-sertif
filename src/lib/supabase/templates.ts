@@ -186,7 +186,7 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
         console.log("✅ Using cached templates");
         return cached;
       }
-    } catch (e) {
+    } catch {
       // Cache module not available, continue with fetch
     }
   }
@@ -207,7 +207,7 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
     try {
       const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
       dataCache.set(CACHE_KEYS.TEMPLATES, templates, 10 * 60 * 1000);
-    } catch (e) {
+    } catch {
       // Cache module not available, ignore
     }
   }

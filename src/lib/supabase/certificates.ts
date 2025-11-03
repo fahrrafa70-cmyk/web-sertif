@@ -123,7 +123,7 @@ export async function getCertificates(useCache: boolean = true): Promise<Certifi
         console.log("✅ Using cached certificates");
         return cached;
       }
-    } catch (e) {
+    } catch {
       // Cache module not available, continue with fetch
     }
   }
@@ -166,7 +166,7 @@ export async function getCertificates(useCache: boolean = true): Promise<Certifi
     try {
       const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
       dataCache.set(CACHE_KEYS.CERTIFICATES, certificates, 5 * 60 * 1000);
-    } catch (e) {
+    } catch {
       // Cache module not available, ignore
     }
   }
@@ -425,7 +425,7 @@ export async function createCertificate(
       try {
         const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
         dataCache.delete(CACHE_KEYS.CERTIFICATES);
-      } catch (e) {
+      } catch {
         // Cache module not available, ignore
       }
     }
@@ -511,7 +511,7 @@ export async function updateCertificate(
     try {
       const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
       dataCache.delete(CACHE_KEYS.CERTIFICATES);
-    } catch (e) {
+    } catch {
       // Cache module not available, ignore
     }
   }
@@ -580,7 +580,7 @@ export async function deleteCertificate(id: string): Promise<void> {
       try {
         const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
         dataCache.delete(CACHE_KEYS.CERTIFICATES);
-      } catch (e) {
+      } catch {
         // Cache module not available, ignore
       }
     }

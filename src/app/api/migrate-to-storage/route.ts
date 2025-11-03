@@ -227,7 +227,7 @@ async function uploadDataUrlToStorage(
   console.log(`📤 Uploading ${fileName} to storage...`, { size: buffer.length });
 
   // Upload to Supabase Storage
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from(bucketName)
     .upload(fileName, buffer, {
       cacheControl: '3600',

@@ -3048,8 +3048,8 @@ function CertificateGeneratorContent() {
           
           // Show success dialog
           const go = await confirmToast(
-            "Certificate and Score saved successfully! Would you like to view all certificates?",
-            { confirmText: "View Certificates", tone: "success" }
+            t("certificates.saveSuccessWithScore"),
+            { confirmText: t("certificates.viewCertificates"), tone: "success" }
           );
           if (go) {
             router.push("/certificates");
@@ -3147,8 +3147,8 @@ function CertificateGeneratorContent() {
 
       // Ask user if they want to view the certificates page
       const go = await confirmToast(
-        "Certificate saved successfully! Would you like to view all certificates?",
-        { confirmText: "View Certificates", tone: "success" }
+        t("certificates.saveSuccess"),
+        { confirmText: t("certificates.viewCertificates"), tone: "success" }
       );
       if (go) {
         window.location.href = "/certificates";

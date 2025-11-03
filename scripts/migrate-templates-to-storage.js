@@ -3,6 +3,7 @@
  * Usage: node scripts/migrate-templates-to-storage.js
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs').promises;
@@ -56,25 +57,6 @@ async function ensureBucketExists() {
   }
 }
 
-async function getLocalTemplateFiles() {
-  try {
-    const files = await fs.readdir(TEMPLATE_FOLDER);
-    const imageFiles = files.filter(file => {
-      const ext = path.extname(file).toLowerCase();
-      return ['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext);
-    });
-    
-    console.log(`\n📁 Found ${imageFiles.length} template image files in local folder`);
-    return imageFiles;
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      console.log('📁 Template folder not found, skipping local files');
-      return [];
-    }
-    throw error;
-  }
-}
-
 async function getAllTemplates() {
   console.log('\n🔍 Fetching all templates from database...');
   
@@ -124,7 +106,7 @@ async function uploadFileToStorage(filePath, fileName) {
     }[fileExt] || 'image/png';
 
     // Upload to storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(fileName, fileBuffer, {
         contentType: mimeType,
@@ -165,9 +147,6 @@ async function migrateTemplates() {
     // Get all templates from database
     const templates = await getAllTemplates();
     
-    // Get local files
-    const localFiles = await getLocalTemplateFiles();
-    
     let migratedCount = 0;
     let skippedCount = 0;
     let errorCount = 0;
@@ -195,7 +174,7 @@ async function migrateTemplates() {
             } else {
               errorCount++;
             }
-          } catch (error) {
+          } catch {
             console.log(`  ⚠️  Local file not found: ${fileName}, skipping...`);
             skippedCount++;
           }
@@ -217,7 +196,7 @@ async function migrateTemplates() {
             } else {
               errorCount++;
             }
-          } catch (error) {
+          } catch {
             console.log(`  ⚠️  Local file not found: ${fileName}, skipping...`);
             skippedCount++;
           }
@@ -239,7 +218,7 @@ async function migrateTemplates() {
             } else {
               errorCount++;
             }
-          } catch (error) {
+          } catch {
             console.log(`  ⚠️  Local file not found: ${fileName}, skipping...`);
             skippedCount++;
           }
@@ -261,7 +240,7 @@ async function migrateTemplates() {
             } else {
               errorCount++;
             }
-          } catch (error) {
+          } catch {
             console.log(`  ⚠️  Local file not found: ${fileName}, skipping...`);
             skippedCount++;
           }

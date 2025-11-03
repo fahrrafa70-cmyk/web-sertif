@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Check, X } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { Template } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
@@ -176,20 +176,75 @@ function ConfigureLayoutContent() {
     }
   };
 
-  // Calculate canvas scale based on container width
+  // Calculate canvas scale based on container width - dengan ResizeObserver untuk update yang lebih akurat
   useEffect(() => {
     const updateScale = () => {
-      if (canvasRef.current) {
-        const containerWidth = canvasRef.current.offsetWidth;
-        const scale = containerWidth / STANDARD_CANVAS_WIDTH;
-        setCanvasScale(scale);
-      }
+      if (!canvasRef.current) return;
+      
+      // Gunakan requestAnimationFrame untuk memastikan layout sudah di-render
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!canvasRef.current) return;
+          
+          // Get actual container dimensions (excluding padding)
+          const containerWidth = canvasRef.current.offsetWidth;
+          const containerHeight = canvasRef.current.offsetHeight;
+          
+          // Pastikan container memiliki dimensi yang valid
+          if (containerWidth <= 0 || containerHeight <= 0) {
+            console.warn('Canvas container has invalid dimensions:', { containerWidth, containerHeight });
+            return;
+          }
+          
+          // Hitung scale berdasarkan width dan height, ambil yang lebih kecil untuk memastikan semua konten muat
+          // Ini memastikan aspect ratio terjaga dan semua konten tetap proporsional
+          const scaleX = containerWidth / STANDARD_CANVAS_WIDTH;
+          const scaleY = containerHeight / STANDARD_CANVAS_HEIGHT;
+          const scale = Math.min(scaleX, scaleY);
+          
+          // Ensure scale is valid (not NaN, Infinity, or negative)
+          if (isNaN(scale) || !isFinite(scale) || scale <= 0) {
+            console.warn('Invalid scale calculated:', scale, { containerWidth, containerHeight });
+            return;
+          }
+          
+          setCanvasScale(scale);
+        });
+      });
     };
 
-    updateScale();
+    // Initial update dengan multiple attempts untuk memastikan DOM sudah siap
+    const initialTimeout1 = setTimeout(updateScale, 50);
+    const initialTimeout2 = setTimeout(updateScale, 100);
+    const initialTimeout3 = setTimeout(updateScale, 200);
+    
+    // Update saat resize
     window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
-  }, []);
+    
+    // Gunakan ResizeObserver untuk tracking perubahan ukuran container secara real-time
+    let resizeObserver: ResizeObserver | null = null;
+    const canvasElement = canvasRef.current;
+    if (canvasElement && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        // Gunakan debounce untuk ResizeObserver karena bisa trigger banyak kali
+        requestAnimationFrame(updateScale);
+      });
+      resizeObserver.observe(canvasElement);
+    }
+    
+    // Trigger update saat template atau layers berubah
+    updateScale();
+    
+    return () => {
+      clearTimeout(initialTimeout1);
+      clearTimeout(initialTimeout2);
+      clearTimeout(initialTimeout3);
+      window.removeEventListener('resize', updateScale);
+      if (resizeObserver && canvasElement) {
+        resizeObserver.unobserve(canvasElement);
+      }
+    };
+  }, [template, templateImageUrl, textLayers.length]); // Update saat data berubah
 
   // Handle text layer drag
   const handleLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
@@ -553,7 +608,7 @@ function ConfigureLayoutContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 text-gray-900 dark:text-gray-100">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 fixed top-0 left-0 right-0 z-50 shadow-sm h-14 sm:h-16">
+      <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 border-b border-gray-200 dark:border-gray-800 fixed top-0 left-0 right-0 z-50 shadow-sm h-14 sm:h-16">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 h-full">
           <div className="flex items-center justify-between h-full gap-2 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1">
@@ -597,15 +652,16 @@ function ConfigureLayoutContent() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 mt-14 sm:mt-16 md:mt-20">
+      {/* Main Content - Padding top sama dengan tinggi header untuk mengisi gap */}
+      <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 pt-14 sm:pt-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Compact Canvas for Editing */}
           <div className="lg:col-span-3 order-1 lg:order-1">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6">
               <div 
                 ref={canvasRef}
-                className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden"
+                className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden w-full"
                 style={{ 
                   aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
                   cursor: 'default',
@@ -670,21 +726,33 @@ function ConfigureLayoutContent() {
                           isSelected ? 'bg-blue-50/30' : ''
                         } ${layer.isDragging ? 'opacity-70' : ''}`}
                         style={{
+                          // Ensure font size scales proportionally based on canvas scale
+                          // This ensures certificate_no and issue_date maintain correct proportions on mobile
                           fontSize: `${layer.fontSize * canvasScale}px`,
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
                           // certificate_no and issue_date always use left alignment
                           textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
-                          whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
-                          width: layer.maxWidth ? `${layer.maxWidth * canvasScale}px` : 'auto',
+                          // certificate_no and issue_date should never wrap - always stay on one line
+                          whiteSpace: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'nowrap' : (layer.maxWidth ? 'normal' : 'nowrap'),
+                          // For certificate_no and issue_date, don't set width/maxWidth to allow full text on one line
+                          width: (layer.id === 'certificate_no' || layer.id === 'issue_date') 
+                            ? 'auto' 
+                            : (layer.maxWidth ? `${Math.max(layer.maxWidth * canvasScale, 20)}px` : 'auto'),
+                          maxWidth: (layer.id === 'certificate_no' || layer.id === 'issue_date') 
+                            ? 'none' 
+                            : (layer.maxWidth ? `${Math.max(layer.maxWidth * canvasScale, 20)}px` : 'none'),
                           minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * canvasScale}px`,
                           lineHeight: layer.lineHeight || 1.2,
-                          wordWrap: 'break-word',
-                          overflowWrap: 'break-word',
+                          wordWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
+                          overflowWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
                           userSelect: 'none',
                           // Always have padding and border to prevent layout shift
-                          padding: '4px 8px',
+                          // For certificate_no and issue_date, use smaller padding on mobile to maintain proportions
+                          padding: (layer.id === 'certificate_no' || layer.id === 'issue_date') 
+                            ? `${2 * canvasScale}px ${4 * canvasScale}px` 
+                            : '4px 8px',
                           border: isSelected ? '2px dashed #3b82f6' : '2px dashed transparent',
                           borderRadius: '4px',
                           boxSizing: 'border-box'
@@ -1081,6 +1149,7 @@ function ConfigureLayoutContent() {
               
             </div>
           </div>
+        </div>
         </div>
       </div>
 

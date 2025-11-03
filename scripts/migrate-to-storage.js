@@ -7,6 +7,7 @@
  *   node scripts/migrate-to-storage.js --all
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config({ path: '.env.local' });
 
@@ -18,7 +19,7 @@ async function uploadDataUrlToStorage(dataUrl, fileName, bucketName, supabase) {
   console.log(`  📤 Uploading ${fileName} to storage... (${(buffer.length / 1024).toFixed(2)} KB)`);
 
   // Upload to Supabase Storage
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from(bucketName)
     .upload(fileName, buffer, {
       cacheControl: '3600',

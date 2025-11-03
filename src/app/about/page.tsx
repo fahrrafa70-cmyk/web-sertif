@@ -127,31 +127,31 @@ export default function AboutPage() {
                 viewport={{ once: true }}
                 className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-8 border border-gray-200 dark:border-gray-700"
               >
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Key Statistics</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('analytics.keyStatistics')}</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                       {statsLoading ? "—" : `${stats.certificates.toLocaleString()}`}
                     </div>
-                    <div className="text-gray-600 dark:text-gray-300">Certificates Issued</div>
+                    <div className="text-gray-600 dark:text-gray-300">{t('analytics.certificatesIssued')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                       {statsLoading ? "—" : `${stats.templates.toLocaleString()}`}
                     </div>
-                    <div className="text-gray-600 dark:text-gray-300">Templates Available</div>
+                    <div className="text-gray-600 dark:text-gray-300">{t('analytics.templatesAvailable')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                       {statsLoading ? "—" : `${stats.members.toLocaleString()}`}
                     </div>
-                    <div className="text-gray-600 dark:text-gray-300">Registered Members</div>
+                    <div className="text-gray-600 dark:text-gray-300">{t('analytics.registeredMembers')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                       {statsLoading ? "—" : `${stats.categories.toLocaleString()}`}
                     </div>
-                    <div className="text-gray-600 dark:text-gray-300">Certificate Categories</div>
+                    <div className="text-gray-600 dark:text-gray-300">{t('analytics.certificateCategories')}</div>
                   </div>
                 </div>
               </motion.div>

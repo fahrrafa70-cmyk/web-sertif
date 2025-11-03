@@ -42,7 +42,7 @@ setTimeout(() => {
         console.log(`Found ${buttons.length} buttons with selector: ${selector}`);
         deleteButtons = [...deleteButtons, ...buttons];
       }
-    } catch (e) {
+    } catch {
       // Ignore invalid selectors
     }
   });

@@ -116,7 +116,7 @@ export async function createMember(input: CreateMemberInput): Promise<Member> {
     try {
       const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
       dataCache.delete(CACHE_KEYS.MEMBERS);
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
@@ -153,7 +153,7 @@ export async function updateMember(id: string, input: UpdateMemberInput): Promis
     try {
       const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
       dataCache.delete(CACHE_KEYS.MEMBERS);
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
@@ -176,7 +176,7 @@ export async function deleteMember(id: string): Promise<void> {
     try {
       const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
       dataCache.delete(CACHE_KEYS.MEMBERS);
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }

@@ -303,7 +303,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
     } finally {
       setIsSendingEmail(false);
     }
-  }, [sendCert, sendPreviewSrc, sendForm, isSendingEmail]);
+  }, [sendCert, sendPreviewSrc, sendForm, isSendingEmail, t]);
 
   // Load categories on mount
   useEffect(() => {
@@ -318,7 +318,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
       }
     }
     loadCategories();
-  }, []);
+  }, [t]);
 
   // Handle keyboard events for preview modal
   useEffect(() => {

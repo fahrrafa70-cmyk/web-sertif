@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     const contentType = contentTypeMap[ext || ''] || 'image/png';
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from(bucketName)
       .upload(fileName, buffer, {
         cacheControl: '3600',

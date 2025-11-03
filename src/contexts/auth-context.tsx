@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               const { dataCache } = await import('../cache/data-cache');
               dataCache.clear();
-            } catch (e) {
+            } catch {
               // Ignore if cache not available
             }
             
