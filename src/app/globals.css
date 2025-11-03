@@ -649,28 +649,44 @@ nextjs-portal {
   }
 }
 
-/* Small Mobile: max-width 480px */
-@media (max-width: 480px) {
-  body {
-    font-size: 13px;
+  /* Small Mobile: max-width 480px */
+  @media (max-width: 480px) {
+    body {
+      font-size: 13px;
+    }
+
+    /* Further reduce spacing on small screens */
+    .container-responsive {
+      padding: 0 0.75rem;
+    }
+
+    /* Reduce header height on small mobile */
+    header {
+      height: 3rem;
+      min-height: 3rem;
+    }
+
+    /* Stack all flex items */
+    .responsive-flex {
+      flex-direction: column;
+    }
   }
 
-  /* Further reduce spacing on small screens */
-  .container-responsive {
-    padding: 0 0.75rem;
+  /* Remove white background from number input spinner controls */
+  /* Hide spinner controls completely to remove white background */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    background: transparent;
+    opacity: 0;
+    pointer-events: none;
   }
 
-  /* Reduce header height on small mobile */
-  header {
-    height: 3rem;
-    min-height: 3rem;
+  /* Firefox: hide spinner controls */
+  input[type="number"] {
+    -moz-appearance: textfield;
   }
-
-  /* Stack all flex items */
-  .responsive-flex {
-    flex-direction: column;
-  }
-}
 
 /* Prevent text overflow */
 .text-ellipsis {
