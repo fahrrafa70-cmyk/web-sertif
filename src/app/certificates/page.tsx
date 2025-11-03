@@ -38,7 +38,7 @@ import {
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
-import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, X } from "lucide-react";
+import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -1202,7 +1202,7 @@ function CertificatesContent() {
                               certificate.issue_date,
                             ).toLocaleDateString()}
                           </TableCell>
-                          <TableCell className="text-gray-700">
+                          <TableCell className="text-gray-700 dark:text-gray-300">
                             {certificate.expired_date
                               ? new Date(
                                   certificate.expired_date,
@@ -2095,67 +2095,67 @@ function CertificatesContent() {
         <Dialog open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-gray-900">
+              <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 Member Information
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-gray-600 dark:text-gray-400">
                 {detailMember ? `Detailed information about ${detailMember.name}` : 'Loading...'}
               </DialogDescription>
             </DialogHeader>
             
             {loadingMemberDetail ? (
               <div className="flex flex-col items-center justify-center py-16">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                  <div className="w-6 h-6 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                 </div>
-                <span className="text-gray-600 text-sm font-medium">Loading member details...</span>
+                <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Loading member details...</span>
               </div>
             ) : detailMember ? (
               <div className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   {/* Name */}
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Full Name</label>
-                    <div className="mt-1 text-base text-gray-900">{detailMember.name}</div>
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
+                    <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.name}</div>
                   </div>
 
                   {/* Email */}
                   {detailMember.email && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Email</label>
-                      <div className="mt-1 text-base text-gray-900">{detailMember.email}</div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
+                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.email}</div>
                     </div>
                   )}
 
                   {/* Phone */}
                   {detailMember.phone && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Phone</label>
-                      <div className="mt-1 text-base text-gray-900">{detailMember.phone}</div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
+                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.phone}</div>
                     </div>
                   )}
 
                   {/* Organization */}
                   {detailMember.organization && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Organization / School</label>
-                      <div className="mt-1 text-base text-gray-900">{detailMember.organization}</div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Organization / School</label>
+                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.organization}</div>
                     </div>
                   )}
 
                   {/* Job */}
                   {detailMember.job && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Job / Position</label>
-                      <div className="mt-1 text-base text-gray-900">{detailMember.job}</div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Job / Position</label>
+                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.job}</div>
                     </div>
                   )}
 
                   {/* Date of Birth */}
                   {detailMember.date_of_birth && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Date of Birth</label>
-                      <div className="mt-1 text-base text-gray-900">
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
+                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">
                         {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
                           year: 'numeric', 
                           month: 'long', 
@@ -2168,31 +2168,31 @@ function CertificatesContent() {
                   {/* City */}
                   {detailMember.city && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">City</label>
-                      <div className="mt-1 text-base text-gray-900">{detailMember.city}</div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">City</label>
+                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.city}</div>
                     </div>
                   )}
 
                   {/* Address */}
                   {detailMember.address && (
                     <div className="md:col-span-2">
-                      <label className="text-sm font-medium text-gray-500">Address</label>
-                      <div className="mt-1 text-base text-gray-900">{detailMember.address}</div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Address</label>
+                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.address}</div>
                     </div>
                   )}
 
                   {/* Notes */}
                   {detailMember.notes && (
                     <div className="md:col-span-2">
-                      <label className="text-sm font-medium text-gray-500">Notes</label>
-                      <div className="mt-1 text-base text-gray-900 whitespace-pre-wrap">{detailMember.notes}</div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Notes</label>
+                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{detailMember.notes}</div>
                     </div>
                   )}
                 </div>
 
                 {/* Metadata */}
-                <div className="mt-8 pt-6 border-t border-gray-200">
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
+                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-500 dark:text-gray-400">
                     {detailMember.created_at && (
                       <div>
                         <span className="font-medium">Created:</span>{' '}
@@ -2221,18 +2221,6 @@ function CertificatesContent() {
                 </div>
               </div>
             ) : null}
-
-            {/* Action Button */}
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-              <Button
-                variant="outline"
-                onClick={() => setMemberDetailOpen(false)}
-                size="icon"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
           </DialogContent>
         </Dialog>
       )}
