@@ -2173,11 +2173,42 @@ function CertificateGeneratorContent() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedLayerId, deleteTextLayer, stopEditingText]);
 
-  // Function to save generated Score PNG to local storage
-  const saveGeneratedScorePNG = async (imageDataUrl: string): Promise<string> => {
+  // Function to save generated Score PNG to storage
+  const saveGeneratedScorePNG = async (imageDataUrl: string, certificateNo?: string): Promise<string> => {
     try {
-      const fileName = `generated_score_${Date.now()}.png`;
+      const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
+      const fileName = `${baseName}_score.png`;
       
+      // Try Supabase Storage first
+      try {
+        console.log('📤 Attempting to upload score to Supabase Storage...');
+        const storageResponse = await fetch('/api/upload-to-storage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageData: imageDataUrl,
+            fileName: fileName,
+            bucketName: 'certificates',
+          }),
+        });
+
+        if (storageResponse.ok) {
+          const storageResult = await storageResponse.json();
+          if (storageResult.success) {
+            console.log('✅ Successfully uploaded score to Supabase Storage:', storageResult.url);
+            return storageResult.url;
+          }
+        }
+
+        // If storage fails, try local storage as fallback
+        console.warn('⚠️ Supabase Storage upload failed for score, trying local storage...');
+      } catch (storageError) {
+        console.warn('⚠️ Supabase Storage error for score, falling back to local storage:', storageError);
+      }
+
+      // Fallback to local storage
       const response = await fetch('/api/save-generated-score', {
         method: 'POST',
         headers: {
@@ -2194,6 +2225,7 @@ function CertificateGeneratorContent() {
       }
 
       const result = await response.json();
+      console.log('✅ Successfully saved score to local storage:', result.url);
       return result.url;
     } catch (error) {
       console.error('Error saving generated Score PNG:', error);
@@ -2208,6 +2240,40 @@ function CertificateGeneratorContent() {
       const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
       const fileName = suffix ? `${baseName}_${suffix}.png` : `${baseName}.png`;
       
+      // Try Supabase Storage first
+      try {
+        console.log('📤 Attempting to upload to Supabase Storage...');
+        const storageResponse = await fetch('/api/upload-to-storage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageData: imageDataUrl,
+            fileName: fileName,
+            bucketName: 'certificates',
+          }),
+        });
+
+        if (storageResponse.ok) {
+          const storageResult = await storageResponse.json();
+          if (storageResult.success) {
+            console.log('✅ Successfully uploaded to Supabase Storage:', storageResult.url);
+            return storageResult.url;
+          }
+        }
+
+        // If storage fails, try local storage as fallback
+        console.warn('⚠️ Supabase Storage upload failed, trying local storage...');
+        const errorData = await storageResponse.json().catch(() => null);
+        if (errorData?.error?.includes('not found')) {
+          console.error('❌ Storage bucket not found. Please create "certificates" bucket in Supabase Dashboard.');
+        }
+      } catch (storageError) {
+        console.warn('⚠️ Supabase Storage error, falling back to local storage:', storageError);
+      }
+
+      // Fallback to local storage
       const response = await fetch('/api/save-generated-certificate', {
         method: 'POST',
         headers: {
@@ -2224,6 +2290,7 @@ function CertificateGeneratorContent() {
       }
 
       const result = await response.json();
+      console.log('✅ Successfully saved to local storage:', result.url);
       return result.url;
     } catch (error) {
       console.error('Error saving generated PNG:', error);
@@ -2867,12 +2934,12 @@ function CertificateGeneratorContent() {
           const scoreImageDataUrl = await createScoreImageWithTemplate(synchronizedScoreTextLayers, selectedTemplate!);
           console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
           
-          // CRITICAL FIX: Save Score PNG to local storage like certificate
+          // CRITICAL FIX: Save Score PNG to storage like certificate
           let finalScoreImageUrl: string = scoreImageDataUrl;
           try {
-            console.log("💾 Saving Score PNG to local storage...");
-            const localScoreImageUrl = await saveGeneratedScorePNG(scoreImageDataUrl);
-            console.log("✅ Score PNG saved locally:", localScoreImageUrl);
+            console.log("💾 Saving Score PNG to storage...");
+            const localScoreImageUrl = await saveGeneratedScorePNG(scoreImageDataUrl, finalCertificateNo);
+            console.log("✅ Score PNG saved:", localScoreImageUrl);
             finalScoreImageUrl = localScoreImageUrl;
           } catch (e) {
             console.warn("⚠️ Save Score PNG to local failed, keeping dataURL.", e);
