@@ -112,10 +112,25 @@ export interface UpdateCertificateData {
   text_layers?: TextLayer[];
 }
 
-// Get all certificates
-export async function getCertificates(): Promise<Certificate[]> {
+// Get all certificates with optional caching
+export async function getCertificates(useCache: boolean = true): Promise<Certificate[]> {
+  // Check cache first
+  if (useCache && typeof window !== 'undefined') {
+    try {
+      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const cached = dataCache.get<Certificate[]>(CACHE_KEYS.CERTIFICATES);
+      if (cached) {
+        console.log("✅ Using cached certificates");
+        return cached;
+      }
+    } catch (e) {
+      // Cache module not available, continue with fetch
+    }
+  }
+
   console.log("🔍 Fetching all certificates from database...");
   
+  // Optimize query - only fetch essential fields from relations
   const { data, error } = await supabaseClient
     .from("certificates")
     .select(
@@ -127,7 +142,13 @@ export async function getCertificates(): Promise<Certificate[]> {
         category,
         orientation
       ),
-      members:members(*)
+      members:members(
+        id,
+        name,
+        email,
+        organization,
+        phone
+      )
     `,
     )
     .order("created_at", { ascending: false });
@@ -137,18 +158,20 @@ export async function getCertificates(): Promise<Certificate[]> {
     throw new Error(`Failed to fetch certificates: ${error.message}`);
   }
 
-  console.log(`✅ Successfully fetched ${data?.length || 0} certificates from database`);
-  if (data && data.length > 0) {
-    console.log("📋 Certificate details:", data.map(cert => ({
-      id: cert.id,
-      certificate_no: cert.certificate_no,
-      name: cert.name,
-      template_id: cert.template_id,
-      created_at: cert.created_at
-    })));
+  const certificates = data || [];
+  console.log(`✅ Successfully fetched ${certificates.length} certificates from database`);
+
+  // Cache the result (5 minutes)
+  if (useCache && typeof window !== 'undefined') {
+    try {
+      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      dataCache.set(CACHE_KEYS.CERTIFICATES, certificates, 5 * 60 * 1000);
+    } catch (e) {
+      // Cache module not available, ignore
+    }
   }
 
-  return data || [];
+  return certificates;
 }
 
 // Get certificate by ID
@@ -396,6 +419,17 @@ export async function createCertificate(
     }
 
     console.log("✅ Certificate created successfully in database:", data);
+    
+    // Invalidate cache after successful creation
+    if (typeof window !== 'undefined') {
+      try {
+        const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+        dataCache.delete(CACHE_KEYS.CERTIFICATES);
+      } catch (e) {
+        // Cache module not available, ignore
+      }
+    }
+    
     return data;
   } catch (error) {
     console.error("💥 Certificate creation process failed:", error);
@@ -472,6 +506,16 @@ export async function updateCertificate(
     throw new Error(`Failed to update certificate: ${error.message}`);
   }
 
+  // Invalidate cache after successful update
+  if (typeof window !== 'undefined') {
+    try {
+      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      dataCache.delete(CACHE_KEYS.CERTIFICATES);
+    } catch (e) {
+      // Cache module not available, ignore
+    }
+  }
+
   return data;
 }
 
@@ -530,6 +574,16 @@ export async function deleteCertificate(id: string): Promise<void> {
     }
 
     console.log("✅ Certificate deleted successfully from database");
+    
+    // Invalidate cache after successful deletion
+    if (typeof window !== 'undefined') {
+      try {
+        const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+        dataCache.delete(CACHE_KEYS.CERTIFICATES);
+      } catch (e) {
+        // Cache module not available, ignore
+      }
+    }
   } catch (error) {
     console.error("💥 Certificate deletion process failed:", error);
     throw error;

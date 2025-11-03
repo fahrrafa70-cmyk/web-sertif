@@ -56,7 +56,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
     },
     {
       icon: <Users className="w-5 h-5" />,
-      label: "Members",
+      label: t("members.title"),
       href: "/members",
       roles: ["admin", "team"],
     },

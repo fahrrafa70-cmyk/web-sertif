@@ -3052,7 +3052,7 @@ function CertificateGeneratorContent() {
             { confirmText: "View Certificates", tone: "success" }
           );
           if (go) {
-            window.location.href = "/certificates";
+            router.push("/certificates");
           }
           return; // Exit early for dual-mode templates
         } catch (error) {
@@ -5027,7 +5027,7 @@ function CertificateGeneratorContent() {
                           { confirmText: "View Certificates", tone: "success" }
                         );
                         if (go) {
-                          window.location.href = "/certificates";
+                          router.push("/certificates");
                         }
                       } catch (error) {
                         console.error("❌ Failed to generate score:", error);

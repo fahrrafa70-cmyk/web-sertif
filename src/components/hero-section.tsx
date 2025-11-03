@@ -52,13 +52,13 @@ export default function HeroSection() {
   async function exportToPDF(certificate: Certificate) {
     try {
       if (!certificate.certificate_image_url) {
-        toast.error("Certificate image not available to export");
+        toast.error(t('hero.imageNotAvailable'));
         return;
       }
 
       const mod = (await import("jspdf").catch(() => null)) as null | typeof import("jspdf");
       if (!mod || !("jsPDF" in mod)) {
-        toast.error("PDF library missing. Please install 'jspdf' dependency.");
+        toast.error(t('hero.pdfLibraryMissing'));
         console.error("jspdf not found. Run: npm i jspdf");
         return;
       }
@@ -109,7 +109,7 @@ export default function HeroSection() {
       doc.addImage(dataUrl, imgType, x, y, drawW, drawH, undefined, 'FAST');
       const fileName = `${certificate.certificate_no || 'certificate'}.pdf`;
       doc.save(fileName);
-      toast.success("PDF exported");
+      toast.success(t('hero.pdfExported'));
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PDF");
@@ -120,7 +120,7 @@ export default function HeroSection() {
   async function exportToPNG(certificate: Certificate) {
     try {
       if (!certificate.certificate_image_url) {
-        toast.error("Certificate image not available to export");
+        toast.error(t('hero.imageNotAvailable'));
         return;
       }
 
@@ -150,7 +150,7 @@ export default function HeroSection() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success("PNG downloaded successfully");
+      toast.success(t('hero.pngDownloaded'));
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PNG");
@@ -161,7 +161,7 @@ export default function HeroSection() {
   async function generateCertificateLink(certificate: Certificate) {
     try {
       if (!certificate.public_id) {
-        toast.error('Certificate does not have a public link ID');
+        toast.error(t('hero.noPublicLink'));
         return;
       }
 
@@ -172,7 +172,7 @@ export default function HeroSection() {
       
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success('Public certificate link copied');
+        toast.success(t('hero.linkCopied'));
       } else {
         const textArea = document.createElement('textarea');
         textArea.value = certificateLink;
@@ -180,13 +180,13 @@ export default function HeroSection() {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success('Public certificate link copied');
+        toast.success(t('hero.linkCopied'));
       }
       
       console.log('Generated public certificate link:', certificateLink);
     } catch (err) {
       console.error('Failed to generate certificate link:', err);
-      toast.error('Failed to generate certificate link');
+      toast.error(t('hero.linkGenerateFailed'));
     }
   }
 
@@ -194,7 +194,7 @@ export default function HeroSection() {
   async function openSendEmailModal(certificate: Certificate) {
     try {
       if (!certificate.certificate_image_url) {
-        toast.error("Certificate image not available");
+        toast.error(t('hero.imageNotAvailableShort'));
         return;
       }
 
@@ -288,7 +288,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
         throw new Error(json?.error || `Failed to send email (status ${res.status})`);
       }
       if (json.previewUrl) {
-        toast.success('Email queued successfully! Preview opened in new tab');
+        toast.success(t('hero.emailQueued'));
         try { window.open(json.previewUrl, '_blank'); } catch {}
       } else {
         toast.success(`Email sent successfully to ${recipientEmail}`);
@@ -314,7 +314,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
         setCategories(cats);
       } catch (err) {
         console.error('Failed to load categories:', err);
-        toast.error('Failed to load categories');
+        toast.error(t('hero.loadCategoriesFailed'));
       }
     }
     loadCategories();

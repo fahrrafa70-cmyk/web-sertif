@@ -3,21 +3,53 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseClient } from "@/lib/supabase/client";
+import { createOrUpdateUserFromOAuth, getUserRoleByEmail } from "@/lib/supabase/auth";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState("Finishing sign in…");
-  const [setHasError] = useState<string | null>(null);
+  const { t } = useLanguage();
+  const [status, setStatus] = useState('');
+  const [, setHasError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    
+    // Set initial status
+    setStatus(t('auth.callback.finishingSignIn'));
 
     const redirectHome = async () => {
       if (!cancelled) {
-        await router.replace("/");
-        router.refresh();
+        router.replace("/");
       }
+    };
+
+    const waitForAuthReady = async (maxWaitMs: number = 5000): Promise<boolean> => {
+      const startTime = Date.now();
+      while (Date.now() - startTime < maxWaitMs) {
+        if (cancelled) return false;
+        
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session?.user?.email) {
+          // Check if role is available (user exists in users table)
+          try {
+            const normalized = session.user.email.toLowerCase().trim();
+            const role = await getUserRoleByEmail(normalized);
+            if (role !== null) {
+              // Auth is ready!
+              return true;
+            }
+          } catch {
+            // User might not exist yet, continue waiting
+            console.log("Waiting for user to be created...");
+          }
+        }
+        
+        // Wait a bit before checking again
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      return false;
     };
 
     const handleCallback = async () => {
@@ -28,7 +60,7 @@ export default function AuthCallbackPage() {
       if (error) {
         const message = errorDescription || error;
         setHasError(message);
-        setStatus("Authentication failed. Redirecting to home…");
+        setStatus(t('auth.callback.authFailed'));
         setTimeout(() => redirectHome(), 1500);
         return;
       }
@@ -39,19 +71,65 @@ export default function AuthCallbackPage() {
       }
 
       try {
-        setStatus("Finalising session…");
-        const { error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession({ code });
+        setStatus(t('auth.callback.finalisingSession'));
+        
+        // Exchange code for session
+        const { data: sessionData, error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession(code);
+        
         if (exchangeError) {
           console.error("OAuth exchange error:", exchangeError);
-          setStatus("Wait...");
+          setStatus(t('auth.callback.authFailedShort'));
           setTimeout(() => redirectHome(), 1500);
           return;
         }
 
-        redirectHome();
+        if (!sessionData.session?.user) {
+          setStatus(t('auth.callback.noSession'));
+          setTimeout(() => redirectHome(), 1500);
+          return;
+        }
+
+        // Process OAuth user immediately (don't wait for listener)
+        const user = sessionData.session.user;
+        const normalizedEmail = user.email?.toLowerCase().trim();
+        if (normalizedEmail) {
+          try {
+            setStatus(t('auth.callback.settingUpAccount'));
+            
+            // Check if OAuth user
+            const identity = user.identities?.[0];
+            const authProvider = identity?.provider as 'google' | 'github' | 'email' | undefined;
+            
+            if (authProvider === 'google' || authProvider === 'github') {
+              // Create/update user in background (don't block on this)
+              createOrUpdateUserFromOAuth(user, authProvider).catch(err => {
+                console.error('Error creating/updating OAuth user:', err);
+                // Continue anyway - might already exist
+              });
+            }
+
+            // Wait for auth state to be ready (user exists and role is set)
+            setStatus(t('auth.callback.almostDone'));
+            const authReady = await waitForAuthReady(5000);
+            
+            if (!authReady) {
+              console.warn("Auth state not ready after timeout, redirecting anyway");
+            }
+          } catch (err) {
+            console.error("Error processing OAuth callback:", err);
+            // Continue anyway - auth state listener will handle it
+          }
+        }
+
+        // Small delay to ensure state propagation
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        if (!cancelled) {
+          redirectHome();
+        }
       } catch (err) {
         console.error("Unexpected error during OAuth callback:", err);
-        setStatus("Wait...");
+        setStatus(t('auth.callback.errorOccurred'));
         setTimeout(() => redirectHome(), 1500);
       }
     };
@@ -61,7 +139,7 @@ export default function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [router, searchParams]);
+  }, [router, searchParams, t]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
@@ -70,18 +148,17 @@ export default function AuthCallbackPage() {
           <div className="w-10 h-10 border-4 border-blue-200 dark:border-blue-900 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin"></div>
         </div>
         <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Signing you in…</h1>
+          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t('auth.callback.signingYouIn')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{status}</p>
         </div>
         <button
           type="button"
           onClick={() => {
             router.replace("/");
-            router.refresh();
           }}
           className="text-sm text-blue-600 hover:text-blue-500"
         >
-          Take me home
+          {t('auth.callback.takeMeHome')}
         </button>
       </div>
     </div>

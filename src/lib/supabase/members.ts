@@ -34,13 +34,33 @@ function sanitize(input: string | undefined | null): string | null {
   return v.length ? v : null;
 }
 
-export async function getMembers(): Promise<Member[]> {
+export async function getMembers(useCache: boolean = true): Promise<Member[]> {
+  // Check cache first
+  if (useCache && typeof window !== 'undefined') {
+    const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+    const cached = dataCache.get<Member[]>(CACHE_KEYS.MEMBERS);
+    if (cached) {
+      console.log("✅ Using cached members");
+      return cached;
+    }
+  }
+
   const { data, error } = await supabaseClient
     .from('members')
     .select('*')
     .order('created_at', { ascending: false });
+  
   if (error) throw new Error(`Failed to fetch members: ${error.message}`);
-  return (data as Member[]) || [];
+  
+  const members = (data as Member[]) || [];
+
+  // Cache the result (10 minutes - members don't change often)
+  if (useCache && typeof window !== 'undefined') {
+    const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+    dataCache.set(CACHE_KEYS.MEMBERS, members, 10 * 60 * 1000);
+  }
+
+  return members;
 }
 
 export async function getMember(id: string): Promise<Member> {
@@ -90,6 +110,17 @@ export async function createMember(input: CreateMemberInput): Promise<Member> {
     .single();
 
   if (error) throw new Error(`Failed to add member: ${error.message}`);
+  
+  // Invalidate cache
+  if (typeof window !== 'undefined') {
+    try {
+      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      dataCache.delete(CACHE_KEYS.MEMBERS);
+    } catch (e) {
+      // Ignore
+    }
+  }
+  
   return data as Member;
 }
 
@@ -116,6 +147,17 @@ export async function updateMember(id: string, input: UpdateMemberInput): Promis
     .single();
 
   if (error) throw new Error(`Failed to update member: ${error.message}`);
+  
+  // Invalidate cache
+  if (typeof window !== 'undefined') {
+    try {
+      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      dataCache.delete(CACHE_KEYS.MEMBERS);
+    } catch (e) {
+      // Ignore
+    }
+  }
+  
   return data as Member;
 }
 
@@ -128,4 +170,14 @@ export async function deleteMember(id: string): Promise<void> {
     .eq('id', id);
     
   if (error) throw new Error(`Failed to delete member: ${error.message}`);
+  
+  // Invalidate cache
+  if (typeof window !== 'undefined') {
+    try {
+      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      dataCache.delete(CACHE_KEYS.MEMBERS);
+    } catch (e) {
+      // Ignore
+    }
+  }
 }

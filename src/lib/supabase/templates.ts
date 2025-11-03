@@ -151,8 +151,22 @@ export function getTemplatePreviewUrl(template: Template): string | null {
 
 // Note: Image deletion is handled by the file system cleanup process
 
-// Get all templates
-export async function getTemplates(): Promise<Template[]> {
+// Get all templates with optional caching
+export async function getTemplates(useCache: boolean = true): Promise<Template[]> {
+  // Check cache first
+  if (useCache && typeof window !== 'undefined') {
+    try {
+      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const cached = dataCache.get<Template[]>(CACHE_KEYS.TEMPLATES);
+      if (cached) {
+        console.log("✅ Using cached templates");
+        return cached;
+      }
+    } catch (e) {
+      // Cache module not available, continue with fetch
+    }
+  }
+
   const { data, error } = await supabaseClient
     .from('templates')
     .select('*')
@@ -162,7 +176,19 @@ export async function getTemplates(): Promise<Template[]> {
     throw new Error(`Failed to fetch templates: ${error.message}`);
   }
 
-  return data || [];
+  const templates = data || [];
+
+  // Cache the result (10 minutes - templates don't change often)
+  if (useCache && typeof window !== 'undefined') {
+    try {
+      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      dataCache.set(CACHE_KEYS.TEMPLATES, templates, 10 * 60 * 1000);
+    } catch (e) {
+      // Cache module not available, ignore
+    }
+  }
+
+  return templates;
 }
 
 // Get template by ID

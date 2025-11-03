@@ -114,28 +114,8 @@ function CertificatesContent() {
     }
   }, []);
 
-  // Auto-refresh certificates when page becomes visible (after returning from generate page)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log("🔄 Page became visible, refreshing certificates...");
-        refresh();
-      }
-    };
-
-    const handleFocus = () => {
-      console.log("🔄 Window focused, refreshing certificates...");
-      refresh();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [refresh]);
+  // Auto-refresh certificates only when explicitly needed (removed aggressive refresh)
+  // Users can manually refresh if needed, or refresh happens after create/update/delete
 
   // Export both certificate and score as a single PDF (main first, score second)
   async function exportToPDF(certificate: Certificate) {
@@ -794,6 +774,9 @@ function CertificatesContent() {
     console.log('💾 Saving certificate to database...');
     const savedCertificate = await createCertificate(certificateDataToSave);
     console.log('✅ Certificate created successfully:', savedCertificate.certificate_no);
+    
+    // Refresh certificates list immediately (hook will handle optimistic update)
+    refresh();
     
     return savedCertificate;
   };

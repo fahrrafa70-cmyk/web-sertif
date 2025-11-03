@@ -89,40 +89,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const normalized = session.user.email.toLowerCase().trim();
         setEmail(normalized);
         
-        try {
-          // Check if this is an OAuth user (not email/password)
-          // Get provider from identities array (most reliable way)
-          const identity = session.user.identities?.[0];
-          const authProvider = identity?.provider as 'google' | 'github' | 'email' | undefined;
-          
-          // If OAuth user (google or github), create/update user in users table
-          if (authProvider === 'google' || authProvider === 'github') {
-            try {
-              await createOrUpdateUserFromOAuth(session.user, authProvider);
-              console.log(`OAuth user processed: ${normalized} via ${authProvider}`);
-            } catch (oauthErr) {
-              console.error('Error creating/updating OAuth user:', oauthErr);
-              // Continue even if user creation fails - will try to fetch role anyway
-            }
-          }
-          
-          // Fetch role after ensuring user exists in users table
-          const fetchedRole = await getUserRoleByEmail(normalized);
-          setRole(fetchedRole);
-          
-          // Update localStorage with role
+        // Process auth state asynchronously without blocking
+        (async () => {
           try {
-            window.localStorage.setItem("ecert-role", fetchedRole || "public");
-          } catch {}
-          
-          setError(null);
-          setLoading(false); // Ensure loading is reset after successful sign in
-        } catch (err) {
-          console.error('Error fetching user role:', err);
-          setRole(null);
-          setError("Failed to fetch user role. Please try signing in again.");
-          setLoading(false); // Ensure loading is reset even on error
-        }
+            // Check if this is an OAuth user (not email/password)
+            // Get provider from identities array (most reliable way)
+            const identity = session.user.identities?.[0];
+            const authProvider = identity?.provider as 'google' | 'github' | 'email' | undefined;
+            
+            // If OAuth user (google or github), create/update user in users table
+            // Do this in parallel with role fetch for better performance
+            if (authProvider === 'google' || authProvider === 'github') {
+              // Start user creation/update but don't wait for it
+              createOrUpdateUserFromOAuth(session.user, authProvider)
+                .then(() => {
+                  console.log(`OAuth user processed: ${normalized} via ${authProvider}`);
+                })
+                .catch((oauthErr) => {
+                  console.error('Error creating/updating OAuth user:', oauthErr);
+                  // Continue anyway - user might already exist
+                });
+            }
+            
+            // Fetch role with retry logic (user might be created async)
+            let fetchedRole: "admin" | "team" | "user" | null = null;
+            let retries = 3;
+            while (retries > 0 && fetchedRole === null) {
+              try {
+                fetchedRole = await getUserRoleByEmail(normalized);
+                if (fetchedRole === null && retries > 1) {
+                  // Wait a bit before retrying (user might still be created)
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                }
+              } catch (err) {
+                console.error(`Error fetching user role (attempt ${4 - retries}):`, err);
+              }
+              retries--;
+            }
+            
+            setRole(fetchedRole);
+            
+            // Update localStorage with role
+            try {
+              window.localStorage.setItem("ecert-role", fetchedRole || "public");
+            } catch {}
+            
+            // Clear cache on auth change to ensure fresh data
+            try {
+              const { dataCache } = await import('../cache/data-cache');
+              dataCache.clear();
+            } catch (e) {
+              // Ignore if cache not available
+            }
+            
+            setError(null);
+            setLoading(false); // Ensure loading is reset after successful sign in
+          } catch (err) {
+            console.error('Error processing auth state:', err);
+            setRole(null);
+            setError("Failed to fetch user role. Please try signing in again.");
+            setLoading(false); // Ensure loading is reset even on error
+          }
+        })();
       } else if (event === "TOKEN_REFRESHED" && session?.user?.email) {
         // Handle token refresh - just update the session without changing state
         console.log('Token refreshed for:', session.user.email);
