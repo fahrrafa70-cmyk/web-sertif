@@ -553,38 +553,42 @@ function ConfigureLayoutContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 text-gray-900 dark:text-gray-100">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 fixed top-0 left-0 right-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 fixed top-0 left-0 right-0 z-50 shadow-sm h-14 sm:h-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 h-full">
+          <div className="flex items-center justify-between h-full gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push("/templates")}
+                className="flex-shrink-0 h-8 w-8 sm:h-9 sm:w-auto sm:px-3 p-0 sm:p-2"
               >
-                <ArrowLeft className="w-4 h-4 mr-2 border-2 border-gray-300 dark:border-gray-600 rounded-full" />
+                <ArrowLeft className="w-4 h-4 sm:mr-2 border-2 border-gray-300 dark:border-gray-600 rounded-full" />
+                <span className="hidden sm:inline">Back</span>
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">
                   {template.name}
                 </h1>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="gradient-primary text-white"
+                className="gradient-primary text-white h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
               >
                 {saving ? (
                   <>
-                    <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Saving...
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span className="hidden sm:inline">Saving...</span>
+                    <span className="sm:hidden">Save</span>
                   </>
                 ) : (
                   <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save
+                    <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Save</span>
+                    <span className="sm:hidden">Save</span>
                   </>
                 )}
               </Button>
@@ -594,14 +598,11 @@ function ConfigureLayoutContent() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8 mt-20">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 mt-14 sm:mt-16 md:mt-20">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Compact Canvas for Editing */}
-          <div className="lg:col-span-3">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-              <div className="flex items-center justify-between mb-4">
-
-              </div>
+          <div className="lg:col-span-3 order-2 lg:order-1">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6">
               <div 
                 ref={canvasRef}
                 className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden"
@@ -708,10 +709,10 @@ function ConfigureLayoutContent() {
                       {isSelected && (
                         <>
                           {/* Layer name label */}
-                          <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
-                            {layer.id}
+                          <div className="absolute -top-5 sm:-top-6 left-0 bg-blue-500 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded whitespace-nowrap pointer-events-none max-w-[90vw] truncate">
+                            <span className="truncate inline-block max-w-full">{layer.id}</span>
                             {layer.maxWidth && (
-                              <span className="ml-2 opacity-75">{Math.round(layer.maxWidth)}px</span>
+                              <span className="ml-1 sm:ml-2 opacity-75 hidden sm:inline">{Math.round(layer.maxWidth)}px</span>
                             )}
                           </div>
                           
@@ -791,24 +792,25 @@ function ConfigureLayoutContent() {
           </div>
 
           {/* Configuration Panel */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-6 space-y-6 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+          <div className="lg:col-span-1 order-1 lg:order-2">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 lg:sticky lg:top-24 max-h-[calc(100vh-10rem)] sm:max-h-[calc(100vh-8rem)] overflow-y-auto">
               {/* Text Layers List */}
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+                  <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Text Layers ({textLayers.length})
                   </h2>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={addTextLayer}
+                    className="h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Text Layer
+                    <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Add Layer</span>
                   </Button>
                 </div>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
                   {textLayers.map(layer => {
                     const isRequired = ['name', 'certificate_no', 'issue_date'].includes(layer.id);
                     const isSelected = selectedLayerId === layer.id;
@@ -816,16 +818,16 @@ function ConfigureLayoutContent() {
                     return (
                       <div
                         key={layer.id}
-                        className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        className={`flex items-center justify-between p-2 sm:p-3 rounded-lg border-2 cursor-pointer transition-all ${
                           isSelected 
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' 
                             : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                         }`}
                         onClick={() => setSelectedLayerId(layer.id)}
                       >
-                        <div className="flex items-center gap-2 flex-1">
-                          <Type className="w-4 h-4 text-gray-400 dark:text-gray-300" />
-                          <div className="flex-1">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                          <Type className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-300 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
                             {renamingLayerId === layer.id ? (
                               <Input
                                 value={renameValue}
@@ -841,18 +843,18 @@ function ConfigureLayoutContent() {
                               />
                             ) : (
                               <div 
-                                className="font-medium text-sm text-gray-900 dark:text-gray-100"
+                                className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate"
                                 onDoubleClick={() => handleLayerDoubleClick(layer.id)}
                               >
                                 {layer.id}
                               </div>
                             )}
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                               {layer.fontSize}px • {layer.fontFamily}
                             </div>
                           </div>
                           {isRequired && (
-                            <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded">
+                            <span className="text-[10px] sm:text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-1.5 sm:px-2 py-0.5 rounded flex-shrink-0">
                               Required
                             </span>
                           )}
@@ -865,9 +867,9 @@ function ConfigureLayoutContent() {
                               e.stopPropagation();
                               deleteLayer(layer.id);
                             }}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 h-7 w-7 sm:h-8 sm:w-auto sm:px-2 p-0 flex-shrink-0"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                           </Button>
                         )}
                       </div>
@@ -878,24 +880,24 @@ function ConfigureLayoutContent() {
 
               {/* Layer Properties */}
               {selectedLayer && (
-                <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
-                  <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+                <div className="border-t border-gray-200 dark:border-gray-800 pt-3 sm:pt-4">
+                  <h3 className="text-[10px] sm:text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 sm:mb-3 uppercase tracking-wide truncate">
                     {selectedLayer.id}
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {/* Default Text - Only for custom layers */}
                     {!['name', 'certificate_no', 'issue_date'].includes(selectedLayer.id) && (
-                      <div className="bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-900/40 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="text-xs font-semibold text-green-900 dark:text-green-300">Default Text</Label>
-                          <label className="flex items-center gap-1.5 cursor-pointer">
+                      <div className="bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-900/40 rounded-lg p-2 sm:p-3">
+                        <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                          <Label className="text-[10px] sm:text-xs font-semibold text-green-900 dark:text-green-300">Default Text</Label>
+                          <label className="flex items-center gap-1 sm:gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={selectedLayer.useDefaultText || false}
                               onChange={(e) => updateLayer(selectedLayer.id, { useDefaultText: e.target.checked })}
-                              className="w-3.5 h-3.5 text-green-600 rounded border-green-300 dark:border-green-500"
+                              className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-600 rounded border-green-300 dark:border-green-500"
                             />
-                            <span className="text-xs text-green-900 dark:text-green-300">Use</span>
+                            <span className="text-[10px] sm:text-xs text-green-900 dark:text-green-300">Use</span>
                           </label>
                         </div>
                         <Input
@@ -911,15 +913,15 @@ function ConfigureLayoutContent() {
                             }));
                           }}
                           placeholder="Enter text..."
-                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
                     )}
 
                     {/* Position - Compact Grid */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
-                        <Label className="text-xs text-gray-700 dark:text-gray-300">X Position</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">X Position</Label>
                         <Input
                           type="number"
                           value={selectedLayer.x}
@@ -927,11 +929,11 @@ function ConfigureLayoutContent() {
                             x: parseInt(e.target.value) || 0,
                             xPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_WIDTH
                           })}
-                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
                       <div>
-                        <Label className="text-xs text-gray-700 dark:text-gray-300">Y Position</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Y Position</Label>
                         <Input
                           type="number"
                           value={selectedLayer.y}
@@ -939,31 +941,31 @@ function ConfigureLayoutContent() {
                             y: parseInt(e.target.value) || 0,
                             yPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_HEIGHT
                           })}
-                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
                     </div>
 
                     {/* Font Size */}
                     <div>
-                      <Label className="text-xs text-gray-700 dark:text-gray-300">Font Size</Label>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Size</Label>
                       <Input
                         type="number"
                         value={selectedLayer.fontSize}
                         onChange={(e) => updateLayer(selectedLayer.id, { fontSize: parseInt(e.target.value) || 12 })}
-                        className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                        className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                       />
                     </div>
 
                     {/* Font Family & Weight - Side by Side */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
-                        <Label className="text-xs text-gray-700 dark:text-gray-300">Font Family</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Family</Label>
                         <Select 
                           value={selectedLayer.fontFamily} 
                           onValueChange={(value) => updateLayer(selectedLayer.id, { fontFamily: value })}
                         >
-                          <SelectTrigger className="h-7 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
+                          <SelectTrigger className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
                             <SelectValue placeholder="Font" />
                           </SelectTrigger>
                           <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
@@ -976,12 +978,12 @@ function ConfigureLayoutContent() {
                         </Select>
                       </div>
                       <div>
-                        <Label className="text-xs text-gray-700 dark:text-gray-300">Weight</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Weight</Label>
                         <Select 
                           value={selectedLayer.fontWeight || 'normal'}
                           onValueChange={(value) => updateLayer(selectedLayer.id, { fontWeight: value })}
                         >
-                          <SelectTrigger className="h-7 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
+                          <SelectTrigger className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
                             <SelectValue placeholder="Weight" />
                           </SelectTrigger>
                           <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
@@ -995,16 +997,16 @@ function ConfigureLayoutContent() {
                     </div>
 
                     {/* Text Align & Line Height */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       {/* Hide Text Align for certificate_no and issue_date - they always use left alignment */}
                       {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && (
                         <div>
-                          <Label className="text-xs text-gray-700 dark:text-gray-300">Text Align</Label>
+                          <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Text Align</Label>
                           <Select 
                             value={selectedLayer.textAlign || 'left'}
                             onValueChange={(value) => updateLayer(selectedLayer.id, { textAlign: value as TextLayer['textAlign'] })}
                           >
-                            <SelectTrigger className="h-7 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
+                            <SelectTrigger className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
                               <SelectValue placeholder="Align" />
                             </SelectTrigger>
                             <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
@@ -1017,50 +1019,50 @@ function ConfigureLayoutContent() {
                         </div>
                       )}
                       <div className={['certificate_no', 'issue_date'].includes(selectedLayer.id) ? 'col-span-2' : ''}>
-                        <Label className="text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={selectedLayer.lineHeight || 1.2}
                           onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
-                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
                     </div>
 
                     {/* Max Width */}
                     <div>
-                      <Label className="text-xs text-gray-700 dark:text-gray-300">Max Width (px)</Label>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Max Width (px)</Label>
                       <Input
                         type="number"
                         value={selectedLayer.maxWidth || 0}
                         onChange={(e) => updateLayer(selectedLayer.id, { maxWidth: parseInt(e.target.value) || 0 })}
-                        className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                        className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                       />
                     </div>
 
                     {/* Color Picker */}
-                    <div className="space-y-2">
-                      <Label className="text-xs text-gray-700 dark:text-gray-300">Text Color</Label>
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Text Color</Label>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <input
                           type="color"
                           value={selectedLayer.color || '#000000'}
                           onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
-                          className="h-8 w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent"
+                          className="h-7 sm:h-8 w-10 sm:w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
                         />
                         <Input
                           type="text"
                           value={selectedLayer.color || '#000000'}
                           onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
-                          className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 flex-1"
                         />
                       </div>
                     </div>
 
                     {/* Preview Text Input */}
                     <div>
-                      <Label className="text-xs text-gray-700 dark:text-gray-300">Preview Text</Label>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Preview Text</Label>
                       <Input
                         type="text"
                         value={previewTexts[selectedLayer.id] || ''}
@@ -1068,7 +1070,7 @@ function ConfigureLayoutContent() {
                           ...prev,
                           [selectedLayer.id]: e.target.value
                         }))}
-                        className="h-7 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                        className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                       />
                     </div>
                   </div>
@@ -1084,18 +1086,18 @@ function ConfigureLayoutContent() {
 
       {/* Full Preview Modal */}
       <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            <DialogTitle className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
               Template Preview
             </DialogTitle>
-            <DialogDescription className="text-gray-600 dark:text-gray-400">
+            <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
               Informasi dan preview template sertifikat
             </DialogDescription>
           </DialogHeader>
           
           {/* Template Information */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Nama Template</p>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.name}</p>
@@ -1111,8 +1113,8 @@ function ConfigureLayoutContent() {
           </div>
 
           {/* Preview Canvas */}
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Preview Template</h3>
+          <div className="mt-3 sm:mt-4">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">Preview Template</h3>
             <div 
               className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden mx-auto"
               style={{ 

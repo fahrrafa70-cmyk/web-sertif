@@ -486,7 +486,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
   return (
     <>
     <section className="relative w-full flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-12 md:py-20">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 text-center py-8 sm:py-12 md:py-20">
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -494,8 +494,8 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
           className="max-w-5xl mx-auto"
         >
           {/* Enhanced Main Title */}
-          <motion.div variants={itemVariants} className="mb-5">
-            <h1 className="text-6xl sm:text-7xl lg:text-8xl font-bold text-gradient mb-3 leading-tight">
+          <motion.div variants={itemVariants} className="mb-4 sm:mb-5">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-gradient mb-2 sm:mb-3 leading-tight">
               {t('hero.title')}
             </h1>
           </motion.div>
@@ -508,10 +508,10 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
           >
             {/* Search Bar */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center gap-2.5 bg-gray-50 dark:bg-gray-800 rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex-1 flex items-center gap-2 sm:gap-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl sm:rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200">
                   <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                     <Input
                       value={certificateId}
                       onChange={(e) => {
@@ -531,17 +531,18 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                         }
                       }}
                       placeholder={t('search.searchByName')}
-                      className="h-10 pl-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
+                      className="h-9 sm:h-10 pl-8 sm:pl-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
                     />
                   </div>
                   <Button
                     type="button"
                     onClick={handleSearch}
                     disabled={searching}
-                    className="h-10 px-4 sm:h-11 sm:px-5 gradient-primary text-white rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                   >
-                    {searching ? t('hero.searching') : t('hero.searchButton')}
-                    <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden sm:inline">{searching ? t('hero.searching') : t('hero.searchButton')}</span>
+                    <span className="sm:hidden">{searching ? t('hero.searching') : t('hero.searchButton')}</span>
+                    <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                   </Button>
                 </div>
                 
@@ -550,9 +551,10 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                   type="button"
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className="h-12 px-4 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="h-9 sm:h-10 md:h-12 px-3 sm:px-4 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 sm:flex-shrink-0"
                 >
                   <Filter className="w-4 h-4" />
+                  <span className="ml-2 hidden sm:inline text-sm">Filter</span>
                 </Button>
               </div>
               
@@ -574,7 +576,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm"
+                className="mb-3 p-3 sm:p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Category Filter */}
@@ -725,18 +727,18 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
       </div>
     </section>
     {previewOpen && previewCert && (
-      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-4" onClick={() => setPreviewOpen(false)}>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 sm:p-4" onClick={() => setPreviewOpen(false)}>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b dark:border-gray-700">
             <div>
-              <div className="text-lg font-semibold dark:text-gray-100">{t('hero.certificatePreview')}</div>
+              <div className="text-base sm:text-lg font-semibold dark:text-gray-100">{t('hero.certificatePreview')}</div>
             </div>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)} size="icon" aria-label="Close">
+            <Button variant="outline" onClick={() => setPreviewOpen(false)} size="icon" aria-label="Close" className="h-8 w-8 sm:h-10 sm:w-10">
               <X className="w-4 h-4" />
             </Button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-            <div className="p-4 bg-gray-50 dark:bg-gray-900">
+            <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
               {previewCert!.certificate_image_url ? (
                 <div
                   className="relative w-full cursor-zoom-in group"
@@ -768,15 +770,15 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
               )}
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="space-y-2">
-                <div className="text-sm text-gray-500 dark:text-gray-400">{t('hero.recipient')}</div>
-                <div className="text-2xl font-semibold dark:text-gray-100">{previewCert!.members?.name || previewCert!.name}</div>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('hero.recipient')}</div>
+                <div className="text-lg sm:text-xl md:text-2xl font-semibold dark:text-gray-100">{previewCert!.members?.name || previewCert!.name}</div>
                 {previewCert!.members?.organization && (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">{previewCert!.members.organization}</div>
+                  <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{previewCert!.members.organization}</div>
                 )}
               </div>
-              <div className="mt-4 space-y-1 text-sm">
+              <div className="mt-4 space-y-1 text-xs sm:text-sm">
                 <div><span className="text-gray-500 dark:text-gray-400">{t('hero.category')}:</span> {previewCert!.category || "—"}</div>
                 <div><span className="text-gray-500 dark:text-gray-400">{t('hero.template')}:</span> {(previewCert as unknown as { templates?: { name?: string } }).templates?.name || "—"}</div>
                 <div><span className="text-gray-500 dark:text-gray-400">{t('hero.issued')}:</span> {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
@@ -784,7 +786,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                   <div><span className="text-gray-500 dark:text-gray-400">{t('hero.expires')}:</span> {new Date(previewCert!.expired_date as string).toLocaleDateString()}</div>
                 )}
               </div>
-              <div className="mt-6 flex gap-3">
+              <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button

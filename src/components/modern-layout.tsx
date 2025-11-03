@@ -17,7 +17,7 @@ export default function ModernLayout({ children }: ModernLayoutProps) {
       <ModernSidebar />
 
       {/* Main Content */}
-      <main className="lg:ml-20 pt-16 min-h-screen bg-gray-50 dark:bg-gray-900">
+      <main className="lg:ml-20 pt-14 sm:pt-16 min-h-screen bg-gray-50 dark:bg-gray-900 pb-4 sm:pb-8">
         {children}
       </main>
     </div>

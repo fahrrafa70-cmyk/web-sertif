@@ -370,12 +370,12 @@ export default function TemplatesPage() {
     <ModernLayout>
       {/* Hero Section */}
       <motion.section 
-        className="relative py-12 overflow-hidden min-h-screen"
+        className="relative py-6 sm:py-8 md:py-12 overflow-hidden min-h-screen"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 relative">
             <motion.div
               variants={staggerContainer}
               initial="hidden"
@@ -391,10 +391,10 @@ export default function TemplatesPage() {
                 <div className="inline-flex items-center justify-center w-20 h-20 gradient-primary rounded-2xl mb-6 shadow-lg">
                   <FileText className="w-10 h-10 text-white" />
                 </div>
-                <h1 className="text-4xl sm:text-5xl font-bold text-gradient mb-4">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gradient mb-3 sm:mb-4">
                   {t('templates.title')}
                 </h1>
-                <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-4">
                   {t('templates.subtitle')}
                 </p>
               </motion.div>
@@ -404,13 +404,13 @@ export default function TemplatesPage() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-3xl mx-auto"
+                className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto mb-6 sm:mb-8"
               >
                 <div className="relative flex-1 w-full">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                   <Input 
                     placeholder={t('templates.search')} 
-                    className="pl-12 h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500/20" 
+                    className="pl-10 sm:pl-12 h-10 sm:h-12 rounded-lg sm:rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 text-sm sm:text-base" 
                     value={query} 
                     onChange={(e) => setQuery(e.target.value)} 
                   />
@@ -418,7 +418,7 @@ export default function TemplatesPage() {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full sm:w-56 h-12 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
+                  className="w-full sm:w-56 h-10 sm:h-12 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100 text-sm sm:text-base"
                 >
                   <option value="">{t('templates.allCategories')}</option>
                   <option value="MoU">MoU</option>
@@ -430,15 +430,13 @@ export default function TemplatesPage() {
                   <option value="Lainnya">Lainnya</option>
                 </select>
                 {(role === "Admin" || role === "Team") && (
-                  <div className="flex gap-3">
-                    <Button 
-                      onClick={openCreate} 
-                      className="h-12 px-8 gradient-primary text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                    >
-                      <Plus className="w-5 h-5 mr-2" />
-                      {t('templates.create')}
-                    </Button>
-                  </div>
+                  <Button 
+                    onClick={openCreate} 
+                    className="h-10 sm:h-12 px-4 sm:px-6 md:px-8 gradient-primary text-white rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 w-full sm:w-auto text-sm sm:text-base"
+                  >
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                    {t('templates.create')}
+                  </Button>
                 )}
               </motion.div>
             </motion.div>

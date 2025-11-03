@@ -421,14 +421,14 @@ export default function MembersPage() {
 
   return (
     <ModernLayout>
-        <section className="min-h-screen py-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="min-h-screen py-4 sm:py-6 md:py-8">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
             {/* Header */}
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div className="mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
                 <div>
-                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">{t('members.title')}</h1>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1 text-base">{t('members.subtitle')}</p>
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">{t('members.title')}</h1>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">{t('members.subtitle')}</p>
                 </div>
               {(role === "Admin" || role === "Team") && (
                 <div className="flex gap-2">

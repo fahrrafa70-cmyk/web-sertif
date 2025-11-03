@@ -131,15 +131,15 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                     <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                       E-Certificate
                     </h2>
-                    <p className="text-xs text-gray-400 font-medium tracking-wide">Certification System</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-300 font-medium tracking-wide">Certification System</p>
                   </div>
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
                   aria-label="Close menu"
                 >
-                  <X className="w-5 h-5 text-gray-600" />
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 </button>
               </div>
 
@@ -158,7 +158,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                         <Link
                           href={item.href}
                           onClick={onClose}
-                          className="flex items-center space-x-4 p-3 rounded-xl transition-all duration-200 hover:bg-gray-50"
+                          className="flex items-center space-x-4 p-3 rounded-xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800"
                         >
                           <div
                             className={`
@@ -167,7 +167,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                               ${
                                 active
                                   ? "gradient-primary text-white shadow-lg"
-                                  : "bg-gray-100 text-gray-600"
+                                  : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
                               }
                             `}
                           >
@@ -175,14 +175,14 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                           </div>
                           <span
                             className={`text-base font-medium flex-1 ${
-                              active ? "text-gradient" : "text-gray-700"
+                              active ? "text-gradient" : "text-gray-700 dark:text-gray-100"
                             }`}
                           >
                             {item.label}
                           </span>
                           <ChevronRight
                             className={`w-4 h-4 transition-colors ${
-                              active ? "text-cyan-400" : "text-gray-300"
+                              active ? "text-cyan-400" : "text-gray-300 dark:text-gray-400"
                             }`}
                           />
                         </Link>
@@ -193,15 +193,15 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               </div>
 
               {/* Footer */}
-              <div className="p-6 border-t border-gray-200 dark:border-gray-800">
+              <div className="p-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-200 mb-2">
                     {t("theme.switch") || "Theme"}
                   </p>
                   <ThemeSwitcher variant="default" className="w-full mb-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-200 mb-2">
                     {t("language.switch")}
                   </p>
                   <LanguageSwitcher variant="default" className="w-full" />

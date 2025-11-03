@@ -1063,58 +1063,60 @@ function CertificatesContent() {
 
   return (
     <ModernLayout>
-      <section className="min-h-screen py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="min-h-screen py-4 sm:py-6 md:py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
             {/* Header */}
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                <div>
-                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                    {t("certificates.title")}
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1 text-base">
-                    {t("certificates.subtitle")}
-                  </p>
+            <div className="mb-4 sm:mb-6">
+              <div className="flex flex-col gap-4 mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                      {t("certificates.title")}
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
+                      {t("certificates.subtitle")}
+                    </p>
+                  </div>
+                  {/* Quick Generate Button */}
+                  {(role === "Admin" || role === "Team") && (
+                    <Button
+                      onClick={handleOpenQuickGenerate}
+                      className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
+                    >
+                      <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="text-sm sm:text-base">Generate</span>
+                    </Button>
+                  )}
                 </div>
-                {/* Quick Generate Button */}
-                {(role === "Admin" || role === "Team") && (
-                  <Button
-                    onClick={handleOpenQuickGenerate}
-                    className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center gap-2"
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <Input
+                    placeholder={t("certificates.search")}
+                    className="w-full sm:w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                  />
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full sm:w-48 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100 text-sm sm:text-base"
                   >
-                    <Zap className="w-5 h-5" />
-                    Generate
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Input
-                  placeholder={t("certificates.search")}
-                  className="w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                />
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-48 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
-                >
-                  <option value="">{t('templates.allCategories')}</option>
-                  <option value="MoU">MoU</option>
-                  <option value="Magang">Magang</option>
-                  <option value="Pelatihan">Pelatihan</option>
-                  <option value="Kunjungan Industri">Kunjungan Industri</option>
-                  <option value="Sertifikat">Sertifikat</option>
-                  <option value="Surat">Surat</option>
-                  <option value="Lainnya">Lainnya</option>
-                </select>
-                <Input
-                  placeholder="Filter by date"
-                  className="w-40 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                />
+                    <option value="">{t('templates.allCategories')}</option>
+                    <option value="MoU">MoU</option>
+                    <option value="Magang">Magang</option>
+                    <option value="Pelatihan">Pelatihan</option>
+                    <option value="Kunjungan Industri">Kunjungan Industri</option>
+                    <option value="Sertifikat">Sertifikat</option>
+                    <option value="Surat">Surat</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                  <Input
+                    placeholder="Filter by date"
+                    className="w-full sm:w-40 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
@@ -1169,48 +1171,49 @@ function CertificatesContent() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4 }}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
               >
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
-                        <TableHead className="min-w-[180px]">{t("certificates.certificateId")}</TableHead>
-                        <TableHead className="min-w-[200px]">{t("certificates.recipient")}</TableHead>
-                        <TableHead className="min-w-[150px]">Category</TableHead>
-                        <TableHead className="min-w-[140px]">{t("certificates.issuedDate")}</TableHead>
-                        <TableHead className="min-w-[140px]">Expiry Date</TableHead>
-                        <TableHead className="text-right min-w-[280px]">
-                          {t("certificates.actions")}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentCertificates.map((certificate) => (
-                        <TableRow 
-                          key={certificate.id}
-                          onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
-                          className={certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0" : "border-b border-gray-100 dark:border-gray-700 last:border-0"}
-                        >
-                          <TableCell className="font-medium text-gray-900 dark:text-gray-100">
-                            {certificate.certificate_no}
-                          </TableCell>
-                          <TableCell className="text-gray-700 dark:text-gray-300">{certificate.name}</TableCell>
-                          <TableCell className="text-gray-700 dark:text-gray-300">{certificate.category || "—"}</TableCell>
-                          <TableCell className="text-gray-700 dark:text-gray-300">
-                            {new Date(
-                              certificate.issue_date,
-                            ).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell className="text-gray-700 dark:text-gray-300">
-                            {certificate.expired_date
-                              ? new Date(
-                                  certificate.expired_date,
-                                ).toLocaleDateString()
-                              : "—"}
-                          </TableCell>
-                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-end gap-2">
+                {/* Desktop Table View */}
+                <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
+                          <TableHead className="min-w-[180px]">{t("certificates.certificateId")}</TableHead>
+                          <TableHead className="min-w-[200px]">{t("certificates.recipient")}</TableHead>
+                          <TableHead className="min-w-[150px]">Category</TableHead>
+                          <TableHead className="min-w-[140px]">{t("certificates.issuedDate")}</TableHead>
+                          <TableHead className="min-w-[140px]">Expiry Date</TableHead>
+                          <TableHead className="text-right min-w-[280px]">
+                            {t("certificates.actions")}
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {currentCertificates.map((certificate) => (
+                          <TableRow 
+                            key={certificate.id}
+                            onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
+                            className={certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0" : "border-b border-gray-100 dark:border-gray-700 last:border-0"}
+                          >
+                            <TableCell className="font-medium text-gray-900 dark:text-gray-100">
+                              {certificate.certificate_no}
+                            </TableCell>
+                            <TableCell className="text-gray-700 dark:text-gray-300">{certificate.name}</TableCell>
+                            <TableCell className="text-gray-700 dark:text-gray-300">{certificate.category || "—"}</TableCell>
+                            <TableCell className="text-gray-700 dark:text-gray-300">
+                              {new Date(
+                                certificate.issue_date,
+                              ).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="text-gray-700 dark:text-gray-300">
+                              {certificate.expired_date
+                                ? new Date(
+                                    certificate.expired_date,
+                                  ).toLocaleDateString()
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-end gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1291,17 +1294,152 @@ function CertificatesContent() {
                     </TableBody>
                   </Table>
                 </div>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {currentCertificates.map((certificate) => (
+                    <div
+                      key={certificate.id}
+                      onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
+                      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm ${certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors" : ""}`}
+                    >
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                            {t("certificates.certificateId")}
+                          </div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                            {certificate.certificate_no}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                            {t("certificates.recipient")}
+                          </div>
+                          <div className="text-gray-700 dark:text-gray-300 text-sm">
+                            {certificate.name}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                              Category
+                            </div>
+                            <div className="text-gray-700 dark:text-gray-300 text-sm">
+                              {certificate.category || "—"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                              {t("certificates.issuedDate")}
+                            </div>
+                            <div className="text-gray-700 dark:text-gray-300 text-sm">
+                              {new Date(certificate.issue_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        {certificate.expired_date && (
+                          <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                              Expiry Date
+                            </div>
+                            <div className="text-gray-700 dark:text-gray-300 text-sm">
+                              {new Date(certificate.expired_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        )}
+                        <div className="pt-2 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-gray-300 text-xs flex-1 sm:flex-initial"
+                              onClick={() => openPreview(certificate)}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              {t("common.preview")}
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-gray-300 text-xs flex-1 sm:flex-initial"
+                                >
+                                  <Download className="w-3 h-3 mr-1" />
+                                  Export
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
+                                  <FileText className="w-4 h-4 mr-2" />
+                                  Export as PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
+                                  <ImageIcon className="w-4 h-4 mr-2" />
+                                  Download PNG
+                                </DropdownMenuItem>
+                                {certificate.certificate_image_url && (
+                                  <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Send via Email
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
+                                  <Link className="w-4 h-4 mr-2" />
+                                  Generate Certificate Link
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            {(role === "Admin" || role === "Team") && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-gray-300 text-xs flex-1 sm:flex-initial"
+                                onClick={() => openEdit(certificate)}
+                              >
+                                <Edit className="w-3 h-3 mr-1" />
+                                {t("common.edit")}
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <button
+                                className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg text-xs font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1.5 shadow-sm hover:shadow-md flex-1 sm:flex-initial"
+                                onClick={() => requestDelete(certificate.id)}
+                                disabled={deletingCertificateId === certificate.id}
+                                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                              >
+                                {deletingCertificateId === certificate.id ? (
+                                  <>
+                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="w-3 h-3" />
+                                    {t("common.delete")}
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </motion.div>
             )}
 
             {/* Pagination Controls */}
             {!loading && !error && filtered.length > 0 && (
-              <div className="flex justify-between items-center mt-4 px-2">
-                <div className="text-sm text-gray-500">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mt-4 px-2">
+                <div className="text-xs sm:text-sm text-gray-500">
                   Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filtered.length)} of {filtered.length} certificates
-                  {(searchInput || categoryFilter || dateFilter) && <span className="ml-1 text-gray-400">(filtered from {certificates.length})</span>}
+                  {(searchInput || categoryFilter || dateFilter) && <span className="ml-1 text-gray-400 hidden sm:inline">(filtered from {certificates.length})</span>}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Button 
                     variant="outline" 
                     size="sm"

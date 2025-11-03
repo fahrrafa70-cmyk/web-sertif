@@ -16,35 +16,35 @@ export default function ModernHeader() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="h-16 px-4 lg:px-4 flex items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 h-14 sm:h-16">
+        <div className="h-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2">
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="lg:hidden flex-shrink-0 p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             aria-label="Open Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* Logo - Centered on mobile, left on desktop */}
-          <div className="absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0 flex items-center">
-            <Link href="/" className="flex items-center space-x-3 group">
+          {/* Logo - Responsive positioning */}
+          <div className="flex-1 lg:flex-initial flex items-center justify-center lg:justify-start min-w-0 overflow-hidden">
+            <Link href="/" className="flex items-center space-x-1.5 sm:space-x-2 md:space-x-3 group max-w-full">
               {/* Icon with gradient background */}
-              <div className="relative">
-                <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
-                  <span className="text-white font-bold text-2xl tracking-tight">E</span>
+              <div className="relative flex-shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 gradient-primary rounded-lg sm:rounded-xl md:rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+                  <span className="text-white font-bold text-lg sm:text-xl md:text-2xl tracking-tight">E</span>
                 </div>
                 {/* Subtle glow effect on hover */}
-                <div className="absolute inset-0 gradient-primary rounded-2xl blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 -z-10"></div>
+                <div className="absolute inset-0 gradient-primary rounded-lg sm:rounded-xl md:rounded-2xl blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 -z-10"></div>
               </div>
               
               {/* Text - Simple and clean */}
-              <div className="flex flex-col">
-                <span className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+              <div className="flex flex-col min-w-0 overflow-hidden">
+                <span className="text-sm sm:text-base md:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors truncate">
                   E-Certificate
                 </span>
-                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 tracking-wider uppercase hidden sm:block">
+                <span className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-gray-400 dark:text-gray-500 tracking-wider uppercase hidden sm:block truncate">
                   Certification System
                 </span>
               </div>
@@ -52,7 +52,7 @@ export default function ModernHeader() {
           </div>
 
           {/* Right Section - Theme + Language + Avatar or Login */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
             {/* Theme Switcher - Hidden on mobile, shown on desktop */}
             <div className="hidden lg:block">
               <ThemeSwitcher variant="compact" />
@@ -68,7 +68,7 @@ export default function ModernHeader() {
             ) : (
               <Button
                 size="sm"
-                className="gradient-primary text-white border-0 hover:opacity-90 transition-opacity shadow-md hover:shadow-lg h-9"
+                className="gradient-primary text-white border-0 hover:opacity-90 transition-opacity shadow-md hover:shadow-lg h-7 sm:h-8 md:h-9 text-xs sm:text-sm px-2 sm:px-3 md:px-4"
                 onClick={() => setOpenLogin(true)}
               >
                 Login

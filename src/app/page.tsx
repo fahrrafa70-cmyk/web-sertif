@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 export default function Home() {
   const { role, isAuthenticated } = useAuth();
-  const [headerH, setHeaderH] = useState<number>(64);
+  const [headerH, setHeaderH] = useState<number>(56);
   const [viewportH, setViewportH] = useState<number>(typeof window !== 'undefined' ? window.innerHeight : 0);
 
   useEffect(() => {
@@ -20,11 +20,11 @@ export default function Home() {
     const measure = () => {
       try {
         const el = document.querySelector('header');
-        const h = el ? Math.ceil((el as HTMLElement).getBoundingClientRect().height) : 64;
-        setHeaderH(h > 0 ? h : 64);
+        const h = el ? Math.ceil((el as HTMLElement).getBoundingClientRect().height) : 56;
+        setHeaderH(h > 0 ? h : 56);
         setViewportH(window.innerHeight || document.documentElement.clientHeight || 0);
       } catch {
-        setHeaderH(64);
+        setHeaderH(56);
         setViewportH(window.innerHeight || 0);
       }
     };
