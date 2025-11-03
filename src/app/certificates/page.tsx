@@ -859,33 +859,114 @@ function CertificatesContent() {
     const updateDimensions = () => {
       if (previewContainerRef.current) {
         const rect = previewContainerRef.current.getBoundingClientRect();
-        const dimensions = { width: rect.width, height: rect.height };
+        
+        // CRITICAL: Calculate actual image display size considering object-contain behavior
+        // The image maintains 800/600 aspect ratio and fits within the container
+        const containerWidth = rect.width;
+        const containerHeight = rect.height;
+        const containerAspect = containerWidth / containerHeight;
+        const imageAspect = STANDARD_CANVAS_WIDTH / STANDARD_CANVAS_HEIGHT; // 800/600 = 1.333...
+        
+        // Calculate actual image dimensions within container (object-contain behavior)
+        let imageDisplayWidth = containerWidth;
+        let imageDisplayHeight = containerHeight;
+        
+        if (containerAspect > imageAspect) {
+          // Container is wider than image aspect ratio - height is the constraint
+          imageDisplayWidth = containerHeight * imageAspect;
+          imageDisplayHeight = containerHeight;
+        } else {
+          // Container is taller than image aspect ratio - width is the constraint
+          imageDisplayWidth = containerWidth;
+          imageDisplayHeight = containerWidth / imageAspect;
+        }
+        
+        const dimensions = { 
+          width: imageDisplayWidth, 
+          height: imageDisplayHeight 
+        };
+        
+        console.log('📐 Container dimensions updated:', {
+          container: { width: containerWidth, height: containerHeight },
+          imageDisplay: dimensions,
+          containerAspect: containerAspect.toFixed(3),
+          imageAspect: imageAspect.toFixed(3),
+          scale: Math.min(dimensions.width / STANDARD_CANVAS_WIDTH, dimensions.height / STANDARD_CANVAS_HEIGHT).toFixed(3)
+        });
+        
         setContainerDimensions(dimensions);
       }
     };
 
-    // Initial update with multiple attempts
+    // CRITICAL FIX for mobile: Use requestAnimationFrame for initial layout calculation
+    // This ensures dimensions are calculated after browser has finished layout
+    const updateDimensionsWithRAF = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          updateDimensions();
+        });
+      });
+    };
+    
+    // Immediate synchronous attempt first (for cases where container is already rendered)
     updateDimensions();
-    const timeout1 = setTimeout(updateDimensions, 50);
-    const timeout2 = setTimeout(updateDimensions, 200);
+    
+    // Initial update with multiple attempts to ensure accurate dimensions
+    // Use requestAnimationFrame for better mobile compatibility
+    updateDimensionsWithRAF();
+    const timeout1 = setTimeout(updateDimensionsWithRAF, 16); // ~1 frame at 60fps
+    const timeout2 = setTimeout(updateDimensionsWithRAF, 50);
+    const timeout3 = setTimeout(updateDimensionsWithRAF, 100);
+    const timeout4 = setTimeout(updateDimensionsWithRAF, 200);
+    const timeout5 = setTimeout(updateDimensionsWithRAF, 500); // Extra delay for mobile
+    const timeout6 = setTimeout(updateDimensionsWithRAF, 1000); // Additional delay for slower mobile devices
     
     // Update on window resize
-    window.addEventListener('resize', updateDimensions);
+    window.addEventListener('resize', updateDimensionsWithRAF);
     
     // Use ResizeObserver for more accurate tracking
     const resizeObserver = new ResizeObserver(() => {
-      updateDimensions();
+      // Use requestAnimationFrame for better timing on mobile
+      requestAnimationFrame(() => {
+        updateDimensions();
+      });
     });
     
     if (previewContainerRef.current) {
       resizeObserver.observe(previewContainerRef.current);
     }
     
+    // Also listen for image load events to recalculate dimensions
+    const container = previewContainerRef.current;
+    const imageLoadListeners: Array<{ img: HTMLImageElement; handler: () => void }> = [];
+    
+    if (container) {
+      const images = container.querySelectorAll('img');
+      images.forEach(img => {
+        if (img.complete) {
+          updateDimensionsWithRAF();
+        } else {
+          const handler = () => updateDimensionsWithRAF();
+          img.addEventListener('load', handler, { once: true });
+          imageLoadListeners.push({ img, handler });
+        }
+      });
+    }
+    
     return () => {
       clearTimeout(timeout1);
       clearTimeout(timeout2);
-      window.removeEventListener('resize', updateDimensions);
+      clearTimeout(timeout3);
+      clearTimeout(timeout4);
+      clearTimeout(timeout5);
+      clearTimeout(timeout6);
+      window.removeEventListener('resize', updateDimensionsWithRAF);
       resizeObserver.disconnect();
+      
+      // Cleanup image load listeners
+      imageLoadListeners.forEach(({ img, handler }) => {
+        img.removeEventListener('load', handler);
+      });
     };
   }, [previewMode, previewCertificate]);
 
@@ -1285,9 +1366,9 @@ function CertificatesContent() {
                     <div
                       key={certificate.id}
                       onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
-                      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm ${certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors" : ""}`}
+                      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4 shadow-sm ${certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors" : ""}`}
                     >
-                      <div className="space-y-3">
+                      <div className="space-y-2.5 sm:space-y-3">
                         <div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                             {t("certificates.certificateId")}
@@ -1484,14 +1565,14 @@ function CertificatesContent() {
         open={!!isEditOpen}
         onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}
       >
-        <SheetContent side="right">
-          <SheetHeader>
-            <SheetTitle>
+        <SheetContent side="right" className="overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="text-lg sm:text-xl">
               {t("common.edit")} {t("certificates.title")}
             </SheetTitle>
-            <SheetDescription>Update certificate details.</SheetDescription>
+            <SheetDescription className="text-sm">Update certificate details.</SheetDescription>
           </SheetHeader>
-          <div className="p-4 space-y-4">
+          <div className="px-2 sm:px-4 pb-4 space-y-3 sm:space-y-4">
             <div className="space-y-2">
               <label className="text-sm text-gray-600">
                 Certificate Number
@@ -1574,16 +1655,16 @@ function CertificatesContent() {
                 }
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-2 pt-2">
               <Button
                 variant="outline"
-                className="border-gray-300"
+                className="border-gray-300 w-full sm:w-auto"
                 onClick={() => setIsEditOpen(null)}
               >
                 {t("common.cancel")}
               </Button>
               <Button
-                className="gradient-primary text-white"
+                className="gradient-primary text-white w-full sm:w-auto"
                 onClick={submitEdit}
               >
                 {t("common.save")}
@@ -1601,7 +1682,7 @@ function CertificatesContent() {
         }
       >
         <DialogContent 
-          className="preview-modal-content relative max-w-4xl w-full max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+          className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();
@@ -1609,64 +1690,64 @@ function CertificatesContent() {
             }
           }}
         >
-          <DialogHeader className="space-y-1.5">
-            <DialogTitle className="text-2xl font-bold text-gradient dark:text-white">
+          <DialogHeader className="space-y-1 sm:space-y-1.5 flex-shrink-0 pb-2 sm:pb-4">
+            <DialogTitle className="text-xl sm:text-2xl font-bold text-gradient dark:text-white">
               Certificate Preview
             </DialogTitle>
-            <DialogDescription className="text-lg text-gray-600 dark:text-gray-300">
+            <DialogDescription className="text-sm sm:text-lg text-gray-600 dark:text-gray-300">
               View certificate details and information
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-8">
+          <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1">
             {previewCertificate && (
               <>
                 {/* Certificate Info */}
                 <motion.div
-                  className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+                  className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
                 >
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     <motion.div
-                      className="space-y-3"
+                      className="space-y-2 sm:space-y-3"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.4, delay: 0.1 }}
                     >
-                      <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Certificate Number
                       </label>
-                      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                      <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.certificate_no}
                       </div>
                     </motion.div>
 
                     <motion.div
-                      className="space-y-3"
+                      className="space-y-2 sm:space-y-3"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.4, delay: 0.2 }}
                     >
-                      <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Recipient Name
                       </label>
-                      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                      <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.name}
                       </div>
                     </motion.div>
 
                     {previewCertificate.category && (
                       <motion.div
-                        className="space-y-3"
+                        className="space-y-2 sm:space-y-3"
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.4, delay: 0.3 }}
                       >
-                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Category
                         </label>
-                        <div className="inline-block px-4 py-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium">
+                        <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm sm:text-base font-medium">
                           {previewCertificate.category}
                         </div>
                       </motion.div>
@@ -1674,42 +1755,42 @@ function CertificatesContent() {
 
                     {previewCertificate.description && (
                       <motion.div
-                        className="space-y-3"
+                        className="space-y-2 sm:space-y-3"
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.4, delay: 0.4 }}
                       >
-                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Description
                         </label>
-                        <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                        <div className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words">
                           {previewCertificate.description}
                         </div>
                       </motion.div>
                     )}
 
                     <motion.div
-                      className="grid grid-cols-2 gap-4"
+                      className="grid grid-cols-2 gap-3 sm:gap-4"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.4, delay: 0.5 }}
                     >
-                      <div className="space-y-2">
-                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      <div className="space-y-1 sm:space-y-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Issue Date
                         </label>
-                        <div className="text-lg text-gray-700 dark:text-gray-300">
+                        <div className="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-300">
                           {new Date(
                             previewCertificate.issue_date,
                           ).toLocaleDateString()}
                         </div>
                       </div>
                       {previewCertificate.expired_date && (
-                        <div className="space-y-2">
-                          <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                        <div className="space-y-1 sm:space-y-2">
+                          <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                             Expiry Date
                           </label>
-                          <div className="text-lg text-gray-700 dark:text-gray-300">
+                          <div className="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-300">
                             {new Date(
                               previewCertificate.expired_date,
                             ).toLocaleDateString()}
@@ -1721,12 +1802,12 @@ function CertificatesContent() {
 
                   {/* Certificate / Score Preview */}
                   <motion.div
-                    className="space-y-4"
+                    className="space-y-2 sm:space-y-4"
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
                   >
-                    <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                    <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                       Certificate Preview
                     </label>
                     {/* Toggle for dual templates - only show if score image exists */}
@@ -1734,27 +1815,28 @@ function CertificatesContent() {
                       <div className="flex gap-2 mb-2">
                         <button
                           onClick={() => setPreviewMode('certificate')}
-                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
                           Certificate
                         </button>
                         <button
                           onClick={() => setPreviewMode('score')}
-                          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
                           Score
                         </button>
                       </div>
                     )}
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 border-2 border-dashed border-blue-200 dark:border-blue-500/40">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 border-2 border-dashed border-blue-200 dark:border-blue-500/40">
                       <div
                         ref={previewContainerRef}
-                        className="bg-white dark:bg-gray-950 rounded-xl shadow-xl relative"
+                        className="bg-white dark:bg-gray-950 rounded-lg sm:rounded-xl shadow-xl relative"
                         style={{
                           width: "100%",
                           maxWidth: "100%",
                           aspectRatio: "800 / 600",
-                          minHeight: 300,
+                          minHeight: 200,
+                          maxHeight: "min(50vh, calc(100vw * 600 / 800))", // Ensure aspect ratio is maintained even with maxHeight
                         }}
                       >
                         {/* FIX: Show merged certificate or score image with consistent aspect ratio */}
@@ -1837,13 +1919,72 @@ function CertificatesContent() {
                                   const actualY = layer.yPercent * 100 + "%";
                                   
                                   // CRITICAL FIX: Container uses aspectRatio: "800/600" and image uses object-contain
-                                  // This means the image scales proportionally with the container
-                                  // Since generated images are at fixed 800x600, we need to scale the fontSize
-                                  // to match how the image is scaled in the container
-                                  // Calculate the actual container dimensions based on aspect ratio
-                                  const containerScale = containerDimensions 
-                                    ? Math.min(containerDimensions.width / STANDARD_CANVAS_WIDTH, containerDimensions.height / STANDARD_CANVAS_HEIGHT)
-                                    : 1;
+                                  // object-contain preserves aspect ratio, so the image will be scaled based on the MORE constrained dimension
+                                  // We need to match this behavior for text scaling
+                                  // 
+                                  // Formula: scale = min(widthScale, heightScale) for object-contain
+                                  // BUT: Since we have aspectRatio CSS constraint, container SHOULD maintain 800/600 ratio
+                                  // However, if maxHeight constrains it, we need to respect that
+                                  // 
+                                  // BEST APPROACH: Calculate scale based on the dimension that would constrain object-contain
+                                  // For object-contain: scale = min(containerWidth/800, containerHeight/600)
+                                  // This ensures text scales EXACTLY like the image
+                                  // 
+                                  // CRITICAL FIX for mobile: Calculate scale even if containerDimensions is null
+                                  // Use previewContainerRef directly to get actual dimensions with robust fallback
+                                  let containerScale = 1;
+                                  let hasValidDimensions = false;
+                                  
+                                  // Try to get dimensions from state first
+                                  if (containerDimensions && containerDimensions.width > 0 && containerDimensions.height > 0) {
+                                    const widthScale = containerDimensions.width / STANDARD_CANVAS_WIDTH;
+                                    const heightScale = containerDimensions.height / STANDARD_CANVAS_HEIGHT;
+                                    containerScale = Math.min(widthScale, heightScale);
+                                    hasValidDimensions = true;
+                                  } 
+                                  
+                                  // Fallback: Calculate from actual container DOM element
+                                  if (!hasValidDimensions && previewContainerRef.current) {
+                                    const rect = previewContainerRef.current.getBoundingClientRect();
+                                    
+                                    // Only use if rect has valid dimensions (not 0 or very small)
+                                    if (rect.width > 10 && rect.height > 10) {
+                                      const containerWidth = rect.width;
+                                      const containerHeight = rect.height;
+                                      const containerAspect = containerWidth / containerHeight;
+                                      const imageAspect = STANDARD_CANVAS_WIDTH / STANDARD_CANVAS_HEIGHT;
+                                      
+                                      let imageDisplayWidth = containerWidth;
+                                      let imageDisplayHeight = containerHeight;
+                                      
+                                      if (containerAspect > imageAspect) {
+                                        imageDisplayWidth = containerHeight * imageAspect;
+                                        imageDisplayHeight = containerHeight;
+                                      } else {
+                                        imageDisplayWidth = containerWidth;
+                                        imageDisplayHeight = containerWidth / imageAspect;
+                                      }
+                                      
+                                      const widthScale = imageDisplayWidth / STANDARD_CANVAS_WIDTH;
+                                      const heightScale = imageDisplayHeight / STANDARD_CANVAS_HEIGHT;
+                                      containerScale = Math.min(widthScale, heightScale);
+                                      hasValidDimensions = true;
+                                    }
+                                  }
+                                  
+                                  // CRITICAL: If still no valid dimensions, use conservative mobile-friendly fallback
+                                  // Mobile viewport is typically 320-430px wide, so scale would be ~0.4-0.5
+                                  // Use 0.4 as safe fallback to prevent oversized text
+                                  if (!hasValidDimensions || containerScale <= 0 || isNaN(containerScale) || !isFinite(containerScale)) {
+                                    // Estimate mobile scale: typical mobile width ~375px, maxHeight 50vh ~400px
+                                    // Container will be constrained by width, so: 375 / 800 = 0.47
+                                    // Use slightly more conservative value to be safe
+                                    const estimatedMobileScale = typeof window !== 'undefined' && window.innerWidth < 768
+                                      ? Math.min(window.innerWidth / STANDARD_CANVAS_WIDTH, (window.innerHeight * 0.5) / STANDARD_CANVAS_HEIGHT)
+                                      : 0.4;
+                                    containerScale = Math.max(0.2, Math.min(1.0, estimatedMobileScale)); // Clamp between 0.2 and 1.0
+                                    console.warn('⚠️ Using fallback containerScale:', containerScale, 'for layer:', layer.id);
+                                  }
                                   
                                   const scaledFontSize = layer.fontSize * containerScale;
                                   const scaledMaxWidth = layer.maxWidth ? layer.maxWidth * containerScale : undefined;
@@ -1853,14 +1994,63 @@ function CertificatesContent() {
                                   // - center: translate(-50%, -50%) → (x,y) is the CENTER
                                   // - right: translate(-100%, -50%) → (x,y) is the RIGHT edge, center Y
                                   // - left: translate(0%, -50%) → (x,y) is the LEFT edge, center Y
-                                  // certificate_no and issue_date always use left alignment
+                                  // 
+                                  // PROBLEM: For certificate_no and issue_date, translate(0%, -50%) causes text to shift down
+                                  // because -50% refers to element box height which includes line-height space
+                                  // SOLUTION: For left-aligned text, use top positioning with calculated offset
+                                  // OR adjust transform percentage based on actual text metrics
                                   const textAlign = (layer.id === 'certificate_no' || layer.id === 'issue_date') 
                                     ? 'left' 
                                     : (layer.textAlign || 'left');
+                                  
                                   const getTransform = () => {
                                     if (textAlign === 'center') return 'translate(-50%, -50%)';
                                     if (textAlign === 'right') return 'translate(-100%, -50%)';
-                                    return 'translate(0%, -50%)'; // left
+                                    
+                                  // For left-aligned (certificate_no, issue_date):
+                                  // PROBLEM: Text appears shifted DOWN (tidak full - bagian bawah terpotong)
+                                  // 
+                                  // Root cause:
+                                  // - translate(0%, -50%) uses element box height (fontSize * lineHeight)
+                                  // - Line-height space adds extra height, making element box taller
+                                  // - Element box center ≠ visual glyph center
+                                  // - Text appears lower than intended
+                                  // 
+                                  // Canvas rendering comparison:
+                                  // - Canvas uses: startY = y - (lineHeightPx / 2) + adjustments
+                                  // - For certificate_no: adjustment = -6px (moves UP)
+                                  // - For issue_date: adjustment = +9px (moves DOWN)
+                                  // 
+                                  // Solution: Use same approach as canvas with fine-tuning
+                                  // - Calculate geometric center of line-height box
+                                  // - Apply same fine-tuning adjustments as canvas
+                                  const lineHeight = layer.lineHeight || 1.2;
+                                  const lineHeightPx = scaledFontSize * lineHeight;
+                                  const geometricCenter = lineHeightPx / 2;
+                                  
+                                  // Apply fine-tuning adjustments to match canvas rendering
+                                  // Canvas positioning: startY = y - (lineHeightPx/2) + adjustment
+                                  // CSS transform: translate(0, -offset) shifts UP by offset
+                                  // To match canvas: offset = (lineHeightPx/2) - adjustment
+                                  let fineTuneAdjustment = 0;
+                                  if (layer.id === 'certificate_no') {
+                                    // Canvas: adjustment = -6px (moves UP, text starts higher)
+                                    // CSS: translate(0, -offset) moves UP
+                                    // So: offset = (lineHeightPx/2) - (-6) = (lineHeightPx/2) + 6
+                                    fineTuneAdjustment = 6 * containerScale;
+                                  } else if (layer.id === 'issue_date') {
+                                    // Canvas: adjustment = +9px (moves DOWN, text starts lower)
+                                    // CSS: translate(0, -offset) moves UP
+                                    // So: offset = (lineHeightPx/2) - (+9) = (lineHeightPx/2) - 9
+                                    fineTuneAdjustment = -9 * containerScale;
+                                  }
+                                  
+                                  // Final offset: geometric center PLUS fine-tuning (reversed sign for CSS transform)
+                                  // translate(0, -offset) where offset = geometric center + fine-tuning
+                                  const finalOffset = geometricCenter + fineTuneAdjustment;
+                                  
+                                  // Return pixel-based transform for precise positioning
+                                  return `translate(0, -${finalOffset}px)`;
                                   };
 
                                   return (
@@ -1904,13 +2094,55 @@ function CertificatesContent() {
                               else content = layer.id.replace(/_/g, ' ');
 
                               // CRITICAL FIX: Container uses aspectRatio: "800/600" and image uses object-contain
-                              // This means the image scales proportionally with the container
-                              // Since generated images are at fixed 800x600, we need to scale the fontSize
-                              // to match how the image is scaled in the container
-                              // Calculate the actual container dimensions based on aspect ratio
-                              const containerScale = containerDimensions 
-                                ? Math.min(containerDimensions.width / STANDARD_CANVAS_WIDTH, containerDimensions.height / STANDARD_CANVAS_HEIGHT)
-                                : 1;
+                              // Use same scaling logic as certificate text layers for consistency
+                              // Also includes robust fallback calculation for mobile initial render
+                              let containerScale = 1;
+                              let hasValidDimensions = false;
+                              
+                              // Try to get dimensions from state first
+                              if (containerDimensions && containerDimensions.width > 0 && containerDimensions.height > 0) {
+                                const widthScale = containerDimensions.width / STANDARD_CANVAS_WIDTH;
+                                const heightScale = containerDimensions.height / STANDARD_CANVAS_HEIGHT;
+                                containerScale = Math.min(widthScale, heightScale);
+                                hasValidDimensions = true;
+                              }
+                              
+                              // Fallback: Calculate from actual container DOM element
+                              if (!hasValidDimensions && previewContainerRef.current) {
+                                const rect = previewContainerRef.current.getBoundingClientRect();
+                                
+                                // Only use if rect has valid dimensions (not 0 or very small)
+                                if (rect.width > 10 && rect.height > 10) {
+                                  const containerWidth = rect.width;
+                                  const containerHeight = rect.height;
+                                  const containerAspect = containerWidth / containerHeight;
+                                  const imageAspect = STANDARD_CANVAS_WIDTH / STANDARD_CANVAS_HEIGHT;
+                                  
+                                  let imageDisplayWidth = containerWidth;
+                                  let imageDisplayHeight = containerHeight;
+                                  
+                                  if (containerAspect > imageAspect) {
+                                    imageDisplayWidth = containerHeight * imageAspect;
+                                    imageDisplayHeight = containerHeight;
+                                  } else {
+                                    imageDisplayWidth = containerWidth;
+                                    imageDisplayHeight = containerWidth / imageAspect;
+                                  }
+                                  
+                                  const widthScale = imageDisplayWidth / STANDARD_CANVAS_WIDTH;
+                                  const heightScale = imageDisplayHeight / STANDARD_CANVAS_HEIGHT;
+                                  containerScale = Math.min(widthScale, heightScale);
+                                  hasValidDimensions = true;
+                                }
+                              }
+                              
+                              // CRITICAL: If still no valid dimensions, use conservative mobile-friendly fallback
+                              if (!hasValidDimensions || containerScale <= 0 || isNaN(containerScale) || !isFinite(containerScale)) {
+                                const estimatedMobileScale = typeof window !== 'undefined' && window.innerWidth < 768
+                                  ? Math.min(window.innerWidth / STANDARD_CANVAS_WIDTH, (window.innerHeight * 0.5) / STANDARD_CANVAS_HEIGHT)
+                                  : 0.4;
+                                containerScale = Math.max(0.2, Math.min(1.0, estimatedMobileScale)); // Clamp between 0.2 and 1.0
+                              }
                               
                               const scaledFontSize = layer.fontSize * containerScale;
                               const scaledMaxWidth = layer.maxWidth ? layer.maxWidth * containerScale : undefined;
@@ -2013,12 +2245,12 @@ function CertificatesContent() {
 
                 {/* Action Buttons */}
                 <motion.div
-                  className="flex justify-between gap-4 pt-6 border-t border-gray-200 dark:border-gray-700"
+                  className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.6 }}
                 >
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {(canDelete || forceCanDelete) && previewCertificate && (
                       <button
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 shadow-sm hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
@@ -2067,7 +2299,7 @@ function CertificatesContent() {
       {/* Send Certificate Email Modal */}
       <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
         <DialogContent 
-          className="max-w-xl w-full max-h-[90vh] overflow-y-auto"
+          className="max-w-xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-4 sm:p-6"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && e.target instanceof HTMLInputElement) {
               e.preventDefault();
@@ -2078,11 +2310,11 @@ function CertificatesContent() {
             }
           }}
         >
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">Send Certificate via Email</DialogTitle>
-            <DialogDescription>Review and customize the email before sending.</DialogDescription>
+          <DialogHeader className="flex-shrink-0 pb-2 sm:pb-4">
+            <DialogTitle className="text-xl sm:text-2xl font-bold">Send Certificate via Email</DialogTitle>
+            <DialogDescription className="text-sm sm:text-base">Review and customize the email before sending.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 pr-1 -mr-1">
             <div className="space-y-2">
               <label className="text-sm text-gray-600">Recipient Email</label>
               <Input
@@ -2155,7 +2387,7 @@ function CertificatesContent() {
               <div className="space-y-2">
                 <label className="text-sm text-gray-600">Attachment Preview</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="relative w-full h-64">
+                  <div className="relative w-full h-48 sm:h-64">
                     {sendPreviewSrcs.cert && (
                       <Image
                         src={sendPreviewSrcs.cert}
@@ -2166,7 +2398,7 @@ function CertificatesContent() {
                       />
                     )}
                   </div>
-                  <div className="relative w-full h-64">
+                  <div className="relative w-full h-48 sm:h-64">
                     {sendPreviewSrcs.score && (
                       <Image
                         src={sendPreviewSrcs.score}
@@ -2180,17 +2412,18 @@ function CertificatesContent() {
                 </div>
               </div>
             )}
-            <div className="flex justify-end gap-2 pt-2">
+          </div>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t flex-shrink-0">
               <Button 
                 variant="outline" 
-                className="border-gray-300" 
+                className="border-gray-300 w-full sm:w-auto" 
                 onClick={() => setSendModalOpen(false)}
                 disabled={isSendingEmail}
               >
                 Cancel
               </Button>
                <Button 
-                 className="gradient-primary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-300" 
+                 className="gradient-primary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto" 
                  onClick={confirmSendEmail}
                  disabled={isSendingEmail}
                >
@@ -2207,143 +2440,284 @@ function CertificatesContent() {
                 )}
               </Button>
             </div>
-          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Member Detail Modal */}
+      {/* Member Detail Modal - Bottom Sheet for Mobile, Dialog for Desktop */}
       {memberDetailOpen && (
-        <Dialog open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Member Information
-              </DialogTitle>
-              <DialogDescription className="text-gray-600 dark:text-gray-400">
-                {detailMember ? `Detailed information about ${detailMember.name}` : 'Loading...'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            {loadingMemberDetail ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                  <div className="w-6 h-6 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Loading member details...</span>
+        <>
+          {/* Mobile: Bottom Sheet */}
+          <Sheet open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
+            <SheetContent side="bottom" className="md:hidden max-h-[85vh] overflow-y-auto rounded-t-2xl">
+              <div className="flex-shrink-0 mb-4">
+                {/* Drag handle */}
+                <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-4"></div>
+                <SheetHeader>
+                  <SheetTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    Member Information
+                  </SheetTitle>
+                  <SheetDescription className="text-sm text-gray-600 dark:text-gray-400">
+                    {detailMember?.name || 'Loading...'}
+                  </SheetDescription>
+                </SheetHeader>
               </div>
-            ) : detailMember ? (
-              <div className="mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                  {/* Name */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
-                    <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.name}</div>
+              <div className="overflow-y-auto">
+                {loadingMemberDetail ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full flex items-center justify-center mb-3 shadow-sm">
+                      <div className="w-5 h-5 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Loading...</span>
                   </div>
-
-                  {/* Email */}
-                  {detailMember.email && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
-                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.email}</div>
-                    </div>
-                  )}
-
-                  {/* Phone */}
-                  {detailMember.phone && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
-                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.phone}</div>
-                    </div>
-                  )}
-
-                  {/* Organization */}
-                  {detailMember.organization && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Organization / School</label>
-                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.organization}</div>
-                    </div>
-                  )}
-
-                  {/* Job */}
-                  {detailMember.job && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Job / Position</label>
-                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.job}</div>
-                    </div>
-                  )}
-
-                  {/* Date of Birth */}
-                  {detailMember.date_of_birth && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
-                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                        {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* City */}
-                  {detailMember.city && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">City</label>
-                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.city}</div>
-                    </div>
-                  )}
-
-                  {/* Address */}
-                  {detailMember.address && (
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Address</label>
-                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.address}</div>
-                    </div>
-                  )}
-
-                  {/* Notes */}
-                  {detailMember.notes && (
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Notes</label>
-                      <div className="mt-1 text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{detailMember.notes}</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Metadata */}
-                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-500 dark:text-gray-400">
-                    {detailMember.created_at && (
+                ) : detailMember ? (
+                  <div className="space-y-4 pb-4">
+                    {/* Name & Email - Full width */}
+                    <div className="space-y-3">
                       <div>
-                        <span className="font-medium">Created:</span>{' '}
-                        {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Full Name</label>
+                        <div className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{detailMember.name}</div>
+                      </div>
+                      {detailMember.email && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Email</label>
+                          <div className="mt-1 text-sm text-gray-900 dark:text-gray-100 break-words">{detailMember.email}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Phone & Date of Birth - 2 columns */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {detailMember.phone && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Phone</label>
+                          <div className="mt-1 text-sm text-gray-900 dark:text-gray-100 break-words">{detailMember.phone}</div>
+                        </div>
+                      )}
+                      {detailMember.date_of_birth && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
+                          <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                            {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Organization & Job - 2 columns */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {detailMember.organization && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Organization</label>
+                          <div className="mt-1 text-sm text-gray-900 dark:text-gray-100 break-words">{detailMember.organization}</div>
+                        </div>
+                      )}
+                      {detailMember.job && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Job / Position</label>
+                          <div className="mt-1 text-sm text-gray-900 dark:text-gray-100 break-words">{detailMember.job}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* City - Full width or 2 columns */}
+                    {detailMember.city && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">City</label>
+                        <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{detailMember.city}</div>
                       </div>
                     )}
-                    {detailMember.updated_at && (
+
+                    {/* Address - Full width */}
+                    {detailMember.address && (
                       <div>
-                        <span className="font-medium">Updated:</span>{' '}
-                        {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Address</label>
+                        <div className="mt-1 text-sm text-gray-900 dark:text-gray-100 break-words leading-relaxed">{detailMember.address}</div>
+                      </div>
+                    )}
+
+                    {/* Notes - Full width */}
+                    {detailMember.notes && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Notes</label>
+                        <div className="mt-1 text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words leading-relaxed">{detailMember.notes}</div>
+                      </div>
+                    )}
+
+                    {/* Metadata */}
+                    {(detailMember.created_at || detailMember.updated_at) && (
+                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="grid grid-cols-2 gap-3 text-xs text-gray-500 dark:text-gray-400">
+                          {detailMember.created_at && (
+                            <div>
+                              <span className="font-medium">Created:</span>{' '}
+                              {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          )}
+                          {detailMember.updated_at && (
+                            <div>
+                              <span className="font-medium">Updated:</span>{' '}
+                              {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
-                </div>
+                ) : null}
               </div>
-            ) : null}
-          </DialogContent>
-        </Dialog>
+            </SheetContent>
+          </Sheet>
+
+          {/* Desktop: Dialog */}
+          <div className="hidden md:block">
+          <Dialog open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
+            <DialogContent className="hidden md:flex max-w-3xl w-full max-h-[90vh] overflow-hidden flex-col p-6">
+              <DialogHeader className="flex-shrink-0 pb-4">
+                <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  Member Information
+                </DialogTitle>
+                <DialogDescription className="text-base text-gray-600 dark:text-gray-400">
+                  {detailMember ? `Detailed information about ${detailMember.name}` : 'Loading...'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto pr-1 -mr-1">
+                {loadingMemberDetail ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                      <div className="w-6 h-6 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Loading member details...</span>
+                  </div>
+                ) : detailMember ? (
+                  <div className="mt-6">
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                      {/* Name */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
+                        <div className="mt-1 text-base text-gray-900 dark:text-gray-100 break-words">{detailMember.name}</div>
+                      </div>
+
+                      {/* Email */}
+                      {detailMember.email && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100 break-words">{detailMember.email}</div>
+                        </div>
+                      )}
+
+                      {/* Phone */}
+                      {detailMember.phone && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.phone}</div>
+                        </div>
+                      )}
+
+                      {/* Organization */}
+                      {detailMember.organization && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Organization / School</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100 break-words">{detailMember.organization}</div>
+                        </div>
+                      )}
+
+                      {/* Job */}
+                      {detailMember.job && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Job / Position</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100 break-words">{detailMember.job}</div>
+                        </div>
+                      )}
+
+                      {/* Date of Birth */}
+                      {detailMember.date_of_birth && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">
+                            {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* City */}
+                      {detailMember.city && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">City</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.city}</div>
+                        </div>
+                      )}
+
+                      {/* Address */}
+                      {detailMember.address && (
+                        <div className="col-span-2">
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Address</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100 break-words">{detailMember.address}</div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {detailMember.notes && (
+                        <div className="col-span-2">
+                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Notes</label>
+                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">{detailMember.notes}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-500 dark:text-gray-400">
+                        {detailMember.created_at && (
+                          <div>
+                            <span className="font-medium">Created:</span>{' '}
+                            {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        )}
+                        {detailMember.updated_at && (
+                          <div>
+                            <span className="font-medium">Updated:</span>{' '}
+                            {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </DialogContent>
+          </Dialog>
+          </div>
+        </>
       )}
 
       {/* Quick Generate Modal */}

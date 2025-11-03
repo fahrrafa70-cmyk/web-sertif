@@ -70,9 +70,9 @@ export interface UpdateTemplateData {
   is_dual_template?: boolean;
 }
 
-// Upload image to local public folder
+// Upload image to Supabase Storage (with fallback to local)
 export async function uploadTemplateImage(file: File): Promise<string> {
-  console.log('📤 Starting local image upload...', { fileName: file.name, fileSize: file.size });
+  console.log('📤 Starting template image upload...', { fileName: file.name, fileSize: file.size });
   
   try {
     // Validate file
@@ -81,22 +81,46 @@ export async function uploadTemplateImage(file: File): Promise<string> {
     }
 
     const fileExt = file.name.split('.').pop()?.toLowerCase();
-    if (!fileExt || !['jpg', 'jpeg', 'png'].includes(fileExt)) {
-      throw new Error('Invalid file type. Only JPG, JPEG, and PNG are allowed.');
+    if (!fileExt || !['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(fileExt)) {
+      throw new Error('Invalid file type. Only JPG, JPEG, PNG, WebP, and GIF are allowed.');
     }
 
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const fileName = `template-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     
-    console.log('📁 Creating FormData for local upload...');
+    // Try Supabase Storage first
+    try {
+      console.log('☁️ Attempting upload to Supabase Storage...');
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fileName', fileName);
+      formData.append('bucketName', 'templates');
 
-    // Create FormData for file upload
+      const response = await fetch('/api/upload-to-storage', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.url) {
+          console.log('✅ Storage upload successful:', result.url);
+          return result.url;
+        }
+      }
+      
+      console.warn('⚠️ Storage upload failed, falling back to local...');
+    } catch (storageError) {
+      console.warn('⚠️ Storage upload error, falling back to local:', storageError);
+    }
+
+    // Fallback to local storage
+    console.log('📁 Falling back to local upload...');
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', fileName);
 
-    console.log('📤 Uploading to local server...');
-
-    // Upload to local API endpoint
     const response = await fetch('/api/upload-template', {
       method: 'POST',
       body: formData,
@@ -119,7 +143,7 @@ export async function uploadTemplateImage(file: File): Promise<string> {
     return result.url; // Return the URL for database storage
 
   } catch (error) {
-    console.error('💥 Local image upload process failed:', error);
+    console.error('💥 Image upload process failed:', error);
     throw error;
   }
 }

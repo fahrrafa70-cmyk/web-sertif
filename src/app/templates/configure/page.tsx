@@ -601,7 +601,7 @@ function ConfigureLayoutContent() {
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 mt-14 sm:mt-16 md:mt-20">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Compact Canvas for Editing */}
-          <div className="lg:col-span-3 order-2 lg:order-1">
+          <div className="lg:col-span-3 order-1 lg:order-1">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6">
               <div 
                 ref={canvasRef}
@@ -792,7 +792,7 @@ function ConfigureLayoutContent() {
           </div>
 
           {/* Configuration Panel */}
-          <div className="lg:col-span-1 order-1 lg:order-2">
+          <div className="lg:col-span-1 order-2 lg:order-2">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 lg:sticky lg:top-24 max-h-[calc(100vh-10rem)] sm:max-h-[calc(100vh-8rem)] overflow-y-auto">
               {/* Text Layers List */}
               <div>

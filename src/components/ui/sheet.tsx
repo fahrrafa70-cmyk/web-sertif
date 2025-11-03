@@ -79,7 +79,7 @@ function SheetContent({
           side === "top" &&
             "inset-x-0 top-0 h-auto border-b data-[state=open]:translate-y-0 data-[state=closed]:-translate-y-full",
           side === "bottom" &&
-            "inset-x-0 bottom-0 h-auto border-t data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full",
+            "inset-x-0 bottom-0 h-auto max-h-[85vh] rounded-t-2xl border-t data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full",
           className
         )}
         style={{

@@ -57,7 +57,9 @@ export default function AuthCallbackPage() {
       const errorDescription = searchParams.get("error_description");
       const code = searchParams.get("code");
 
-      if (error) {
+      // Only show error if there's a real error parameter in URL
+      // Sometimes providers add error params even on success, so check if we have a code
+      if (error && !code) {
         const message = errorDescription || error;
         setHasError(message);
         setStatus(t('auth.callback.authFailed'));
@@ -66,6 +68,17 @@ export default function AuthCallbackPage() {
       }
 
       if (!code) {
+        // No code and no explicit error - might be returning from OAuth
+        // Check if we already have a session
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session?.user) {
+          // We have a session, login was successful
+          setStatus(t('auth.callback.almostDone'));
+          await new Promise(resolve => setTimeout(resolve, 500));
+          redirectHome();
+          return;
+        }
+        // No session and no code - redirect silently
         redirectHome();
         return;
       }
@@ -76,21 +89,32 @@ export default function AuthCallbackPage() {
         // Exchange code for session
         const { data: sessionData, error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession(code);
         
+        // Check for actual errors - sometimes Supabase returns errors even when it works
         if (exchangeError) {
-          console.error("OAuth exchange error:", exchangeError);
-          setStatus(t('auth.callback.authFailedShort'));
-          setTimeout(() => redirectHome(), 1500);
-          return;
+          // If we have a session despite the error, it might be a false error
+          const { data: { session: existingSession } } = await supabaseClient.auth.getSession();
+          if (existingSession?.user) {
+            console.log("Session exists despite exchange error, continuing...");
+            // Continue with existing session
+          } else {
+            console.error("OAuth exchange error:", exchangeError);
+            setStatus(t('auth.callback.authFailedShort'));
+            setTimeout(() => redirectHome(), 1500);
+            return;
+          }
         }
 
-        if (!sessionData.session?.user) {
+        // Get the session (either from exchange or existing)
+        const { data: { session: finalSession } } = await supabaseClient.auth.getSession();
+        const user = sessionData?.session?.user || finalSession?.user;
+
+        if (!user) {
           setStatus(t('auth.callback.noSession'));
           setTimeout(() => redirectHome(), 1500);
           return;
         }
 
         // Process OAuth user immediately (don't wait for listener)
-        const user = sessionData.session.user;
         const normalizedEmail = user.email?.toLowerCase().trim();
         if (normalizedEmail) {
           try {
@@ -113,24 +137,42 @@ export default function AuthCallbackPage() {
             const authReady = await waitForAuthReady(5000);
             
             if (!authReady) {
-              console.warn("Auth state not ready after timeout, redirecting anyway");
+              console.warn("Auth state not ready after timeout, but session exists - redirecting anyway");
+              // Don't show error - we have a valid session
             }
           } catch (err) {
             console.error("Error processing OAuth callback:", err);
+            // Check if we still have a valid session
+            const { data: { session: checkSession } } = await supabaseClient.auth.getSession();
+            if (!checkSession?.user) {
+              // Only show error if we lost the session
+              setStatus(t('auth.callback.errorOccurred'));
+              setTimeout(() => redirectHome(), 1500);
+              return;
+            }
             // Continue anyway - auth state listener will handle it
           }
         }
 
-        // Small delay to ensure state propagation
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
+        // Show success message briefly before redirect
         if (!cancelled) {
+          setStatus(t('auth.callback.almostDone'));
+          // Small delay to ensure state propagation
+          await new Promise(resolve => setTimeout(resolve, 300));
           redirectHome();
         }
       } catch (err) {
         console.error("Unexpected error during OAuth callback:", err);
-        setStatus(t('auth.callback.errorOccurred'));
-        setTimeout(() => redirectHome(), 1500);
+        // Check if we have a session despite the error
+        const { data: { session: errorSession } } = await supabaseClient.auth.getSession();
+        if (errorSession?.user) {
+          // We have a session - don't show error, just redirect
+          console.log("Session exists despite error, redirecting...");
+          redirectHome();
+        } else {
+          setStatus(t('auth.callback.errorOccurred'));
+          setTimeout(() => redirectHome(), 1500);
+        }
       }
     };
 
