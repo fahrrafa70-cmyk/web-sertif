@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { getCertificateByNumber, getCertificateByPublicId, Certificate, advancedSearchCertificates, getCertificateCategories, SearchFilters } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
@@ -47,6 +47,57 @@ export default function HeroSection() {
   });
   const [sendPreviewSrc, setSendPreviewSrc] = useState<string | null>(null);
   const [sendCert, setSendCert] = useState<Certificate | null>(null);
+  
+  // Refs and state for scrollable area height calculation
+  const resultsHeaderRef = useRef<HTMLDivElement>(null);
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollableHeight, setScrollableHeight] = useState<string>('calc(80vh - 7rem)');
+  
+  // Calculate scrollable area height dynamically with proper measurement
+  useEffect(() => {
+    if (showResults && searchResults.length > 0) {
+      const calculateHeight = () => {
+        if (resultsHeaderRef.current && resultsContainerRef.current) {
+          // Measure actual rendered heights
+          const headerHeight = resultsHeaderRef.current.offsetHeight;
+          const containerMaxHeight = window.innerHeight * 0.8 - 32; // 80vh - 2rem (mt-2)
+          
+          // Calculate available height: container max height minus header
+          // Use actual container height if available for more accuracy
+          const actualContainerHeight = resultsContainerRef.current.offsetHeight || containerMaxHeight;
+          
+          // Calculate available height: use full available space
+          // No buffer reduction to maximize scroll area height
+          const availableHeight = actualContainerHeight - headerHeight;
+          
+          // Set height with pixel value for accuracy
+          setScrollableHeight(`${Math.max(availableHeight, 200)}px`);
+        }
+      };
+      
+      // Calculate multiple times to ensure accurate measurement
+      const timeoutId1 = setTimeout(calculateHeight, 0);
+      const timeoutId2 = setTimeout(calculateHeight, 50);
+      
+      // Use requestAnimationFrame for DOM measurement
+      requestAnimationFrame(() => {
+        calculateHeight();
+        requestAnimationFrame(() => {
+          calculateHeight();
+        });
+      });
+      
+      // Recalculate on window resize
+      window.addEventListener('resize', calculateHeight);
+      
+      return () => {
+        clearTimeout(timeoutId1);
+        clearTimeout(timeoutId2);
+        window.removeEventListener('resize', calculateHeight);
+      };
+    }
+  }, [showResults, searchResults.length]);
+  
 
   // Export certificate to PDF
   async function exportToPDF(certificate: Certificate) {
@@ -75,7 +126,7 @@ export default function HeroSection() {
         : localWithBust;
 
       const resp = await fetch(src);
-      if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+      if (!resp.ok) throw new Error(`${t('hero.fetchImageFailed')}: ${resp.status}`);
       const blob = await resp.blob();
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -112,7 +163,7 @@ export default function HeroSection() {
       toast.success(t('hero.pdfExported'));
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "Failed to export PDF");
+      toast.error(err instanceof Error ? err.message : t('hero.exportPdfFailed'));
     }
   }
 
@@ -137,7 +188,7 @@ export default function HeroSection() {
 
       // Fetch image as blob
       const resp = await fetch(src);
-      if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+      if (!resp.ok) throw new Error(`${t('hero.fetchImageFailed')}: ${resp.status}`);
       const blob = await resp.blob();
 
       // Create download link
@@ -153,7 +204,7 @@ export default function HeroSection() {
       toast.success(t('hero.pngDownloaded'));
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "Failed to export PNG");
+      toast.error(err instanceof Error ? err.message : t('hero.exportPngFailed'));
     }
   }
 
@@ -165,25 +216,54 @@ export default function HeroSection() {
         return;
       }
 
-      // Use environment variable for production URL, fallback to window.location.origin
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                      (typeof window !== 'undefined' ? window.location.origin : '');
+      // Get base URL - prefer environment variable, then use current origin
+      let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+      
+      // If no env variable, use current window location
+      if (!baseUrl && typeof window !== 'undefined') {
+        baseUrl = window.location.origin;
+      }
+      
+      // Ensure base URL has protocol (http:// or https://)
+      if (baseUrl && !baseUrl.match(/^https?:\/\//i)) {
+        baseUrl = `https://${baseUrl.replace(/^\/\//, '')}`;
+      }
+      
+      // Generate absolute public link
       const certificateLink = `${baseUrl}/cek/${certificate.public_id}`;
       
+      // Copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(t('hero.linkCopied'));
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">{t('hero.linkCopied')}</span>
+            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
+          </div>,
+          { duration: 5000 }
+        );
       } else {
+        // Fallback for older browsers
         const textArea = document.createElement('textarea');
         textArea.value = certificateLink;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(t('hero.linkCopied'));
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">{t('hero.linkCopied')}</span>
+            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
+          </div>,
+          { duration: 5000 }
+        );
       }
       
-      console.log('Generated public certificate link:', certificateLink);
+      // Link generated successfully
     } catch (err) {
       console.error('Failed to generate certificate link:', err);
       toast.error(t('hero.linkGenerateFailed'));
@@ -207,22 +287,28 @@ export default function HeroSection() {
         : srcRaw;
       setSendCert(certificate);
       setSendPreviewSrc(src);
+      const issueDate = new Date(certificate.created_at || new Date()).toLocaleDateString();
+      const subject = certificate.certificate_no 
+        ? t('hero.emailDefaultSubject').replace('{number}', certificate.certificate_no)
+        : t('hero.emailDefaultSubjectNoNumber');
+      const message = `${t('hero.emailDefaultGreeting')} ${certificate.name || t('hero.emailDefaultNA')},
+
+${t('hero.emailDefaultInfo')}
+- ${t('hero.emailDefaultCertNumber')}: ${certificate.certificate_no || t('hero.emailDefaultNA')}\n
+- ${t('hero.emailDefaultRecipient')}: ${certificate.name || t('hero.emailDefaultNA')}\n
+- ${t('hero.emailDefaultIssueDate')}: ${issueDate}\n
+${certificate.category ? `- ${t('hero.emailDefaultCategory')}: ${certificate.category}` : ""}\n
+${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certificate.description}` : ""}`;
+      
       setSendForm({
         email: "",
-        subject: certificate.certificate_no ? `Certificate #${certificate.certificate_no}` : "Your Certificate",
-        message: `Dear ${certificate.name},
-
-Certificate Information:
-- Certificate Number: ${certificate.certificate_no || "N/A"}\n
-- Recipient Name: ${certificate.name || "N/A"}\n
-- Issue Date: ${new Date(certificate.created_at || new Date()).toLocaleDateString()}\n
-${certificate.category ? `- Category: ${certificate.category}` : ""}\n
-${certificate.description ? `- Description: ${certificate.description}` : ""}`,
+        subject: subject,
+        message: message,
       });
       setSendModalOpen(true);
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Failed to prepare email');
+      toast.error(err instanceof Error ? err.message : t('hero.emailPrepareFailed'));
     }
   }
 
@@ -238,20 +324,20 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
     const recipientEmail = (sendForm.email || '').trim();
     
     if (!recipientEmail) {
-      errors.email = 'Recipient email is required';
+      errors.email = t('hero.emailValidationRequired');
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(recipientEmail)) {
-        errors.email = 'Please enter a valid email address';
+        errors.email = t('hero.emailValidationInvalid');
       }
     }
     
     if (!sendForm.subject.trim()) {
-      errors.subject = 'Subject is required';
+      errors.subject = t('hero.subjectRequired');
     }
     
     if (!sendForm.message.trim()) {
-      errors.message = 'Message is required';
+      errors.message = t('hero.messageRequired');
     }
     
     // If there are errors, show them and return
@@ -279,19 +365,19 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
       if (!res.ok) {
         // More specific error messages
         if (res.status === 400) {
-          throw new Error('Invalid email address or missing required fields');
+          throw new Error(t('hero.emailInvalidFields'));
         } else if (res.status === 404) {
-          throw new Error('Email service not available');
+          throw new Error(t('hero.emailServiceUnavailable'));
         } else if (res.status === 500) {
-          throw new Error('Server error. Please try again later');
+          throw new Error(t('hero.emailServerError'));
         }
-        throw new Error(json?.error || `Failed to send email (status ${res.status})`);
+        throw new Error(json?.error || t('hero.emailSendFailed'));
       }
       if (json.previewUrl) {
         toast.success(t('hero.emailQueued'));
         try { window.open(json.previewUrl, '_blank'); } catch {}
       } else {
-        toast.success(`Email sent successfully to ${recipientEmail}`);
+        toast.success(`${t('hero.emailSentSuccess')} ${recipientEmail}`);
       }
       setSendModalOpen(false);
       setSendCert(null);
@@ -299,7 +385,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
       setSendForm({ email: '', subject: '', message: '' });
     } catch (err) {
       console.error('Email send error:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to send email. Please try again.');
+      toast.error(err instanceof Error ? err.message : t('hero.emailSendFailed'));
     } finally {
       setIsSendingEmail(false);
     }
@@ -310,7 +396,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
     async function loadCategories() {
       try {
         const cats = await getCertificateCategories();
-        console.log('Loaded categories in hero-section:', cats);
+        // Categories loaded successfully
         setCategories(cats);
       } catch (err) {
         console.error('Failed to load categories:', err);
@@ -368,33 +454,87 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
   }, [sendModalOpen, confirmSendEmail]);
 
   // Debounced search function
-  const performSearch = useCallback(async (searchFilters: SearchFilters) => {
+  const performSearch = useCallback(async (searchFilters: SearchFilters, showToast = false) => {
     try {
       setSearching(true);
       setSearchError("");
       
       const results = await advancedSearchCertificates(searchFilters);
       setSearchResults(results);
-      setShowResults(true);
+      setShowResults(results.length > 0);
       
       if (results.length === 0 && (searchFilters.keyword || searchFilters.category || searchFilters.startDate || searchFilters.endDate)) {
-        setSearchError(searchFilters.keyword ? `${t('search.noResults')} "${searchFilters.keyword}"` : t('search.noResultsGeneral'));
+        const errorMsg = searchFilters.keyword 
+          ? `${t('search.noResults')} "${searchFilters.keyword}"${searchFilters.category ? ` ${t('search.inCategory')} "${searchFilters.category}"` : ''}`
+          : searchFilters.category 
+            ? `${t('search.noResults')} ${t('search.inCategory')} "${searchFilters.category}"`
+            : t('search.noResultsGeneral');
+        setSearchError(errorMsg);
+        if (showToast) {
+          toast.info(errorMsg);
+        }
       }
     } catch (err) {
       console.error('Search error:', err);
       setSearchError(t('error.search.failed'));
-      toast.error(t('error.search.failed'));
+      if (showToast) {
+        toast.error(t('error.search.failed'));
+      }
     } finally {
       setSearching(false);
     }
   }, [t]);
+  
+  // Live filter effect - auto search when filters change (after initial search)
+  const hasSearchedRef = useRef(false);
+  
+  useEffect(() => {
+    // Track if user has performed at least one search
+    if (searchResults.length > 0 || showResults) {
+      hasSearchedRef.current = true;
+    }
+  }, [searchResults.length, showResults]);
+  
+  useEffect(() => {
+    // Only trigger live search if user has already searched and there's a keyword
+    const hasKeyword = certificateId.trim();
+    const hasFilters = filters.category || filters.startDate || filters.endDate;
+    
+    if (hasSearchedRef.current && hasKeyword && hasFilters) {
+      // Debounce the live search
+      const timeoutId = setTimeout(() => {
+        const searchFilters: SearchFilters = {
+          keyword: certificateId.trim(),
+          category: filters.category,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+        };
+        performSearch(searchFilters, true);
+      }, 300); // 300ms debounce
+      
+      return () => clearTimeout(timeoutId);
+    } else if (hasSearchedRef.current && hasKeyword && !hasFilters) {
+      // If filters are cleared, search again with just keyword
+      const timeoutId = setTimeout(() => {
+        const searchFilters: SearchFilters = {
+          keyword: certificateId.trim(),
+          category: "",
+          startDate: "",
+          endDate: "",
+        };
+        performSearch(searchFilters, true);
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [filters.category, filters.startDate, filters.endDate, certificateId, performSearch]);
 
   // Reusable search handler for both Enter key and button click
   const handleSearch = useCallback(async () => {
     const q = certificateId.trim();
     if (!q) {
       // Show validation error for empty search
-      setSearchError(t('error.search.empty') || 'Please enter a certificate number or name to search');
+      setSearchError(t('error.search.empty'));
       setSearchResults([]);
       setShowResults(false);
       return;
@@ -445,18 +585,31 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
   // Remove auto-search on typing - only search when button clicked
 
   // Clear all filters
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFilters({
       keyword: "",
       category: "",
       startDate: "",
       endDate: "",
     });
-    setCertificateId("");
-    setSearchResults([]);
-    setShowResults(false);
-    setSearchError("");
-  };
+    // Don't clear certificateId or search results when clearing filters
+    // Only clear if explicitly resetting everything
+    if (certificateId.trim()) {
+      // If there's a keyword, search again without filters
+      const searchFilters: SearchFilters = {
+        keyword: certificateId.trim(),
+        category: "",
+        startDate: "",
+        endDate: "",
+      };
+      performSearch(searchFilters, true);
+    } else {
+      setSearchResults([]);
+      setShowResults(false);
+      setSearchError("");
+      hasSearchedRef.current = false;
+    }
+  }, [certificateId, performSearch]);
 
   // Landing stats removed from minimal landing
 
@@ -486,7 +639,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
   return (
     <>
     <section className="relative w-full flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 text-center py-8 sm:py-12 md:py-20">
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 text-center py-8 sm:py-12 md:py-20">
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -495,7 +648,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
         >
           {/* Enhanced Main Title */}
           <motion.div variants={itemVariants} className="mb-4 sm:mb-5">
-            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-gradient mb-2 sm:mb-3 leading-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-gradient mb-2 sm:mb-3 leading-tight">
               {t('hero.title')}
             </h1>
           </motion.div>
@@ -504,10 +657,10 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
           {/* Enhanced Certificate Search with Filters */}
           <motion.div
             variants={itemVariants}
-            className="mx-auto max-w-2xl"
+            className="mx-auto max-w-2xl relative"
           >
             {/* Search Bar */}
-            <div className="space-y-2">
+            <div className="relative mb-2">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <div className="flex-1 flex items-center gap-2 sm:gap-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl sm:rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200">
                   <div className="flex-1 relative">
@@ -558,30 +711,20 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                 </Button>
               </div>
               
-              {/* Error Message */}
-              {searchError && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-sm text-red-500 px-2"
-                >
-                  {searchError}
-                </motion.p>
-              )}
             </div>
 
-            {/* Filters Panel */}
+            {/* Filters Panel - Mobile optimized with better spacing */}
             {showFilters && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-3 p-3 sm:p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm"
+                className="mb-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg relative z-0 space-y-4"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Category Filter */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">
                       {t('search.category')}
                     </label>
                     <select
@@ -597,8 +740,8 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                   </div>
 
                   {/* Date Range */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">
                       {t('search.dateRange')}
                     </label>
                     <div className="flex gap-2">
@@ -639,88 +782,160 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
                     </Button>
                   </div>
                 )}
+                
+                {/* Error Message - Below filter panel */}
+                {searchError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-3 text-sm text-red-600 dark:text-red-400"
+                  >
+                    {searchError}
+                  </motion.p>
+                )}
               </motion.div>
+            )}
+
+            {/* Error Message - Show below search bar if no filters */}
+            {searchError && !showFilters && !(filters.category || filters.startDate || filters.endDate) && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2 mb-3 text-sm text-red-600 dark:text-red-400"
+              >
+                {searchError}
+              </motion.p>
             )}
 
             {/* Active Filters Indicator */}
             {(filters.category || filters.startDate || filters.endDate) && !showFilters && (
-              <div className="mb-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <span className="font-medium">{t('search.filteredBy')}:</span>
-                {filters.category && <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md">{filters.category}</span>}
-                {filters.startDate && <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md">{filters.startDate}</span>}
-                {filters.endDate && <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md">{filters.endDate}</span>}
-                <button onClick={clearFilters} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              <>
+                <div className="mt-4 mb-3 flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-medium flex-shrink-0">{t('search.filteredBy')}:</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {filters.category && (
+                      <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs sm:text-sm">
+                        {filters.category}
+                      </span>
+                    )}
+                    {filters.startDate && (
+                      <span className="px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md text-xs sm:text-sm">
+                        {filters.startDate}
+                      </span>
+                    )}
+                    {filters.endDate && (
+                      <span className="px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md text-xs sm:text-sm">
+                        {filters.endDate}
+                      </span>
+                    )}
+                  </div>
+                  <button 
+                    onClick={clearFilters} 
+                    className="ml-1 sm:ml-2 p-1.5 rounded-lg text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+                    aria-label={t('search.clearFilters')}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                {/* Error Message - Show below filters if filters exist */}
+                {searchError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-3 text-sm text-red-600 dark:text-red-400"
+                  >
+                    {searchError}
+                  </motion.p>
+                )}
+              </>
             )}
 
-            {/* Search Results */}
+            {/* Search Results - Absolute positioned to prevent layout shift */}
             {showResults && searchResults.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4"
+              <div 
+                ref={resultsContainerRef}
+                className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 flex flex-col overflow-hidden"
+                style={{ 
+                  maxHeight: 'calc(80vh - 2rem)',
+                  height: 'calc(80vh - 2rem)'
+                }}
               >
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-left">
+                {/* Header - Fixed height, measured for calculation */}
+                <div 
+                  ref={resultsHeaderRef}
+                  className="text-sm text-gray-600 dark:text-gray-400 p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0"
+                >
                   {t('search.showingResults')}: {searchResults.length} {searchResults.length === 1 ? t('hero.certificate') : t('hero.certificates')}
                 </div>
-                <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
-                  {searchResults.map((cert) => (
-                    <motion.div
-                      key={cert.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer text-left"
-                      onClick={() => {
-                        setPreviewCert(cert);
-                        setPreviewOpen(true);
-                      }}
-                    >
-                      <div className="flex items-start gap-4 p-4">
-                        {/* Certificate Thumbnail */}
-                        {cert.certificate_image_url ? (
-                          <div className="flex-shrink-0 w-32 h-24 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img 
-                              src={cert.certificate_image_url} 
-                              alt={cert.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                // Hide image if failed to load
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex-shrink-0 w-32 h-24 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center">
-                            <FileText className="w-8 h-8 text-blue-400" />
-                          </div>
-                        )}
-                        
-                        {/* Certificate Info */}
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{cert.members?.name || cert.name}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{cert.certificate_no}</div>
-                          <div className="flex items-center gap-2 mt-2">
-                            {cert.category && (
-                              <span className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
-                                {cert.category}
-                              </span>
-                            )}
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {new Date(cert.issue_date).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {cert.members?.organization && (
-                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">{cert.members.organization}</div>
+                {/* Scrollable Content - Explicit height calculation for accurate scrolling */}
+                <div 
+                  className="overflow-y-auto overscroll-contain"
+                  style={{ 
+                    height: scrollableHeight,
+                    WebkitOverflowScrolling: 'touch',
+                    overflowX: 'hidden'
+                  }}
+                >
+                  <div className="p-3" style={{ paddingBottom: '23rem' }}>
+                    <div className="grid grid-cols-1 gap-3" style={{ marginBottom: '2rem' }}>
+                    {searchResults.map((cert) => (
+                      <motion.div
+                        key={cert.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer text-left"
+                        onClick={() => {
+                          setPreviewCert(cert);
+                          setPreviewOpen(true);
+                        }}
+                      >
+                        <div className="flex items-start gap-4 p-4">
+                          {/* Certificate Thumbnail */}
+                          {cert.certificate_image_url ? (
+                            <div className="flex-shrink-0 w-32 h-24 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img 
+                                src={cert.certificate_image_url} 
+                                alt={cert.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Hide image if failed to load
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex-shrink-0 w-32 h-24 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center">
+                              <FileText className="w-8 h-8 text-blue-400" />
+                            </div>
                           )}
+                          
+                          {/* Certificate Info */}
+                          <div className="flex-1 min-w-0 text-left">
+                            <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{cert.members?.name || cert.name}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{cert.certificate_no}</div>
+                            <div className="flex items-center gap-2 mt-2">
+                              {cert.category && (
+                                <span className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
+                                  {cert.category}
+                                </span>
+                              )}
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {new Date(cert.issue_date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {cert.members?.organization && (
+                              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">{cert.members.organization}</div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    ))}
+                    </div>
+                  </div>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
         </motion.div>
@@ -839,7 +1054,7 @@ ${certificate.description ? `- Description: ${certificate.description}` : ""}`,
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imagePreviewUrl} alt="Certificate" className="w-full h-auto rounded-lg border" />
             ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">No image</div>
+              <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
             )}
           </div>
         </div>

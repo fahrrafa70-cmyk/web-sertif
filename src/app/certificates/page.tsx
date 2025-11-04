@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import {
   Sheet,
   SheetContent,
@@ -64,12 +65,24 @@ function CertificatesContent() {
   const certQuery = (params?.get("cert") || "").toLowerCase();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [searchInput, setSearchInput] = useState("");
+  const debouncedSearchInput = useDebounce(searchInput, 300);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage] = useState<number>(10);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  
+  // Detect mobile and adjust items per page (5 for mobile, 10 for desktop)
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobile = window.innerWidth < 768; // md breakpoint
+      setItemsPerPage(isMobile ? 5 : 10);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Quick Generate state
   const [quickGenerateOpen, setQuickGenerateOpen] = useState(false);
@@ -244,34 +257,61 @@ function CertificatesContent() {
   async function generateCertificateLink(certificate: Certificate) {
     try {
       if (!certificate.public_id) {
-        toast.error('Certificate does not have a public link ID');
+        toast.error(t('certificates.generateLink') + ' - ' + t('hero.noPublicLink'));
         return;
       }
 
-      // Use environment variable for production URL, fallback to window.location.origin
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                      (typeof window !== 'undefined' ? window.location.origin : '');
+      // Get base URL - prefer environment variable, then use current origin
+      let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+      
+      // If no env variable, use current window location
+      if (!baseUrl && typeof window !== 'undefined') {
+        baseUrl = window.location.origin;
+      }
+      
+      // Ensure base URL has protocol (http:// or https://)
+      if (baseUrl && !baseUrl.match(/^https?:\/\//i)) {
+        baseUrl = `https://${baseUrl.replace(/^\/\//, '')}`;
+      }
+      
+      // Generate absolute public link
       const certificateLink = `${baseUrl}/cek/${certificate.public_id}`;
       
       // Copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(`Public certificate link copied!\n${certificateLink}`);
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">{t('hero.linkCopied')}</span>
+            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
+          </div>,
+          { duration: 5000 }
+        );
       } else {
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
         textArea.value = certificateLink;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(`Public certificate link copied!\n${certificateLink}`);
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">{t('hero.linkCopied')}</span>
+            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
+          </div>,
+          { duration: 5000 }
+        );
       }
       
       console.log('Generated public certificate link:', certificateLink);
     } catch (err) {
       console.error('Failed to generate certificate link:', err);
-      toast.error('Failed to generate certificate link');
+      toast.error(t('hero.linkGenerateFailed'));
     }
   }
 
@@ -784,8 +824,8 @@ function CertificatesContent() {
   const filtered = useMemo(() => {
     let filteredCerts = certificates;
 
-    // Search filter
-    const searchQuery = (searchInput || certQuery).toLowerCase();
+    // Search filter - use debounced search input for better performance
+    const searchQuery = (debouncedSearchInput || certQuery || "").toLowerCase();
     if (searchQuery) {
       filteredCerts = filteredCerts.filter(
         (cert) =>
@@ -811,7 +851,7 @@ function CertificatesContent() {
     }
 
     return filteredCerts;
-  }, [certificates, searchInput, certQuery, categoryFilter, dateFilter]);
+  }, [certificates, debouncedSearchInput, certQuery, categoryFilter, dateFilter]);
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -829,6 +869,11 @@ function CertificatesContent() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchInput, categoryFilter, dateFilter]);
+  
+  // Reset to first page when itemsPerPage changes (mobile/desktop switch)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   const [isEditOpen, setIsEditOpen] = useState<null | string>(null);
   const [draft, setDraft] = useState<Certificate | null>(null);
@@ -1132,7 +1177,7 @@ function CertificatesContent() {
   return (
     <ModernLayout>
       <section className="min-h-screen py-4 sm:py-6 md:py-8">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
             {/* Header */}
             <div className="mb-4 sm:mb-6">
               <div className="flex flex-col gap-4 mb-4">
@@ -1372,126 +1417,139 @@ function CertificatesContent() {
                       onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
                       className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4 shadow-sm ${certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors" : ""}`}
                     >
-                      <div className="space-y-2.5 sm:space-y-3">
-                        <div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                      {/* Certificate Details - Grid 2 Columns */}
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 mb-3">
+                        {/* Certificate Number */}
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                             {t("certificates.certificateId")}
                           </div>
-                          <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
                             {certificate.certificate_no}
                           </div>
                         </div>
-                        <div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+
+                        {/* Recipient */}
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                             {t("certificates.recipient")}
                           </div>
-                          <div className="text-gray-700 dark:text-gray-300 text-sm">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">
                             {certificate.name}
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                              {t("certificates.category")}
-                            </div>
-                            <div className="text-gray-700 dark:text-gray-300 text-sm">
-                              {certificate.category || "—"}
-                            </div>
+
+                        {/* Category */}
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            {t("certificates.category")}
                           </div>
-                          <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                              {t("certificates.issuedDate")}
-                            </div>
-                            <div className="text-gray-700 dark:text-gray-300 text-sm">
-                              {new Date(certificate.issue_date).toLocaleDateString()}
-                            </div>
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                            {certificate.category || "—"}
                           </div>
                         </div>
+
+                        {/* Issued Date */}
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            {t("certificates.issuedDate")}
+                          </div>
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                            {new Date(certificate.issue_date).toLocaleDateString()}
+                          </div>
+                        </div>
+
+                        {/* Expiry Date */}
                         {certificate.expired_date && (
-                          <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                          <div className="space-y-0.5 col-span-2">
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                               {t("certificates.expiryDate")}
                             </div>
-                            <div className="text-gray-700 dark:text-gray-300 text-sm">
+                            <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
                               {new Date(certificate.expired_date).toLocaleDateString()}
                             </div>
                           </div>
                         )}
-                        <div className="pt-2 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-gray-300 text-xs flex-1 sm:flex-initial"
-                              onClick={() => openPreview(certificate)}
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              {t("common.preview")}
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-gray-300 text-xs flex-1 sm:flex-initial"
-                                >
-                                  <Download className="w-3 h-3 mr-1" />
-                                  {t("certificates.export")}
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
-                                  <FileText className="w-4 h-4 mr-2" />
-                                  {t("certificates.exportPdf")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
-                                  <ImageIcon className="w-4 h-4 mr-2" />
-                                  {t("certificates.downloadPng")}
-                                </DropdownMenuItem>
-                                {certificate.certificate_image_url && (
-                                  <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    {t("certificates.sendEmail")}
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
-                                  <Link className="w-4 h-4 mr-2" />
-                                  {t("certificates.generateLink")}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                            {(role === "Admin" || role === "Team") && (
+                      </div>
+
+                      {/* Action Buttons - Grid 2 Columns Mobile, 4 Columns Desktop */}
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8"
+                            onClick={() => openPreview(certificate)}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            {t("common.preview")}
+                          </Button>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="border-gray-300 text-xs flex-1 sm:flex-initial"
-                                onClick={() => openEdit(certificate)}
+                                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8 w-full"
                               >
-                                <Edit className="w-3 h-3 mr-1" />
-                                {t("common.edit")}
+                                <Download className="w-3 h-3 mr-1" />
+                                {t("certificates.export")}
                               </Button>
-                            )}
-                            {canDelete && (
-                              <button
-                                className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg text-xs font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1.5 shadow-sm hover:shadow-md flex-1 sm:flex-initial"
-                                onClick={() => requestDelete(certificate.id)}
-                                disabled={deletingCertificateId === certificate.id}
-                                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                              >
-                                {deletingCertificateId === certificate.id ? (
-                                  <>
-                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    Deleting...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Trash2 className="w-3 h-3" />
-                                    {t("common.delete")}
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
+                                <FileText className="w-4 h-4 mr-2" />
+                                {t("certificates.exportPdf")}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
+                                <ImageIcon className="w-4 h-4 mr-2" />
+                                {t("certificates.downloadPng")}
+                              </DropdownMenuItem>
+                              {certificate.certificate_image_url && (
+                                <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
+                                  <FileText className="w-4 h-4 mr-2" />
+                                  {t("certificates.sendEmail")}
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
+                                <Link className="w-4 h-4 mr-2" />
+                                {t("certificates.generateLink")}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          {(role === "Admin" || role === "Team") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8"
+                              onClick={() => openEdit(certificate)}
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              {t("common.edit")}
+                            </Button>
+                          )}
+                          
+                          {canDelete && (
+                            <button
+                              className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg text-xs font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 h-8 shadow-sm hover:shadow-md"
+                              onClick={() => requestDelete(certificate.id)}
+                              disabled={deletingCertificateId === certificate.id}
+                              style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                            >
+                              {deletingCertificateId === certificate.id ? (
+                                <>
+                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                  <span className="hidden sm:inline">Deleting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>{t("common.delete")}</span>
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

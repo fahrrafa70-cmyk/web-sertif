@@ -195,13 +195,13 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               {/* Footer */}
               <div className="p-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-200 mb-2">
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-100 mb-2">
                     {t("theme.switch") || "Theme"}
                   </p>
                   <ThemeSwitcher variant="default" className="w-full mb-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-200 mb-2">
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-100 mb-2">
                     {t("language.switch")}
                   </p>
                   <LanguageSwitcher variant="default" className="w-full" />

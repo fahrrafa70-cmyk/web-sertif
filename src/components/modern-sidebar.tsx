@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -22,13 +22,13 @@ interface NavItem {
   roles?: ("admin" | "team")[];
 }
 
-export default function ModernSidebar() {
+const ModernSidebar = memo(function ModernSidebar() {
   const { t } = useLanguage();
   const { role } = useAuth();
   const pathname = usePathname();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  const navItems: NavItem[] = [
+  const navItems: NavItem[] = useMemo(() => [
     {
       icon: <Home className="w-5 h-5" />,
       label: t("nav.home"),
@@ -62,18 +62,28 @@ export default function ModernSidebar() {
       label: t("nav.faq"),
       href: "/faq",
     },
-  ];
+  ], [t]);
 
   // Filter items based on role
-  const filteredItems = navItems.filter((item) => {
-    if (!item.roles) return true;
-    return item.roles.includes(role as "admin" | "team");
-  });
+  const filteredItems = useMemo(() => {
+    return navItems.filter((item) => {
+      if (!item.roles) return true;
+      return item.roles.includes(role as "admin" | "team");
+    });
+  }, [navItems, role]);
 
-  const isActive = (href: string) => {
+  const isActive = useCallback((href: string) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
-  };
+  }, [pathname]);
+  
+  const handleMouseEnter = useCallback((href: string) => {
+    setHoveredItem(href);
+  }, []);
+  
+  const handleMouseLeave = useCallback(() => {
+    setHoveredItem(null);
+  }, []);
 
   return (
     <>
@@ -90,8 +100,8 @@ export default function ModernSidebar() {
               <div
                 key={item.href}
                 className="relative w-full"
-                onMouseEnter={() => setHoveredItem(item.href)}
-                onMouseLeave={() => setHoveredItem(null)}
+                onMouseEnter={() => handleMouseEnter(item.href)}
+                onMouseLeave={handleMouseLeave}
               >
                 <Link
                   href={item.href}
@@ -133,4 +143,8 @@ export default function ModernSidebar() {
       </aside>
     </>
   );
-}
+});
+
+ModernSidebar.displayName = "ModernSidebar";
+
+export default ModernSidebar;

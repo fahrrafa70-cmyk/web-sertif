@@ -122,6 +122,11 @@
     scroll-behavior: smooth;
     /* Base font size scaled to ~80% to simulate 80% zoom across rem-based sizing */
     font-size: 14px;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: var(--background) !important;
   }
 
   /* Enhanced focus styles */
@@ -129,29 +134,195 @@
     @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  /* Custom scrollbar - match background color - AGGRESSIVE OVERRIDE */
+  html ::-webkit-scrollbar,
+  body ::-webkit-scrollbar,
+  * ::-webkit-scrollbar {
+    width: 8px !important;
+    height: 8px !important;
+    background: var(--background) !important;
+    background-color: var(--background) !important;
   }
 
-  ::-webkit-scrollbar-track {
-    background: transparent;
+  html ::-webkit-scrollbar-track,
+  body ::-webkit-scrollbar-track,
+  * ::-webkit-scrollbar-track {
+    background: var(--background) !important;
+    background-color: var(--background) !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
-  ::-webkit-scrollbar-thumb {
-    background: oklch(0.7 0.01 106.423);
-    border-radius: 4px;
+  html ::-webkit-scrollbar-thumb,
+  body ::-webkit-scrollbar-thumb,
+  * ::-webkit-scrollbar-thumb {
+    background: oklch(0.5 0.01 106.423) !important;
+    background-color: oklch(0.5 0.01 106.423) !important;
+    border-radius: 4px !important;
+    border: none !important;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.6 0.01 106.423);
+  html ::-webkit-scrollbar-thumb:hover,
+  body ::-webkit-scrollbar-thumb:hover,
+  * ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.4 0.01 106.423) !important;
+    background-color: oklch(0.4 0.01 106.423) !important;
+  }
+  
+  /* Dark mode scrollbar styling - FORCE DARK BLUE-GRAY COLOR */
+  /* Dark mode background: Tailwind bg-gray-900 = rgb(17, 24, 39) - biru sangat tua mendekati gelap */
+  .dark html ::-webkit-scrollbar,
+  .dark body ::-webkit-scrollbar,
+  .dark * ::-webkit-scrollbar {
+    background: rgb(17, 24, 39) !important; /* Tailwind gray-900 - biru sangat tua */
+    background-color: rgb(17, 24, 39) !important;
+  }
+
+  .dark html ::-webkit-scrollbar-track,
+  .dark body ::-webkit-scrollbar-track,
+  .dark * ::-webkit-scrollbar-track {
+    background: rgb(17, 24, 39) !important; /* Match website dark background exactly - biru sangat tua */
+    background-color: rgb(17, 24, 39) !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .dark html ::-webkit-scrollbar-thumb,
+  .dark body ::-webkit-scrollbar-thumb,
+  .dark * ::-webkit-scrollbar-thumb {
+    background: rgb(75, 85, 99) !important; /* gray-600 - visible on dark background */
+    background-color: rgb(75, 85, 99) !important;
+  }
+
+  .dark html ::-webkit-scrollbar-thumb:hover,
+  .dark body ::-webkit-scrollbar-thumb:hover,
+  .dark * ::-webkit-scrollbar-thumb:hover {
+    background: rgb(107, 114, 128) !important; /* gray-500 - hover state */
+    background-color: rgb(107, 114, 128) !important;
+  }
+  
+  /* Scrollbar buttons (if any) */
+  html ::-webkit-scrollbar-button,
+  body ::-webkit-scrollbar-button,
+  * ::-webkit-scrollbar-button {
+    display: none !important;
+    background: var(--background) !important;
+    background-color: var(--background) !important;
+  }
+  
+  .dark html ::-webkit-scrollbar-button,
+  .dark body ::-webkit-scrollbar-button,
+  .dark * ::-webkit-scrollbar-button {
+    background: rgb(17, 24, 39) !important; /* Match website dark background - biru sangat tua */
+    background-color: rgb(17, 24, 39) !important;
+  }
+  
+  /* Scrollbar corner */
+  html ::-webkit-scrollbar-corner,
+  body ::-webkit-scrollbar-corner,
+  * ::-webkit-scrollbar-corner {
+    background: var(--background) !important;
+    background-color: var(--background) !important;
+    border: none !important;
+  }
+  
+  .dark html ::-webkit-scrollbar-corner,
+  .dark body ::-webkit-scrollbar-corner,
+  .dark * ::-webkit-scrollbar-corner {
+    background: rgb(17, 24, 39) !important; /* Match website dark background - biru sangat tua */
+    background-color: rgb(17, 24, 39) !important;
+    border: none !important;
+  }
+  
+  /* Firefox scrollbar - use explicit RGB for dark mode */
+  html, body, * {
+    scrollbar-width: thin !important;
+    scrollbar-color: oklch(0.5 0.01 106.423) var(--background) !important;
+  }
+  
+  .dark html, .dark body, .dark * {
+    scrollbar-color: rgb(75, 85, 99) rgb(17, 24, 39) !important; /* thumb track - biru sangat tua untuk dark mode */
+  }
+  
+  /* Completely remove header border in dark mode - NO WHITE GAPS - AGGRESSIVE */
+  header {
+    border-bottom-color: var(--background) !important;
+  }
+  
+  .dark header,
+  header.dark,
+  .dark header * {
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom-width: 0 !important;
+    border-width: 0 !important;
+    border-color: transparent !important;
+    border-bottom-color: transparent !important;
+  }
+  
+  /* Also ensure no border on mobile - EXTRA AGGRESSIVE */
+  @media (max-width: 1023px) {
+    .dark header,
+    header.dark {
+      border: none !important;
+      border-bottom: none !important;
+      border-width: 0 !important;
+      border-bottom-width: 0 !important;
+      border-color: transparent !important;
+      border-bottom-color: transparent !important;
+    }
+  }
+  
+  /* Force remove border on all screen sizes for dark mode */
+  @media (prefers-color-scheme: dark) {
+    .dark header,
+    header.dark {
+      border: none !important;
+      border-bottom: none !important;
+      border-width: 0 !important;
+    }
+  }
+  
+  /* Ensure all layout elements have matching background */
+  .dark #__next,
+  .dark [data-nextjs-scroll-focus-boundary] {
+    background-color: var(--background) !important;
+  }
+  
+  /* Ensure no white gaps anywhere - override any default browser styles */
+  html, body, #__next, [data-nextjs-scroll-focus-boundary] {
+    background-color: var(--background) !important;
+  }
+  
+  /* Ensure no white gaps anywhere */
+  * {
+    box-sizing: border-box;
   }
 
   /* Prevent horizontal scroll on all screen sizes */
-  html, body {
+  html {
     max-width: 100%;
     overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    background-color: var(--background) !important;
+  }
+  
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    background-color: var(--background) !important;
   }
 
   /* Responsive containers */
@@ -174,17 +345,18 @@
     }
   }
 
-  /* ABSOLUTE NO-SHIFT POLICY - Never change scroll behavior */
+  /* ABSOLUTE NO-SHIFT POLICY - Only body scrolls to avoid double scrollbar */
   html {
-    scrollbar-gutter: stable both-edges !important; /* Always reserve scrollbar space */
-    overflow-y: scroll !important; /* NEVER change this - always show scrollbar */
     height: 100% !important;
+    overflow-y: hidden !important; /* NO scrollbar on html - prevent double scrollbar */
+    overflow-x: hidden !important;
     /* Prevent any height changes */
     min-height: 100vh !important;
     max-height: 100vh !important;
     /* Override any Radix UI modifications */
     padding-right: 0 !important;
     margin-right: 0 !important;
+    background-color: var(--background) !important;
   }
 
   /* Responsive font size adjustments */
@@ -197,10 +369,11 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: var(--background) !important;
     padding-top: 3.5rem !important; /* Account for fixed header height on mobile */
-    overflow-y: scroll !important; /* NEVER change this - always show scrollbar */
-    scrollbar-gutter: stable both-edges !important; /* Prevent content from shifting when scrollbars appear */
+    overflow-y: auto !important; /* Only body scrolls - single scrollbar */
+    overflow-x: hidden !important;
     overscroll-behavior: contain !important; /* Prevent scroll chaining side-effects */
     height: 100% !important;
     /* Prevent any layout shifts from scrollbar changes */
@@ -208,7 +381,6 @@
     position: relative !important;
     /* Prevent any height changes */
     min-height: 100vh !important;
-    max-height: 100vh !important;
     /* Override any Radix UI modifications */
     padding-right: 0 !important;
     margin-right: 0 !important;
@@ -498,8 +670,8 @@
 
   /* Gradient backgrounds */
   .gradient-primary {
-    background: linear-gradient(135deg, #60A5FA, #1E40AF);
-    /* Light blue (#60A5FA) to dark blue (#1E40AF) - Brighter gradient */
+    background: linear-gradient(to right, #2563EB, #06B6D4);
+    /* Blue-600 to Cyan-500 - Horizontal gradient like Certificates text */
   }
 
   .gradient-secondary {
@@ -508,14 +680,14 @@
 
   /* Hero section gradient - bright blue */
   .gradient-hero {
-    background: linear-gradient(135deg, #60A5FA, #1E40AF);
-    /* Match primary gradient for consistency */
+    background: linear-gradient(to right, #2563EB, #06B6D4);
+    /* Match primary gradient for consistency - Blue-600 to Cyan-500 */
   }
 
   /* Text gradients */
   .text-gradient {
-    background: linear-gradient(135deg, #60A5FA, #1E40AF);
-    /* Match gradient-primary for consistency */
+    background: linear-gradient(to right, #2563EB, #06B6D4);
+    /* Match gradient-primary for consistency - Blue-600 to Cyan-500 like Certificates text */
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

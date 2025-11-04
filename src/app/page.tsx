@@ -2,39 +2,37 @@
 
 import ModernLayout from "@/components/modern-layout";
 import HeroSection from "@/components/hero-section";
-import { useAuth } from "@/contexts/auth-context";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 
 export default function Home() {
-  const { role, isAuthenticated } = useAuth();
   const [headerH, setHeaderH] = useState<number>(56);
-  const [viewportH, setViewportH] = useState<number>(typeof window !== 'undefined' ? window.innerHeight : 0);
+  const [viewportH, setViewportH] = useState<number>(0);
+  const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    console.log("Rendering UI for role:", role ?? "unknown");
-  }, [isAuthenticated, role]);
+  // Optimized resize handler with useCallback to prevent unnecessary re-renders
+  const measure = useCallback(() => {
+    try {
+      const el = document.querySelector('header');
+      const h = el ? Math.ceil((el as HTMLElement).getBoundingClientRect().height) : 56;
+      setHeaderH(h > 0 ? h : 56);
+      setViewportH(window.innerHeight || document.documentElement.clientHeight || 0);
+    } catch {
+      setHeaderH(56);
+      setViewportH(window.innerHeight || 0);
+    }
+  }, []);
 
-  // No global scroll lock; height-based approach below prevents scroll
+  // Initialize on mount to prevent hydration mismatch
   useEffect(() => {
-    const measure = () => {
-      try {
-        const el = document.querySelector('header');
-        const h = el ? Math.ceil((el as HTMLElement).getBoundingClientRect().height) : 56;
-        setHeaderH(h > 0 ? h : 56);
-        setViewportH(window.innerHeight || document.documentElement.clientHeight || 0);
-      } catch {
-        setHeaderH(56);
-        setViewportH(window.innerHeight || 0);
-      }
-    };
+    setIsMounted(true);
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, []);
+  }, [measure]);
 
   // Hard lock vertical scroll on landing only
   useEffect(() => {
+    if (!isMounted) return;
     try {
       const prevHtmlOverflow = window.getComputedStyle(document.documentElement).overflowY;
       const prevBodyOverflow = window.getComputedStyle(document.body).overflowY;
@@ -49,15 +47,30 @@ export default function Home() {
         document.body.style.setProperty('padding-top', prevBodyPaddingTop || '4rem', 'important');
       };
     } catch {}
-  }, []);
+  }, [isMounted]);
+
+  // Memoize style object to prevent unnecessary re-renders
+  // Use consistent values for SSR to prevent hydration mismatch
+  const containerStyle = useMemo(() => {
+    // During SSR or before mount, use stable values to match server render
+    if (!isMounted || viewportH === 0) {
+      return {
+        height: `calc(100svh - ${headerH}px)`,
+        minHeight: '0px',
+      };
+    }
+    // After mount, use actual calculated values
+    return {
+      height: `calc(100svh - ${headerH}px)`,
+      minHeight: `${Math.max(0, Math.ceil(viewportH - headerH) + 2)}px`,
+    };
+  }, [headerH, viewportH, isMounted]);
+
   return (
     <ModernLayout>
       <div
         className="overflow-hidden flex flex-col flex-1 -mt-16 lg:-ml-20"
-        style={{
-          height: `calc(100svh - ${headerH}px)`,
-          minHeight: `${Math.max(0, Math.ceil(viewportH - headerH) + 2)}px`,
-        }}
+        style={containerStyle}
       >
         <HeroSection />
       </div>

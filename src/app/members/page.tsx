@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Member, createMember, getMembers, updateMember, deleteMember as deleteMemberService } from "@/lib/supabase/members";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
+import { useDebounce } from "@/hooks/use-debounce";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 
@@ -18,6 +19,7 @@ export default function MembersPage() {
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [membersData, setMembersData] = useState<Member[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState<boolean>(false);
   const [showForm, setShowForm] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -25,6 +27,7 @@ export default function MembersPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage] = useState<number>(8);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -70,11 +73,13 @@ export default function MembersPage() {
   const loadMembers = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await getMembers();
       setMembersData(data);
     } catch (e) {
-      console.error(e);
-      toast.error(e instanceof Error ? e.message : t('members.loadMembersFailed'));
+      const errorMessage = e instanceof Error ? e.message : t('members.loadMembersFailed');
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -98,7 +103,7 @@ export default function MembersPage() {
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet) as Array<Record<string, unknown>>;
 
-          console.log("📊 Excel data parsed:", jsonData);
+          // Excel data parsed successfully
 
           if (jsonData.length === 0) {
             toast.error("Excel file is empty");
@@ -174,13 +179,11 @@ export default function MembersPage() {
   useEffect(() => {
     const initializeComponent = async () => {
       try {
-        // Load role
+        // Load role from localStorage
         const raw = window.localStorage.getItem("ecert-role") || "";
-        console.log("🔍 Checking role from localStorage:", raw);
         const normalized = raw.toLowerCase();
         const mapped = normalized === "admin" ? "Admin" : normalized === "team" ? "Team" : normalized === "public" ? "Public" : "Public";
         setRole(mapped);
-        console.log("✅ Role set to:", mapped);
         
         // Load members if authorized
         if (mapped === "Admin" || mapped === "Team") {
@@ -342,12 +345,13 @@ export default function MembersPage() {
   }
 
   // Filter members based on search query
+  // Use debounced search query for filtering
   const filteredMembers = useMemo(() => {
-    if (!searchQuery.trim()) {
+    if (!debouncedSearchQuery.trim()) {
       return membersData;
     }
     
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearchQuery.toLowerCase();
     return membersData.filter(member => 
       member.name.toLowerCase().includes(query) ||
       (member.email && member.email.toLowerCase().includes(query)) ||
@@ -356,7 +360,7 @@ export default function MembersPage() {
       (member.job && member.job.toLowerCase().includes(query)) ||
       (member.city && member.city.toLowerCase().includes(query))
     );
-  }, [membersData, searchQuery]);
+  }, [membersData, debouncedSearchQuery]);
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -383,14 +387,12 @@ export default function MembersPage() {
       <ModernLayout>
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-4">
           <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-              <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {t('common.loading')}
-            </h1>
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              {t('members.loading')}
+            </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
-              {t('members.loadingPage')}
+              {t('members.loadingMessage')}
             </p>
           </div>
         </div>
@@ -422,7 +424,7 @@ export default function MembersPage() {
   return (
     <ModernLayout>
         <section className="min-h-screen py-4 sm:py-6 md:py-8">
-          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
             {/* Header */}
             <div className="mb-4 sm:mb-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
@@ -459,7 +461,7 @@ export default function MembersPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   placeholder="Search members by name, email, organization..."
-                  className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                  className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm placeholder:text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -520,6 +522,52 @@ export default function MembersPage() {
               </motion.form>
             )}
 
+            {/* Loading State */}
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="min-h-[400px] flex items-center justify-center"
+              >
+                <div className="text-center">
+                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    {t("members.loading")}
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    {t("members.loadingMessage")}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="min-h-[400px] flex items-center justify-center"
+              >
+                <div className="text-center max-w-md">
+                  <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <span className="text-3xl">⚠️</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    {t("members.errorLoading")}
+                  </h3>
+                  <p className="text-gray-500 text-sm mb-6">{error}</p>
+                  <Button
+                    onClick={() => loadMembers()}
+                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                  >
+                    {t("members.tryAgain")}
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Members Table */}
+            {!loading && !error && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }} 
               whileInView={{ opacity: 1, y: 0 }} 
@@ -579,19 +627,7 @@ export default function MembersPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {loading && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="py-20">
-                          <div className="flex flex-col items-center justify-center">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                            </div>
-                            <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">{t('members.loadingMembers')}</span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {!loading && filteredMembers.length === 0 && (
+                    {filteredMembers.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center text-gray-500 dark:text-gray-400 py-16">
                           <div className="text-center">
@@ -631,9 +667,10 @@ export default function MembersPage() {
                 </Table>
               </div>
             </motion.div>
+            )}
             
             {/* Pagination Controls */}
-            {!loading && filteredMembers.length > 0 && (
+            {!loading && !error && filteredMembers.length > 0 && (
               <div className="flex justify-between items-center mt-4 px-2">
                 <div className="text-sm text-gray-500">
                   Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredMembers.length)} of {filteredMembers.length} members
@@ -724,61 +761,60 @@ export default function MembersPage() {
             {/* Member Detail Modal */}
             {detailModalOpen && detailMember && (
               <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 sm:p-6">
+                  {/* Header - Fixed */}
+                  <DialogHeader className="px-4 sm:px-0 pt-4 sm:pt-0 pb-4 flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
+                    <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {t('members.detail.title')}
                     </DialogTitle>
-                    <DialogDescription className="text-gray-600 dark:text-gray-400">
-                      {t('members.detail.description')} {detailMember.name}
-                    </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="mt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  {/* Content - Scrollable */}
+                  <div className="flex-1 overflow-y-auto px-4 sm:px-0 py-4 sm:py-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       {/* Name */}
-                      <div>
-                        <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
-                        <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.name}</div>
+                      <div className="space-y-1">
+                        <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
+                        <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.name}</div>
                       </div>
 
                       {/* Email */}
                       {detailMember.email && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
-                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.email}</div>
+                        <div className="space-y-1">
+                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{detailMember.email}</div>
                         </div>
                       )}
 
                       {/* Phone */}
                       {detailMember.phone && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
-                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.phone}</div>
+                        <div className="space-y-1">
+                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.phone}</div>
                         </div>
                       )}
 
                       {/* Organization */}
                       {detailMember.organization && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Organization / School</label>
-                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.organization}</div>
+                        <div className="space-y-1">
+                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Organization / School</label>
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.organization}</div>
                         </div>
                       )}
 
                       {/* Job */}
                       {detailMember.job && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Job / Position</label>
-                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.job}</div>
+                        <div className="space-y-1">
+                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Job / Position</label>
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.job}</div>
                         </div>
                       )}
 
                       {/* Date of Birth */}
                       {detailMember.date_of_birth && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Date of Birth</label>
-                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">
+                        <div className="space-y-1">
+                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
                             {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
                               year: 'numeric', 
                               month: 'long', 
@@ -790,72 +826,84 @@ export default function MembersPage() {
 
                       {/* City */}
                       {detailMember.city && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">City</label>
-                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.city}</div>
+                        <div className="space-y-1">
+                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">City</label>
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.city}</div>
                         </div>
                       )}
 
                       {/* Address */}
                       {detailMember.address && (
-                        <div className="md:col-span-2">
-                          <label className="text-sm font-medium text-gray-500">Address</label>
-                          <div className="mt-1 text-base text-gray-900 dark:text-gray-100">{detailMember.address}</div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Address</label>
+                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{detailMember.address}</div>
                         </div>
                       )}
 
                       {/* Notes */}
                       {detailMember.notes && (
-                        <div className="md:col-span-2">
-                          <label className="text-sm font-medium text-gray-500">Notes</label>
-                          <div className="mt-1 text-base text-gray-900 whitespace-pre-wrap">{detailMember.notes}</div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Notes</label>
+                          <div className="text-sm sm:text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">{detailMember.notes}</div>
                         </div>
                       )}
                     </div>
 
                     {/* Metadata */}
-                    <div className="mt-8 pt-6 border-t border-gray-200">
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
-                        {detailMember.created_at && (
+                    {(detailMember.created_at || detailMember.updated_at) && (
+                      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                           <div>
-                            <span className="font-medium">Created:</span>{' '}
-                            {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                            {detailMember.created_at && (
+                              <>
+                                <span className="font-medium">Created:</span>{' '}
+                                <span className="text-gray-600 dark:text-gray-300">
+                                  {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </>
+                            )}
                           </div>
-                        )}
-                        {detailMember.updated_at && (
                           <div>
-                            <span className="font-medium">Updated:</span>{' '}
-                            {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                            {detailMember.updated_at && (
+                              <>
+                                <span className="font-medium">Updated:</span>{' '}
+                                <span className="text-gray-600 dark:text-gray-300">
+                                  {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
-
-                  {/* Action Buttons */}
+                  
+                  {/* Action Buttons - Fixed at bottom */}
                   {(role === "Admin" || role === "Team") && (
-                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-                      <Button
-                        className="gradient-primary text-white"
-                        onClick={() => {
-                          setDetailModalOpen(false);
-                          openEdit(detailMember);
-                        }}
-                      >
-                        Edit
-                      </Button>
+                    <div className="flex-shrink-0 px-4 sm:px-0 pt-4 pb-4 sm:pb-0 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-end gap-3">
+                        <Button
+                          className="gradient-primary text-white text-sm sm:text-base px-4 sm:px-6"
+                          onClick={() => {
+                            setDetailModalOpen(false);
+                            openEdit(detailMember);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </DialogContent>
@@ -866,35 +914,26 @@ export default function MembersPage() {
 
       {/* Excel Import Info Modal */}
       <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-              <Info className="w-5 h-5 text-blue-500" />
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl text-gray-900 dark:text-gray-100">
+              <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
               {t('members.excel.title')}
             </DialogTitle>
-            <DialogDescription className="text-gray-600 dark:text-gray-400">
+            <DialogDescription className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {t('members.excel.description')}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            {/* Column Requirements */}
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-              <h3 className="font-semibold text-sm mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.requiredColumns')}</h3>
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
+          <div className="space-y-3 sm:space-y-4">
+            {/* Columns To Fill */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4 bg-gray-50 dark:bg-gray-800/50">
+              <h3 className="font-semibold text-xs sm:text-sm mb-2 sm:mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.optionalColumns')}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+                <div className="flex items-start gap-1.5">
                   <span className="text-red-500 font-bold">*</span>
-                  <div>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">Name</span>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{t('members.excel.nameRequired')}</p>
-                  </div>
+                  <span className="font-medium">Name</span>
                 </div>
-              </div>
-            </div>
-
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-              <h3 className="font-semibold text-sm mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.optionalColumns')}</h3>
-              <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 dark:text-gray-300">
                 <div>• <span className="font-medium">Email</span></div>
                 <div>• <span className="font-medium">Organization</span></div>
                 <div>• <span className="font-medium">Phone</span></div>
@@ -904,51 +943,48 @@ export default function MembersPage() {
                 <div>• <span className="font-medium">City</span></div>
                 <div>• <span className="font-medium">Notes</span></div>
               </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 sm:mt-3">
+                <span className="text-red-500">*</span> Required field
+              </p>
             </div>
 
             {/* Example Table */}
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-900">
-              <h3 className="font-semibold text-sm mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.exampleFormat')}</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4 bg-white dark:bg-gray-900">
+              <h3 className="font-semibold text-xs sm:text-sm mb-2 sm:mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.exampleFormat')}</h3>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-0 text-[10px] sm:text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-100 dark:bg-gray-800">
-                      <th className="border border-gray-300 dark:border-gray-600 p-2 text-left text-gray-900 dark:text-gray-100">Name*</th>
-                      <th className="border border-gray-300 dark:border-gray-600 p-2 text-left text-gray-900 dark:text-gray-100">Email</th>
-                      <th className="border border-gray-300 dark:border-gray-600 p-2 text-left text-gray-900 dark:text-gray-100">Organization</th>
-                      <th className="border border-gray-300 dark:border-gray-600 p-2 text-left text-gray-900 dark:text-gray-100">Phone</th>
+                      <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Name*</th>
+                      <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Email</th>
+                      <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100 hidden sm:table-cell">Organization</th>
+                      <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Phone</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">John Doe</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">john@example.com</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">ABC Corp</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">08123456789</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">John Doe</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 break-words">john@example.com</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 hidden sm:table-cell">ABC Corp</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">08123456789</td>
                     </tr>
                     <tr>
-                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">Jane Smith</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">jane@example.com</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">XYZ Inc</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-gray-100">08198765432</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">Jane Smith</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 break-words">jane@example.com</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 hidden sm:table-cell">XYZ Inc</td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">08198765432</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Notes */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-              <p className="text-xs text-blue-800 dark:text-blue-300">
-                <strong>{t('members.excel.note')}</strong> {t('members.excel.noteText')}
-              </p>
-            </div>
-
             {/* Action Buttons */}
-            <div className="flex gap-2 justify-end pt-2">
+            <div className="flex flex-col sm:flex-row gap-2 sm:justify-end pt-2 sm:pt-3 border-t border-gray-200 dark:border-gray-700">
               <Button
                 variant="outline"
                 onClick={() => setShowExcelInfoModal(false)}
+                className="w-full sm:w-auto text-sm"
               >
                 {t('members.excel.cancel')}
               </Button>
@@ -957,7 +993,7 @@ export default function MembersPage() {
                   setShowExcelInfoModal(false);
                   excelInputRef.current?.click();
                 }}
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full sm:w-auto text-sm"
               >
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 {t('members.excel.chooseFile')}

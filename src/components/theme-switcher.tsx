@@ -52,7 +52,7 @@ export function ThemeSwitcher({ variant = 'default', className }: ThemeSwitcherP
     <Button
       variant="outline"
       size="sm"
-      className={`flex items-center gap-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 ${className}`}
+      className={`flex items-center gap-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${className}`}
       onClick={toggleTheme}
     >
       {theme === 'light' ? (

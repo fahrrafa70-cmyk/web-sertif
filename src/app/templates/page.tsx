@@ -3,8 +3,9 @@
 import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
+import { useDebounce } from "@/hooks/use-debounce";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
@@ -23,6 +24,7 @@ export default function TemplatesPage() {
   const router = useRouter();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query, 300);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
@@ -43,15 +45,15 @@ export default function TemplatesPage() {
 
   const filtered = useMemo(() => {
     let list = templates;
-    if (query) {
-      const q = query.toLowerCase();
+    if (debouncedQuery) {
+      const q = debouncedQuery.toLowerCase();
       list = list.filter((i) => i.name.toLowerCase().includes(q));
     }
     if (categoryFilter) {
       list = list.filter((i) => i.category === categoryFilter);
     }
     return list;
-  }, [templates, query, categoryFilter]);
+  }, [templates, debouncedQuery, categoryFilter]);
 
   // Sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -93,24 +95,32 @@ export default function TemplatesPage() {
   }
 
   async function submitCreate() {
-    console.log('🚀 Starting template creation...', { draft, imageFile, isDualTemplate });
-    
-    if (!draft || !draft.name?.trim() || !draft.category?.trim()) {
-      console.log('❌ Validation failed:', { draft });
-      toast.error("Please fill in all required fields");
+    // Validate name
+    if (!draft || !draft.name?.trim()) {
+      toast.error("Please fill in Template Name");
+      return;
+    }
+
+    // Validate category
+    if (!draft || !draft.category?.trim()) {
+      toast.error("Please select a Category");
       return;
     }
 
     // Validate based on template mode
     if (isDualTemplate) {
-      if (!certificateImageFile || !scoreImageFile) {
-        toast.error("Both certificate and score images are required for dual templates");
+      if (!certificateImageFile) {
+        toast.error("Please upload Certificate Image (Front)");
+        return;
+      }
+      if (!scoreImageFile) {
+        toast.error("Please upload Score Image (Back)");
         return;
       }
     } else {
-    if (!imageFile) {
-      toast.error("Template Image is required");
-      return;
+      if (!imageFile) {
+        toast.error("Please upload Template Image");
+        return;
       }
     }
 
@@ -131,11 +141,10 @@ export default function TemplatesPage() {
         templateData.image_file = imageFile || undefined;
       }
 
-      console.log('📋 Template data prepared:', templateData);
-      console.log('🔄 Calling create function...');
+      // Template data prepared, calling create function
       
       const result = await create(templateData);
-      console.log('✅ Template creation result:', result);
+      // Template created successfully
       
       setIsCreateOpen(false);
       setDraft(null);
@@ -244,7 +253,7 @@ export default function TemplatesPage() {
     const ok = await confirmToast(`Are you sure you want to delete "${templateName}"? This action cannot be undone and will also delete the associated image file.`, { confirmText: "Delete", tone: "destructive" });
   if (ok) {
       try {
-        console.log('🗑️ User confirmed deletion of template:', templateName);
+        // User confirmed deletion
         setDeletingTemplateId(id);
         await deleteTemplate(id);
         
@@ -375,7 +384,7 @@ export default function TemplatesPage() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 relative">
+        <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 relative">
             <motion.div
               variants={staggerContainer}
               initial="hidden"
@@ -446,13 +455,17 @@ export default function TemplatesPage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center py-16"
+                className="min-h-[400px] flex items-center justify-center"
               >
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                  <FileText className="w-12 h-12 text-gray-400" />
+                <div className="text-center">
+                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    {t("templates.loading")}
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    {t("templates.loadingMessage")}
+                  </p>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('templates.loading')}</h3>
-                <p className="text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
               </motion.div>
             )}
 
@@ -461,19 +474,23 @@ export default function TemplatesPage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center py-16"
+                className="min-h-[400px] flex items-center justify-center"
               >
-                <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FileText className="w-12 h-12 text-red-400" />
+                <div className="text-center max-w-md">
+                  <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <span className="text-3xl">⚠️</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    {t("templates.errorLoading")}
+                  </h3>
+                  <p className="text-gray-500 text-sm mb-6">{error}</p>
+                  <Button
+                    onClick={() => refresh()}
+                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                  >
+                    {t("templates.tryAgain")}
+                  </Button>
                 </div>
-                <h3 className="text-xl font-semibold text-red-600 mb-2">{t('templates.errorLoading')}</h3>
-                <p className="text-red-500 mb-6">{error}</p>
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  className="gradient-primary text-white shadow-lg hover:shadow-xl"
-                >
-                  {t('common.tryAgain')}
-                </Button>
               </motion.div>
             )}
 
@@ -753,7 +770,7 @@ export default function TemplatesPage() {
               )}
             </motion.div>
 
-            {/* Single Template Image (Required) */}
+            {/* Single Template Image */}
             {!isDualTemplate && (
             <motion.div 
               className="space-y-2"
@@ -761,10 +778,7 @@ export default function TemplatesPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.3 }}
             >
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-gray-700">Template Image (Required)</label>
-                <span className="text-xs text-red-500 font-medium">Required</span>
-              </div>
+              <label className="text-sm font-semibold text-gray-700">Template Image</label>
               <div className="space-y-3">
                 <input
                   type="file"
@@ -800,17 +814,14 @@ export default function TemplatesPage() {
             {/* Dual Template Images */}
             {isDualTemplate && (
               <>
-                {/* Certificate Image (Required) */}
+                {/* Certificate Image */}
                 <motion.div 
                   className="space-y-2"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.3 }}
                 >
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-gray-700">Certificate Image (Front)</label>
-                    <span className="text-xs text-red-500 font-medium">Required</span>
-                  </div>
+                  <label className="text-sm font-semibold text-gray-700">Certificate Image (Front)</label>
                   <div className="space-y-3">
                     <input
                       type="file"
@@ -842,17 +853,14 @@ export default function TemplatesPage() {
                   </div>
                 </motion.div>
 
-                {/* Score Image (Required) */}
+                {/* Score Image */}
                 <motion.div 
                   className="space-y-2"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.35 }}
                 >
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-gray-700">Score Image (Back)</label>
-                    <span className="text-xs text-red-500 font-medium">Required</span>
-                  </div>
+                  <label className="text-sm font-semibold text-gray-700">Score Image (Back)</label>
                   <div className="space-y-3">
                     <input
                       type="file"

@@ -56,9 +56,20 @@ function ConfigureLayoutContent() {
   // Canvas ref
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasScale, setCanvasScale] = useState(1);
-  
+  const [isMobile, setIsMobile] = useState(false);
+
   // Preview modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Load template and existing layout
   useEffect(() => {
@@ -609,7 +620,7 @@ function ConfigureLayoutContent() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 text-gray-900 dark:text-gray-100">
       {/* Header */}
       <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 border-b border-gray-200 dark:border-gray-800 fixed top-0 left-0 right-0 z-50 shadow-sm h-14 sm:h-16">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 h-full">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 h-full">
           <div className="flex items-center justify-between h-full gap-2 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1">
               <Button
@@ -654,7 +665,7 @@ function ConfigureLayoutContent() {
 
       {/* Main Content - Padding top sama dengan tinggi header untuk mengisi gap */}
       <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 pt-14 sm:pt-16">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Compact Canvas for Editing */}
           <div className="lg:col-span-3 order-1 lg:order-1">
@@ -709,13 +720,48 @@ function ConfigureLayoutContent() {
                     return 'translate(0%, -50%)'; // Anchor at left
                   };
                   
+                  // ============================================================
+                  // MOBILE Y POSITION OFFSET ADJUSTMENT
+                  // ============================================================
+                  // Untuk menyesuaikan posisi Y pada mobile agar sesuai dengan desktop
+                  // HANYA DITERAPKAN PADA MOBILE (< 768px), tidak mempengaruhi desktop
+                  // 
+                  // CARA KERJA:
+                  // - Nilai POSITIF = menurunkan posisi (turun ke bawah)
+                  // - Nilai NEGATIF = menaikkan posisi (naik ke atas)
+                  // 
+                  // JIKA DI MOBILE:
+                  // - Posisi terlalu TINGGI (naik) → NAIKKAN nilai offset (misal: 0.10 → 0.15)
+                  // - Posisi terlalu RENDAH (turun) → TURUNKAN nilai offset (misal: 0.10 → 0.05 atau gunakan negatif)
+                  // 
+                  // CATATAN: Nilai dalam persentase dari tinggi canvas (0.1% ≈ 1-2px)
+                  // ============================================================
+                  let mobileYOffset = 0;
+                  // Hanya terapkan offset pada mobile
+                  if (isMobile) {
+                    if (layer.id === 'certificate_no') {
+                      // Nomor Sertifikat: Ubah nilai ini untuk menyesuaikan posisi Y
+                      // Nilai lebih besar = turun lebih banyak, Nilai lebih kecil = turun lebih sedikit
+                      // SUDAH SESUAI - tidak perlu diubah
+                      mobileYOffset = 0.16; // Sudah sesuai dengan desktop
+                    } else if (layer.id === 'issue_date') {
+                      // Tanggal: Ubah nilai ini untuk menyesuaikan posisi Y
+                      // Nilai lebih besar = turun lebih banyak, Nilai lebih kecil = turun lebih sedikit
+                      // TANGGAL NAIK SEDIKIT - perlu offset lebih besar untuk menurunkannya
+                  
+                      mobileYOffset = 0.50; // Diturunkan lebih banyak untuk mengkompensasi posisi yang naik sedikit
+                    }
+                  }
+                  const baseTopPercent = (layer.y / STANDARD_CANVAS_HEIGHT) * 100;
+                  const adjustedTopPercent = baseTopPercent + mobileYOffset;
+                  
                   return (
                     <div
                       key={layer.id}
                       className="absolute"
                       style={{
                         left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
-                        top: `${(layer.y / STANDARD_CANVAS_HEIGHT) * 100}%`,
+                        top: `${adjustedTopPercent}%`,
                         transform: getTransform(),
                         zIndex: isSelected ? 10 : 1
                       }}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,7 +69,7 @@ export function QuickGenerateModal({
   });
   
   // Debug: Log data availability
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) {
       console.log('📊 Quick Generate Modal Data:', {
         templatesCount: templates.length,
@@ -93,7 +93,7 @@ export function QuickGenerateModal({
   
   const excelInputRef = useRef<HTMLInputElement>(null);
 
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 

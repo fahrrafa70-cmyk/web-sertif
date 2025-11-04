@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo, useCallback } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,17 +10,25 @@ import { ThemeSwitcher } from "./theme-switcher";
 import UserAvatar from "./user-avatar";
 import MobileSidebar from "./mobile-sidebar";
 
-export default function ModernHeader() {
+const ModernHeader = memo(function ModernHeader() {
   const { setOpenLogin, isAuthenticated } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  
+  const handleMobileSidebarToggle = useCallback(() => {
+    setIsMobileSidebarOpen(true);
+  }, []);
+
+  const handleMobileSidebarClose = useCallback(() => {
+    setIsMobileSidebarOpen(false);
+  }, []);
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 h-14 sm:h-16">
-        <div className="h-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-0 dark:border-b-0 h-14 sm:h-16 w-full">
+        <div className="h-full w-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2">
           {/* Mobile Menu Button */}
           <button
-            onClick={() => setIsMobileSidebarOpen(true)}
+            onClick={handleMobileSidebarToggle}
             className="lg:hidden flex-shrink-0 p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             aria-label="Open Menu"
           >
@@ -81,8 +89,12 @@ export default function ModernHeader() {
       {/* Mobile Sidebar */}
       <MobileSidebar
         isOpen={isMobileSidebarOpen}
-        onClose={() => setIsMobileSidebarOpen(false)}
+        onClose={handleMobileSidebarClose}
       />
     </>
   );
-}
+});
+
+ModernHeader.displayName = "ModernHeader";
+
+export default ModernHeader;

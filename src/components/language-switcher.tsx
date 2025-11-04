@@ -103,19 +103,19 @@ export function LanguageSwitcher({ variant = 'default', className }: LanguageSwi
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className={`flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-50 ${className}`}
+          className={`flex items-center gap-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${className}`}
         >
           <Globe className="w-4 h-4" />
           <span className="hidden sm:inline">{t('language.switch')}:</span>
           <span>{currentLanguage?.flag} {currentLanguage?.name}</span>
-          <ChevronDown className="w-4 h-4 text-gray-500" />
+          <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 z-[70]">
-        <div className="px-2 py-1.5 text-sm font-medium text-gray-500">
+        <div className="px-2 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-300">
           {t('language.switch')}
         </div>
-        <div className="border-t border-gray-100" />
+        <div className="border-t border-gray-100 dark:border-gray-700" />
         {languages.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
