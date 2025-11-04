@@ -671,12 +671,37 @@ export default function MembersPage() {
             
             {/* Pagination Controls */}
             {!loading && !error && filteredMembers.length > 0 && (
-              <div className="flex justify-between items-center mt-4 px-2">
-                <div className="text-sm text-gray-500">
+              <div className="flex flex-row justify-between items-center gap-2 mt-4 px-2">
+                <div className="text-sm text-gray-500 flex-shrink-0">
                   Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredMembers.length)} of {filteredMembers.length} members
-                  {searchQuery && <span className="ml-1 text-gray-400">(filtered from {membersData.length})</span>}
+                  {searchQuery && <span className="ml-1 text-gray-400 hidden sm:inline">(filtered from {membersData.length})</span>}
                 </div>
-                <div className="flex items-center gap-2">
+                {/* Mobile: Compact pagination with chevron only */}
+                <div className="flex items-center gap-2 sm:hidden flex-shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <div className="text-sm text-gray-600 px-2 whitespace-nowrap">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+                {/* Desktop: Full pagination with Previous/Next text */}
+                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                   <Button 
                     variant="outline" 
                     size="sm"

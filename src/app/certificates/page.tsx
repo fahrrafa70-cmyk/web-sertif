@@ -113,6 +113,11 @@ function CertificatesContent() {
   const [sendPreviewSrcs, setSendPreviewSrcs] = useState<{ cert: string | null; score: string | null }>({ cert: null, score: null });
   const [sendCert, setSendCert] = useState<Certificate | null>(null);
 
+  // Production URL Modal state for localhost detection
+  const [productionUrlModalOpen, setProductionUrlModalOpen] = useState(false);
+  const [productionUrlInput, setProductionUrlInput] = useState("");
+  const [pendingCertificate, setPendingCertificate] = useState<Certificate | null>(null);
+
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem("ecert-role") || "";
@@ -256,17 +261,65 @@ function CertificatesContent() {
   // Generate public certificate link using public_id
   async function generateCertificateLink(certificate: Certificate) {
     try {
+      // PRIORITY 1: Jika certificate sudah di Supabase Storage, langsung pakai URL gambar
+      // URL ini bisa langsung dibuka tanpa perlu deploy aplikasi
+      if (certificate.certificate_image_url && 
+          (certificate.certificate_image_url.includes('supabase.co/storage') || 
+           certificate.certificate_image_url.includes('supabase.co/storage/v1/object/public'))) {
+        const directImageLink = certificate.certificate_image_url;
+        
+        // Copy to clipboard
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(directImageLink);
+          toast.success(t('hero.linkCopied'));
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = directImageLink;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          toast.success(t('hero.linkCopied'));
+        }
+        
+        console.log('Generated direct image link from Supabase Storage:', directImageLink);
+        return;
+      }
+
+      // PRIORITY 2: Jika tidak ada Supabase Storage URL, gunakan link ke halaman app
       if (!certificate.public_id) {
         toast.error(t('certificates.generateLink') + ' - ' + t('hero.noPublicLink'));
         return;
       }
 
-      // Get base URL - prefer environment variable, then use current origin
+      // Get base URL - prefer environment variable, then localStorage, then current origin
       let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
       
-      // If no env variable, use current window location
+      // If no env variable, check localStorage for saved production URL
       if (!baseUrl && typeof window !== 'undefined') {
-        baseUrl = window.location.origin;
+        const savedUrl = window.localStorage.getItem('production-url');
+        if (savedUrl) {
+          baseUrl = savedUrl;
+        } else {
+          baseUrl = window.location.origin;
+        }
+      }
+      
+      // Check if we're on localhost and no production URL is set
+      if (typeof window !== 'undefined' && baseUrl && (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1'))) {
+        const savedUrl = window.localStorage.getItem('production-url');
+        if (!savedUrl) {
+          // Show modal to input production URL
+          setPendingCertificate(certificate);
+          setProductionUrlInput("");
+          setProductionUrlModalOpen(true);
+          return;
+        }
+        // Use saved production URL
+        baseUrl = savedUrl;
       }
       
       // Ensure base URL has protocol (http:// or https://)
@@ -274,20 +327,13 @@ function CertificatesContent() {
         baseUrl = `https://${baseUrl.replace(/^\/\//, '')}`;
       }
       
-      // Generate absolute public link
+      // Generate absolute public link to app page
       const certificateLink = `${baseUrl}/cek/${certificate.public_id}`;
       
       // Copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">{t('hero.linkCopied')}</span>
-            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
-          </div>,
-          { duration: 5000 }
-        );
+        toast.success(t('hero.linkCopied'));
       } else {
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
@@ -298,21 +344,78 @@ function CertificatesContent() {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">{t('hero.linkCopied')}</span>
-            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
-          </div>,
-          { duration: 5000 }
-        );
+        toast.success(t('hero.linkCopied'));
       }
       
-      console.log('Generated public certificate link:', certificateLink);
+      console.log('Generated public certificate link to app page:', certificateLink);
     } catch (err) {
       console.error('Failed to generate certificate link:', err);
       toast.error(t('hero.linkGenerateFailed'));
     }
+  }
+
+  // Handle production URL submission
+  async function handleProductionUrlSubmit() {
+    if (!pendingCertificate) return;
+    
+    let url = productionUrlInput.trim();
+    
+    // Remove trailing slash
+    url = url.replace(/\/+$/, '');
+    
+    // Validate URL
+    if (!url) {
+      toast.error("Please enter a valid production URL");
+      return;
+    }
+    
+    // Ensure URL has protocol
+    if (!url.match(/^https?:\/\//i)) {
+      url = `https://${url}`;
+    }
+    
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch {
+      toast.error("Please enter a valid URL (e.g., https://yourdomain.com)");
+      return;
+    }
+    
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('production-url', url);
+    }
+    
+    // Close modal
+    setProductionUrlModalOpen(false);
+    setProductionUrlInput("");
+    
+    // Generate link with production URL
+    const certificateLink = `${url}/cek/${pendingCertificate.public_id}`;
+    
+    // Copy to clipboard
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(certificateLink);
+        toast.success(t('hero.linkCopied'));
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = certificateLink;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        toast.success(t('hero.linkCopied'));
+      }
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      toast.error(t('hero.linkGenerateFailed'));
+    }
+    
+    setPendingCertificate(null);
   }
 
   // Open modal to send certificate via email
@@ -1560,8 +1663,8 @@ function CertificatesContent() {
 
             {/* Pagination Controls */}
             {!loading && !error && filtered.length > 0 && (
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mt-4 px-2">
-                <div className="text-xs sm:text-sm text-gray-500">
+              <div className="flex flex-row justify-between items-center gap-2 mt-4 px-2">
+                <div className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
                   {t("certificates.showing")
                     .replace("{start}", String(indexOfFirstItem + 1))
                     .replace("{end}", String(Math.min(indexOfLastItem, filtered.length)))
@@ -1572,7 +1675,34 @@ function CertificatesContent() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                {/* Mobile: Compact pagination with chevron only */}
+                <div className="flex items-center gap-2 sm:hidden flex-shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 px-2 whitespace-nowrap">
+                    {t("certificates.page")
+                      .replace("{current}", String(currentPage))
+                      .replace("{total}", String(totalPages))}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+                {/* Desktop: Full pagination controls */}
+                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -2509,6 +2639,78 @@ function CertificatesContent() {
                 )}
               </Button>
             </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Production URL Modal for localhost detection */}
+      <Dialog open={productionUrlModalOpen} onOpenChange={setProductionUrlModalOpen}>
+        <DialogContent 
+          className="max-w-md w-full"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && e.target instanceof HTMLInputElement) {
+              e.preventDefault();
+              handleProductionUrlSubmit();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setProductionUrlModalOpen(false);
+            }
+          }}
+        >
+          <DialogHeader className="flex-shrink-0 pb-4">
+            <DialogTitle className="text-xl font-bold">Production URL Required</DialogTitle>
+            <DialogDescription className="text-sm">
+              You&apos;re running on localhost. Please enter your production URL to generate shareable links.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Production URL
+              </label>
+              <Input
+                value={productionUrlInput}
+                onChange={(e) => setProductionUrlInput(e.target.value)}
+                placeholder="https://yourdomain.com"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleProductionUrlSubmit();
+                  }
+                }}
+                autoFocus
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                This will be saved in your browser for future use.
+              </p>
+            </div>
+            {typeof window !== 'undefined' && window.localStorage.getItem('production-url') && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Current saved URL: <span className="font-mono font-semibold">{window.localStorage.getItem('production-url')}</span>
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t flex-shrink-0">
+            <Button 
+              variant="outline" 
+              className="border-gray-300 w-full sm:w-auto" 
+              onClick={() => {
+                setProductionUrlModalOpen(false);
+                setProductionUrlInput("");
+                setPendingCertificate(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto" 
+              onClick={handleProductionUrlSubmit}
+              disabled={!productionUrlInput.trim()}
+            >
+              Save & Generate Link
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

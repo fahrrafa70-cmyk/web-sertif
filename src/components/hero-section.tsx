@@ -211,17 +211,69 @@ export default function HeroSection() {
   // Generate public certificate link using public_id
   async function generateCertificateLink(certificate: Certificate) {
     try {
+      // PRIORITY 1: Jika certificate sudah di Supabase Storage, langsung pakai URL gambar
+      // URL ini bisa langsung dibuka tanpa perlu deploy aplikasi
+      if (certificate.certificate_image_url && 
+          (certificate.certificate_image_url.includes('supabase.co/storage') || 
+           certificate.certificate_image_url.includes('supabase.co/storage/v1/object/public'))) {
+        const directImageLink = certificate.certificate_image_url;
+        
+        // Copy to clipboard
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(directImageLink);
+          toast.success(t('hero.linkCopied'));
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = directImageLink;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          toast.success(t('hero.linkCopied'));
+        }
+        
+        console.log('Generated direct image link from Supabase Storage:', directImageLink);
+        return;
+      }
+
+      // PRIORITY 2: Jika tidak ada Supabase Storage URL, gunakan link ke halaman app
       if (!certificate.public_id) {
         toast.error(t('hero.noPublicLink'));
         return;
       }
 
-      // Get base URL - prefer environment variable, then use current origin
+      // Get base URL - prefer environment variable, then localStorage, then current origin
       let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
       
-      // If no env variable, use current window location
+      // If no env variable, check localStorage for saved production URL
       if (!baseUrl && typeof window !== 'undefined') {
-        baseUrl = window.location.origin;
+        const savedUrl = window.localStorage.getItem('production-url');
+        if (savedUrl) {
+          baseUrl = savedUrl;
+        } else {
+          baseUrl = window.location.origin;
+        }
+      }
+      
+      // Check if we're on localhost and warn user
+      if (typeof window !== 'undefined' && baseUrl && (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1'))) {
+        const savedUrl = window.localStorage.getItem('production-url');
+        if (!savedUrl) {
+          toast.warning(
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold">Localhost Detected</span>
+              <span className="text-xs">Go to Certificates page to set production URL for shareable links.</span>
+            </div>,
+            { duration: 5000 }
+          );
+          // Still copy localhost link but warn user
+        } else {
+          // Use saved production URL
+          baseUrl = savedUrl;
+        }
       }
       
       // Ensure base URL has protocol (http:// or https://)
@@ -229,20 +281,13 @@ export default function HeroSection() {
         baseUrl = `https://${baseUrl.replace(/^\/\//, '')}`;
       }
       
-      // Generate absolute public link
+      // Generate absolute public link to app page
       const certificateLink = `${baseUrl}/cek/${certificate.public_id}`;
       
       // Copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">{t('hero.linkCopied')}</span>
-            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
-          </div>,
-          { duration: 5000 }
-        );
+        toast.success(t('hero.linkCopied'));
       } else {
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
@@ -253,14 +298,7 @@ export default function HeroSection() {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">{t('hero.linkCopied')}</span>
-            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
-          </div>,
-          { duration: 5000 }
-        );
+        toast.success(t('hero.linkCopied'));
       }
       
       // Link generated successfully
