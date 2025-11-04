@@ -18,7 +18,8 @@ export function MixedStyleSelect({
   placeholder = "Select...",
   className
 }: MixedStyleSelectProps) {
-  const displayValue = value === 'mixed' ? 'Mixed' : value;
+  const selectedOption = options.find(opt => opt.value === value);
+  const displayLabel = value === 'mixed' ? 'Mixed' : (selectedOption?.label || value);
   
   return (
     <Select value={value === 'mixed' ? undefined : value} onValueChange={onValueChange}>
@@ -27,7 +28,7 @@ export function MixedStyleSelect({
           {value === 'mixed' ? (
             <span className="text-gray-500 italic">Mixed</span>
           ) : (
-            displayValue
+            displayLabel
           )}
         </SelectValue>
       </SelectTrigger>
@@ -53,12 +54,17 @@ export function FontWeightSelect({
   className?: string;
 }) {
   const weightOptions = [
-    { value: '300', label: 'Light' },
+    { value: '300', label: 'Light (300)' },
+    { value: '400', label: 'Normal (400)' },
+    { value: '500', label: 'Medium (500)' },
+    { value: '600', label: 'Semi Bold (600)' },
+    { value: '700', label: 'Bold (700)' },
+    { value: '800', label: 'Extra Bold (800)' },
+    // Also support string aliases
+    { value: 'light', label: 'Light' },
     { value: 'normal', label: 'Normal' },
-    { value: '500', label: 'Medium' },
-    { value: '600', label: 'Semi Bold' },
+    { value: 'medium', label: 'Medium' },
     { value: 'bold', label: 'Bold' },
-    { value: '800', label: 'Extra Bold' },
   ];
   
   return (

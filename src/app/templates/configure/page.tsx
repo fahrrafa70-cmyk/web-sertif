@@ -19,10 +19,9 @@ import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-lay
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { RichTextEditor, useRichTextSelection } from "@/components/editor/RichTextEditor";
+import { plainTextToRichText, applyStyleToRange, richTextToPlainText, getCommonStyleValue, hasMixedStyle } from "@/types/rich-text";
+import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { FontWeightSelect, FontFamilySelect } from "@/components/editor/MixedStyleSelect";
-import { plainTextToRichText, getCommonStyleValue, richTextToPlainText, applyStyleToRange } from "@/types/rich-text";
-import type { RichText } from "@/types/rich-text";
 
 // Dummy data for preview
 const DUMMY_DATA = {
@@ -66,7 +65,7 @@ function ConfigureLayoutContent() {
   const [previewTexts, setPreviewTexts] = useState<Record<string, string>>({});
   
   // Rich text selection state
-  const [selectionRange, setSelectionRange] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
+  const [richTextSelection, setRichTextSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
   
   // Canvas ref
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -146,9 +145,25 @@ function ConfigureLayoutContent() {
           setScoreTextLayers(migratedScoreLayers);
           console.log('✅ Migrated score layers:', migratedScoreLayers.length);
         } else if (tpl.is_dual_template) {
-          // Initialize empty score layers for dual templates
-          console.log('🆕 Initializing empty score layers for dual template');
-          setScoreTextLayers([]);
+          // Initialize score layers with required issue_date field
+          console.log('🆕 Initializing score layers with required issue_date field');
+          const defaultScoreLayers: TextLayerConfig[] = [
+            {
+              id: 'issue_date',
+              x: 600,
+              y: 500,
+              xPercent: 600 / STANDARD_CANVAS_WIDTH,
+              yPercent: 500 / STANDARD_CANVAS_HEIGHT,
+              fontSize: 13,
+              color: '#000000',
+              fontWeight: 'normal',
+              fontFamily: 'Arial',
+              // No textAlign for issue_date - always uses left alignment
+              maxWidth: 300,
+              lineHeight: 1.3,
+            },
+          ];
+          setScoreTextLayers(defaultScoreLayers);
         }
         
         setLoading(false);
@@ -502,8 +517,23 @@ function ConfigureLayoutContent() {
 
   // Add new text layer
   const addTextLayer = () => {
+    // Generate unique ID
+    const timestamp = Date.now();
+    const newId = `custom_${timestamp}`;
+    
+    // CRITICAL: Check for duplicate IDs (shouldn't happen with timestamp, but safety check)
+    const existingIds = textLayers.map(l => l.id);
+    if (existingIds.includes(newId)) {
+      console.error(`⚠️ Duplicate ID detected: ${newId}! This should not happen.`);
+      toast.error("Failed to create unique layer ID. Please try again.");
+      return;
+    }
+    
+    console.log(`➕ Adding new ${configMode} layer with ID: ${newId}`);
+    console.log(`📊 Current ${configMode} layers:`, existingIds);
+    
     const newLayer: TextLayerConfig = {
-      id: `custom_${Date.now()}`,
+      id: newId,
       x: 400,
       y: 200,
       xPercent: 400 / STANDARD_CANVAS_WIDTH,
@@ -518,41 +548,82 @@ function ConfigureLayoutContent() {
       maxWidth: 300,
       lineHeight: 1.2,
     };
-    setTextLayers([...textLayers, newLayer]);
+    
+    setTextLayers(prev => {
+      const updated = [...prev, newLayer];
+      console.log(`✅ Layer added. Count: ${prev.length} → ${updated.length}`);
+      return updated;
+    });
+    
     setSelectedLayerId(newLayer.id);
+    toast.success(`New layer added. ⚠️ Remember to click Save!`);
   };
 
   // Delete text layer
   const deleteLayer = (layerId: string) => {
-    // Prevent deleting required fields (only in certificate mode)
+    console.log(`🗑️ Attempting to delete layer: ${layerId} in ${configMode} mode`);
+    
+    // Prevent deleting required fields
     if (configMode === 'certificate') {
       const requiredFields = ['name', 'certificate_no', 'issue_date'];
       if (requiredFields.includes(layerId)) {
         toast.error("Cannot delete required field");
+        console.log(`❌ Cannot delete required field: ${layerId}`);
+        return;
+      }
+    } else if (configMode === 'score') {
+      // Score mode: only issue_date is required
+      if (layerId === 'issue_date') {
+        toast.error("Cannot delete required field: issue_date");
+        console.log(`❌ Cannot delete required field: ${layerId}`);
         return;
       }
     }
     // Score mode: all layers are custom, can be deleted
     
-    setTextLayers(prev => prev.filter(l => l.id !== layerId));
+    console.log(`📊 Current ${configMode} layers before deletion:`, textLayers.map(l => l.id));
+    
+    setTextLayers(prev => {
+      const filtered = prev.filter(l => l.id !== layerId);
+      console.log(`✅ Layers after deletion:`, filtered.map(l => l.id));
+      console.log(`📏 Layer count: ${prev.length} → ${filtered.length}`);
+      return filtered;
+    });
+    
     if (selectedLayerId === layerId) {
       setSelectedLayerId(null);
+      console.log(`🔄 Deselected layer: ${layerId}`);
     }
-    toast.success("Text layer deleted");
+    
+    toast.success(`Text layer "${layerId}" deleted. ⚠️ Remember to click Save to persist!`);
+    console.log(`✨ Deletion complete. REMINDER: Changes not saved yet!`);
   };
 
   // Save layout configuration
   const handleSave = async () => {
     if (!template) return;
     
-    // Validate required fields (only for certificate mode)
-    const requiredFields = ['name', 'certificate_no', 'issue_date'];
-    const certificateIds = certificateTextLayers.map(l => l.id);
-    const missingFields = requiredFields.filter(f => !certificateIds.includes(f));
+    console.log('💾 SAVE INITIATED');
+    console.log(`📊 Certificate layers to save (${certificateTextLayers.length}):`, certificateTextLayers.map(l => l.id));
+    console.log(`📊 Score layers to save (${scoreTextLayers.length}):`, scoreTextLayers.map(l => l.id));
     
-    if (missingFields.length > 0) {
-      toast.error(`Missing required certificate fields: ${missingFields.join(', ')}`);
-      return;
+    // Validate required fields
+    if (configMode === 'certificate') {
+      const requiredFields = ['name', 'certificate_no', 'issue_date'];
+      const certificateIds = certificateTextLayers.map(l => l.id);
+      const missingFields = requiredFields.filter(f => !certificateIds.includes(f));
+      
+      if (missingFields.length > 0) {
+        toast.error(`Missing required fields: ${missingFields.join(', ')}`);
+        return;
+      }
+    } else if (configMode === 'score') {
+      // Score mode: only issue_date is required
+      const scoreIds = scoreTextLayers.map(l => l.id);
+      if (!scoreIds.includes('issue_date')) {
+        toast.error('Missing required field: issue_date');
+        return;
+      }
     }
     
     setSaving(true);
@@ -588,14 +659,28 @@ function ConfigureLayoutContent() {
             const { isDragging, isEditing, ...rest } = layer;
             void isDragging;
             void isEditing;
-            // Score layers keep all properties including textAlign (like added text)
+            // Remove textAlign property for issue_date (forced left alignment)
+            if (layer.id === 'issue_date') {
+              const { textAlign, ...restWithoutTextAlign } = rest;
+              void textAlign;
+              return restWithoutTextAlign;
+            }
+            // Other score layers keep all properties including textAlign
             return rest;
           })
         };
       }
 
+      console.log('📤 Saving to database:', {
+        certificateLayerCount: layoutConfig.certificate?.textLayers.length || 0,
+        certificateLayerIds: layoutConfig.certificate?.textLayers.map(l => l.id) || [],
+        scoreLayerCount: layoutConfig.score?.textLayers.length || 0,
+        scoreLayerIds: layoutConfig.score?.textLayers.map(l => l.id) || []
+      });
+      
       await saveTemplateLayout(template.id, layoutConfig);
       
+      console.log('✅ Save completed successfully!');
       toast.success("Layout configuration saved successfully!");
       
       // Redirect back to templates page after 1 second
@@ -749,24 +834,46 @@ function ConfigureLayoutContent() {
                 
                 {/* Text Layers */}
                 {textLayers.map(layer => {
-                  // Priority: preview text > default text > dummy data > layer id
-                  const text = previewTexts[layer.id] || 
-                               layer.defaultText || 
-                               DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
-                               layer.id;
+                  const plainText = previewTexts[layer.id] || 
+                                    layer.defaultText || 
+                                    DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
+                                    layer.id;
+                  
+                  // Render richText if available, otherwise plain text
+                  const renderText = () => {
+                    if (layer.richText && layer.hasInlineFormatting) {
+                      // Render with inline formatting
+                      return layer.richText.map((span, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            fontWeight: span.fontWeight || layer.fontWeight,
+                            fontFamily: span.fontFamily || layer.fontFamily,
+                            fontSize: span.fontSize ? `${span.fontSize * canvasScale}px` : undefined,
+                            color: span.color || layer.color
+                          }}
+                        >
+                          {span.text}
+                        </span>
+                      ));
+                    }
+                    return plainText;
+                  };
+                  
                   const isSelected = selectedLayerId === layer.id;
                   
                   // Calculate transform based on alignment
-                  // certificate_no and issue_date always use left alignment (no textAlign property)
                   const getTransform = () => {
-                    // Force left alignment for certificate_no and issue_date
+                    // certificate_no and issue_date always left
                     if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
-                      return 'translate(0%, -50%)'; // Always left-aligned
+                      return 'translate(0%, -50%)';
                     }
+                    
+                    // All other layers (including score layers) use their alignment setting
                     const align = layer.textAlign || 'left';
                     if (align === 'center') return 'translate(-50%, -50%)';
-                    if (align === 'right') return 'translate(-100%, -50%)'; // Anchor at right
-                    return 'translate(0%, -50%)'; // Anchor at left
+                    if (align === 'right') return 'translate(-100%, -50%)';
+                    return 'translate(0%, -50%)';
                   };
                   
                   return (
@@ -808,11 +915,9 @@ function ConfigureLayoutContent() {
                           wordWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
                           overflowWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
                           userSelect: 'none',
-                          // Always have padding and border to prevent layout shift
-                          // For certificate_no and issue_date, use smaller padding on mobile to maintain proportions
-                          padding: (layer.id === 'certificate_no' || layer.id === 'issue_date') 
-                            ? `${2 * canvasScale}px ${4 * canvasScale}px` 
-                            : '4px 8px',
+                          // Remove all padding to match PNG generation (text starts from border edge)
+                          padding: '0px',
+                          // Show border only when selected for visual feedback
                           border: isSelected ? '2px dashed #3b82f6' : '2px dashed transparent',
                           borderRadius: '4px',
                           boxSizing: 'border-box'
@@ -830,7 +935,7 @@ function ConfigureLayoutContent() {
                           }
                         }}
                       >
-                        {text}
+                        {renderText()}
                       </div>
                       
                       {/* Label and resize handles (Word-style) */}
@@ -962,8 +1067,9 @@ function ConfigureLayoutContent() {
                 </div>
                 <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
                   {textLayers.map(layer => {
-                    // Required fields only exist in certificate mode
-                    const isRequired = configMode === 'certificate' && ['name', 'certificate_no', 'issue_date'].includes(layer.id);
+                    // Required fields
+                    const isRequired = (configMode === 'certificate' && ['name', 'certificate_no', 'issue_date'].includes(layer.id)) ||
+                                       (configMode === 'score' && layer.id === 'issue_date');
                     const isSelected = selectedLayerId === layer.id;
                     
                     return (
@@ -1037,9 +1143,9 @@ function ConfigureLayoutContent() {
                     {selectedLayer.id}
                   </h3>
                   <div className="space-y-2 sm:space-y-3">
-                    {/* Default Text - For custom certificate layers OR all score layers */}
-                    {(configMode === 'score' || !['name', 'certificate_no', 'issue_date'].includes(selectedLayer.id)) && (
-                      <div className="bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-900/40 rounded-lg p-2 sm:p-3">
+                    {/* Default Text with Rich Text Formatting - For custom layers only */}
+                    {!['name', 'certificate_no', 'issue_date'].includes(selectedLayer.id) && (
+                      <div className="bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-900/40 rounded-lg p-2 sm:p-3 space-y-2">
                         <div className="flex items-center justify-between mb-1.5 sm:mb-2">
                           <Label className="text-[10px] sm:text-xs font-semibold text-green-900 dark:text-green-300">Default Text</Label>
                           <label className="flex items-center gap-1 sm:gap-1.5 cursor-pointer">
@@ -1052,108 +1158,31 @@ function ConfigureLayoutContent() {
                             <span className="text-[10px] sm:text-xs text-green-900 dark:text-green-300">Use</span>
                           </label>
                         </div>
-                        <div
-                          contentEditable
-                          suppressContentEditableWarning
-                          onInput={(e) => {
-                            const newValue = e.currentTarget.textContent || '';
-                            updateLayer(selectedLayer.id, { defaultText: newValue });
-                            // Update preview text as well
+                        
+                        {/* Rich Text Editor */}
+                        <RichTextEditor
+                          value={selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
+                            fontWeight: selectedLayer.fontWeight,
+                            fontFamily: selectedLayer.fontFamily,
+                            fontSize: selectedLayer.fontSize,
+                            color: selectedLayer.color
+                          })}
+                          onChange={(richText) => {
+                            const plainText = richTextToPlainText(richText);
+                            updateLayer(selectedLayer.id, { 
+                              richText, 
+                              defaultText: plainText,
+                              hasInlineFormatting: true 
+                            });
                             setPreviewTexts(prev => ({
                               ...prev,
-                              [selectedLayer.id]: newValue
+                              [selectedLayer.id]: plainText
                             }));
-                            // Auto-initialize rich text if not exists
-                            if (!selectedLayer.richText) {
-                              const richText = plainTextToRichText(newValue, {
-                                fontWeight: selectedLayer.fontWeight,
-                                fontFamily: selectedLayer.fontFamily,
-                                fontSize: selectedLayer.fontSize,
-                                color: selectedLayer.color
-                              });
-                              updateLayer(selectedLayer.id, { richText, hasInlineFormatting: true });
-                            }
                           }}
-                          onSelect={() => {
-                            const selection = window.getSelection();
-                            if (selection && selection.rangeCount > 0) {
-                              const range = selection.getRangeAt(0);
-                              const text = selectedLayer.defaultText || '';
-                              const start = range.startOffset;
-                              const end = range.endOffset;
-                              setSelectionRange({ start, end });
-                            }
-                          }}
-                          onMouseUp={() => {
-                            const selection = window.getSelection();
-                            if (selection && selection.rangeCount > 0) {
-                              const range = selection.getRangeAt(0);
-                              const preRange = document.createRange();
-                              const container = selection.anchorNode?.parentElement;
-                              if (container) {
-                                preRange.selectNodeContents(container);
-                                preRange.setEnd(range.startContainer, range.startOffset);
-                                const start = preRange.toString().length;
-                                const end = start + range.toString().length;
-                                setSelectionRange({ start, end });
-                              }
-                            }
-                          }}
+                          onSelectionChange={(start, end) => setRichTextSelection({ start, end })}
                           className="h-auto min-h-[28px] sm:min-h-[32px] px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                        >
-                          {selectedLayer.defaultText || ''}
-                        </div>
-                        
-                        {/* Rich Text Formatting Toolbar */}
-                        {selectedLayer.richText && selectedLayer.hasInlineFormatting && (
-                          <div className="mt-3 space-y-2 border-t border-green-200 dark:border-green-900/40 pt-3">
-                            <Label className="text-[10px] sm:text-xs font-semibold text-green-900 dark:text-green-300">
-                              💡 Style Selected Text
-                            </Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-[9px] text-green-800 dark:text-green-400">Font Weight</Label>
-                                <FontWeightSelect
-                                  value={getCommonStyleValue(selectedLayer.richText, selectionRange.start, selectionRange.end, 'fontWeight') || selectedLayer.fontWeight}
-                                  onValueChange={(value) => {
-                                    if (selectedLayer.richText) {
-                                      const newRichText = applyStyleToRange(
-                                        selectedLayer.richText,
-                                        selectionRange.start,
-                                        selectionRange.end,
-                                        { fontWeight: value }
-                                      );
-                                      updateLayer(selectedLayer.id, { richText: newRichText });
-                                    }
-                                  }}
-                                  className="h-7 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[9px] text-green-800 dark:text-green-400">Font Family</Label>
-                                <FontFamilySelect
-                                  value={getCommonStyleValue(selectedLayer.richText, selectionRange.start, selectionRange.end, 'fontFamily') || selectedLayer.fontFamily}
-                                  onValueChange={(value) => {
-                                    if (selectedLayer.richText) {
-                                      const newRichText = applyStyleToRange(
-                                        selectedLayer.richText,
-                                        selectionRange.start,
-                                        selectionRange.end,
-                                        { fontFamily: value }
-                                      );
-                                      updateLayer(selectedLayer.id, { richText: newRichText });
-                                    }
-                                  }}
-                                  className="h-7 text-xs"
-                                />
-                              </div>
-                            </div>
-                            <p className="text-[9px] text-green-700 dark:text-green-400">
-                              Select text above to apply different styles to specific words
-                            </p>
-                          </div>
-                        )}
+                        />
                       </div>
                     )}
 
@@ -1200,51 +1229,117 @@ function ConfigureLayoutContent() {
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
                         <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Family</Label>
-                        <Select 
-                          value={selectedLayer.fontFamily} 
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { fontFamily: value })}
-                        >
-                          <SelectTrigger className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
-                            <SelectValue placeholder="Font" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                            <SelectItem value="Arial">Arial</SelectItem>
-                            <SelectItem value="Times New Roman">Times New Roman</SelectItem>
-                            <SelectItem value="Roboto">Roboto</SelectItem>
-                            <SelectItem value="Georgia">Georgia</SelectItem>
-                            <SelectItem value="Verdana">Verdana</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FontFamilySelect
+                          value={(() => {
+                            const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '');
+                            const { start, end } = richTextSelection;
+                            
+                            // If has selection, check selection range
+                            if (start !== end) {
+                              const commonValue = getCommonStyleValue(currentRichText, start, end, 'fontFamily');
+                              return commonValue === 'mixed' ? 'mixed' : (commonValue || selectedLayer.fontFamily);
+                            }
+                            
+                            // No selection - check if whole richText has mixed styles
+                            // Check richText even if hasInlineFormatting is not set
+                            if (selectedLayer.richText && selectedLayer.richText.length > 1) {
+                              if (hasMixedStyle(currentRichText, 'fontFamily')) {
+                                return 'mixed';
+                              }
+                            }
+                            
+                            return selectedLayer.fontFamily;
+                          })()}
+                          onValueChange={(value) => {
+                            const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
+                              fontWeight: selectedLayer.fontWeight,
+                              fontFamily: selectedLayer.fontFamily
+                            });
+                            const { start, end } = richTextSelection;
+                            
+                            if (start === end) {
+                              // No selection - update whole layer
+                              updateLayer(selectedLayer.id, { fontFamily: value });
+                            } else {
+                              // Has selection - apply to selected text only
+                              const newRichText = applyStyleToRange(currentRichText, start, end, { fontFamily: value });
+                              const plainText = richTextToPlainText(newRichText);
+                              updateLayer(selectedLayer.id, { 
+                                richText: newRichText, 
+                                defaultText: plainText,
+                                hasInlineFormatting: true 
+                              });
+                              // Update preview text as well
+                              setPreviewTexts(prev => ({
+                                ...prev,
+                                [selectedLayer.id]: plainText
+                              }));
+                            }
+                          }}
+                          className="h-7 sm:h-8 text-xs"
+                        />
                       </div>
                       <div>
                         <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Weight</Label>
-                        <Select 
-                          value={selectedLayer.fontWeight || 'normal'}
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { fontWeight: value })}
-                        >
-                          <SelectTrigger className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
-                            <SelectValue placeholder="Weight" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                            <SelectItem value="light">Light</SelectItem>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="bold">Bold</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FontWeightSelect
+                          value={(() => {
+                            const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '');
+                            const { start, end } = richTextSelection;
+                            
+                            // If has selection, check selection range
+                            if (start !== end) {
+                              const commonValue = getCommonStyleValue(currentRichText, start, end, 'fontWeight');
+                              return commonValue === 'mixed' ? 'mixed' : (commonValue || selectedLayer.fontWeight || 'normal');
+                            }
+                            
+                            // No selection - check if whole richText has mixed styles
+                            if (selectedLayer.richText && selectedLayer.richText.length > 1) {
+                              if (hasMixedStyle(currentRichText, 'fontWeight')) {
+                                return 'mixed';
+                              }
+                            }
+                            
+                            return selectedLayer.fontWeight || 'normal';
+                          })()}
+                          onValueChange={(value) => {
+                            const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
+                              fontWeight: selectedLayer.fontWeight,
+                              fontFamily: selectedLayer.fontFamily
+                            });
+                            const { start, end } = richTextSelection;
+                            
+                            if (start === end) {
+                              // No selection - update whole layer
+                              updateLayer(selectedLayer.id, { fontWeight: value });
+                            } else {
+                              // Has selection - apply to selected text only
+                              const newRichText = applyStyleToRange(currentRichText, start, end, { fontWeight: value });
+                              const plainText = richTextToPlainText(newRichText);
+                              updateLayer(selectedLayer.id, { 
+                                richText: newRichText, 
+                                defaultText: plainText,
+                                hasInlineFormatting: true 
+                              });
+                              // Update preview text as well
+                              setPreviewTexts(prev => ({
+                                ...prev,
+                                [selectedLayer.id]: plainText
+                              }));
+                            }
+                          }}
+                          className="h-7 sm:h-8 text-xs"
+                        />
                       </div>
                     </div>
 
                     {/* Text Align & Line Height */}
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                      {/* Hide Text Align for certificate_no, issue_date, and ALL score layers */}
-                      {/* Score layers are forced to center alignment to avoid shifting issues */}
-                      {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && 
-                       !(configMode === 'score' && selectedLayer.id !== 'name') && (
+                      {/* Hide Text Align only for certificate_no and issue_date */}
+                      {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && (
                         <div>
                           <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Text Align</Label>
                           <Select 
-                            value={selectedLayer.textAlign || 'center'}
+                            value={selectedLayer.textAlign || 'left'}
                             onValueChange={(value) => updateLayer(selectedLayer.id, { textAlign: value as TextLayer['textAlign'] })}
                           >
                             <SelectTrigger className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
@@ -1299,20 +1394,6 @@ function ConfigureLayoutContent() {
                           className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 flex-1"
                         />
                       </div>
-                    </div>
-
-                    {/* Preview Text Input */}
-                    <div>
-                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Preview Text</Label>
-                      <Input
-                        type="text"
-                        value={previewTexts[selectedLayer.id] || ''}
-                        onChange={(e) => setPreviewTexts(prev => ({
-                          ...prev,
-                          [selectedLayer.id]: e.target.value
-                        }))}
-                        className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
-                      />
                     </div>
                   </div>
                 </div>
@@ -1395,10 +1476,11 @@ function ConfigureLayoutContent() {
                 
                 // Calculate transform based on alignment
                 const getTransform = () => {
-                  // Force left alignment for certificate_no and issue_date
                   if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
-                    return 'translate(0%, -50%)'; // Always left-aligned
+                    return 'translate(0%, -50%)';
                   }
+                  
+                  // All other layers (including score layers) use their alignment setting
                   const align = layer.textAlign || 'left';
                   if (align === 'center') return 'translate(-50%, -50%)';
                   if (align === 'right') return 'translate(-100%, -50%)';

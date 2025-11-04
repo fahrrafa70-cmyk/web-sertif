@@ -166,6 +166,27 @@ export function plainTextToRichText(text: string, baseStyle?: Partial<Omit<TextS
 }
 
 /**
+ * Check if entire richText has mixed values for a style property
+ * Used for dropdown display when no text is selected
+ */
+export function hasMixedStyle<K extends keyof Omit<TextSpan, 'text'>>(
+  richText: RichText,
+  styleKey: K
+): boolean {
+  if (richText.length <= 1) return false;
+  
+  // Get all unique values for this style key (excluding undefined)
+  const values = new Set(
+    richText
+      .map(span => span[styleKey])
+      .filter(val => val !== undefined)
+  );
+  
+  // Mixed if there are 2 or more different values
+  return values.size > 1;
+}
+
+/**
  * Get selection offsets from DOM selection
  */
 export function getSelectionOffsets(element: HTMLElement): { start: number; end: number } | null {

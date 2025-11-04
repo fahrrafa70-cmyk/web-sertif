@@ -5,6 +5,7 @@
  */
 
 import { STANDARD_CANVAS_WIDTH } from "@/lib/constants/canvas";
+import { RichText } from "@/types/rich-text";
 
 export interface RenderTextLayer {
   id: string;
@@ -20,6 +21,8 @@ export interface RenderTextLayer {
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   maxWidth?: number;
   lineHeight?: number;
+  richText?: RichText; // Rich text with inline formatting
+  hasInlineFormatting?: boolean; // Whether layer uses rich text
 }
 
 export interface RenderCertificateParams {
@@ -156,24 +159,13 @@ export async function renderCertificateToDataURL(
     // CRITICAL: Scale maxWidth based on canvas size
     const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
     
-    // CRITICAL: Detect score layers
-    // Score layers = custom layers (ID starts with 'custom_') that are not certificate fields
-    // Score layers MUST use center alignment to avoid shifting issues
+    // CRITICAL: certificate_no and issue_date always use left alignment
     const isCertificateLayer = layer.id === 'certificate_no' || layer.id === 'issue_date';
-    const isScoreLayer = layer.id.startsWith('custom_'); // All custom layers are score layers
     
-    // CRITICAL: Force score layers to use center alignment
-    // Only center alignment works correctly without shifting
+    // Use alignment from layer settings, default to center
     const align = isCertificateLayer 
       ? 'left'  // certificate_no/issue_date always left
-      : isScoreLayer 
-        ? 'center'  // FORCE score layers to center (ignore user setting)
-        : (layer.textAlign || 'center'); // Other layers: use setting or default center
-    
-    // Debug log for score layers
-    if (isScoreLayer) {
-      console.log(`🎯 [SCORE LAYER] ${layer.id}: FORCED to center alignment (original textAlign: ${layer.textAlign || 'undefined'})`);
-    }
+      : (layer.textAlign || 'center'); // Other layers (including score): use setting or default center
     
     // Set font - CRITICAL: Scale fontSize based on canvas size!
     const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
@@ -221,17 +213,33 @@ export async function renderCertificateToDataURL(
       console.log(`🔍 VERIFY: Calling drawWrappedText with layerId: "${layer.id}"`);
     }
     
-    drawWrappedText(
-      ctx, 
-      layer.text, 
-      x, 
-      y, 
-      scaledMaxWidth, 
-      scaledFontSize, 
-      layer.lineHeight || 1.2,
-      align,
-      layer.id // Pass layer ID for debugging
-    );
+    // Check if layer has rich text formatting
+    if (layer.richText && layer.hasInlineFormatting) {
+      // Render with rich text (inline formatting)
+      drawRichText(
+        ctx,
+        layer.richText,
+        x,
+        y,
+        scaledMaxWidth,
+        scaledFontSize,
+        layer.lineHeight || 1.2,
+        align
+      );
+    } else {
+      // Regular text rendering
+      drawWrappedText(
+        ctx, 
+        layer.text, 
+        x, 
+        y, 
+        scaledMaxWidth, 
+        scaledFontSize, 
+        layer.lineHeight || 1.2,
+        align,
+        layer.id // Pass layer ID for debugging
+      );
+    }
   }
 
   // Convert to PNG DataURL
@@ -643,7 +651,7 @@ function drawWrappedText(
       startY = y - visualCenterOfBlock;
     }
   } else {
-    // For other layers (like name): Use simple geometric center (proven to work)
+    // For all other layers (name, score layers): Use simple geometric center
     startY = y - (totalTextHeight / 2);
   }
   
@@ -667,8 +675,7 @@ function drawWrappedText(
   
   let drawX = x;
   
-  // CRITICAL: Fine-tuning X position for specific layers
-  // User reports both certificate_no and issue_date too left (needs to move right more)
+  // CRITICAL: X position adjustment for alignment conversion
   if (layerId === 'issue_date') {
     // Move more to the right to avoid collision with "Malang" text
     const xAdjustment = 11; // User requested: 11px to move right
@@ -843,6 +850,128 @@ function drawWrappedText(
       });
     }
   });
+}
+
+/**
+ * Draw rich text with inline formatting
+ * Supports different font weights and families within the same text layer
+ */
+function drawRichText(
+  ctx: CanvasRenderingContext2D,
+  richText: RichText,
+  x: number,
+  y: number,
+  maxWidth: number,
+  baseFontSize: number,
+  lineHeight: number,
+  textAlign: 'left' | 'center' | 'right' | 'justify'
+) {
+  const lineHeightPx = baseFontSize * lineHeight;
+  
+  // Convert rich text to plain text for wrapping calculation
+  const plainText = richText.map(span => span.text).join('');
+  
+  // Calculate wrapping using base font
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  
+  // Split into words for wrapping
+  const words = plainText.split(' ');
+  const lines: Array<{ text: string; spans: RichText }> = [];
+  let currentLine = '';
+  let currentOffset = 0;
+  
+  // Build lines with their corresponding spans
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const metrics = ctx.measureText(testLine);
+    
+    if (metrics.width > maxWidth && currentLine) {
+      // Line is full, push it
+      const lineLength = currentLine.length;
+      const spansForLine = extractSpansForRange(richText, currentOffset, currentOffset + lineLength);
+      lines.push({ text: currentLine, spans: spansForLine });
+      currentOffset += lineLength + 1; // +1 for space
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  
+  if (currentLine) {
+    const spansForLine = extractSpansForRange(richText, currentOffset, currentOffset + currentLine.length);
+    lines.push({ text: currentLine, spans: spansForLine });
+  }
+  
+  // Calculate vertical centering (same as drawWrappedText)
+  const totalTextHeight = lines.length * lineHeightPx;
+  const startY = y - (totalTextHeight / 2);
+  
+  // Draw each line with its spans
+  lines.forEach((line, lineIndex) => {
+    const lineY = startY + (lineIndex * lineHeightPx);
+    let currentX = x;
+    
+    // Calculate line width for alignment
+    let lineWidth = 0;
+    line.spans.forEach(span => {
+      const spanFont = `${span.fontWeight || 'normal'} ${span.fontSize || baseFontSize}px ${span.fontFamily || 'Arial'}`;
+      ctx.font = spanFont;
+      lineWidth += ctx.measureText(span.text).width;
+    });
+    
+    // Adjust starting X based on alignment
+    if (textAlign === 'center') {
+      currentX = x - (lineWidth / 2);
+    } else if (textAlign === 'right') {
+      currentX = x - lineWidth;
+    }
+    
+    // Draw each span
+    line.spans.forEach(span => {
+      const spanFontWeight = span.fontWeight || 'normal';
+      const spanFontSize = span.fontSize || baseFontSize;
+      const spanFontFamily = span.fontFamily || 'Arial';
+      const spanColor = span.color || ctx.fillStyle;
+      
+      ctx.font = `${spanFontWeight} ${spanFontSize}px ${spanFontFamily}`;
+      ctx.fillStyle = spanColor;
+      ctx.fillText(span.text, currentX, lineY);
+      
+      // Move X position for next span
+      currentX += ctx.measureText(span.text).width;
+    });
+  });
+}
+
+/**
+ * Extract spans for a specific text range
+ */
+function extractSpansForRange(richText: RichText, start: number, end: number): RichText {
+  const result: RichText = [];
+  let currentOffset = 0;
+  
+  for (const span of richText) {
+    const spanStart = currentOffset;
+    const spanEnd = currentOffset + span.text.length;
+    
+    if (spanEnd <= start || spanStart >= end) {
+      currentOffset = spanEnd;
+      continue;
+    }
+    
+    const overlapStart = Math.max(spanStart, start);
+    const overlapEnd = Math.min(spanEnd, end);
+    
+    result.push({
+      ...span,
+      text: span.text.slice(overlapStart - spanStart, overlapEnd - spanStart)
+    });
+    
+    currentOffset = spanEnd;
+  }
+  
+  return result;
 }
 
 /**
