@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { FileSpreadsheet, Users, Calendar, Zap } from "lucide-react";
+import { FileSpreadsheet, Users, Calendar, Zap, ArrowRight, ArrowLeft } from "lucide-react";
 import { Template } from "@/lib/supabase/templates";
 import { Member } from "@/lib/supabase/members";
 import { DateFormat, DATE_FORMATS } from "@/types/certificate-generator";
+import { TextLayerConfig } from "@/types/template-layout";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
@@ -39,6 +40,113 @@ export interface QuickGenerateParams {
     issue_date: string;
     expired_date: string;
   };
+  // For Dual Template Score Data
+  scoreDataMap?: Record<string, Record<string, string>>; // member_id -> { field_id -> value }
+}
+
+// Helper function to format layer ID to readable label
+function formatFieldLabel(layerId: string): string {
+  // nilai_teori → Nilai Teori
+  // total_score → Total Score
+  // grade_akhir → Grade Akhir
+  return layerId
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+// Input Score Step Component
+interface InputScoreStepProps {
+  members: Member[];
+  scoreFields: TextLayerConfig[]; // TextLayerConfig from layout_config.score.textLayers
+  scoreDataMap: Record<string, Record<string, string>>;
+  setScoreDataMap: React.Dispatch<React.SetStateAction<Record<string, Record<string, string>>>>;
+}
+
+function InputScoreStep({ members, scoreFields, scoreDataMap, setScoreDataMap }: InputScoreStepProps) {
+  const [selectedMemberId, setSelectedMemberId] = useState(members[0]?.id || '');
+  
+  // Get current member's score data
+  const currentScoreData = scoreDataMap[selectedMemberId] || {};
+  
+  // Handle field value change
+  const handleFieldChange = (fieldId: string, value: string) => {
+    setScoreDataMap(prev => ({
+      ...prev,
+      [selectedMemberId]: {
+        ...prev[selectedMemberId],
+        [fieldId]: value
+      }
+    }));
+  };
+  
+  // Check if member has completed all fields
+  const isMemberComplete = (memberId: string) => {
+    const memberData = scoreDataMap[memberId];
+    if (!memberData) return false;
+    // Check if all score fields have values
+    return scoreFields.every(field => memberData[field.id]?.trim());
+  };
+  
+  // Count completed members
+  const completedCount = members.filter(m => isMemberComplete(m.id)).length;
+  
+  return (
+    <div className="space-y-6">
+      {/* Member Name Display */}
+      {members.length === 1 ? (
+        <div className="space-y-2">
+          <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            {members[0].name}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label className="text-base font-semibold">Pilih Member</Label>
+          <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+            <SelectTrigger className="w-full">
+              <div className="flex items-center justify-between w-full">
+                <SelectValue />
+                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                  {completedCount}/{members.length}
+                </span>
+              </div>
+            </SelectTrigger>
+            <SelectContent position="popper" className="z-[9999]">
+              {members.map(member => (
+                <SelectItem key={member.id} value={member.id}>
+                  <div className="flex items-center gap-2">
+                    {isMemberComplete(member.id) ? '✅' : '⏳'}
+                    <span>{member.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      
+      {/* Score Input Fields (Auto-generated from scoreFields) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {scoreFields.map(field => (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={field.id} className="text-sm font-medium">
+              {formatFieldLabel(field.id)}
+              <span className="text-red-500 ml-1">*</span>
+            </Label>
+            <Input
+              id={field.id}
+              type="text"
+              value={currentScoreData[field.id] || ''}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              placeholder={`Masukkan ${formatFieldLabel(field.id)}`}
+              className="w-full"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function QuickGenerateModal({ 
@@ -56,6 +164,10 @@ export function QuickGenerateModal({
   const [excelData, setExcelData] = useState<Array<Record<string, unknown>>>([]);
   const [generating, setGenerating] = useState(false);
   
+  // Multi-step flow for dual template
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1); // Step 1: select, Step 2: input scores
+  const [scoreDataMap, setScoreDataMap] = useState<Record<string, Record<string, string>>>({});
+  
   // Certificate data for member source - Initialize with default values
   const [issueDate, setIssueDate] = useState(() => {
     const now = new Date();
@@ -68,7 +180,7 @@ export function QuickGenerateModal({
     return expiry.toISOString().split('T')[0];
   });
   
-  // Debug: Log data availability
+  // Reset state when modal opens
   React.useEffect(() => {
     if (open) {
       console.log('📊 Quick Generate Modal Data:', {
@@ -77,8 +189,65 @@ export function QuickGenerateModal({
         templates: templates.slice(0, 3).map(t => ({ id: t.id, name: t.name })),
         members: members.slice(0, 3).map(m => ({ id: m.id, name: m.name }))
       });
+      // Reset to step 1 when opening
+      setCurrentStep(1);
+      setScoreDataMap({});
     }
   }, [open, templates, members]);
+  
+  // Detect if template is dual (has score layout)
+  // Filter out layers that have useDefaultText=true (like score_date) or are default certificate layers (like issue_date)
+  const getScoreTextLayers = React.useCallback((): TextLayerConfig[] => {
+    if (!selectedTemplate?.layout_config) return [];
+    
+    const config = selectedTemplate.layout_config as Record<string, unknown>;
+    if (!config.score || typeof config.score !== 'object') return [];
+    
+    const scoreConfig = config.score as Record<string, unknown>;
+    if (!Array.isArray(scoreConfig.textLayers)) return [];
+    
+    const allLayers = scoreConfig.textLayers as TextLayerConfig[];
+    
+    // Only return layers that need user input
+    // Exclude: layers with useDefaultText=true OR default certificate layers (issue_date, certificate_no, name)
+    return allLayers.filter((layer: TextLayerConfig) => {
+      // Skip layers with useDefaultText flag
+      if (layer.useDefaultText) return false;
+      // Skip default certificate layers that shouldn't need input in score mode
+      if (layer.id === 'issue_date' || layer.id === 'certificate_no' || layer.id === 'name') return false;
+      return true;
+    });
+  }, [selectedTemplate]);
+  
+  const isDualTemplate = !!(selectedTemplate?.score_image_url && getScoreTextLayers().length > 0);
+  
+  // Debug: Log dual template detection
+  React.useEffect(() => {
+    if (selectedTemplate) {
+      const scoreLayers = getScoreTextLayers();
+      console.log('🔍 Dual Template Detection:', {
+        templateName: selectedTemplate.name,
+        hasScoreImage: !!selectedTemplate.score_image_url,
+        scoreImageUrl: selectedTemplate.score_image_url,
+        scoreLayersCount: scoreLayers.length,
+        scoreLayers: scoreLayers.map(l => l.id),
+        isDualTemplate,
+        currentStep,
+        dataSource
+      });
+    }
+  }, [selectedTemplate, currentStep, dataSource, getScoreTextLayers, isDualTemplate]);
+  
+  // Check if all members have completed score data (for step 2 validation)
+  const isAllScoreDataComplete = () => {
+    if (currentStep !== 2) return true; // Only validate on step 2
+    const scoreFields = getScoreTextLayers();
+    return selectedMembers.every(memberId => {
+      const memberData = scoreDataMap[memberId];
+      if (!memberData) return false;
+      return scoreFields.every((field: TextLayerConfig) => memberData[field.id]?.trim());
+    });
+  };
   
   
   // Auto-update expired date when issue date changes (3 years from issue date)
@@ -146,7 +315,8 @@ export function QuickGenerateModal({
             description: '',
             issue_date: issueDate,
             expired_date: expiredDate
-          }
+          },
+          scoreDataMap: isDualTemplate ? scoreDataMap : undefined // Pass score data for dual templates
         };
 
         await onGenerate(params);
@@ -165,6 +335,8 @@ export function QuickGenerateModal({
       setSelectedTemplate(null);
       setSelectedMembers([]);
       setExcelData([]);
+      setScoreDataMap({});
+      setCurrentStep(1);
       setIssueDate(() => {
         const now = new Date();
         return now.toISOString().split('T')[0];
@@ -192,13 +364,14 @@ export function QuickGenerateModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Zap className="w-6 h-6 text-yellow-500" />
-            {t('quickGenerate.title')}
+            {t('quickGenerate.title')} {isDualTemplate && currentStep === 2 && '- Input Data Nilai'}
           </DialogTitle>
           <DialogDescription>
-            {t('quickGenerate.description')}
+            {currentStep === 1 ? t('quickGenerate.description') : 'Isi data nilai untuk setiap member yang dipilih'}
           </DialogDescription>
         </DialogHeader>
 
+        {currentStep === 1 ? (
         <div className="space-y-6 py-4">
           {/* Step 1: Select Template */}
           <div className="space-y-3">
@@ -377,21 +550,48 @@ export function QuickGenerateModal({
             </Tabs>
           </div>
         </div>
+        ) : (
+          <div className="space-y-6 py-4">
+            {/* Step 2: Input Score Data */}
+            <InputScoreStep
+              members={members.filter(m => selectedMembers.includes(m.id))}
+              scoreFields={getScoreTextLayers()}
+              scoreDataMap={scoreDataMap}
+              setScoreDataMap={setScoreDataMap}
+            />
+          </div>
+        )}
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-4 border-t">
-          <Button variant="outline" onClick={onClose} disabled={generating}>
-            {t('quickGenerate.cancel')}
-          </Button>
+          {currentStep === 2 ? (
+            <Button variant="outline" onClick={() => setCurrentStep(1)} disabled={generating}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Kembali
+            </Button>
+          ) : (
+            <div></div>
+          )}
           <Button 
-            onClick={handleGenerate}
-            disabled={generating || !selectedTemplate}
+            onClick={currentStep === 1 && isDualTemplate && dataSource === 'member' ? () => setCurrentStep(2) : handleGenerate}
+            disabled={
+              generating || 
+              !selectedTemplate || 
+              (dataSource === 'member' && selectedMembers.length === 0) || 
+              (dataSource === 'excel' && excelData.length === 0) ||
+              (currentStep === 2 && !isAllScoreDataComplete())
+            }
             className="gradient-primary text-white"
           >
             {generating ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 {t('quickGenerate.generating')}
+              </>
+            ) : currentStep === 1 && isDualTemplate && dataSource === 'member' ? (
+              <>
+                Selanjutnya
+                <ArrowRight className="w-4 h-4 ml-2" />
               </>
             ) : (
               <>

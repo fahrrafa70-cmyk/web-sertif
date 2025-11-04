@@ -90,7 +90,7 @@ export async function renderCertificateToDataURL(
   ctx.drawImage(img, 0, 0, width, height);
 
   // Draw text layers
-  console.log(`📋 TOTAL TEXT LAYERS TO RENDER: ${textLayers.length}`, 
+  console.log(`TOTAL TEXT LAYERS TO RENDER: ${textLayers.length}`, 
     textLayers.map(l => ({ id: l.id, hasText: !!l.text, textLength: l.text?.length || 0, textPreview: l.text?.substring(0, 20) }))
   );
   
