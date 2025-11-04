@@ -39,6 +39,8 @@ import {
 import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
+import { supabaseClient } from "@/lib/supabase/client";
+import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
 import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
@@ -542,12 +544,17 @@ function CertificatesContent() {
           
           for (const member of params.members) {
             try {
+              // Get score data for this member (if dual template)
+              const memberScoreData = params.scoreDataMap?.[member.id];
+              
               await generateSingleCertificate(
                 params.template,
                 member,
                 params.certificateData,
                 defaults,
-                params.dateFormat
+                params.dateFormat,
+                memberScoreData, // Pass score data for dual template
+                layoutConfig // Pass layout config for score generation
               );
               
               generated++;
@@ -652,7 +659,9 @@ function CertificatesContent() {
     member: Member,
     certData: { certificate_no: string; description: string; issue_date: string; expired_date: string },
     defaults: TemplateDefaults,
-    dateFormat: string
+    dateFormat: string,
+    scoreData?: Record<string, string>, // Score data for dual template: { field_id -> value }
+    layoutConfig?: TemplateLayoutConfig | null // Layout config for score generation
   ) => {
     console.log('🎨 Generating certificate:', { 
       template: template.name, 
@@ -771,6 +780,32 @@ function CertificatesContent() {
       height: STANDARD_CANVAS_HEIGHT,
     });
     
+    // CRITICAL FIX: Upload to Supabase Storage BEFORE saving to database
+    console.log('📤 Uploading certificate PNG to Supabase Storage...');
+    const fileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}.png`;
+    const uploadResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData: certificateImageDataUrl,
+        fileName: fileName,
+        bucketName: 'certificates',
+      }),
+    });
+    
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Failed to upload certificate to storage: ${errorText}`);
+    }
+    
+    const uploadResult = await uploadResponse.json();
+    if (!uploadResult.success) {
+      throw new Error(`Upload failed: ${uploadResult.error}`);
+    }
+    
+    const finalCertificateImageUrl = uploadResult.url;
+    console.log('✅ Certificate PNG uploaded to Supabase Storage:', finalCertificateImageUrl);
+    
     // Prepare certificate text layers for database (includes text data)
     // Remove textAlign for certificate_no and issue_date (they always use left alignment)
     const certificateTextLayers: CertificateTextLayer[] = textLayers.map(layer => {
@@ -806,14 +841,136 @@ function CertificatesContent() {
       template_id: template.id,
       member_id: member.id.startsWith('temp-') ? undefined : member.id, // Don't save temp IDs from Excel
       text_layers: certificateTextLayers,
-      merged_image: certificateImageDataUrl,
-      certificate_image_url: certificateImageDataUrl,
+      merged_image: finalCertificateImageUrl, // Supabase Storage URL
+      certificate_image_url: finalCertificateImageUrl, // Supabase Storage URL
     };
     
     // Save certificate to database
     console.log('💾 Saving certificate to database...');
     const savedCertificate = await createCertificate(certificateDataToSave);
     console.log('✅ Certificate created successfully:', savedCertificate.certificate_no);
+    
+    // DUAL TEMPLATE: Generate score certificate if template has score image and scoreData
+    if (template.score_image_url && scoreData && Object.keys(scoreData).length > 0) {
+      console.log('🎯 Generating score certificate for dual template...');
+      
+      try {
+        // Load score layout from database
+        const scoreLayoutConfig = layoutConfig?.score;
+        
+        if (scoreLayoutConfig && scoreLayoutConfig.textLayers) {
+          console.log('✅ Score layout found, generating score certificate...');
+          
+          // Prepare score text layers with scoreData
+          const scoreTextLayers: RenderTextLayer[] = scoreLayoutConfig.textLayers.map((layer: TextLayerConfig) => {
+            let text = '';
+            
+            // Check if layer uses default text
+            if (layer.useDefaultText && layer.defaultText) {
+              text = layer.defaultText;
+            } else if (scoreData[layer.id]) {
+              // Use score data from user input
+              text = scoreData[layer.id];
+            } else {
+              // Map common fields (name, date, etc.)
+              if (layer.id === 'name') text = member.name;
+              else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
+              else if (layer.id === 'issue_date' || layer.id === 'score_date') {
+                text = formatDateString(finalCertData.issue_date, dateFormat);
+              } else if (layer.id === 'expired_date' || layer.id === 'expiry_date') {
+                // Add support for expired/expiry date
+                text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
+              } else if (layer.defaultText) {
+                text = layer.defaultText;
+              }
+            }
+            
+            // Debug logging for each layer
+            console.log(`📝 Score layer [${layer.id}]:`, {
+              id: layer.id,
+              text: text || '(empty)',
+              textAlign: layer.textAlign,
+              x: layer.x,
+              y: layer.y,
+              xPercent: layer.xPercent,
+              yPercent: layer.yPercent,
+              useDefaultText: layer.useDefaultText,
+              defaultText: layer.defaultText,
+              hasScoreData: !!scoreData[layer.id]
+            });
+            
+            return {
+              id: layer.id,
+              text: text,
+              x: layer.x,
+              y: layer.y,
+              xPercent: layer.xPercent,
+              yPercent: layer.yPercent,
+              fontSize: layer.fontSize,
+              color: layer.color,
+              fontWeight: layer.fontWeight,
+              fontFamily: layer.fontFamily,
+              textAlign: layer.textAlign,
+              maxWidth: layer.maxWidth,
+              lineHeight: layer.lineHeight,
+            };
+          });
+          
+          console.log('📊 Score text layers:', scoreTextLayers.map(l => ({ id: l.id, text: l.text })));
+          
+          // Render score certificate
+          const scoreImageDataUrl = await renderCertificateToDataURL({
+            templateImageUrl: template.score_image_url,
+            textLayers: scoreTextLayers,
+            width: STANDARD_CANVAS_WIDTH,
+            height: STANDARD_CANVAS_HEIGHT,
+          });
+          
+          // CRITICAL FIX: Upload score PNG to Supabase Storage
+          console.log('📤 Uploading score PNG to Supabase Storage...');
+          const scoreFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_score.png`;
+          const scoreUploadResponse = await fetch('/api/upload-to-storage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageData: scoreImageDataUrl,
+              fileName: scoreFileName,
+              bucketName: 'certificates',
+            }),
+          });
+          
+          if (!scoreUploadResponse.ok) {
+            const errorText = await scoreUploadResponse.text();
+            throw new Error(`Failed to upload score to storage: ${errorText}`);
+          }
+          
+          const scoreUploadResult = await scoreUploadResponse.json();
+          if (!scoreUploadResult.success) {
+            throw new Error(`Score upload failed: ${scoreUploadResult.error}`);
+          }
+          
+          const finalScoreImageUrl = scoreUploadResult.url;
+          console.log('✅ Score PNG uploaded to Supabase Storage:', finalScoreImageUrl);
+          
+          // Update certificate with score_image_url (Supabase Storage URL)
+          const { error: updateError } = await supabaseClient
+            .from('certificates')
+            .update({ score_image_url: finalScoreImageUrl })
+            .eq('id', savedCertificate.id);
+          
+          if (updateError) {
+            console.error('❌ Failed to update score certificate:', updateError);
+          } else {
+            console.log('✅ Score certificate saved successfully');
+          }
+        } else {
+          console.warn('⚠️ Score layout not configured, skipping score generation');
+        }
+      } catch (error) {
+        console.error('❌ Failed to generate score certificate:', error);
+        // Don't throw - main certificate is already saved
+      }
+    }
     
     // Refresh certificates list immediately (hook will handle optimistic update)
     refresh();

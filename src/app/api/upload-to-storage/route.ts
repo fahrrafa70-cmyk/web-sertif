@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       'webp': 'image/webp',
       'gif': 'image/gif'
     };
-    const contentType = contentTypeMap[ext || ''] || 'image/png';
+    const imageContentType = contentTypeMap[ext || ''] || 'image/png';
 
     // Upload to Supabase Storage
     const { error } = await supabase.storage
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       .upload(fileName, buffer, {
         cacheControl: '3600',
         upsert: true,
-        contentType: contentType,
+        contentType: imageContentType,
       });
 
     if (error) {
