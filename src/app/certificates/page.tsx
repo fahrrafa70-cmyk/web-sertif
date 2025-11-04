@@ -740,6 +740,32 @@ function CertificatesContent() {
       height: STANDARD_CANVAS_HEIGHT,
     });
     
+    // CRITICAL FIX: Upload to Supabase Storage BEFORE saving to database
+    console.log('📤 Uploading certificate PNG to Supabase Storage...');
+    const fileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}.png`;
+    const uploadResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData: certificateImageDataUrl,
+        fileName: fileName,
+        bucketName: 'certificates',
+      }),
+    });
+    
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Failed to upload certificate to storage: ${errorText}`);
+    }
+    
+    const uploadResult = await uploadResponse.json();
+    if (!uploadResult.success) {
+      throw new Error(`Upload failed: ${uploadResult.error}`);
+    }
+    
+    const finalCertificateImageUrl = uploadResult.url;
+    console.log('✅ Certificate PNG uploaded to Supabase Storage:', finalCertificateImageUrl);
+    
     // Prepare certificate text layers for database (includes text data)
     // Remove textAlign for certificate_no and issue_date (they always use left alignment)
     const certificateTextLayers: CertificateTextLayer[] = textLayers.map(layer => {
@@ -775,8 +801,8 @@ function CertificatesContent() {
       template_id: template.id,
       member_id: member.id.startsWith('temp-') ? undefined : member.id, // Don't save temp IDs from Excel
       text_layers: certificateTextLayers,
-      merged_image: certificateImageDataUrl,
-      certificate_image_url: certificateImageDataUrl,
+      merged_image: finalCertificateImageUrl, // Supabase Storage URL
+      certificate_image_url: finalCertificateImageUrl, // Supabase Storage URL
     };
     
     // Save certificate to database
@@ -811,10 +837,27 @@ function CertificatesContent() {
               else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
               else if (layer.id === 'issue_date' || layer.id === 'score_date') {
                 text = formatDateString(finalCertData.issue_date, dateFormat);
+              } else if (layer.id === 'expired_date' || layer.id === 'expiry_date') {
+                // Add support for expired/expiry date
+                text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
               } else if (layer.defaultText) {
                 text = layer.defaultText;
               }
             }
+            
+            // Debug logging for each layer
+            console.log(`📝 Score layer [${layer.id}]:`, {
+              id: layer.id,
+              text: text || '(empty)',
+              textAlign: layer.textAlign,
+              x: layer.x,
+              y: layer.y,
+              xPercent: layer.xPercent,
+              yPercent: layer.yPercent,
+              useDefaultText: layer.useDefaultText,
+              defaultText: layer.defaultText,
+              hasScoreData: !!scoreData[layer.id]
+            });
             
             return {
               id: layer.id,
@@ -843,10 +886,36 @@ function CertificatesContent() {
             height: STANDARD_CANVAS_HEIGHT,
           });
           
-          // Update certificate with score_image_url
+          // CRITICAL FIX: Upload score PNG to Supabase Storage
+          console.log('📤 Uploading score PNG to Supabase Storage...');
+          const scoreFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_score.png`;
+          const scoreUploadResponse = await fetch('/api/upload-to-storage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageData: scoreImageDataUrl,
+              fileName: scoreFileName,
+              bucketName: 'certificates',
+            }),
+          });
+          
+          if (!scoreUploadResponse.ok) {
+            const errorText = await scoreUploadResponse.text();
+            throw new Error(`Failed to upload score to storage: ${errorText}`);
+          }
+          
+          const scoreUploadResult = await scoreUploadResponse.json();
+          if (!scoreUploadResult.success) {
+            throw new Error(`Score upload failed: ${scoreUploadResult.error}`);
+          }
+          
+          const finalScoreImageUrl = scoreUploadResult.url;
+          console.log('✅ Score PNG uploaded to Supabase Storage:', finalScoreImageUrl);
+          
+          // Update certificate with score_image_url (Supabase Storage URL)
           const { error: updateError } = await supabaseClient
             .from('certificates')
-            .update({ score_image_url: scoreImageDataUrl })
+            .update({ score_image_url: finalScoreImageUrl })
             .eq('id', savedCertificate.id);
           
           if (updateError) {

@@ -57,12 +57,40 @@ export async function renderCertificateToDataURL(
   // If fonts are not fully loaded, measureText may return INVALID metrics (NEGATIVE values!)
   // This causes catastrophic calculation errors in visual center positioning
   console.log('⏳ Waiting for fonts to load...');
+  
+  // CRITICAL FIX: Explicitly load all fonts used in text layers
+  // This prevents negative TextMetrics (actualBoundingBoxAscent < 0) which causes text shifting
+  const uniqueFonts = new Set<string>();
+  textLayers.forEach(layer => {
+    const fontFamily = layer.fontFamily || 'Arial';
+    const fontWeight = layer.fontWeight || 'normal';
+    const fontSize = layer.fontSize || 16;
+    uniqueFonts.add(`${fontWeight} ${fontSize}px ${fontFamily}`);
+  });
+  
+  console.log('🔤 Loading fonts explicitly:', Array.from(uniqueFonts));
+  
+  // Load each unique font
+  for (const fontSpec of uniqueFonts) {
+    try {
+      // Check if font is already loaded
+      if (!document.fonts.check(fontSpec)) {
+        console.log(`⏳ Loading font: ${fontSpec}`);
+        await document.fonts.load(fontSpec);
+        console.log(`✅ Font loaded: ${fontSpec}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to load font: ${fontSpec}`, error);
+    }
+  }
+  
+  // Wait for all fonts to be ready
   await document.fonts.ready;
   
   // CRITICAL FIX: Additional delay to ensure fonts are fully rendered in Canvas context
   // Some browsers need extra time after fonts.ready for TextMetrics to return valid values
   // Without this delay, actualBoundingBoxAscent can be negative, causing all calculations to fail
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 200));
   
   console.log('✅ All fonts loaded and ready for accurate TextMetrics');
 
@@ -114,21 +142,38 @@ export async function renderCertificateToDataURL(
       continue; // Skip empty text
     }
 
-    // Calculate position based on percentage (stored relative to standard canvas size)
-    const x = Math.round((layer.xPercent || 0) * width);
-    const y = Math.round((layer.yPercent || 0) * height);
+    // Calculate position - CRITICAL: Prioritize absolute x/y coordinates
+    // Some layers (especially score layers) may only have absolute coordinates
+    // If both exist, prefer absolute for accuracy
+    const scaleFactor = width / STANDARD_CANVAS_WIDTH;
+    const x = layer.x !== undefined && layer.x !== null 
+      ? Math.round(layer.x * scaleFactor) 
+      : Math.round((layer.xPercent || 0) * width);
+    const y = layer.y !== undefined && layer.y !== null 
+      ? Math.round(layer.y * scaleFactor) 
+      : Math.round((layer.yPercent || 0) * height);
     
     // CRITICAL: Scale maxWidth based on canvas size
-    const scaleFactor = width / STANDARD_CANVAS_WIDTH;
     const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
     
-    // CRITICAL: Adjust x coordinate based on alignment to match preview behavior
-    // In preview, we use CSS transform to position the anchor point
-    // Here we need to adjust x coordinate manually
-    // certificate_no and issue_date always use left alignment (no textAlign property)
-    const align = (layer.id === 'certificate_no' || layer.id === 'issue_date') 
-      ? 'left' 
-      : (layer.textAlign || 'left');
+    // CRITICAL: Detect score layers
+    // Score layers = custom layers (ID starts with 'custom_') that are not certificate fields
+    // Score layers MUST use center alignment to avoid shifting issues
+    const isCertificateLayer = layer.id === 'certificate_no' || layer.id === 'issue_date';
+    const isScoreLayer = layer.id.startsWith('custom_'); // All custom layers are score layers
+    
+    // CRITICAL: Force score layers to use center alignment
+    // Only center alignment works correctly without shifting
+    const align = isCertificateLayer 
+      ? 'left'  // certificate_no/issue_date always left
+      : isScoreLayer 
+        ? 'center'  // FORCE score layers to center (ignore user setting)
+        : (layer.textAlign || 'center'); // Other layers: use setting or default center
+    
+    // Debug log for score layers
+    if (isScoreLayer) {
+      console.log(`🎯 [SCORE LAYER] ${layer.id}: FORCED to center alignment (original textAlign: ${layer.textAlign || 'undefined'})`);
+    }
     
     // Set font - CRITICAL: Scale fontSize based on canvas size!
     const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
@@ -230,8 +275,7 @@ function drawWrappedText(
   const lines: string[] = [];
   let currentLine = '';
 
-  // Set canvas text alignment BEFORE measuring to get accurate widths
-  const align = textAlign === 'center' ? 'center' : (textAlign === 'right' ? 'right' : 'left');
+  // Set canvas text baseline and temporarily set to left for measuring
   ctx.textAlign = 'left'; // Always measure with left alignment for consistent width calculation
   ctx.textBaseline = 'top';
 
@@ -374,17 +418,15 @@ function drawWrappedText(
                           isFinite(firstLineMetrics.actualBoundingBoxDescent);
   
   if (!hasValidMetrics && layerId) {
-    console.error(`🚨 [${layerId}] CRITICAL: TextMetrics are invalid!`, {
+    // Changed from console.error to console.debug to reduce noise
+    // Fallback metrics work correctly, so this is not a critical error
+    console.debug(`📊 [${layerId}] Using fallback metrics (TextMetrics invalid):`, {
       actualBoundingBoxAscent: firstLineMetrics.actualBoundingBoxAscent,
       actualBoundingBoxDescent: firstLineMetrics.actualBoundingBoxDescent,
       width: firstLineMetrics.width,
       fontSize,
       fontFamily: ctx.font,
-      emHeightAscent: firstLineMetrics.emHeightAscent,
-      emHeightDescent: firstLineMetrics.emHeightDescent,
-      fontBoundingBoxAscent: firstLineMetrics.fontBoundingBoxAscent,
-      fontBoundingBoxDescent: firstLineMetrics.fontBoundingBoxDescent,
-      message: 'Using fallback metrics. Font may not be loaded correctly.'
+      message: 'Font not fully loaded, using reliable fallback (80/20 split)'
     });
   }
   
@@ -410,12 +452,11 @@ function drawWrappedText(
     actualDescent = fontSize * 0.20;
     actualTextHeight = actualAscent + actualDescent;
     
-    console.warn(`⚠️ [${layerId || 'unknown'}] Using fallback metrics (TextMetrics invalid):`, {
+    // Changed from console.warn to console.debug to reduce noise
+    console.debug(`📊 [${layerId || 'unknown'}] Fallback metrics applied:`, {
       fontSize,
       fallbackAscent: actualAscent,
       fallbackDescent: actualDescent,
-      originalAscent: firstLineMetrics.actualBoundingBoxAscent,
-      originalDescent: firstLineMetrics.actualBoundingBoxDescent,
       fontFamily: ctx.font
     });
   }
@@ -606,6 +647,42 @@ function drawWrappedText(
     startY = y - (totalTextHeight / 2);
   }
   
+  // CRITICAL FIX: Calculate x position for each line based on textAlign
+  // 
+  // COORDINATE SYSTEM MISMATCH:
+  // CSS Preview: left: x, transform: translate(TX%, -50%)
+  //   - left:   TX = 0%    → x is LEFT edge (no shift)
+  //   - center: TX = -50%  → x shifts left by 50% of element width → Visual center at x
+  //   - right:  TX = -100% → x shifts left by 100% of element width → Visual right edge at x
+  // 
+  // Canvas Rendering: ctx.textAlign = align; ctx.fillText(text, x, y)
+  //   - left:   x is LEFT edge ✅ MATCHES CSS
+  //   - center: x is CENTER point ✅ MATCHES CSS (after transform)
+  //   - right:  x is RIGHT edge ✅ MATCHES CSS (after transform)
+  // 
+  // CONCLUSION: Stored x coordinate already represents the VISUAL position (post-transform)
+  // which matches Canvas textAlign expectations. No adjustment needed!
+  // Note: Canvas doesn't support 'justify', map it to 'left'
+  ctx.textAlign = textAlign === 'justify' ? 'left' : textAlign;
+  
+  let drawX = x;
+  
+  // CRITICAL: Fine-tuning X position for specific layers
+  // User reports both certificate_no and issue_date too left (needs to move right more)
+  if (layerId === 'issue_date') {
+    // Move more to the right to avoid collision with "Malang" text
+    const xAdjustment = 11; // User requested: 11px to move right
+    drawX = x + xAdjustment;
+  } else if (layerId === 'certificate_no') {
+    // Move more to the right to avoid collision with "NOMOR" text
+    const xAdjustment = 8; // User requested: 8px to move right
+    drawX = x + xAdjustment;
+  } else {
+    // For all other layers, use stored x coordinate directly
+    // CSS transform already accounts for alignment, and Canvas textAlign matches this
+    drawX = x;
+  }
+  
   // COMPREHENSIVE DEBUG LOGGING: Compare working vs broken layers
   if (layerId === 'name' || layerId === 'certificate_no' || layerId === 'issue_date') {
     let calculatedCenter: number;
@@ -718,37 +795,6 @@ function drawWrappedText(
         ? `Geometric center differs by ${Math.abs(centerDifference).toFixed(1)}px ${centerDifference > 0 ? 'DOWN' : 'UP'}. This suggests a fundamental issue with: (1) Y coordinate storage/loading, (2) totalTextHeight calculation, or (3) CSS vs Canvas height mismatch.`
         : 'Geometric center matches layout setting perfectly ✓'
     });
-  }
-
-  // CRITICAL FIX: Calculate x position for each line based on textAlign
-  // The stored x coordinate represents the anchor point of the container (matching CSS behavior)
-  // We need to adjust x for each line based on textAlign within the effectiveWidth container
-  ctx.textAlign = align;
-  
-  let drawX = x;
-  
-  // CRITICAL: Fine-tuning X position for specific layers
-  // User reports both certificate_no and issue_date too left (needs to move right more)
-  if (layerId === 'issue_date') {
-    // Move more to the right to avoid collision with "Malang" text
-    const xAdjustment = 11; // User requested: 11px to move right
-    drawX = x + xAdjustment;
-  } else if (layerId === 'certificate_no') {
-    // Move more to the right to avoid collision with "NOMOR" text
-    const xAdjustment = 8; // User requested: 8px to move right
-    drawX = x + xAdjustment;
-  } else if (textAlign === 'center') {
-    // x is the center of the container
-    // For center alignment, canvas will center each line at x, which is correct
-    drawX = x;
-  } else if (textAlign === 'right') {
-    // x is the right edge of the container
-    // For right alignment, canvas will align each line's right edge at x, which is correct
-    drawX = x;
-  } else {
-    // x is the left edge of the container
-    // For left alignment, canvas will align each line's left edge at x, which is correct
-    drawX = x;
   }
 
   // CRITICAL: For "name" layer with long text, adjust x to shift left if text exceeds maxWidth

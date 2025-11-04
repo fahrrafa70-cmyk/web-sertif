@@ -135,11 +135,12 @@ function ConfigureLayoutContent() {
           console.log('📊 Loading existing score layout configuration');
           
           // Migrate score layers: ensure all layers have maxWidth and lineHeight
+          // CRITICAL: Preserve textAlign from database - don't override with fallback
           const migratedScoreLayers = (existingLayout.score.textLayers as TextLayer[]).map(layer => ({
             ...layer,
             maxWidth: layer.maxWidth || 300,
             lineHeight: layer.lineHeight || 1.2,
-            textAlign: layer.textAlign || 'left', // Score layers support textAlign like added text
+            // Keep textAlign as-is from database (don't add fallback)
           }));
           
           setScoreTextLayers(migratedScoreLayers);
@@ -511,7 +512,9 @@ function ConfigureLayoutContent() {
       color: '#000000',
       fontWeight: 'normal',
       fontFamily: 'Arial',
-      textAlign: 'left',
+      // Score mode: default to center (for table cells)
+      // Certificate mode: default to left
+      textAlign: configMode === 'score' ? 'center' : 'left',
       maxWidth: 300,
       lineHeight: 1.2,
     };
@@ -833,14 +836,6 @@ function ConfigureLayoutContent() {
                       {/* Label and resize handles (Word-style) */}
                       {isSelected && (
                         <>
-                          {/* Layer name label */}
-                          <div className="absolute -top-5 sm:-top-6 left-0 bg-blue-500 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded whitespace-nowrap pointer-events-none max-w-[90vw] truncate">
-                            <span className="truncate inline-block max-w-full">{layer.id}</span>
-                            {layer.maxWidth && (
-                              <span className="ml-1 sm:ml-2 opacity-75 hidden sm:inline">{Math.round(layer.maxWidth)}px</span>
-                            )}
-                          </div>
-                          
                           {/* Resize handle (right edge) - Invisible, only cursor change */}
                           <div
                             className="absolute top-0 -right-2 w-4 h-full cursor-ew-resize"
@@ -1242,12 +1237,14 @@ function ConfigureLayoutContent() {
 
                     {/* Text Align & Line Height */}
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                      {/* Hide Text Align for certificate_no and issue_date - they always use left alignment */}
-                      {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && (
+                      {/* Hide Text Align for certificate_no, issue_date, and ALL score layers */}
+                      {/* Score layers are forced to center alignment to avoid shifting issues */}
+                      {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && 
+                       !(configMode === 'score' && selectedLayer.id !== 'name') && (
                         <div>
                           <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Text Align</Label>
                           <Select 
-                            value={selectedLayer.textAlign || 'left'}
+                            value={selectedLayer.textAlign || 'center'}
                             onValueChange={(value) => updateLayer(selectedLayer.id, { textAlign: value as TextLayer['textAlign'] })}
                           >
                             <SelectTrigger className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">

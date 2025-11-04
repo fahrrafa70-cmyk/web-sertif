@@ -555,6 +555,51 @@ export async function deleteCertificate(id: string): Promise<void> {
       throw new Error("No active session. Please sign in again.");
     }
 
+    // CRITICAL FIX: Delete images from Supabase Storage BEFORE deleting from database
+    console.log("🗑️ Deleting certificate images from Supabase Storage...");
+    
+    // Extract filenames from URLs
+    const deleteStorageFiles = async () => {
+      const filesToDelete: string[] = [];
+      
+      // Extract filename from certificate_image_url
+      if (certificate.certificate_image_url) {
+        const certMatch = certificate.certificate_image_url.match(/certificates\/([^?]+)/);
+        if (certMatch && certMatch[1]) {
+          filesToDelete.push(certMatch[1]);
+          console.log("📄 Certificate image to delete:", certMatch[1]);
+        }
+      }
+      
+      // Extract filename from score_image_url
+      if (certificate.score_image_url) {
+        const scoreMatch = certificate.score_image_url.match(/certificates\/([^?]+)/);
+        if (scoreMatch && scoreMatch[1]) {
+          filesToDelete.push(scoreMatch[1]);
+          console.log("📄 Score image to delete:", scoreMatch[1]);
+        }
+      }
+      
+      // Delete files from storage
+      if (filesToDelete.length > 0) {
+        console.log(`🗑️ Deleting ${filesToDelete.length} file(s) from storage...`);
+        const { error: storageError } = await supabaseClient.storage
+          .from('certificates')
+          .remove(filesToDelete);
+        
+        if (storageError) {
+          console.warn("⚠️ Failed to delete some files from storage:", storageError);
+          // Don't throw - continue with database deletion even if storage deletion fails
+        } else {
+          console.log("✅ Files deleted from storage successfully");
+        }
+      } else {
+        console.log("ℹ️ No storage files to delete");
+      }
+    };
+    
+    await deleteStorageFiles();
+
     // Delete certificate from database
     console.log("🗃️ Deleting certificate from database...");
     const { error } = await supabaseClient
