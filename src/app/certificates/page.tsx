@@ -58,11 +58,11 @@ import { getTemplates } from "@/lib/supabase/templates";
 import { getMembers } from "@/lib/supabase/members";
 import { renderCertificateToDataURL, RenderTextLayer } from "@/lib/render/certificate-render";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
-import { formatDateString } from "@/lib/utils/certificate-formatters";
+import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
 
 function CertificatesContent() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const params = useSearchParams();
   const certQuery = (params?.get("cert") || "").toLowerCase();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
@@ -1491,7 +1491,7 @@ function CertificatesContent() {
               <div className="flex flex-col gap-4 mb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                   <div>
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb]">
                       {t("certificates.title")}
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
@@ -1577,7 +1577,7 @@ function CertificatesContent() {
                   <p className="text-gray-500 text-sm mb-6">{error}</p>
                   <Button
                     onClick={() => refresh()}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                    className="bg-[#2563eb] text-white"
                   >
                     {t("certificates.tryAgain")}
                   </Button>
@@ -1780,7 +1780,7 @@ function CertificatesContent() {
                             {t("certificates.issuedDate")}
                           </div>
                           <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                            {new Date(certificate.issue_date).toLocaleDateString()}
+                            {formatReadableDate(certificate.issue_date, language)}
                           </div>
                         </div>
 
@@ -1791,7 +1791,7 @@ function CertificatesContent() {
                               {t("certificates.expiryDate")}
                             </div>
                             <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                              {new Date(certificate.expired_date).toLocaleDateString()}
+                              {formatReadableDate(certificate.expired_date, language)}
                             </div>
                           </div>
                         )}
@@ -2182,7 +2182,7 @@ function CertificatesContent() {
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Category
                         </label>
-                        <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm sm:text-base font-medium">
+                        <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#2563eb] text-white text-sm sm:text-base font-medium">
                           {previewCertificate.category}
                         </div>
                       </div>
@@ -2684,7 +2684,7 @@ function CertificatesContent() {
                                   <h3 className="text-2xl xl:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                                      {t("certificates.certificateTitle")}
                                    </h3>
-                                   <div className="w-16 xl:w-20 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
+                                   <div className="w-16 xl:w-20 h-1 bg-[#2563eb] mx-auto rounded-full"></div>
                                  </div>
  
                                 <p className="text-gray-600 dark:text-gray-400 mb-3 xl:mb-4">
@@ -3094,11 +3094,7 @@ function CertificatesContent() {
                         <div>
                           <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
                           <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                            {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
-                              year: 'numeric', 
-                              month: 'short', 
-                              day: 'numeric' 
-                            })}
+                            {formatReadableDate(detailMember.date_of_birth, language)}
                           </div>
                         </div>
                       )}
@@ -3151,23 +3147,13 @@ function CertificatesContent() {
                           {detailMember.created_at && (
                             <div>
                               <span className="font-medium">Created:</span>{' '}
-                              {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                              {formatReadableDate(detailMember.created_at, language)}
                             </div>
                           )}
                           {detailMember.updated_at && (
                             <div>
                               <span className="font-medium">Updated:</span>{' '}
-                              {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                              {formatReadableDate(detailMember.updated_at, language)}
                             </div>
                           )}
                         </div>
@@ -3285,25 +3271,13 @@ function CertificatesContent() {
                         {detailMember.created_at && (
                           <div>
                             <span className="font-medium">Created:</span>{' '}
-                            {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                            {formatReadableDate(detailMember.created_at, language)}
                           </div>
                         )}
                         {detailMember.updated_at && (
                           <div>
                             <span className="font-medium">Updated:</span>{' '}
-                            {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                            {formatReadableDate(detailMember.updated_at, language)}
                           </div>
                         )}
                       </div>

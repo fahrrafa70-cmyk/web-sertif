@@ -8,6 +8,8 @@ import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Search, Download, ChevronDown, FileText, Link, Filter, X, Image as ImageIcon } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { useRouter } from "next/navigation";
+import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +19,8 @@ import {
  
 
 export default function HeroSection() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const router = useRouter();
   const [certificateId, setCertificateId] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
@@ -325,7 +328,7 @@ export default function HeroSection() {
         : srcRaw;
       setSendCert(certificate);
       setSendPreviewSrc(src);
-      const issueDate = new Date(certificate.created_at || new Date()).toLocaleDateString();
+      const issueDate = formatReadableDate(certificate.created_at || new Date(), language);
       const subject = certificate.certificate_no 
         ? t('hero.emailDefaultSubject').replace('{number}', certificate.certificate_no)
         : t('hero.emailDefaultSubjectNoNumber');
@@ -609,16 +612,25 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         setSearching(false);
       }
     } else {
-      // Keyword search - perform advanced search
-      const searchFilters: SearchFilters = {
-        keyword: q,
-        category: filters.category,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-      };
-      await performSearch(searchFilters);
+      // Keyword search - redirect to search results page with smooth transition
+      const params = new URLSearchParams();
+      params.set('q', q);
+      if (filters.category) params.set('category', filters.category);
+      if (filters.startDate) params.set('startDate', filters.startDate);
+      if (filters.endDate) params.set('endDate', filters.endDate);
+      
+      // Smooth transition: scroll to top first, then navigate
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Small delay for smooth transition before navigation
+        setTimeout(() => {
+          router.push(`/search?${params.toString()}`);
+        }, 150);
+      } else {
+      router.push(`/search?${params.toString()}`);
+      }
     }
-  }, [certificateId, filters, performSearch, t]);
+  }, [certificateId, filters, router, t]);
 
   // Remove auto-search on typing - only search when button clicked
 
@@ -960,7 +972,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                                 </span>
                               )}
                               <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {new Date(cert.issue_date).toLocaleDateString()}
+                                {formatReadableDate(cert.issue_date, language)}
                               </span>
                             </div>
                             {cert.members?.organization && (
@@ -1034,9 +1046,9 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
               <div className="mt-4 space-y-1 text-xs sm:text-sm">
                 <div><span className="text-gray-500 dark:text-gray-400">{t('hero.category')}:</span> {previewCert!.category || "—"}</div>
                 <div><span className="text-gray-500 dark:text-gray-400">{t('hero.template')}:</span> {(previewCert as unknown as { templates?: { name?: string } }).templates?.name || "—"}</div>
-                <div><span className="text-gray-500 dark:text-gray-400">{t('hero.issued')}:</span> {new Date(previewCert!.issue_date).toLocaleDateString()}</div>
+                <div><span className="text-gray-500 dark:text-gray-400">{t('hero.issued')}:</span> {formatReadableDate(previewCert!.issue_date, language)}</div>
                 {previewCert!.expired_date && (
-                  <div><span className="text-gray-500 dark:text-gray-400">{t('hero.expires')}:</span> {new Date(previewCert!.expired_date as string).toLocaleDateString()}</div>
+                  <div><span className="text-gray-500 dark:text-gray-400">{t('hero.expires')}:</span> {formatReadableDate(previewCert!.expired_date, language)}</div>
                 )}
               </div>
               <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">

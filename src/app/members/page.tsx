@@ -10,12 +10,13 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Member, createMember, getMembers, updateMember, deleteMember as deleteMemberService } from "@/lib/supabase/members";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
+import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { useDebounce } from "@/hooks/use-debounce";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 
 export default function MembersPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [membersData, setMembersData] = useState<Member[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -427,10 +428,10 @@ export default function MembersPage() {
           <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
             {/* Header */}
             <div className="mb-4 sm:mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
-                <div>
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">{t('members.title')}</h1>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">{t('members.subtitle')}</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 w-full">
+                <div className="min-w-0 flex-shrink">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] break-words">{t('members.title')}</h1>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base break-words">{t('members.subtitle')}</p>
                 </div>
               {(role === "Admin" || role === "Team") && (
                 <div className="flex gap-2">
@@ -596,18 +597,18 @@ export default function MembersPage() {
                         className="cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0"
                       >
                         <TableCell className="text-gray-500 text-center px-2 py-1.5">{indexOfFirstItem + index + 1}</TableCell>
-                        <TableCell className="font-medium text-gray-900 dark:text-gray-100 px-2 py-1.5">{m.name}</TableCell>
-                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5">{m.organization || "—"}</TableCell>
-                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5">
+                        <TableCell className="font-medium text-gray-900 dark:text-gray-100 px-2 py-1.5 break-words min-w-[120px]">{m.name}</TableCell>
+                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[130px]">{m.organization || "—"}</TableCell>
+                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 min-w-[150px]">
                           <div className="flex flex-col">
-                            <span className="text-gray-900 dark:text-gray-100">{m.email || "—"}</span>
+                            <span className="text-gray-900 dark:text-gray-100 break-words">{m.email || "—"}</span>
                             {m.phone && (
-                              <span className="text-xs text-gray-500 mt-0.5">{m.phone}</span>
+                              <span className="text-xs text-gray-500 mt-0.5 break-words">{m.phone}</span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5">{m.job || "—"}</TableCell>
-                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5">{m.city || "—"}</TableCell>
+                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[80px]">{m.job || "—"}</TableCell>
+                        <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[100px]">{m.city || "—"}</TableCell>
                         <TableCell className="text-right px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-1.5">
                             {(role === "Admin" || role === "Team") && (
@@ -840,11 +841,7 @@ export default function MembersPage() {
                         <div className="space-y-1">
                           <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
                           <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
-                            {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
+                            {formatReadableDate(detailMember.date_of_birth, language)}
                           </div>
                         </div>
                       )}
@@ -883,13 +880,7 @@ export default function MembersPage() {
                               <>
                                 <span className="font-medium">Created:</span>{' '}
                                 <span className="text-gray-600 dark:text-gray-300">
-                                  {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
+                                  {formatReadableDate(detailMember.created_at, language)}
                                 </span>
                               </>
                             )}
@@ -899,13 +890,7 @@ export default function MembersPage() {
                               <>
                                 <span className="font-medium">Updated:</span>{' '}
                                 <span className="text-gray-600 dark:text-gray-300">
-                                  {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
+                                  {formatReadableDate(detailMember.updated_at, language)}
                                 </span>
                               </>
                             )}

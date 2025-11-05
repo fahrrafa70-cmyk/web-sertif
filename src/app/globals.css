@@ -684,29 +684,26 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
   }
 
-  /* Gradient backgrounds */
+  /* Solid vibrant blue backgrounds - replaced gradients */
   .gradient-primary {
-    background: linear-gradient(to right, #2563EB, #06B6D4);
-    /* Blue-600 to Cyan-500 - Horizontal gradient like Certificates text */
+    background: #2563eb;
+    /* Solid vibrant blue - blue-600 (primary blue) */
   }
 
   .gradient-secondary {
     background: linear-gradient(135deg, oklch(0.96 0.01 106.423), oklch(0.92 0.02 106.423));
   }
 
-  /* Hero section gradient - bright blue */
+  /* Hero section - solid vibrant blue */
   .gradient-hero {
-    background: linear-gradient(to right, #2563EB, #06B6D4);
-    /* Match primary gradient for consistency - Blue-600 to Cyan-500 */
+    background: #2563eb;
+    /* Solid vibrant blue - blue-600 (primary blue) */
   }
 
-  /* Text gradients */
+  /* Text - solid vibrant blue */
   .text-gradient {
-    background: linear-gradient(to right, #2563EB, #06B6D4);
-    /* Match gradient-primary for consistency - Blue-600 to Cyan-500 like Certificates text */
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #2563eb;
+    /* Solid vibrant blue - blue-600 (primary blue) */
   }
 }
 

@@ -486,7 +486,7 @@ export default function TemplatesPage() {
                   <p className="text-gray-500 text-sm mb-6">{error}</p>
                   <Button
                     onClick={() => refresh()}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                    className="bg-[#2563eb] text-white"
                   >
                     {t("templates.tryAgain")}
                   </Button>

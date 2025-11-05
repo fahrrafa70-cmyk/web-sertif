@@ -9,10 +9,13 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useLanguage } from "@/contexts/language-context";
+import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 
 export default function CertificatePage() {
   const params = useParams();
   const router = useRouter();
+  const { language } = useLanguage();
   const [certificate, setCertificate] = useState<Certificate | null>(null);
   const [loading, setLoading] = useState(true);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
@@ -236,14 +239,14 @@ export default function CertificatePage() {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Issue Date:</span>
                           <span className="font-medium">
-                            {new Date(certificate.issue_date).toLocaleDateString()}
+                            {formatReadableDate(certificate.issue_date, language)}
                           </span>
                         </div>
                         {certificate.expired_date && (
                           <div className="flex justify-between">
                             <span className="text-gray-500">Expiry Date:</span>
                             <span className="font-medium">
-                              {new Date(certificate.expired_date).toLocaleDateString()}
+                              {formatReadableDate(certificate.expired_date, language)}
                             </span>
                           </div>
                         )}

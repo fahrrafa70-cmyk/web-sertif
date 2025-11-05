@@ -8,10 +8,13 @@ import { Link2, Share2, FileText, Calendar, Building2, User, Tag, Clock, CheckCi
 import { toast } from "sonner";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/contexts/language-context";
+import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 
 export default function PublicCertificatePage() {
   const params = useParams();
   const router = useRouter();
+  const { language } = useLanguage();
   const public_id = params?.public_id as string;
   
   const [certificate, setCertificate] = useState<Certificate | null>(null);
@@ -380,11 +383,7 @@ export default function PublicCertificatePage() {
                     <div className="flex-1">
                       <p className="text-sm text-gray-500 mb-1">Issue Date</p>
                       <p className="text-lg font-semibold text-gray-900">
-                        {new Date(certificate.issue_date).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {formatReadableDate(certificate.issue_date, language)}
                       </p>
                     </div>
                   </div>
@@ -398,11 +397,7 @@ export default function PublicCertificatePage() {
                       <div className="flex-1">
                         <p className="text-sm text-gray-500 mb-1">Expiry Date</p>
                         <p className="text-lg font-semibold text-gray-900">
-                          {new Date(certificate.expired_date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
+                          {formatReadableDate(certificate.expired_date, language)}
                         </p>
                       </div>
                     </div>

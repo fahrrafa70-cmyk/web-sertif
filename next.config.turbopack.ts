@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+// Alternative config for Turbopack (if you want to use it)
+// This config has optimizations to reduce ENOENT errors
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -11,11 +13,9 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
   },
-  // Production optimizations
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
-  // Optimize bundle size
   experimental: {
     optimizePackageImports: [
       '@radix-ui/react-dialog',
@@ -25,23 +25,21 @@ const nextConfig: NextConfig = {
       'lucide-react',
       'framer-motion',
     ],
+    // Turbopack specific optimizations
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
   },
-  // Prevent build manifest errors
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
-  // Reduce file system issues on Windows
-  webpack: (config, { dev, isServer }) => {
-    if (dev && !isServer) {
-      config.watchOptions = {
-        poll: 1000,
-        aggregateTimeout: 300,
-        ignored: /node_modules/,
-      };
-    }
-    return config;
-  },
 };
 
 export default nextConfig;
+
