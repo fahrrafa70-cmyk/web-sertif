@@ -4,13 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(request: Request) {
   try {
     // Check if it's FormData (file upload) or JSON (base64 data)
-    const contentType = request.headers.get('content-type') || '';
+    const requestContentType = request.headers.get('content-type') || '';
     let imageData: string | null = null;
     let fileName: string | null = null;
     let bucketName = 'certificates';
     let buffer: Buffer;
 
-    if (contentType.includes('multipart/form-data')) {
+    if (requestContentType.includes('multipart/form-data')) {
       // Handle FormData (file upload)
       const formData = await request.formData();
       const file = formData.get('file') as File;

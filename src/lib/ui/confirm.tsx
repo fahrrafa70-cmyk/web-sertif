@@ -1,6 +1,5 @@
 "use client";
 
-import { type ReactNode } from "react";
 import { toast } from "sonner";
 
 export type ConfirmOptions = {

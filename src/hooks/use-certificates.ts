@@ -69,7 +69,7 @@ export function useCertificates() {
       // Clear cache to force refresh on next load
       if (typeof window !== 'undefined') {
         try {
-          const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+          const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
           dataCache.delete(CACHE_KEYS.CERTIFICATES);
         } catch {
           // Ignore
@@ -108,7 +108,7 @@ export function useCertificates() {
       // Clear cache
       if (typeof window !== 'undefined') {
         try {
-          const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+          const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
           dataCache.delete(CACHE_KEYS.CERTIFICATES);
         } catch {
           // Ignore
@@ -142,7 +142,7 @@ export function useCertificates() {
       // Clear cache
       if (typeof window !== 'undefined') {
         try {
-          const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+          const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
           dataCache.delete(CACHE_KEYS.CERTIFICATES);
         } catch {
           // Ignore

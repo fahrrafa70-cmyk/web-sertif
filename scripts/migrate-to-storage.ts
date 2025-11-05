@@ -152,6 +152,7 @@ async function migrateCertificates(
             );
 
             // Update database
+            // @ts-ignore - Supabase type inference issue in migration script
             const { error: updateError } = await supabase
               .from('certificates')
               .update({ certificate_image_url: storageUrl })
@@ -201,6 +202,7 @@ async function migrateCertificates(
             );
 
             // Update database
+            // @ts-ignore - Supabase type inference issue in migration script
             const { error: updateError } = await supabase
               .from('certificates')
               .update({ score_image_url: storageUrl })

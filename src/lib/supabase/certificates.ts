@@ -117,7 +117,7 @@ export async function getCertificates(useCache: boolean = true): Promise<Certifi
   // Check cache first
   if (useCache && typeof window !== 'undefined') {
     try {
-      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
       const cached = dataCache.get<Certificate[]>(CACHE_KEYS.CERTIFICATES);
       if (cached) {
         console.log("✅ Using cached certificates");
@@ -164,7 +164,7 @@ export async function getCertificates(useCache: boolean = true): Promise<Certifi
   // Cache the result (5 minutes)
   if (useCache && typeof window !== 'undefined') {
     try {
-      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
       dataCache.set(CACHE_KEYS.CERTIFICATES, certificates, 5 * 60 * 1000);
     } catch {
       // Cache module not available, ignore
@@ -423,7 +423,7 @@ export async function createCertificate(
     // Invalidate cache after successful creation
     if (typeof window !== 'undefined') {
       try {
-        const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+        const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
         dataCache.delete(CACHE_KEYS.CERTIFICATES);
       } catch {
         // Cache module not available, ignore
@@ -509,7 +509,7 @@ export async function updateCertificate(
   // Invalidate cache after successful update
   if (typeof window !== 'undefined') {
     try {
-      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
       dataCache.delete(CACHE_KEYS.CERTIFICATES);
     } catch {
       // Cache module not available, ignore
@@ -623,7 +623,7 @@ export async function deleteCertificate(id: string): Promise<void> {
     // Invalidate cache after successful deletion
     if (typeof window !== 'undefined') {
       try {
-        const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+        const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
         dataCache.delete(CACHE_KEYS.CERTIFICATES);
       } catch {
         // Cache module not available, ignore

@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getCertificateByNumber, Certificate } from "@/lib/supabase/certificates";
 import { toast } from "sonner";
-import { SiteHeader } from "@/components/site-header";
+import ModernLayout from "@/components/modern-layout";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye } from "lucide-react";
 import { motion } from "framer-motion";
@@ -63,72 +63,64 @@ export default function CertificatePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <SiteHeader />
-        <main className="pt-16">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                <Eye className="w-8 h-8 text-gray-400" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                Loading certificate...
-              </h1>
-              <p className="text-gray-500">
-                Please wait while we verify your certificate.
-              </p>
+      <ModernLayout>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <Eye className="w-8 h-8 text-gray-400" />
             </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+              Loading certificate...
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Please wait while we verify your certificate.
+            </p>
           </div>
-        </main>
-      </div>
+        </div>
+      </ModernLayout>
     );
   }
 
   if (!certificate) {
     return (
-      <div className="min-h-screen">
-        <SiteHeader />
-        <main className="pt-16">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Eye className="w-8 h-8 text-red-400" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                Certificate Not Found
-              </h1>
-              <p className="text-gray-500 mb-8">
-                {`The certificate with number "${certificateNo}" could not be found.`}
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Button
-                  onClick={() => router.back()}
-                  variant="outline"
-                  className="border-gray-300"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Go Back
-                </Button>
-                <Button
-                  onClick={() => router.push("/")}
-                  className="gradient-primary text-white"
-                >
-                  Search Again
-                </Button>
-              </div>
+      <ModernLayout>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Eye className="w-8 h-8 text-red-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+              Certificate Not Found
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mb-8">
+              {`The certificate with number "${certificateNo}" could not be found.`}
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Button
+                onClick={() => router.back()}
+                variant="outline"
+                className="border-gray-300 dark:border-gray-600"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Go Back
+              </Button>
+              <Button
+                onClick={() => router.push("/")}
+                className="gradient-primary text-white"
+              >
+                Search Again
+              </Button>
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </ModernLayout>
     );
   }
 
   return (
     <>
-      <div className="min-h-screen">
-        <SiteHeader />
-        <main className="pt-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <ModernLayout>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             {/* Header */}
             <div className="mb-8">
               <Button
@@ -277,9 +269,8 @@ export default function CertificatePage() {
                 </div>
               </div>
             </motion.div>
-          </div>
-        </main>
-      </div>
+        </div>
+      </ModernLayout>
 
       {/* Full Image Preview Modal */}
       {imagePreviewOpen && certificate.certificate_image_url && (

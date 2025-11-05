@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
-  swcMinify: true,
   // Optimize bundle size
   experimental: {
     optimizePackageImports: [

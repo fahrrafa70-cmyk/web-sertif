@@ -37,7 +37,7 @@ function sanitize(input: string | undefined | null): string | null {
 export async function getMembers(useCache: boolean = true): Promise<Member[]> {
   // Check cache first
   if (useCache && typeof window !== 'undefined') {
-    const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+    const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
     const cached = dataCache.get<Member[]>(CACHE_KEYS.MEMBERS);
     if (cached) {
       console.log("✅ Using cached members");
@@ -56,7 +56,7 @@ export async function getMembers(useCache: boolean = true): Promise<Member[]> {
 
   // Cache the result (10 minutes - members don't change often)
   if (useCache && typeof window !== 'undefined') {
-    const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+    const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
     dataCache.set(CACHE_KEYS.MEMBERS, members, 10 * 60 * 1000);
   }
 
@@ -114,7 +114,7 @@ export async function createMember(input: CreateMemberInput): Promise<Member> {
   // Invalidate cache
   if (typeof window !== 'undefined') {
     try {
-      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
       dataCache.delete(CACHE_KEYS.MEMBERS);
     } catch {
       // Ignore
@@ -151,7 +151,7 @@ export async function updateMember(id: string, input: UpdateMemberInput): Promis
   // Invalidate cache
   if (typeof window !== 'undefined') {
     try {
-      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
       dataCache.delete(CACHE_KEYS.MEMBERS);
     } catch {
       // Ignore
@@ -174,7 +174,7 @@ export async function deleteMember(id: string): Promise<void> {
   // Invalidate cache
   if (typeof window !== 'undefined') {
     try {
-      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
       dataCache.delete(CACHE_KEYS.MEMBERS);
     } catch {
       // Ignore

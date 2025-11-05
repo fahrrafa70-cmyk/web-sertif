@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             // Clear cache on auth change to ensure fresh data
             try {
-              const { dataCache } = await import('../cache/data-cache');
+              const { dataCache } = await import('@/lib/cache/data-cache');
               dataCache.clear();
             } catch {
               // Ignore if cache not available

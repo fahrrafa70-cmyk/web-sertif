@@ -41,7 +41,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
-import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -1141,6 +1141,8 @@ function CertificatesContent() {
     useState<Certificate | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [previewMode, setPreviewMode] = useState<'certificate' | 'score' | 'combined'>('certificate');
+  const [fullImagePreviewOpen, setFullImagePreviewOpen] = useState(false);
+  const [fullImagePreviewUrl, setFullImagePreviewUrl] = useState<string | null>(null);
   const [scoreDefaults, setScoreDefaults] = useState<TemplateDefaults | null>(null);
   const [deletingCertificateId, setDeletingCertificateId] = useState<
     string | null
@@ -1158,6 +1160,20 @@ function CertificatesContent() {
   // Ref for preview container to calculate actual dimensions
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Handle keyboard events for full image preview modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (fullImagePreviewOpen && e.key === "Escape") {
+        setFullImagePreviewOpen(false);
+      }
+    };
+
+    if (fullImagePreviewOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [fullImagePreviewOpen]);
 
   // Update container dimensions when it changes
   useEffect(() => {
@@ -1391,6 +1407,38 @@ function CertificatesContent() {
   async function openPreview(certificate: Certificate) {
     setPreviewCertificate(certificate);
     setPreviewMode('certificate');
+    
+    // Aggressive preload with fetchpriority
+    if (certificate.certificate_image_url) {
+      // Preload using Image constructor for browser cache
+      const img = document.createElement('img');
+      img.src = certificate.certificate_image_url;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (img as any).fetchPriority = 'high';
+      img.decoding = 'async';
+      // Also add link preload
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = certificate.certificate_image_url;
+      link.setAttribute('fetchpriority', 'high');
+      document.head.appendChild(link);
+    }
+    
+    // Preload score image if available
+    if (certificate.score_image_url) {
+      const img = document.createElement('img');
+      img.src = certificate.score_image_url;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (img as any).fetchPriority = 'high';
+      img.decoding = 'async';
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = certificate.score_image_url;
+      link.setAttribute('fetchpriority', 'high');
+      document.head.appendChild(link);
+    }
 
     // Load template if available
     if (certificate.template_id) {
@@ -1592,6 +1640,23 @@ function CertificatesContent() {
                                 size="sm"
                                 className="border-gray-300"
                                 onClick={() => openPreview(certificate)}
+                                onMouseEnter={() => {
+                                  // Prefetch image on hover for faster load
+                                  if (certificate.certificate_image_url) {
+                                    const link = document.createElement('link');
+                                    link.rel = 'prefetch';
+                                    link.as = 'image';
+                                    link.href = certificate.certificate_image_url;
+                                    document.head.appendChild(link);
+                                  }
+                                  if (certificate.score_image_url) {
+                                    const link = document.createElement('link');
+                                    link.rel = 'prefetch';
+                                    link.as = 'image';
+                                    link.href = certificate.score_image_url;
+                                    document.head.appendChild(link);
+                                  }
+                                }}
                               >
                                 <Eye className="w-4 h-4 mr-1" />
                                 {t("common.preview")}
@@ -1740,6 +1805,23 @@ function CertificatesContent() {
                             size="sm"
                             className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8"
                             onClick={() => openPreview(certificate)}
+                            onMouseEnter={() => {
+                              // Prefetch image on hover for faster load
+                              if (certificate.certificate_image_url) {
+                                const link = document.createElement('link');
+                                link.rel = 'prefetch';
+                                link.as = 'image';
+                                link.href = certificate.certificate_image_url;
+                                document.head.appendChild(link);
+                              }
+                              if (certificate.score_image_url) {
+                                const link = document.createElement('link');
+                                link.rel = 'prefetch';
+                                link.as = 'image';
+                                link.href = certificate.score_image_url;
+                                document.head.appendChild(link);
+                              }
+                            }}
                           >
                             <Eye className="w-3 h-3 mr-1" />
                             {t("common.preview")}
@@ -2034,9 +2116,14 @@ function CertificatesContent() {
       {/* Certificate Preview Modal */}
       <Dialog
         open={!!previewCertificate}
-        onOpenChange={(o) =>
-          setPreviewCertificate(o ? previewCertificate : null)
-        }
+        onOpenChange={(o) => {
+          setPreviewCertificate(o ? previewCertificate : null);
+          if (!o) {
+            // Close full image preview when certificate preview modal closes
+            setFullImagePreviewOpen(false);
+            setFullImagePreviewUrl(null);
+          }
+        }}
       >
         <DialogContent 
           className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6"
@@ -2045,6 +2132,10 @@ function CertificatesContent() {
               e.preventDefault();
               setPreviewCertificate(null);
             }
+          }}
+          style={{
+            animation: 'none',
+            transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
           <DialogHeader className="space-y-1 sm:space-y-1.5 flex-shrink-0 pb-2 sm:pb-4">
@@ -2055,83 +2146,60 @@ function CertificatesContent() {
               {t("certificates.previewDescription")}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1">
+          <div 
+            className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 scrollbar-hide"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
             {previewCertificate && (
               <>
                 {/* Certificate Info */}
-                <motion.div
-                  className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
                   <div className="space-y-4 sm:space-y-6">
-                    <motion.div
-                      className="space-y-2 sm:space-y-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.1 }}
-                    >
+                    <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Certificate Number
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.certificate_no}
                       </div>
-                    </motion.div>
+                    </div>
 
-                    <motion.div
-                      className="space-y-2 sm:space-y-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.2 }}
-                    >
+                    <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Recipient Name
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.name}
                       </div>
-                    </motion.div>
+                    </div>
 
                     {previewCertificate.category && (
-                      <motion.div
-                        className="space-y-2 sm:space-y-3"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: 0.3 }}
-                      >
+                      <div className="space-y-2 sm:space-y-3">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Category
                         </label>
                         <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm sm:text-base font-medium">
                           {previewCertificate.category}
                         </div>
-                      </motion.div>
+                      </div>
                     )}
 
                     {previewCertificate.description && (
-                      <motion.div
-                        className="space-y-2 sm:space-y-3"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: 0.4 }}
-                      >
+                      <div className="space-y-2 sm:space-y-3">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Description
                         </label>
                         <div className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words">
                           {previewCertificate.description}
                         </div>
-                      </motion.div>
+                      </div>
                     )}
 
-                    <motion.div
-                      className="grid grid-cols-2 gap-3 sm:gap-4"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.5 }}
-                    >
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       <div className="space-y-1 sm:space-y-2">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Issue Date
@@ -2154,16 +2222,11 @@ function CertificatesContent() {
                           </div>
                         </div>
                       )}
-                    </motion.div>
+                    </div>
                   </div>
 
                   {/* Certificate / Score Preview */}
-                  <motion.div
-                    className="space-y-2 sm:space-y-4"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                  >
+                  <div className="space-y-2 sm:space-y-4">
                     <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                       Certificate Preview
                     </label>
@@ -2226,38 +2289,108 @@ function CertificatesContent() {
                             const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
                             return (
-                              <Image
-                                src={src}
-                                alt={previewMode === 'score' ? "Score" : "Certificate"}
-                                fill
-                                sizes="100vw"
-                                className="object-contain absolute inset-0"
-                                style={{ objectFit: 'contain' }}
-                                onError={() => {
-                                  console.warn('Preview image failed to load', src);
+                              <div
+                                className="relative w-full h-full cursor-zoom-in group"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  setFullImagePreviewUrl(src);
+                                  setFullImagePreviewOpen(true);
                                 }}
-                                priority
-                                unoptimized={isRemote || isData}
-                              />
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setFullImagePreviewUrl(src);
+                                    setFullImagePreviewOpen(true);
+                                  }
+                                }}
+                              >
+                                <Image
+                                  src={src}
+                                  alt={previewMode === 'score' ? "Score" : "Certificate"}
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
+                                  style={{ objectFit: 'contain' }}
+                                  onError={() => {
+                                    console.warn('Preview image failed to load', src);
+                                  }}
+                                  priority
+                                  fetchPriority="high"
+                                  unoptimized={isRemote || isData}
+                                  decoding="async"
+                                />
+                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {t('hero.viewFullImage') || 'Click to view full size'}
+                                </div>
+                              </div>
                             );
                           })()
                         ) : (
                           <>
                             {/* FIX: Template Image with consistent aspect ratio */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
-                              <Image
-                                src={previewTemplate.score_image_url}
-                                alt="Score Template"
-                                fill
-                                className="object-contain absolute inset-0"
-                              />
+                              <div
+                                className="relative w-full h-full cursor-zoom-in group"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  setFullImagePreviewUrl(previewTemplate.score_image_url!);
+                                  setFullImagePreviewOpen(true);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setFullImagePreviewUrl(previewTemplate.score_image_url!);
+                                    setFullImagePreviewOpen(true);
+                                  }
+                                }}
+                              >
+                                <Image
+                                  src={previewTemplate.score_image_url}
+                                  alt="Score Template"
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
+                                  loading="eager"
+                                  unoptimized
+                                />
+                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {t('hero.viewFullImage') || 'Click to view full size'}
+                                </div>
+                              </div>
                             ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
-                              <Image
-                                src={getTemplateImageUrl(previewTemplate)!}
-                                alt="Certificate Template"
-                                fill
-                                className="object-contain absolute inset-0"
-                              />
+                              <div
+                                className="relative w-full h-full cursor-zoom-in group"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  setFullImagePreviewUrl(getTemplateImageUrl(previewTemplate)!);
+                                  setFullImagePreviewOpen(true);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setFullImagePreviewUrl(getTemplateImageUrl(previewTemplate)!);
+                                    setFullImagePreviewOpen(true);
+                                  }
+                                }}
+                              >
+                                <Image
+                                  src={getTemplateImageUrl(previewTemplate)!}
+                                  alt="Certificate Template"
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
+                                  priority
+                                  fetchPriority="high"
+                                  decoding="async"
+                                  unoptimized
+                                />
+                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {t('hero.viewFullImage') || 'Click to view full size'}
+                                </div>
+                              </div>
                             ) : (
                               <>
                                 {/* Decorative Corners */}
@@ -2596,16 +2729,11 @@ function CertificatesContent() {
                         )}
                       </div>
                     </div>
-                  </motion.div>
-                </motion.div>
+                  </div>
+                </div>
 
                 {/* Action Buttons */}
-                <motion.div
-                  className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.6 }}
-                >
+                <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
                   <div className="flex flex-wrap gap-2">
                     {(canDelete || forceCanDelete) && previewCertificate && (
                       <button
@@ -2645,12 +2773,53 @@ function CertificatesContent() {
                       </Button>
                     )}
                   </div>
-                </motion.div>
+                </div>
               </>
             )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Full Image Preview Modal */}
+      {fullImagePreviewOpen && fullImagePreviewUrl && (
+        <div 
+          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" 
+          onClick={() => setFullImagePreviewOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setFullImagePreviewOpen(false);
+            }
+          }}
+          tabIndex={0}
+        >
+          <div 
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {previewMode === 'score' ? 'Score Preview' : 'Certificate Preview'} - {previewCertificate?.certificate_no || ''}
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => setFullImagePreviewOpen(false)}
+                size="icon"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 overflow-auto flex-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={fullImagePreviewUrl} 
+                alt={previewMode === 'score' ? "Score" : "Certificate"} 
+                className="w-full h-auto rounded-lg border shadow-sm" 
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Send Certificate Email Modal */}
       <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>

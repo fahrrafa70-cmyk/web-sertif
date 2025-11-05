@@ -31,8 +31,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     try {
       if (typeof window !== 'undefined') {
         const root = window.document.documentElement;
-        root.classList.remove('light', 'dark');
-        root.classList.add(theme);
+        // Only update if the class is different to avoid unnecessary re-renders
+        if (!root.classList.contains(theme)) {
+          root.classList.remove('light', 'dark');
+          root.classList.add(theme);
+        }
         window.localStorage.setItem('ecert-theme', theme);
       }
     } catch {}

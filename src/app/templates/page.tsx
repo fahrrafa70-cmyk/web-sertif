@@ -3,7 +3,7 @@
 import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -143,7 +143,7 @@ export default function TemplatesPage() {
 
       // Template data prepared, calling create function
       
-      const result = await create(templateData);
+      await create(templateData);
       // Template created successfully
       
       setIsCreateOpen(false);
@@ -519,8 +519,11 @@ export default function TemplatesPage() {
                             src={getTemplatePreviewUrl(tpl)!}
                             alt={tpl.name}
                             fill
-                            sizes="(max-width: 1280px) 50vw, 33vw"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
                             className="object-contain dark:opacity-90 dark:brightness-95"
+                            loading={filtered.indexOf(tpl) < 6 ? "eager" : "lazy"}
+                            fetchPriority={filtered.indexOf(tpl) < 6 ? "high" : "auto"}
+                            decoding="async"
                             unoptimized
                             onError={() => {
                               // Mark image as failed and show fallback

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { LayoutStability } from "@/components/layout-stability";
@@ -6,6 +7,7 @@ import { LanguageProvider } from "@/contexts/language-context";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { AuthProvider } from "@/contexts/auth-context";
 import { LoginModal } from "@/components/ui/login-modal";
+import { ThemeScript } from "@/components/theme-script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -31,8 +33,89 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('ecert-theme');
+                  var isDark = false;
+                  if (theme === 'light' || theme === 'dark') {
+                    isDark = theme === 'dark';
+                    document.documentElement.classList.add(theme);
+                    document.documentElement.classList.remove(theme === 'light' ? 'dark' : 'light');
+                  } else {
+                    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    isDark = prefersDark;
+                    var defaultTheme = prefersDark ? 'dark' : 'light';
+                    document.documentElement.classList.add(defaultTheme);
+                    document.documentElement.classList.remove(defaultTheme === 'light' ? 'dark' : 'light');
+                  }
+                  // Set inline background color immediately to prevent flash
+                  var bgColor = isDark ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)';
+                  document.documentElement.style.setProperty('background-color', bgColor, 'important');
+                  document.documentElement.style.setProperty('color-scheme', isDark ? 'dark' : 'light', 'important');
+                  // Inject style tag for body background immediately
+                  var existingStyle = document.getElementById('theme-bg-inline');
+                  if (existingStyle) existingStyle.remove();
+                  var style = document.createElement('style');
+                  style.id = 'theme-bg-inline';
+                  style.textContent = 'body{background-color:' + bgColor + '!important;}html{background-color:' + bgColor + '!important;}';
+                  if (document.head) {
+                    document.head.appendChild(style);
+                  } else {
+                    document.addEventListener('DOMContentLoaded', function() {
+                      document.head.appendChild(style);
+                    });
+                  }
+                } catch (e) {
+                  document.documentElement.classList.add('light');
+                  document.documentElement.style.setProperty('background-color', 'rgb(249, 250, 251)', 'important');
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`}>
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('ecert-theme');
+                  var isDark = false;
+                  if (theme === 'light' || theme === 'dark') {
+                    isDark = theme === 'dark';
+                    if (!document.documentElement.classList.contains(theme)) {
+                      document.documentElement.classList.add(theme);
+                      document.documentElement.classList.remove(theme === 'light' ? 'dark' : 'light');
+                    }
+                  } else {
+                    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    isDark = prefersDark;
+                    var defaultTheme = prefersDark ? 'dark' : 'light';
+                    if (!document.documentElement.classList.contains(defaultTheme)) {
+                      document.documentElement.classList.add(defaultTheme);
+                      document.documentElement.classList.remove(defaultTheme === 'light' ? 'dark' : 'light');
+                    }
+                  }
+                  // Ensure background color is set
+                  var bgColor = isDark ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)';
+                  document.documentElement.style.setProperty('background-color', bgColor, 'important');
+                  if (document.body) {
+                    document.body.style.setProperty('background-color', bgColor, 'important');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+        <ThemeScript />
         <ThemeProvider>
           <LanguageProvider>
             <AuthProvider>

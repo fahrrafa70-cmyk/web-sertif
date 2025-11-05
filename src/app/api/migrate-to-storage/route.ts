@@ -100,12 +100,14 @@ export async function POST(request: NextRequest) {
               cert.certificate_image_url,
               fileName,
               'certificates',
-              supabase
+              supabase as ReturnType<typeof createClient>
             );
 
             // Update database
-            const { error: updateError } = await supabase
-              .from('certificates')
+            const { error: updateError } = await (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              supabase.from('certificates') as any
+            )
               .update({ certificate_image_url: storageUrl })
               .eq('id', cert.id);
 
@@ -146,12 +148,14 @@ export async function POST(request: NextRequest) {
               cert.score_image_url,
               fileName,
               'certificates',
-              supabase
+              supabase as ReturnType<typeof createClient>
             );
 
             // Update database
-            const { error: updateError } = await supabase
-              .from('certificates')
+            const { error: updateError } = await (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              supabase.from('certificates') as any
+            )
               .update({ score_image_url: storageUrl })
               .eq('id', cert.id);
 

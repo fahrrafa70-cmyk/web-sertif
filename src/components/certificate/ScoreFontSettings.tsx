@@ -10,14 +10,14 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ScoreFontSetting } from "@/lib/storage/template-defaults";
+import type { FontSetting } from "@/lib/storage/template-defaults";
 
 interface ScoreFontSettingsProps {
   settings: {
-    aspekTeknis: ScoreFontSetting;
-    nilai: ScoreFontSetting;
-    additionalInfo: ScoreFontSetting;
-    date: ScoreFontSetting;
+    aspekTeknis: FontSetting;
+    nilai: FontSetting;
+    additionalInfo: FontSetting;
+    date: FontSetting;
   };
   onChange: (settings: ScoreFontSettingsProps["settings"]) => void;
   className?: string;
@@ -30,7 +30,7 @@ interface ScoreFontSettingsProps {
 export function ScoreFontSettings({ settings, onChange, className }: ScoreFontSettingsProps) {
   const updateSetting = (
     key: keyof typeof settings,
-    field: keyof ScoreFontSetting,
+    field: keyof FontSetting,
     value: string | number
   ) => {
     onChange({

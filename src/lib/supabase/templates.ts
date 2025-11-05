@@ -180,7 +180,7 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
   // Check cache first
   if (useCache && typeof window !== 'undefined') {
     try {
-      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
       const cached = dataCache.get<Template[]>(CACHE_KEYS.TEMPLATES);
       if (cached) {
         console.log("✅ Using cached templates");
@@ -205,7 +205,7 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
   // Cache the result (10 minutes - templates don't change often)
   if (useCache && typeof window !== 'undefined') {
     try {
-      const { dataCache, CACHE_KEYS } = await import('../cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
       dataCache.set(CACHE_KEYS.TEMPLATES, templates, 10 * 60 * 1000);
     } catch {
       // Cache module not available, ignore
