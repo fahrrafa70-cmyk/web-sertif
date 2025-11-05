@@ -278,22 +278,34 @@ function ConfigureLayoutContent() {
             return;
           }
           
-          // CRITICAL FIX: Calculate scale to match PNG generation exactly
+          // ✅ DYNAMIC SCALING: Use template's natural dimensions
           // 
-          // Generation logic (certificate-render.ts):
-          //   finalWidth = img.naturalWidth (e.g., 1080px for template)
-          //   scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH (e.g., 1080/1500 = 0.72)
-          //   scaledFontSize = baseFontSize * scaleFactor (e.g., 48 * 0.72 = 34.56px at 1080px)
+          // NEW SYSTEM (Nov 5, 2025):
+          //   Preview uses: containerWidth / templateNaturalWidth
+          //   Generation uses: templateNaturalWidth / templateNaturalWidth = 1.0
+          //   Result: EXACT 1:1 visual match! ✅
           // 
-          // Preview should show PROPORTIONALLY the same:
-          //   If template is 1080px and container is 800px:
-          //   displayFontSize = baseFontSize * (800/1500) = 48 * 0.533 = 25.6px
-          //   This is proportional to: 34.56px * (800/1080) = 25.6px ✓
+          // Example with 1080px template:
+          //   Template natural size: 1080px
+          //   Preview container: 800px
+          //   Preview scale: 800/1080 = 0.74
+          //   Generation scale: 1080/1080 = 1.0
+          //   
+          //   Font size 32px:
+          //   - Preview: 32 * 0.74 = 24px (displayed)
+          //   - Generation: 32 * 1.0 = 32px (output)
+          //   - Visual proportion: 24/800 = 32/1080 ✅ EXACT!
           // 
-          // So formula remains: containerSize / STANDARD_CANVAS_WIDTH
-          // This automatically accounts for template size differences
-          const scaleX = containerWidth / STANDARD_CANVAS_WIDTH;
-          const scaleY = containerHeight / STANDARD_CANVAS_HEIGHT;
+          // OLD SYSTEM (REMOVED):
+          //   Preview: containerWidth / STANDARD_CANVAS_WIDTH (e.g., 800/1500 = 0.53)
+          //   Generation: templateWidth / STANDARD_CANVAS_WIDTH (e.g., 1080/1500 = 0.72)
+          //   Result: Different scales → Preview ≠ Generation ❌
+          
+          const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+          const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+          
+          const scaleX = containerWidth / templateWidth;
+          const scaleY = containerHeight / templateHeight;
           const scale = Math.min(scaleX, scaleY);
           
           // Ensure scale is valid (not NaN, Infinity, or negative)
@@ -338,7 +350,7 @@ function ConfigureLayoutContent() {
         resizeObserver.unobserve(canvasElement);
       }
     };
-  }, [template, templateImageUrl, textLayers.length]); // Update saat data berubah
+  }, [template, templateImageUrl, textLayers.length, templateImageDimensions]); // Update saat data berubah
 
   // Handle text layer drag
   const handleLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
@@ -357,8 +369,12 @@ function ConfigureLayoutContent() {
       const deltaX = (moveEvent.clientX - startX) / canvasScale;
       const deltaY = (moveEvent.clientY - startY) / canvasScale;
       
-      const newX = Math.max(0, Math.min(STANDARD_CANVAS_WIDTH, startLayerX + deltaX));
-      const newY = Math.max(0, Math.min(STANDARD_CANVAS_HEIGHT, startLayerY + deltaY));
+      // Use template natural dimensions (dynamic, not hardcoded!)
+      const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+      const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+      
+      const newX = Math.max(0, Math.min(templateWidth, startLayerX + deltaX));
+      const newY = Math.max(0, Math.min(templateHeight, startLayerY + deltaY));
 
       const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
       setter(prev => prev.map(l => 
@@ -367,8 +383,8 @@ function ConfigureLayoutContent() {
               ...l, 
               x: Math.round(newX), 
               y: Math.round(newY),
-              xPercent: newX / STANDARD_CANVAS_WIDTH,
-              yPercent: newY / STANDARD_CANVAS_HEIGHT,
+              xPercent: newX / templateWidth,
+              yPercent: newY / templateHeight,
               isDragging: true
             }
           : l

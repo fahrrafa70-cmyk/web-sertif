@@ -5,22 +5,32 @@
  */
 
 /**
- * Standard canvas dimensions for consistent positioning
- * Used as reference size for all text layer calculations
+ * DEPRECATED: Standard canvas dimensions - NO LONGER USED FOR SCALING!
  * 
- * IMPORTANT: These should match your template's natural dimensions!
- * Current: A4 Portrait at 300 DPI (1500x2121 pixels)
- * - A4 = 210mm × 297mm
- * - At 300 DPI: (210/25.4)*300 × (297/25.4)*300 = 2480 × 3508 pixels
- * - Scaled down: 1500 × 2121 pixels (maintains aspect ratio)
+ * ⚠️ IMPORTANT CHANGE (Nov 5, 2025):
+ * These constants are DEPRECATED and should NOT be used for scaling calculations.
  * 
- * For different templates, you may want to make this dynamic:
- * - Load template image first
- * - Get naturalWidth × naturalHeight
- * - Use those dimensions for canvas
+ * OLD SYSTEM (REMOVED):
+ * - All templates used 1500×2121 as reference
+ * - Text positions scaled based on: finalWidth / STANDARD_CANVAS_WIDTH
+ * - Problem: Preview ≠ Generated output (different scales)
+ * 
+ * NEW SYSTEM (DYNAMIC):
+ * - Each template uses its OWN natural dimensions as reference
+ * - Text positions stored as PERCENTAGE (0-1) - resolution independent
+ * - Preview uses template dimensions directly
+ * - Generated output uses template dimensions directly
+ * - Result: Preview = Generated output (exact match!) ✅
+ * 
+ * These constants remain ONLY for:
+ * - Backward compatibility with old layout data
+ * - Migration scripts
+ * - Documentation
+ * 
+ * DO NOT USE FOR NEW CODE!
  */
-export const STANDARD_CANVAS_WIDTH = 1500;   // A4 portrait width at 300 DPI (scaled)
-export const STANDARD_CANVAS_HEIGHT = 2121;  // A4 portrait height at 300 DPI (scaled)
+export const STANDARD_CANVAS_WIDTH = 1500;   // DEPRECATED - Do not use!
+export const STANDARD_CANVAS_HEIGHT = 2121;  // DEPRECATED - Do not use!
 
 /**
  * Score template layout configuration

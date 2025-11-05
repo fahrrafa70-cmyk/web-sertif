@@ -154,24 +154,34 @@ export async function renderCertificateToDataURL(
       continue; // Skip empty text
     }
 
-    // Calculate position - CANVA APPROACH: Prioritize PERCENTAGE coordinates
-    // Percentage-based positioning is resolution-independent (like Canva/Affinity)
-    // Benefits:
-    // - Consistent positioning across ANY template resolution
-    // - No scaling artifacts or rounding errors
-    // - "50% = center" works at 800px, 1080px, 2000px, etc.
+    // ✅ DYNAMIC SYSTEM (Nov 5, 2025): 1:1 Rendering - No Scaling!
     // 
-    // Priority: Percentage FIRST → Absolute as fallback (for backward compatibility)
-    const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH;
-    const x = layer.xPercent !== undefined && layer.xPercent !== null
-      ? Math.round(layer.xPercent * finalWidth)    // Percentage (resolution-independent) ✅
-      : Math.round((layer.x || 0) * scaleFactor);  // Absolute with scaling (fallback)
-    const y = layer.yPercent !== undefined && layer.yPercent !== null
-      ? Math.round(layer.yPercent * finalHeight)   // Percentage (resolution-independent) ✅
-      : Math.round((layer.y || 0) * scaleFactor);  // Absolute with scaling (fallback)
+    // NEW APPROACH:
+    // - Values stored in template's NATURAL coordinate system
+    // - fontSize 32 = 32 pixels in output (no scaling!)
+    // - maxWidth 300 = 300 pixels in output (no scaling!)
+    // - Position stored as PERCENTAGE (resolution-independent)
+    // 
+    // BEFORE (REMOVED):
+    //   scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH (e.g., 1080/1500 = 0.72)
+    //   fontSize = 32 * 0.72 = 23px ❌ Different from input!
+    // 
+    // NOW:
+    //   scaleFactor = 1.0 (no scaling!)
+    //   fontSize = 32 * 1.0 = 32px ✅ Exact match!
+    // 
+    // Backward compatibility: Keep scaleFactor for OLD absolute x/y values
+    const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH; // Only for legacy absolute positioning
     
-    // CRITICAL: Scale maxWidth based on canvas size
-    const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
+    const x = layer.xPercent !== undefined && layer.xPercent !== null
+      ? Math.round(layer.xPercent * finalWidth)    // Percentage (NEW system) ✅
+      : Math.round((layer.x || 0) * scaleFactor);  // Absolute (OLD system, legacy)
+    const y = layer.yPercent !== undefined && layer.yPercent !== null
+      ? Math.round(layer.yPercent * finalHeight)   // Percentage (NEW system) ✅
+      : Math.round((layer.y || 0) * scaleFactor);  // Absolute (OLD system, legacy)
+    
+    // ✅ NO SCALING for maxWidth (stored in template's natural coordinate system)
+    const scaledMaxWidth = layer.maxWidth || 300; // Direct value, no scaling!
     
     // CRITICAL: certificate_no and issue_date always use left alignment
     const isCertificateLayer = layer.id === 'certificate_no' || layer.id === 'issue_date';
@@ -181,10 +191,10 @@ export async function renderCertificateToDataURL(
       ? 'left'  // certificate_no/issue_date always left
       : (layer.textAlign || 'center'); // Other layers (including score): use setting or default center
     
-    // Set font - CRITICAL: Scale fontSize based on canvas size!
+    // ✅ NO SCALING for fontSize (stored in template's natural coordinate system)
     const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
     const baseFontSize = Math.max(1, layer.fontSize || 16);
-    const scaledFontSize = Math.round(baseFontSize * scaleFactor);
+    const scaledFontSize = baseFontSize; // Direct value, no scaling!
     const fontFamily = layer.fontFamily || 'Arial';
     ctx.font = `${fontWeight} ${scaledFontSize}px ${fontFamily}`;
     
