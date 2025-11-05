@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, useMemo, memo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, Filter, X as XIcon } from "lucide-react";
+import { ArrowLeft, Search, Filter, X as XIcon, Download, ChevronDown, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -18,13 +18,29 @@ import {
   getCertificateByPublicId
 } from "@/lib/supabase/certificates";
 import Image from "next/image";
-import { FileText } from "lucide-react";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function SearchResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, language } = useLanguage();
+  
+  // Local date formatter to ensure format like "2 Nov 2025"
+  const formatDateShort = useCallback((input?: string | null) => {
+    if (!input) return "—";
+    const d = new Date(input);
+    if (isNaN(d.getTime())) return "—";
+    const day = d.getDate();
+    const month = d.toLocaleString(language === 'id' ? 'id-ID' : 'en-US', { month: 'short' });
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  }, [language]);
   
   // Get initial query from URL
   const initialQuery = searchParams.get('q') || '';
@@ -43,6 +59,16 @@ function SearchResultsContent() {
   const [previewCert, setPreviewCert] = useState<Certificate | null>(null);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [sendFormErrors, setSendFormErrors] = useState<{ email?: string; subject?: string; message?: string }>({});
+  const [sendForm, setSendForm] = useState<{ email: string; subject: string; message: string }>({
+    email: "",
+    subject: "",
+    message: "",
+  });
+  const [sendPreviewSrc, setSendPreviewSrc] = useState<string | null>(null);
+  const [sendCert, setSendCert] = useState<Certificate | null>(null);
   
   // Smooth scroll to top on mount and when query changes
   useEffect(() => {
@@ -59,16 +85,61 @@ function SearchResultsContent() {
     if (typeof window === 'undefined') return;
     
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle Escape if no modal is open
-      if (e.key === 'Escape' && !previewOpen && !imagePreviewOpen && !showFilters) {
-        e.preventDefault();
+      // Close modal on Escape
+      if (e.key === 'Escape') {
+        if (sendModalOpen) {
+          setSendModalOpen(false);
+          e.preventDefault();
+          return;
+        }
+        if (imagePreviewOpen) {
+          setImagePreviewOpen(false);
+          e.preventDefault();
+          return;
+        }
+        if (previewOpen) {
+          setPreviewOpen(false);
+          e.preventDefault();
+          return;
+        }
+        if (showFilters) {
+          setShowFilters(false);
+          e.preventDefault();
+          return;
+        }
+        // Only go back to home if no modal is open
         router.push('/');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router, previewOpen, imagePreviewOpen, showFilters]);
+  }, [router, previewOpen, imagePreviewOpen, sendModalOpen, showFilters]);
+
+  // Lock scroll when modal is open
+  const scrollYRef = useRef(0);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    if (previewOpen || imagePreviewOpen || sendModalOpen) {
+      // Save current scroll position
+      scrollYRef.current = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollYRef.current}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore scroll position
+        const savedScrollY = scrollYRef.current;
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, savedScrollY);
+      };
+    }
+  }, [previewOpen, imagePreviewOpen, sendModalOpen]);
   const [filters, setFilters] = useState<SearchFilters>({
     keyword: initialQuery,
     category: "",
@@ -318,324 +389,659 @@ function SearchResultsContent() {
     }
   }, [searchQuery, performSearch]);
 
-  // Check if filters are active
-  const hasActiveFilters = filters.category || filters.startDate || filters.endDate;
+  // Check if filters are active - memoized
+  const hasActiveFilters = useMemo(() => {
+    return !!(filters.category || filters.startDate || filters.endDate);
+  }, [filters.category, filters.startDate, filters.endDate]);
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 w-full">
-      {/* Header - Full Width */}
-      <ModernHeader />
+  // Export certificate to PDF
+  const exportToPDF = useCallback(async (certificate: Certificate) => {
+    try {
+      if (!certificate.certificate_image_url) {
+        toast.error(t('hero.imageNotAvailable'));
+        return;
+      }
+
+      const mod = (await import("jspdf").catch(() => null)) as null | typeof import("jspdf");
+      if (!mod || !("jsPDF" in mod)) {
+        toast.error(t('hero.pdfLibraryMissing'));
+        console.error("jspdf not found. Run: npm i jspdf");
+        return;
+      }
+      const { jsPDF } = mod;
+
+      let srcRaw = certificate.certificate_image_url || "";
+      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+        srcRaw = `/${srcRaw}`;
+      }
+      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+      const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
+      const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+        ? `${window.location.origin}${localWithBust}`
+        : localWithBust;
+
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error(`${t('hero.fetchImageFailed')}: ${resp.status}`);
+      const blob = await resp.blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const isPNG = blob.type.includes('png');
+      const imgType = isPNG ? 'PNG' : 'JPEG';
+
+      const imgBitmap = await createImageBitmap(blob);
+      const imgW = imgBitmap.width;
+      const imgH = imgBitmap.height;
+      imgBitmap.close();
+
+      const orientation = imgW >= imgH ? 'l' : 'p';
+      const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      const margin = 8;
+      const maxW = pageW - margin * 2;
+      const maxH = pageH - margin * 2;
+      const scale = Math.min(maxW / imgW, maxH / imgH);
+      const drawW = imgW * scale;
+      const drawH = imgH * scale;
+      const x = (pageW - drawW) / 2;
+      const y = (pageH - drawH) / 2;
+
+      doc.addImage(dataUrl, imgType, x, y, drawW, drawH, undefined, 'FAST');
+      const fileName = `${certificate.certificate_no || 'certificate'}.pdf`;
+      doc.save(fileName);
+      toast.success(t('hero.pdfExported'));
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : t('hero.exportPdfFailed'));
+    }
+  }, [t]);
+
+  // Export certificate to PNG
+  const exportToPNG = useCallback(async (certificate: Certificate) => {
+    try {
+      if (!certificate.certificate_image_url) {
+        toast.error(t('hero.imageNotAvailable'));
+        return;
+      }
+
+      let srcRaw = certificate.certificate_image_url || "";
+      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+        srcRaw = `/${srcRaw}`;
+      }
+      const cacheBust = certificate.updated_at ? `?v=${new Date(certificate.updated_at).getTime()}` : '';
+      const localWithBust = srcRaw.startsWith('/') ? `${srcRaw}${cacheBust}` : srcRaw;
+      const src = localWithBust.startsWith('/') && typeof window !== 'undefined'
+        ? `${window.location.origin}${localWithBust}`
+        : localWithBust;
+
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error(`${t('hero.fetchImageFailed')}: ${resp.status}`);
+      const blob = await resp.blob();
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${certificate.certificate_no || 'certificate'}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(t('hero.pngDownloaded'));
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : t('hero.exportPngFailed'));
+    }
+  }, [t]);
+
+  // Generate certificate link
+  const generateCertificateLink = useCallback(async (certificate: Certificate) => {
+    try {
+      if (!certificate.public_id) {
+        toast.error(t('hero.noPublicLink'));
+        return;
+      }
+
+      const link = `${window.location.origin}/cek/${certificate.public_id}`;
+      await navigator.clipboard.writeText(link);
+      toast.success(t('hero.linkCopied'));
+    } catch (err) {
+      console.error(err);
+      toast.error(t('hero.linkGenerateFailed'));
+    }
+  }, [t]);
+
+  // Open send email modal
+  const openSendEmailModal = useCallback(async (certificate: Certificate) => {
+    try {
+      if (!certificate.certificate_image_url) {
+        toast.error(t('hero.imageNotAvailableShort'));
+        return;
+      }
+
+      let srcRaw = certificate.certificate_image_url || "";
+      if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+        srcRaw = `/${srcRaw}`;
+      }
+      const src = srcRaw.startsWith('/') && typeof window !== 'undefined'
+        ? `${window.location.origin}${srcRaw}`
+        : srcRaw;
+      setSendCert(certificate);
+      setSendPreviewSrc(src);
+      const issueDate = formatReadableDate(certificate.issue_date || certificate.created_at || new Date(), language);
+      const subject = certificate.certificate_no 
+        ? t('hero.emailDefaultSubject').replace('{number}', certificate.certificate_no)
+        : t('hero.emailDefaultSubjectNoNumber');
+      const message = `${t('hero.emailDefaultGreeting')} ${certificate.name || t('hero.emailDefaultNA')},
+
+${t('hero.emailDefaultInfo')}
+- ${t('hero.emailDefaultCertNumber')}: ${certificate.certificate_no || t('hero.emailDefaultNA')}
+- ${t('hero.emailDefaultRecipient')}: ${certificate.name || t('hero.emailDefaultNA')}
+- ${t('hero.emailDefaultIssueDate')}: ${issueDate}
+${certificate.category ? `- ${t('hero.emailDefaultCategory')}: ${certificate.category}` : ''}
+${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certificate.description}` : ''}`;
       
-      {/* Fixed Search Bar - Positioned below header with proper spacing */}
-      {/* Background solid to hide content that scrolls UP behind search bar (same as header behavior) */}
-      {/* Container with solid background - ensures content behind is completely hidden */}
-      <div className="fixed top-[84px] sm:top-[70px] left-0 right-0 z-[45]">
-          {/* Solid background layer - MUST be opaque to hide content behind */}
-          <div className="absolute inset-0 bg-gray-50 dark:bg-gray-900" />
-          {/* Blue border filling the gap between header and search bar - same color as primary blue */}
-          <div className="absolute inset-x-0 top-0 h-[28px] sm:h-[6px] border-t-4 border-[#2563eb]" />
-          {/* Content wrapper with relative positioning */}
-          <div className="relative w-full px-4 sm:px-6 py-3 sm:py-4 z-10">
-            <div className="flex items-center gap-2 sm:gap-3 relative z-10">
-              {/* Back Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push('/')}
-                className="flex-shrink-0 h-9 sm:h-10 w-9 sm:w-10 self-center"
-                aria-label="Go back to home"
-              >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              </Button>
+      setSendForm({
+        email: "",
+        subject: subject,
+        message: message,
+      });
+      setSendModalOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : t('hero.emailPrepareFailed'));
+    }
+  }, [t, language]);
 
-              {/* Search Bar - Matching home page design exactly */}
-              <div className="flex-1 max-w-[600px] relative">
-                <div className="flex items-center gap-2 sm:gap-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl sm:rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-                    <Input
-                      type="text"
-                      placeholder={t('search.searchByName') || 'Search certificates...'}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      className="h-9 sm:h-10 pl-8 sm:pl-9 pr-8 sm:pr-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => {
-                          setSearchQuery('');
-                          setSearchError('');
-                          setSearchResults([]);
-                          setHasSearched(false); // Reset when clearing input
-                        }}
-                        className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        aria-label="Clear search"
-                      >
-                        <XIcon className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  <Button
-                    onClick={handleSearch}
-                    disabled={searching}
-                    className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
-                  >
-                    {searching ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <span>{t('hero.searchButton') || 'Search'}</span>
-                    )}
-                  </Button>
-                </div>
-                {/* Error Message - Right below input field, absolute positioned */}
-                {searchError && (
-                  <p className="absolute top-full left-0 mt-1 text-xs sm:text-sm text-red-600 dark:text-red-400 px-1 whitespace-nowrap">{searchError}</p>
-                )}
+  // Confirm and send from modal
+  const confirmSendEmail = useCallback(async () => {
+    if (!sendCert || !sendPreviewSrc || isSendingEmail) return;
+    
+    // Clear previous errors
+    setSendFormErrors({});
+    
+    // Validate fields
+    const errors: { email?: string; subject?: string; message?: string } = {};
+    const recipientEmail = (sendForm.email || '').trim();
+    
+    if (!recipientEmail) {
+      errors.email = t('hero.emailValidationRequired');
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipientEmail)) {
+        errors.email = t('hero.emailValidationInvalid');
+      }
+    }
+    
+    if (!sendForm.subject.trim()) {
+      errors.subject = t('hero.subjectRequired');
+    }
+    
+    if (!sendForm.message.trim()) {
+      errors.message = t('hero.messageRequired');
+    }
+    
+    // If there are errors, show them and return
+    if (Object.keys(errors).length > 0) {
+      setSendFormErrors(errors);
+      return;
+    }
+    
+    setIsSendingEmail(true);
+    try {
+      const payload = {
+        recipientEmail,
+        recipientName: sendCert.name,
+        imageUrl: sendPreviewSrc,
+        certificateNo: sendCert.certificate_no,
+        subject: (sendForm.subject || '').trim(),
+        message: (sendForm.message || '').trim(),
+      };
+      const res = await fetch('/api/send-certificate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // More specific error messages
+        if (res.status === 400) {
+          throw new Error(t('hero.emailInvalidFields'));
+        } else if (res.status === 404) {
+          throw new Error(t('hero.emailServiceUnavailable'));
+        } else if (res.status === 500) {
+          throw new Error(t('hero.emailServerError'));
+        }
+        throw new Error(json?.error || t('hero.emailSendFailed'));
+      }
+      if (json.previewUrl) {
+        toast.success(t('hero.emailQueued'));
+        try { window.open(json.previewUrl, '_blank'); } catch {}
+      } else {
+        toast.success(`${t('hero.emailSentSuccess')} ${recipientEmail}`);
+      }
+      setSendModalOpen(false);
+      setSendCert(null);
+      setSendPreviewSrc(null);
+      setSendForm({ email: '', subject: '', message: '' });
+    } catch (err) {
+      console.error('Email send error:', err);
+      toast.error(err instanceof Error ? err.message : t('hero.emailSendFailed'));
+    } finally {
+      setIsSendingEmail(false);
+    }
+  }, [sendCert, sendPreviewSrc, sendForm, isSendingEmail, t]);
+
+  // Capitalize first letter helper
+  const capitalize = useCallback((str: string) => {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }, []);
+
+  // Memoized certificate card component for better performance
+  const CertificateCard = memo(({ 
+    certificate, 
+    onPreview,
+    language,
+    t
+  }: { 
+    certificate: Certificate; 
+    onPreview: (cert: Certificate) => void;
+    language: 'en' | 'id';
+    t: (key: string) => string;
+  }) => {
+    const handleClick = useCallback(() => {
+      onPreview(certificate);
+    }, [certificate, onPreview]);
+
+    const formattedDate = useMemo(() => {
+      if (!certificate.issue_date) return null;
+      return formatReadableDate(certificate.issue_date, language);
+    }, [certificate.issue_date, language]);
+
+    return (
+      <div
+        onClick={handleClick}
+        className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[180px] will-change-transform"
+      >
+        {/* Certificate Thumbnail - Left Side */}
+        <div className="relative w-[170px] flex-shrink-0 bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+          {certificate.certificate_image_url ? (
+            <Image
+              src={certificate.certificate_image_url}
+              alt={certificate.name}
+              fill
+              sizes="170px"
+              className="object-contain group-hover:scale-105 transition-transform duration-200 ease-in-out will-change-transform"
+              loading="lazy"
+              unoptimized
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500">
+              <div className="text-center">
+                <div className="text-2xl mb-1">📄</div>
+                <div className="text-xs">{t('hero.noPreviewImage')}</div>
               </div>
-
-              {/* Filter Button - Matching home page styling */}
-              <Button
-                type="button"
-                variant={hasActiveFilters ? "default" : "outline"}
-                onClick={() => setShowFilters(!showFilters)}
-                className="h-9 sm:h-10 px-3 sm:px-4 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0 relative self-center"
-                aria-label="Toggle filters"
-              >
-                <Filter className="w-4 h-4" />
-                <span className="ml-2 hidden sm:inline text-sm">Filter</span>
-                {hasActiveFilters && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full" />
-                )}
-              </Button>
             </div>
+          )}
+        </div>
 
-            {/* Filter Panel */}
-            {showFilters && (
-              <div className="pb-4 border-t border-gray-200 dark:border-gray-700 pt-4 px-5 sm:px-6 bg-gray-50 dark:bg-gray-900 relative z-10">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Category Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {t('search.category') || 'Category'}
-                    </label>
-                    <select
-                      value={filters.category || ''}
-                      onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    >
-                      <option value="">{t('search.allCategories') || 'All Categories'}</option>
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+        {/* Content Section - Right Side */}
+        <div className="flex-1 p-4 flex flex-col justify-center gap-1.5">
+          {/* Recipient Name - Primary */}
+          <div>
+            <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-tight">
+              {certificate.name}
+            </h3>
+          </div>
 
-                  {/* Start Date Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {t('search.startDate') || 'Start Date'}
-                    </label>
-                    <Input
-                      type="date"
-                      value={filters.startDate || ''}
-                      onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                      className="w-full"
-                    />
-                  </div>
+          {/* Certificate Number - Secondary */}
+          <div>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
+              {certificate.certificate_no}
+            </p>
+          </div>
 
-                  {/* End Date Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {t('search.endDate') || 'End Date'}
-                    </label>
-                    <Input
-                      type="date"
-                      value={filters.endDate || ''}
-                      onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
+          {/* Status Badge */}
+          {certificate.category && (
+            <div>
+              <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                {certificate.category}
+              </span>
+            </div>
+          )}
 
-                {/* Apply Filters Button */}
-                <div className="flex justify-end gap-2 mt-4">
-                  {hasActiveFilters && (
-                    <Button
-                      variant="ghost"
-                      onClick={clearFilters}
-                      className="text-sm"
-                    >
-                      {t('search.clearFilters') || 'Clear Filters'}
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => {
-                      handleSearch();
-                      setShowFilters(false);
-                    }}
-                    className="text-sm"
-                  >
-                    {t('search.applyFilters') || 'Apply Filters'}
-                  </Button>
-                </div>
-              </div>
+          {/* Metadata */}
+          <div className="space-y-0.5 pt-1 border-t border-gray-200 dark:border-gray-700">
+            {formattedDate && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t('hero.issued')}: {formattedDate}
+              </p>
+            )}
+            {certificate.members?.organization && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+                {certificate.members.organization}
+              </p>
             )}
           </div>
         </div>
+      </div>
+    );
+  });
 
-        {/* Main Content Area - Account for fixed header (56px/64px) + spacing (28px/6px) + search bar (~72px/80px) */}
-        {/* z-index MUST be lower than search bar (z-[45]) to ensure content is hidden when scrolling behind search bar */}
-        <div className="w-full px-3 sm:px-6 py-4 sm:py-5 relative z-[10]" style={{ paddingTop: 'calc(3.5rem + 1.75rem + 4.5rem)' }}>
-          {/* Results Count */}
-          {!searching && searchResults.length > 0 && searchQuery.trim() && (
-            <div className="mb-4">
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                {searchResults.length} {searchResults.length === 1 ? t('hero.certificate') : t('hero.certificates')} {t('search.foundFor') || 'found for'} &quot;{searchQuery}&quot;
-              </p>
-            </div>
-          )}
+  CertificateCard.displayName = 'CertificateCard';
 
-          {/* Loading State */}
-          {searching && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse flex flex-row h-[150px]"
-                >
-                  <div className="w-[170px] flex-shrink-0 bg-gray-200 dark:bg-gray-700" />
-                  <div className="flex-1 p-4 flex flex-col justify-center gap-1.5">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
-                  </div>
+  // Memoized preview handler
+  const handlePreview = useCallback((cert: Certificate) => {
+    setPreviewCert(cert);
+    setPreviewOpen(true);
+  }, []);
+
+  // Clear search handler - memoized
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchError('');
+    setSearchResults([]);
+    setHasSearched(false);
+  }, []);
+
+  // Filter change handlers - memoized
+  const handleCategoryChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilters(prev => ({ ...prev, category: e.target.value }));
+  }, []);
+
+  const handleStartDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilters(prev => ({ ...prev, startDate: e.target.value }));
+  }, []);
+
+  const handleEndDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilters(prev => ({ ...prev, endDate: e.target.value }));
+  }, []);
+
+  // Empty state back to home handler
+  const handleBackToHome = useCallback(() => {
+    setSearchQuery('');
+    setFilters({ keyword: '', category: '', startDate: '', endDate: '' });
+    router.push('/');
+  }, [router]);
+
+  // Modal handlers - memoized
+  const handleClosePreview = useCallback(() => {
+    setPreviewOpen(false);
+  }, []);
+
+  const handleOpenImagePreview = useCallback((url: string) => {
+    setImagePreviewUrl(url);
+    setImagePreviewOpen(true);
+  }, []);
+
+  const handleCloseImagePreview = useCallback(() => {
+    setImagePreviewOpen(false);
+  }, []);
+
+  // Memoized results count text
+  const resultsCountText = useMemo(() => {
+    if (!searchQuery.trim() || searchResults.length === 0) return null;
+    const certText = searchResults.length === 1 ? t('hero.certificate') : t('hero.certificates');
+    return `${searchResults.length} ${certText} ${t('search.foundFor')} "${searchQuery}"`;
+  }, [searchResults.length, searchQuery, t]);
+
+  // Memoized loading skeleton items
+  const loadingSkeletons = useMemo(() => 
+    [...Array(6)].map((_, i) => (
+      <div
+        key={i}
+        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse flex flex-row h-[150px]"
+      >
+        <div className="w-[170px] flex-shrink-0 bg-gray-200 dark:bg-gray-700" />
+        <div className="flex-1 p-4 flex flex-col justify-center gap-1.5">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
+        </div>
+      </div>
+    )), []
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 w-full overflow-x-hidden">
+      {/* Header - Full Width */}
+      <ModernHeader />
+
+      {/* Main Content Area - Search bar is now part of the page content, not fixed header */}
+      <div className="w-full px-4 sm:px-6 pt-4 sm:pt-6 pb-4 sm:pb-5 relative z-[10]">
+        {/* Search Bar - Part of page content */}
+        <div className="mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Back Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push('/')}
+              className="flex-shrink-0 h-9 sm:h-10 w-9 sm:w-10 self-center"
+              aria-label="Go back to home"
+            >
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </Button>
+
+            {/* Search Bar - Matching home page design exactly */}
+            <div className="flex-1 max-w-[600px] relative">
+              <div className="flex items-center gap-2 sm:gap-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl sm:rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <Input
+                    type="text"
+                    placeholder={t('search.searchByName') || 'Search certificates...'}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="h-9 sm:h-10 pl-8 sm:pl-9 pr-8 sm:pr-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={handleClearSearch}
+                      className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      aria-label="Clear search"
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Results Grid */}
-          {!searching && searchResults.length > 0 && searchQuery.trim() && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
-              {searchResults.map((certificate) => (
-                <div
-                  key={certificate.id}
-                  onClick={() => {
-                    setPreviewCert(certificate);
-                    setPreviewOpen(true);
-                  }}
-                  className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 cursor-pointer flex flex-row h-[180px]"
-                >
-                  {/* Certificate Thumbnail - Left Side */}
-                  <div className="relative w-[170px] flex-shrink-0 bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
-                    {certificate.certificate_image_url ? (
-                      <Image
-                        src={certificate.certificate_image_url}
-                        alt={certificate.name}
-                        fill
-                        sizes="170px"
-                        className="object-contain group-hover:scale-105 transition-transform duration-200"
-                        loading="lazy"
-                        unoptimized
-                        onError={(e) => {
-                          // Hide broken image
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500">
-                        <div className="text-center">
-                          <div className="text-2xl mb-1">📄</div>
-                          <div className="text-xs">{t('hero.noPreviewImage') || 'No preview'}</div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Content Section - Right Side */}
-                  <div className="flex-1 p-4 flex flex-col justify-center gap-1.5">
-                    {/* Recipient Name - Primary */}
-                    <div>
-                      <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-tight">
-                        {certificate.name}
-                      </h3>
-                    </div>
-
-                    {/* Certificate Number - Secondary */}
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
-                        {certificate.certificate_no}
-                      </p>
-                    </div>
-
-                    {/* Status Badge */}
-                    {certificate.category && (
-                      <div>
-                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                          {certificate.category}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Metadata */}
-                    <div className="space-y-0.5 pt-1 border-t border-gray-200 dark:border-gray-700">
-                      {certificate.issue_date && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('hero.issued') || 'Issued'}: {formatReadableDate(certificate.issue_date, language)}
-                        </p>
-                      )}
-                      {certificate.members?.organization && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                          {certificate.members.organization}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!searching && searchResults.length === 0 && !searchError && initialQuery && (
-            <div className="text-center py-12 sm:py-16">
-              <div className="max-w-md mx-auto">
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  {t('error.search.noResults') || 'No certificates found'}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  {t('error.search.tryDifferent') || 'Try adjusting your search terms or filters'}
-                </p>
                 <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFilters({ keyword: '', category: '', startDate: '', endDate: '' });
-                    router.push('/');
-                  }}
+                  onClick={handleSearch}
+                  disabled={searching}
+                  className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                 >
-                  {t('nav.home') || 'Back to Home'}
+                  {searching ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span>{t('hero.searchButton')}</span>
+                  )}
+                </Button>
+              </div>
+              {/* Error Message - Right below input field, absolute positioned */}
+              {searchError && (
+                <p className="absolute top-full left-0 mt-1 text-xs sm:text-sm text-red-600 dark:text-red-400 px-1 whitespace-nowrap">{searchError}</p>
+              )}
+            </div>
+
+            {/* Filter Button - Matching home page styling */}
+            <Button
+              type="button"
+              variant={hasActiveFilters ? "default" : "outline"}
+              onClick={() => setShowFilters(!showFilters)}
+              className="h-9 sm:h-10 px-3 sm:px-4 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0 relative self-center"
+              aria-label="Toggle filters"
+            >
+              <Filter className="w-4 h-4" />
+              <span className="ml-2 hidden sm:inline text-sm">Filter</span>
+              {hasActiveFilters && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full" />
+              )}
+            </Button>
+          </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="mt-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-4 px-0">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Category Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('search.category') || 'Category'}
+                  </label>
+                  <select
+                    value={filters.category || ''}
+                    onChange={handleCategoryChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">{t('search.allCategories') || 'All Categories'}</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Start Date Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('search.startDate') || 'Start Date'}
+                  </label>
+                    <Input
+                      type="date"
+                      value={filters.startDate || ''}
+                      onChange={handleStartDateChange}
+                      className="w-full"
+                    />
+                </div>
+
+                {/* End Date Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('search.endDate') || 'End Date'}
+                  </label>
+                    <Input
+                      type="date"
+                      value={filters.endDate || ''}
+                      onChange={handleEndDateChange}
+                      className="w-full"
+                    />
+                </div>
+              </div>
+
+              {/* Apply Filters Button */}
+              <div className="flex justify-end gap-2 mt-4">
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    onClick={clearFilters}
+                    className="text-sm"
+                  >
+                    {t('search.clearFilters') || 'Clear Filters'}
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    handleSearch();
+                    setShowFilters(false);
+                  }}
+                  className="text-sm"
+                >
+                  {t('search.applyFilters') || 'Apply Filters'}
                 </Button>
               </div>
             </div>
           )}
+        </div>
 
-          {/* Initial State - No Search Yet - Minimal, no empty state shown */}
-          {/* Empty state removed for better UX - search bar is already visible */}
+        {/* Results Count */}
+        {resultsCountText && (
+          <div className="mb-1">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              {resultsCountText}
+            </p>
+          </div>
+        )}
 
-          {/* Certificate Preview Modal */}
-          {previewOpen && previewCert && (
-            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 sm:p-4" onClick={() => setPreviewOpen(false)}>
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        {/* Loading State - Memoized skeleton */}
+        {searching && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
+            {loadingSkeletons}
+          </div>
+        )}
+
+        {/* Results Grid */}
+        {!searching && searchResults.length > 0 && searchQuery.trim() && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
+            {searchResults.map((certificate) => (
+              <CertificateCard
+                key={certificate.id}
+                certificate={certificate}
+                onPreview={handlePreview}
+                language={language}
+                t={t}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!searching && searchResults.length === 0 && !searchError && initialQuery && (
+          <div className="text-center py-12 sm:py-16">
+            <div className="max-w-md mx-auto">
+              <div className="text-6xl mb-4">🔍</div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                {t('error.search.noResults') || 'No certificates found'}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                {t('error.search.tryDifferent') || 'Try adjusting your search terms or filters'}
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleBackToHome}
+              >
+                {t('nav.home') || 'Back to Home'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Initial State - No Search Yet - Minimal, no empty state shown */}
+        {/* Empty state removed for better UX - search bar is already visible */}
+
+        {/* Certificate Preview Modal */}
+        {previewOpen && previewCert && (
+          <>
+            {/* Backdrop - covers entire page including search bar */}
+            <div 
+              className="fixed inset-0 z-[50] bg-black/70 backdrop-blur-sm transition-opacity duration-200 ease-in-out" 
+              onClick={handleClosePreview}
+              aria-hidden="true"
+            />
+            {/* Modal Content */}
+            <div 
+              className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 pointer-events-none"
+              onClick={handleClosePreview}
+            >
+              <div 
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-auto pointer-events-auto" 
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b dark:border-gray-700">
                   <div>
-                    <div className="text-base sm:text-lg font-semibold dark:text-gray-100">{t('hero.certificatePreview')}</div>
+                    <div className="text-base sm:text-lg font-semibold dark:text-gray-100">{capitalize(t('hero.certificate'))}</div>
                   </div>
-                  <Button variant="outline" onClick={() => setPreviewOpen(false)} size="icon" aria-label="Close" className="h-8 w-8 sm:h-10 sm:w-10">
+                  <Button variant="outline" onClick={handleClosePreview} size="icon" aria-label="Close" className="h-8 w-8 sm:h-10 sm:w-10">
                     <XIcon className="w-4 h-4" />
                   </Button>
                 </div>
@@ -647,14 +1053,16 @@ function SearchResultsContent() {
                         role="button"
                         tabIndex={0}
                         onClick={() => {
-                          setImagePreviewUrl(previewCert.certificate_image_url!);
-                          setImagePreviewOpen(true);
+                          if (previewCert.certificate_image_url) {
+                            handleOpenImagePreview(previewCert.certificate_image_url);
+                          }
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            setImagePreviewUrl(previewCert.certificate_image_url!);
-                            setImagePreviewOpen(true);
+                            if (previewCert.certificate_image_url) {
+                              handleOpenImagePreview(previewCert.certificate_image_url);
+                            }
                           }
                         }}
                       >
@@ -683,36 +1091,74 @@ function SearchResultsContent() {
                     <div className="mt-4 space-y-1 text-xs sm:text-sm">
                       <div><span className="text-gray-500 dark:text-gray-400">{t('hero.category')}:</span> {previewCert.category || "—"}</div>
                       <div><span className="text-gray-500 dark:text-gray-400">{t('hero.template')}:</span> {(previewCert as unknown as { templates?: { name?: string } }).templates?.name || "—"}</div>
-                      <div><span className="text-gray-500 dark:text-gray-400">{t('hero.issued')}:</span> {formatReadableDate(previewCert.issue_date, language)}</div>
+                      <div><span className="text-gray-500 dark:text-gray-400">{t('hero.issued')}:</span> {formatDateShort(previewCert.issue_date)}</div>
                       {previewCert.expired_date && (
-                        <div><span className="text-gray-500 dark:text-gray-400">{t('hero.expires')}:</span> {formatReadableDate(previewCert.expired_date, language)}</div>
+                        <div><span className="text-gray-500 dark:text-gray-400">{t('hero.expires')}:</span> {formatDateShort(previewCert.expired_date)}</div>
                       )}
                     </div>
                     <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          const link = `/certificate/${previewCert.certificate_no}`;
-                          window.open(link, '_blank');
-                        }}
-                        className="border-gray-300"
-                      >
-                        <FileText className="w-4 h-4 mr-1" />
-                        {t('hero.viewDetails') || 'View Details'}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="border-gray-300"
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            {t('hero.export')}
+                            <ChevronDown className="w-4 h-4 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => exportToPDF(previewCert)}>
+                            <FileTextIcon className="w-4 h-4 mr-2" />
+                            {t('hero.exportAsPDF')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => exportToPNG(previewCert)}>
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                            {t('hero.downloadPNG')}
+                          </DropdownMenuItem>
+                          {previewCert.certificate_image_url && (
+                            <DropdownMenuItem onClick={() => openSendEmailModal(previewCert)}>
+                              <Mail className="w-4 h-4 mr-2" />
+                              {t('hero.sendViaEmail')}
+                            </DropdownMenuItem>
+                          )}
+                          {previewCert.public_id && (
+                            <DropdownMenuItem onClick={() => generateCertificateLink(previewCert)}>
+                              <LinkIcon className="w-4 h-4 mr-2" />
+                              {t('hero.generateLink')}
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+            </>
           )}
 
-          {/* Full Image Preview Modal */}
-          {imagePreviewOpen && (
-            <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={() => setImagePreviewOpen(false)}>
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Full Image Preview Modal */}
+        {imagePreviewOpen && (
+          <>
+            {/* Backdrop - covers entire page including search bar */}
+            <div 
+              className="fixed inset-0 z-[50] bg-black/70 backdrop-blur-sm transition-opacity duration-200" 
+              onClick={handleCloseImagePreview}
+              aria-hidden="true"
+            />
+            {/* Modal Content */}
+            <div 
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
+              onClick={handleCloseImagePreview}
+            >
+              <div 
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col pointer-events-auto" 
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700 flex-shrink-0">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">{t('hero.certificateImage')}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">{t('hero.certificate')}</div>
                   <Button variant="outline" onClick={() => setImagePreviewOpen(false)} size="icon" aria-label="Close">
                     <XIcon className="w-4 h-4" />
                   </Button>
@@ -727,7 +1173,138 @@ function SearchResultsContent() {
                 </div>
               </div>
             </div>
+            </>
           )}
+
+        {/* Send Email Modal */}
+        {sendModalOpen && (
+          <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4" onClick={() => setSendModalOpen(false)}>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+                <div>
+                  <div className="text-lg font-semibold dark:text-gray-100">{t('hero.sendEmailTitle')}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{t('hero.sendEmailSubtitle')}</div>
+                </div>
+                <Button variant="outline" onClick={() => setSendModalOpen(false)} size="icon" aria-label="Close">
+                  <XIcon className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="p-6 space-y-4">
+                {sendPreviewSrc && (
+                  <div className="mb-4">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">{t('hero.certificatePreviewLabel')}</div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={sendPreviewSrc} alt="Certificate Preview" className="w-full h-auto rounded-lg border max-h-48 object-contain" />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.recipientEmail')}</label>
+                  <Input
+                    type="email"
+                    value={sendForm.email}
+                    onChange={(e) => {
+                      setSendForm({ ...sendForm, email: e.target.value });
+                      if (sendFormErrors.email) setSendFormErrors((err) => ({ ...err, email: undefined }));
+                    }}
+                    placeholder=""
+                    className={`w-full ${sendFormErrors.email ? 'border-red-500' : ''}`}
+                    disabled={isSendingEmail}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !isSendingEmail) {
+                        e.preventDefault();
+                        confirmSendEmail();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setSendModalOpen(false);
+                      }
+                    }}
+                  />
+                  {sendFormErrors.email && (
+                    <p className="text-xs text-red-500 mt-1">{sendFormErrors.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.subject')}</label>
+                  <Input
+                    value={sendForm.subject}
+                    onChange={(e) => {
+                      setSendForm({ ...sendForm, subject: e.target.value });
+                      if (sendFormErrors.subject) setSendFormErrors((err) => ({ ...err, subject: undefined }));
+                    }}
+                    placeholder={t('hero.emailSubjectPlaceholder')}
+                    className={`w-full ${sendFormErrors.subject ? 'border-red-500' : ''}`}
+                    disabled={isSendingEmail}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !isSendingEmail) {
+                        e.preventDefault();
+                        confirmSendEmail();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setSendModalOpen(false);
+                      }
+                    }}
+                  />
+                  {sendFormErrors.subject && (
+                    <p className="text-xs text-red-500 mt-1">{sendFormErrors.subject}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.message')}</label>
+                  <textarea
+                    value={sendForm.message}
+                    onChange={(e) => {
+                      setSendForm({ ...sendForm, message: e.target.value });
+                      if (sendFormErrors.message) setSendFormErrors((err) => ({ ...err, message: undefined }));
+                    }}
+                    placeholder={t('hero.emailMessagePlaceholder')}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                    rows={4}
+                    disabled={isSendingEmail}
+                    onKeyDown={(e) => {
+                      // Allow Shift+Enter for new line
+                      if (e.key === 'Enter' && !e.shiftKey && !isSendingEmail) {
+                        e.preventDefault();
+                        confirmSendEmail();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setSendModalOpen(false);
+                      }
+                    }}
+                  />
+                  {sendFormErrors.message && (
+                    <p className="text-xs text-red-500 mt-1">{sendFormErrors.message}</p>
+                  )}
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSendModalOpen(false)}
+                    disabled={isSendingEmail}
+                  >
+                    {t('hero.cancel')}
+                  </Button>
+                   <Button 
+                     onClick={confirmSendEmail} 
+                     className="gradient-primary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-300"
+                     disabled={isSendingEmail}
+                   >
+                    {isSendingEmail ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {t('hero.sending')}
+                      </>
+                    ) : (
+                      t('hero.sendEmail')
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   Sheet,
@@ -63,6 +63,16 @@ import { generateCertificateNumber } from "@/lib/supabase/certificates";
 
 function CertificatesContent() {
   const { t, language } = useLanguage();
+  // Format: 2 Nov 2025
+  const formatDateShort = useCallback((input?: string | null) => {
+    if (!input) return "—";
+    const d = new Date(input);
+    if (isNaN(d.getTime())) return "—";
+    const day = d.getDate();
+    const month = d.toLocaleString(language === 'id' ? 'id-ID' : 'en-US', { month: 'short' });
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  }, [language]);
   const params = useSearchParams();
   const certQuery = (params?.get("cert") || "").toLowerCase();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
@@ -1622,15 +1632,11 @@ function CertificatesContent() {
                             <TableCell className="text-gray-700 dark:text-gray-300">{certificate.name}</TableCell>
                             <TableCell className="text-gray-700 dark:text-gray-300">{certificate.category || "—"}</TableCell>
                             <TableCell className="text-gray-700 dark:text-gray-300">
-                              {new Date(
-                                certificate.issue_date,
-                              ).toLocaleDateString()}
+                              {formatDateShort(certificate.issue_date)}
                             </TableCell>
                             <TableCell className="text-gray-700 dark:text-gray-300">
                               {certificate.expired_date
-                                ? new Date(
-                                    certificate.expired_date,
-                                  ).toLocaleDateString()
+                                ? formatDateShort(certificate.expired_date)
                                 : "—"}
                             </TableCell>
                             <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -2202,23 +2208,19 @@ function CertificatesContent() {
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       <div className="space-y-1 sm:space-y-2">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                          Issue Date
+                          {t('hero.issued')}
                         </label>
                         <div className="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-300">
-                          {new Date(
-                            previewCertificate.issue_date,
-                          ).toLocaleDateString()}
+                          {formatDateShort(previewCertificate.issue_date)}
                         </div>
                       </div>
                       {previewCertificate.expired_date && (
                         <div className="space-y-1 sm:space-y-2">
                           <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                            Expiry Date
+                            {t('hero.expires')}
                           </label>
                           <div className="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-300">
-                            {new Date(
-                              previewCertificate.expired_date,
-                            ).toLocaleDateString()}
+                            {formatDateShort(previewCertificate.expired_date)}
                           </div>
                         </div>
                       )}
@@ -2228,7 +2230,7 @@ function CertificatesContent() {
                   {/* Certificate / Score Preview */}
                   <div className="space-y-2 sm:space-y-4">
                     <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                      Certificate Preview
+                      {t('hero.certificate')}
                     </label>
                     {/* Toggle for dual templates - only show if score image exists */}
                     {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url && (
@@ -2321,7 +2323,7 @@ function CertificatesContent() {
                                   decoding="async"
                                 />
                                 <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage') || 'Click to view full size'}
+                                  {t('hero.viewFullImage')}
                                 </div>
                               </div>
                             );
@@ -2356,7 +2358,7 @@ function CertificatesContent() {
                                   unoptimized
                                 />
                                 <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage') || 'Click to view full size'}
+                                  {t('hero.viewFullImage')}
                                 </div>
                               </div>
                             ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
@@ -2388,7 +2390,7 @@ function CertificatesContent() {
                                   unoptimized
                                 />
                                 <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage') || 'Click to view full size'}
+                                  {t('hero.viewFullImage')}
                                 </div>
                               </div>
                             ) : (
@@ -2798,7 +2800,7 @@ function CertificatesContent() {
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                {previewMode === 'score' ? 'Score Preview' : 'Certificate Preview'} - {previewCertificate?.certificate_no || ''}
+                {previewMode === 'score' ? 'Score' : t('hero.certificate')} - {previewCertificate?.certificate_no || ''}
               </div>
               <Button 
                 variant="outline" 
