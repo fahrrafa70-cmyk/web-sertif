@@ -30,7 +30,7 @@ interface TextLayer extends TextLayerConfig {
   isEditing?: boolean;
   isDragging?: boolean;
 }
-
+//konzzzz
 function ConfigureLayoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
