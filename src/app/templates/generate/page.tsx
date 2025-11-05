@@ -2175,127 +2175,84 @@ function CertificateGeneratorContent() {
 
   // Function to save generated Score PNG to storage
   const saveGeneratedScorePNG = async (imageDataUrl: string, certificateNo?: string): Promise<string> => {
-    try {
-      const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
-      const fileName = `${baseName}_score.png`;
-      
-      // Try Supabase Storage first
-      try {
-        console.log('📤 Attempting to upload score to Supabase Storage...');
-        const storageResponse = await fetch('/api/upload-to-storage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            imageData: imageDataUrl,
-            fileName: fileName,
-            bucketName: 'certificates',
-          }),
-        });
+    const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
+    const fileName = `${baseName}_score.png`;
+    
+    console.log('📤 Uploading score PNG to Supabase Storage...', { fileName });
+    
+    // Upload to Supabase Storage (no fallback - must succeed)
+    const storageResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        imageData: imageDataUrl,
+        fileName: fileName,
+        bucketName: 'certificates',
+      }),
+    });
 
-        if (storageResponse.ok) {
-          const storageResult = await storageResponse.json();
-          if (storageResult.success) {
-            console.log('✅ Successfully uploaded score to Supabase Storage:', storageResult.url);
-            return storageResult.url;
-          }
-        }
-
-        // If storage fails, try local storage as fallback
-        console.warn('⚠️ Supabase Storage upload failed for score, trying local storage...');
-      } catch (storageError) {
-        console.warn('⚠️ Supabase Storage error for score, falling back to local storage:', storageError);
-      }
-
-      // Fallback to local storage
-      const response = await fetch('/api/save-generated-score', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageData: imageDataUrl,
-          fileName: fileName,
-        }),
+    if (!storageResponse.ok) {
+      const errorText = await storageResponse.text();
+      console.error('❌ Supabase Storage upload failed:', {
+        status: storageResponse.status,
+        statusText: storageResponse.statusText,
+        error: errorText
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to save generated score');
-      }
-
-      const result = await response.json();
-      console.log('✅ Successfully saved score to local storage:', result.url);
-      return result.url;
-    } catch (error) {
-      console.error('Error saving generated Score PNG:', error);
-      throw error;
+      throw new Error(`Failed to upload score to Supabase Storage: ${storageResponse.statusText} - ${errorText}`);
     }
+
+    const storageResult = await storageResponse.json();
+    
+    if (!storageResult.success) {
+      console.error('❌ Supabase Storage returned error:', storageResult.error);
+      throw new Error(`Supabase Storage error: ${storageResult.error}`);
+    }
+
+    console.log('✅ Successfully uploaded score to Supabase Storage:', storageResult.url);
+    return storageResult.url;
   };
 
-  // Function to save generated PNG to local storage
+  // Function to save generated PNG to Supabase Storage
   const saveGeneratedPNG = async (imageDataUrl: string, certificateNo?: string, suffix?: string): Promise<string> => {
-    try {
-      // Use certificate number if provided, otherwise fallback to timestamp
-      const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
-      const fileName = suffix ? `${baseName}_${suffix}.png` : `${baseName}.png`;
-      
-      // Try Supabase Storage first
-      try {
-        console.log('📤 Attempting to upload to Supabase Storage...');
-        const storageResponse = await fetch('/api/upload-to-storage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            imageData: imageDataUrl,
-            fileName: fileName,
-            bucketName: 'certificates',
-          }),
-        });
+    const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
+    const fileName = suffix ? `${baseName}_${suffix}.png` : `${baseName}.png`;
+    
+    console.log('📤 Uploading certificate PNG to Supabase Storage...', { fileName });
+    
+    // Upload to Supabase Storage (no fallback - must succeed)
+    const storageResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        imageData: imageDataUrl,
+        fileName: fileName,
+        bucketName: 'certificates',
+      }),
+    });
 
-        if (storageResponse.ok) {
-          const storageResult = await storageResponse.json();
-          if (storageResult.success) {
-            console.log('✅ Successfully uploaded to Supabase Storage:', storageResult.url);
-            return storageResult.url;
-          }
-        }
-
-        // If storage fails, try local storage as fallback
-        console.warn('⚠️ Supabase Storage upload failed, trying local storage...');
-        const errorData = await storageResponse.json().catch(() => null);
-        if (errorData?.error?.includes('not found')) {
-          console.error('❌ Storage bucket not found. Please create "certificates" bucket in Supabase Dashboard.');
-        }
-      } catch (storageError) {
-        console.warn('⚠️ Supabase Storage error, falling back to local storage:', storageError);
-      }
-
-      // Fallback to local storage
-      const response = await fetch('/api/save-generated-certificate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageData: imageDataUrl,
-          fileName: fileName,
-        }),
+    if (!storageResponse.ok) {
+      const errorText = await storageResponse.text();
+      console.error('❌ Supabase Storage upload failed:', {
+        status: storageResponse.status,
+        statusText: storageResponse.statusText,
+        error: errorText
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to save generated certificate');
-      }
-
-      const result = await response.json();
-      console.log('✅ Successfully saved to local storage:', result.url);
-      return result.url;
-    } catch (error) {
-      console.error('Error saving generated PNG:', error);
-      throw error;
+      throw new Error(`Failed to upload certificate to Supabase Storage: ${storageResponse.statusText} - ${errorText}`);
     }
+
+    const storageResult = await storageResponse.json();
+    
+    if (!storageResult.success) {
+      console.error('❌ Supabase Storage returned error:', storageResult.error);
+      throw new Error(`Supabase Storage error: ${storageResult.error}`);
+    }
+
+    console.log('✅ Successfully uploaded certificate to Supabase Storage:', storageResult.url);
+    return storageResult.url;
   };
 
   // PERBAIKAN SISTEM RENDER: Capture dengan dimensi visual yang sama persis
@@ -2935,15 +2892,9 @@ function CertificateGeneratorContent() {
           console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
           
           // CRITICAL FIX: Save Score PNG to storage like certificate
-          let finalScoreImageUrl: string = scoreImageDataUrl;
-          try {
-            console.log("💾 Saving Score PNG to storage...");
-            const localScoreImageUrl = await saveGeneratedScorePNG(scoreImageDataUrl, finalCertificateNo);
-            console.log("✅ Score PNG saved:", localScoreImageUrl);
-            finalScoreImageUrl = localScoreImageUrl;
-          } catch (e) {
-            console.warn("⚠️ Save Score PNG to local failed, keeping dataURL.", e);
-          }
+          console.log("💾 Saving Score PNG to storage...");
+          const finalScoreImageUrl = await saveGeneratedScorePNG(scoreImageDataUrl, finalCertificateNo);
+          console.log("✅ Score PNG saved:", finalScoreImageUrl);
           
           // CRITICAL FIX: Save Score text layout as persistent defaults after generation
           console.log("💾 Saving Score text layout as persistent defaults...");
@@ -2983,17 +2934,13 @@ function CertificateGeneratorContent() {
           setCertificateImageUrl(certificateImageDataUrl);
           setScoreImageUrl(scoreImageDataUrl);
           
-          // Save both images to local storage separately
-          try {
-            console.log("💾 Saving certificate PNG to local storage...");
-            const certificateLocalUrl = await saveGeneratedPNG(certificateImageDataUrl, finalCertificateNo, 'certificate');
-            console.log("✅ Certificate PNG saved locally:", certificateLocalUrl);
-            setCertificateImageUrl(certificateLocalUrl);
-          } catch (e) {
-            console.warn("⚠️ Save certificate PNG to local failed, keeping dataURL.", e);
-          }
+          // Save certificate PNG to Supabase Storage
+          console.log("💾 Saving certificate PNG to storage...");
+          const finalCertificateImageUrl = await saveGeneratedPNG(certificateImageDataUrl, finalCertificateNo);
+          console.log("✅ Certificate PNG saved:", finalCertificateImageUrl);
           
-          // Use the finalScoreImageUrl that was already saved above
+          // Update preview with storage URLs
+          setCertificateImageUrl(finalCertificateImageUrl);
           setScoreImageUrl(finalScoreImageUrl);
 
           // Save both certificate and score images in the same certificate record
@@ -3011,9 +2958,9 @@ function CertificateGeneratorContent() {
             template_id: selectedTemplate?.id || undefined,
             member_id: selectedMemberId || undefined,
             text_layers: certificateTextLayers, // FIX: Use certificateTextLayers explicitly instead of textLayers
-            merged_image: certificateImageDataUrl, // Certificate image only
-            certificate_image_url: certificateImageDataUrl,
-            score_image_url: finalScoreImageUrl, // NEW: Store score image PNG URL in same record
+            merged_image: finalCertificateImageUrl, // Certificate image from Supabase Storage
+            certificate_image_url: finalCertificateImageUrl, // Supabase Storage URL
+            score_image_url: finalScoreImageUrl, // Supabase Storage URL
           };
 
           const savedCertificate = await createCertificate(certificateDataToSave);
@@ -3108,7 +3055,15 @@ function CertificateGeneratorContent() {
           }
         }
 
-        // For single-mode templates, save certificate to database
+        // CRITICAL FIX: Upload to Supabase Storage FIRST before saving to database
+        console.log("💾 Uploading certificate PNG to Supabase Storage...");
+        const finalCertificateImageUrl = await saveGeneratedPNG(mergedImageDataUrl, finalCertificateNo);
+        console.log("✅ Certificate PNG uploaded:", finalCertificateImageUrl);
+        
+        // Update preview with storage URL
+        setGeneratedImageUrl(finalCertificateImageUrl);
+
+        // For single-mode templates, save certificate to database with storage URL
         const certificateDataToSave: CreateCertificateData = {
           certificate_no: finalCertificateNo,
           name: certificateData.name.trim(),
@@ -3119,28 +3074,13 @@ function CertificateGeneratorContent() {
           template_id: selectedTemplate?.id || undefined,
           member_id: selectedMemberId || undefined,
           text_layers: textLayers,
-          merged_image: mergedImageDataUrl, // Data URL for database
-          certificate_image_url: mergedImageDataUrl, // Use dataURL initially
+          merged_image: finalCertificateImageUrl, // Supabase Storage URL
+          certificate_image_url: finalCertificateImageUrl, // Supabase Storage URL
         };
 
-        // Save certificate to database FIRST (will throw error if duplicate)
+        // Save certificate to database (will throw error if duplicate)
         const savedCertificate = await createCertificate(certificateDataToSave);
-
         console.log("✅ Certificate saved to database successfully:", savedCertificate);
-
-        // Only save PNG to local storage AFTER database save succeeds
-        let finalPreviewUrl: string = mergedImageDataUrl;
-        try {
-          console.log("💾 Saving PNG to local storage...");
-          const localImageUrl = await saveGeneratedPNG(mergedImageDataUrl, finalCertificateNo);
-          console.log("✅ PNG saved locally:", localImageUrl);
-          finalPreviewUrl = localImageUrl;
-          
-          // Update preview with saved URL
-          setGeneratedImageUrl(finalPreviewUrl);
-        } catch (e) {
-          console.warn("⚠️ Save PNG to local failed, keeping dataURL.", e);
-        }
       }
 
       toast.success("Certificate generated and saved successfully!");
@@ -4972,29 +4912,23 @@ function CertificateGeneratorContent() {
                         setActiveTemplateMode(originalMode);
                         await new Promise(resolve => setTimeout(resolve, 100));
 
-                        // Set generated image URLs for preview - NO COMBINED IMAGE
+                        // Set generated image URLs for preview (dataURL)
                         console.log("🖼️ Setting separate certificate and score images for preview...");
                         setCertificateImageUrl(certificateImageDataUrl);
                         setScoreImageUrl(scoreImageDataUrl);
                         
-                        // Save both images to local storage separately
-                        try {
-                          console.log("💾 Saving certificate PNG to local storage...");
-                          const certificateLocalUrl = await saveGeneratedPNG(certificateImageDataUrl, finalCertificateNo, 'certificate');
-                          console.log("✅ Certificate PNG saved locally:", certificateLocalUrl);
-                          setCertificateImageUrl(certificateLocalUrl);
-                        } catch (e) {
-                          console.warn("⚠️ Save certificate PNG to local failed, keeping dataURL.", e);
-                        }
+                        // CRITICAL FIX: Upload to Supabase Storage FIRST before saving to database
+                        console.log("💾 Uploading score PNG to Supabase Storage...");
+                        const finalScoreImageUrl = await saveGeneratedScorePNG(scoreImageDataUrl, finalCertificateNo);
+                        console.log("✅ Score PNG uploaded:", finalScoreImageUrl);
                         
-                        try {
-                          console.log("💾 Saving score PNG to local storage...");
-                          const scoreLocalUrl = await saveGeneratedPNG(scoreImageDataUrl, finalCertificateNo, 'score');
-                          console.log("✅ Score PNG saved locally:", scoreLocalUrl);
-                          setScoreImageUrl(scoreLocalUrl);
-                        } catch (e) {
-                          console.warn("⚠️ Save score PNG to local failed, keeping dataURL.", e);
-                        }
+                        console.log("💾 Uploading certificate PNG to Supabase Storage...");
+                        const finalCertificateImageUrl = await saveGeneratedPNG(certificateImageDataUrl, finalCertificateNo);
+                        console.log("✅ Certificate PNG uploaded:", finalCertificateImageUrl);
+                        
+                        // Update preview with storage URLs
+                        setCertificateImageUrl(finalCertificateImageUrl);
+                        setScoreImageUrl(finalScoreImageUrl);
 
           // Save both certificate and score images in the same certificate record
           console.log("💾 Saving certificate with both images to database...");
@@ -5011,9 +4945,9 @@ function CertificateGeneratorContent() {
             template_id: selectedTemplate?.id || undefined,
             member_id: selectedMemberId || undefined,
             text_layers: certificateTextLayers, // Use certificateTextLayers explicitly
-            merged_image: certificateImageDataUrl,
-            certificate_image_url: certificateImageDataUrl,
-            score_image_url: scoreImageDataUrl, // NEW: Store score image in same record
+            merged_image: finalCertificateImageUrl, // Supabase Storage URL
+            certificate_image_url: finalCertificateImageUrl, // Supabase Storage URL
+            score_image_url: finalScoreImageUrl, // Supabase Storage URL
           };
 
           const savedCertificate = await createCertificate(certificateDataToSave);

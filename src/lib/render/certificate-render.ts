@@ -5,6 +5,7 @@
  */
 
 import { STANDARD_CANVAS_WIDTH } from "@/lib/constants/canvas";
+import { RichText } from "@/types/rich-text";
 
 export interface RenderTextLayer {
   id: string;
@@ -20,6 +21,8 @@ export interface RenderTextLayer {
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   maxWidth?: number;
   lineHeight?: number;
+  richText?: RichText; // Rich text with inline formatting
+  hasInlineFormatting?: boolean; // Whether layer uses rich text
 }
 
 export interface RenderCertificateParams {
@@ -57,12 +60,40 @@ export async function renderCertificateToDataURL(
   // If fonts are not fully loaded, measureText may return INVALID metrics (NEGATIVE values!)
   // This causes catastrophic calculation errors in visual center positioning
   console.log('⏳ Waiting for fonts to load...');
+  
+  // CRITICAL FIX: Explicitly load all fonts used in text layers
+  // This prevents negative TextMetrics (actualBoundingBoxAscent < 0) which causes text shifting
+  const uniqueFonts = new Set<string>();
+  textLayers.forEach(layer => {
+    const fontFamily = layer.fontFamily || 'Arial';
+    const fontWeight = layer.fontWeight || 'normal';
+    const fontSize = layer.fontSize || 16;
+    uniqueFonts.add(`${fontWeight} ${fontSize}px ${fontFamily}`);
+  });
+  
+  console.log('🔤 Loading fonts explicitly:', Array.from(uniqueFonts));
+  
+  // Load each unique font
+  for (const fontSpec of uniqueFonts) {
+    try {
+      // Check if font is already loaded
+      if (!document.fonts.check(fontSpec)) {
+        console.log(`⏳ Loading font: ${fontSpec}`);
+        await document.fonts.load(fontSpec);
+        console.log(`✅ Font loaded: ${fontSpec}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to load font: ${fontSpec}`, error);
+    }
+  }
+  
+  // Wait for all fonts to be ready
   await document.fonts.ready;
   
   // CRITICAL FIX: Additional delay to ensure fonts are fully rendered in Canvas context
   // Some browsers need extra time after fonts.ready for TextMetrics to return valid values
   // Without this delay, actualBoundingBoxAscent can be negative, causing all calculations to fail
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 200));
   
   console.log('✅ All fonts loaded and ready for accurate TextMetrics');
 
@@ -90,7 +121,7 @@ export async function renderCertificateToDataURL(
   ctx.drawImage(img, 0, 0, width, height);
 
   // Draw text layers
-  console.log(`📋 TOTAL TEXT LAYERS TO RENDER: ${textLayers.length}`, 
+  console.log(`TOTAL TEXT LAYERS TO RENDER: ${textLayers.length}`, 
     textLayers.map(l => ({ id: l.id, hasText: !!l.text, textLength: l.text?.length || 0, textPreview: l.text?.substring(0, 20) }))
   );
   
@@ -114,21 +145,27 @@ export async function renderCertificateToDataURL(
       continue; // Skip empty text
     }
 
-    // Calculate position based on percentage (stored relative to standard canvas size)
-    const x = Math.round((layer.xPercent || 0) * width);
-    const y = Math.round((layer.yPercent || 0) * height);
+    // Calculate position - CRITICAL: Prioritize absolute x/y coordinates
+    // Some layers (especially score layers) may only have absolute coordinates
+    // If both exist, prefer absolute for accuracy
+    const scaleFactor = width / STANDARD_CANVAS_WIDTH;
+    const x = layer.x !== undefined && layer.x !== null 
+      ? Math.round(layer.x * scaleFactor) 
+      : Math.round((layer.xPercent || 0) * width);
+    const y = layer.y !== undefined && layer.y !== null 
+      ? Math.round(layer.y * scaleFactor) 
+      : Math.round((layer.yPercent || 0) * height);
     
     // CRITICAL: Scale maxWidth based on canvas size
-    const scaleFactor = width / STANDARD_CANVAS_WIDTH;
     const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
     
-    // CRITICAL: Adjust x coordinate based on alignment to match preview behavior
-    // In preview, we use CSS transform to position the anchor point
-    // Here we need to adjust x coordinate manually
-    // certificate_no and issue_date always use left alignment (no textAlign property)
-    const align = (layer.id === 'certificate_no' || layer.id === 'issue_date') 
-      ? 'left' 
-      : (layer.textAlign || 'left');
+    // CRITICAL: certificate_no and issue_date always use left alignment
+    const isCertificateLayer = layer.id === 'certificate_no' || layer.id === 'issue_date';
+    
+    // Use alignment from layer settings, default to center
+    const align = isCertificateLayer 
+      ? 'left'  // certificate_no/issue_date always left
+      : (layer.textAlign || 'center'); // Other layers (including score): use setting or default center
     
     // Set font - CRITICAL: Scale fontSize based on canvas size!
     const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
@@ -176,17 +213,33 @@ export async function renderCertificateToDataURL(
       console.log(`🔍 VERIFY: Calling drawWrappedText with layerId: "${layer.id}"`);
     }
     
-    drawWrappedText(
-      ctx, 
-      layer.text, 
-      x, 
-      y, 
-      scaledMaxWidth, 
-      scaledFontSize, 
-      layer.lineHeight || 1.2,
-      align,
-      layer.id // Pass layer ID for debugging
-    );
+    // Check if layer has rich text formatting
+    if (layer.richText && layer.hasInlineFormatting) {
+      // Render with rich text (inline formatting)
+      drawRichText(
+        ctx,
+        layer.richText,
+        x,
+        y,
+        scaledMaxWidth,
+        scaledFontSize,
+        layer.lineHeight || 1.2,
+        align
+      );
+    } else {
+      // Regular text rendering
+      drawWrappedText(
+        ctx, 
+        layer.text, 
+        x, 
+        y, 
+        scaledMaxWidth, 
+        scaledFontSize, 
+        layer.lineHeight || 1.2,
+        align,
+        layer.id // Pass layer ID for debugging
+      );
+    }
   }
 
   // Convert to PNG DataURL
@@ -230,8 +283,7 @@ function drawWrappedText(
   const lines: string[] = [];
   let currentLine = '';
 
-  // Set canvas text alignment BEFORE measuring to get accurate widths
-  const align = textAlign === 'center' ? 'center' : (textAlign === 'right' ? 'right' : 'left');
+  // Set canvas text baseline and temporarily set to left for measuring
   ctx.textAlign = 'left'; // Always measure with left alignment for consistent width calculation
   ctx.textBaseline = 'top';
 
@@ -374,17 +426,15 @@ function drawWrappedText(
                           isFinite(firstLineMetrics.actualBoundingBoxDescent);
   
   if (!hasValidMetrics && layerId) {
-    console.error(`🚨 [${layerId}] CRITICAL: TextMetrics are invalid!`, {
+    // Changed from console.error to console.debug to reduce noise
+    // Fallback metrics work correctly, so this is not a critical error
+    console.debug(`📊 [${layerId}] Using fallback metrics (TextMetrics invalid):`, {
       actualBoundingBoxAscent: firstLineMetrics.actualBoundingBoxAscent,
       actualBoundingBoxDescent: firstLineMetrics.actualBoundingBoxDescent,
       width: firstLineMetrics.width,
       fontSize,
       fontFamily: ctx.font,
-      emHeightAscent: firstLineMetrics.emHeightAscent,
-      emHeightDescent: firstLineMetrics.emHeightDescent,
-      fontBoundingBoxAscent: firstLineMetrics.fontBoundingBoxAscent,
-      fontBoundingBoxDescent: firstLineMetrics.fontBoundingBoxDescent,
-      message: 'Using fallback metrics. Font may not be loaded correctly.'
+      message: 'Font not fully loaded, using reliable fallback (80/20 split)'
     });
   }
   
@@ -410,12 +460,11 @@ function drawWrappedText(
     actualDescent = fontSize * 0.20;
     actualTextHeight = actualAscent + actualDescent;
     
-    console.warn(`⚠️ [${layerId || 'unknown'}] Using fallback metrics (TextMetrics invalid):`, {
+    // Changed from console.warn to console.debug to reduce noise
+    console.debug(`📊 [${layerId || 'unknown'}] Fallback metrics applied:`, {
       fontSize,
       fallbackAscent: actualAscent,
       fallbackDescent: actualDescent,
-      originalAscent: firstLineMetrics.actualBoundingBoxAscent,
-      originalDescent: firstLineMetrics.actualBoundingBoxDescent,
       fontFamily: ctx.font
     });
   }
@@ -602,8 +651,43 @@ function drawWrappedText(
       startY = y - visualCenterOfBlock;
     }
   } else {
-    // For other layers (like name): Use simple geometric center (proven to work)
+    // For all other layers (name, score layers): Use simple geometric center
     startY = y - (totalTextHeight / 2);
+  }
+  
+  // CRITICAL FIX: Calculate x position for each line based on textAlign
+  // 
+  // COORDINATE SYSTEM MISMATCH:
+  // CSS Preview: left: x, transform: translate(TX%, -50%)
+  //   - left:   TX = 0%    → x is LEFT edge (no shift)
+  //   - center: TX = -50%  → x shifts left by 50% of element width → Visual center at x
+  //   - right:  TX = -100% → x shifts left by 100% of element width → Visual right edge at x
+  // 
+  // Canvas Rendering: ctx.textAlign = align; ctx.fillText(text, x, y)
+  //   - left:   x is LEFT edge ✅ MATCHES CSS
+  //   - center: x is CENTER point ✅ MATCHES CSS (after transform)
+  //   - right:  x is RIGHT edge ✅ MATCHES CSS (after transform)
+  // 
+  // CONCLUSION: Stored x coordinate already represents the VISUAL position (post-transform)
+  // which matches Canvas textAlign expectations. No adjustment needed!
+  // Note: Canvas doesn't support 'justify', map it to 'left'
+  ctx.textAlign = textAlign === 'justify' ? 'left' : textAlign;
+  
+  let drawX = x;
+  
+  // CRITICAL: X position adjustment for alignment conversion
+  if (layerId === 'issue_date') {
+    // Move more to the right to avoid collision with "Malang" text
+    const xAdjustment = 11; // User requested: 11px to move right
+    drawX = x + xAdjustment;
+  } else if (layerId === 'certificate_no') {
+    // Move more to the right to avoid collision with "NOMOR" text
+    const xAdjustment = 8; // User requested: 8px to move right
+    drawX = x + xAdjustment;
+  } else {
+    // For all other layers, use stored x coordinate directly
+    // CSS transform already accounts for alignment, and Canvas textAlign matches this
+    drawX = x;
   }
   
   // COMPREHENSIVE DEBUG LOGGING: Compare working vs broken layers
@@ -720,37 +804,6 @@ function drawWrappedText(
     });
   }
 
-  // CRITICAL FIX: Calculate x position for each line based on textAlign
-  // The stored x coordinate represents the anchor point of the container (matching CSS behavior)
-  // We need to adjust x for each line based on textAlign within the effectiveWidth container
-  ctx.textAlign = align;
-  
-  let drawX = x;
-  
-  // CRITICAL: Fine-tuning X position for specific layers
-  // User reports both certificate_no and issue_date too left (needs to move right more)
-  if (layerId === 'issue_date') {
-    // Move more to the right to avoid collision with "Malang" text
-    const xAdjustment = 11; // User requested: 11px to move right
-    drawX = x + xAdjustment;
-  } else if (layerId === 'certificate_no') {
-    // Move more to the right to avoid collision with "NOMOR" text
-    const xAdjustment = 8; // User requested: 8px to move right
-    drawX = x + xAdjustment;
-  } else if (textAlign === 'center') {
-    // x is the center of the container
-    // For center alignment, canvas will center each line at x, which is correct
-    drawX = x;
-  } else if (textAlign === 'right') {
-    // x is the right edge of the container
-    // For right alignment, canvas will align each line's right edge at x, which is correct
-    drawX = x;
-  } else {
-    // x is the left edge of the container
-    // For left alignment, canvas will align each line's left edge at x, which is correct
-    drawX = x;
-  }
-
   // CRITICAL: For "name" layer with long text, adjust x to shift left if text exceeds maxWidth
   // This prevents wrapping and keeps text in single line, shifting the text box to the left
   let adjustedDrawX = drawX;
@@ -797,6 +850,128 @@ function drawWrappedText(
       });
     }
   });
+}
+
+/**
+ * Draw rich text with inline formatting
+ * Supports different font weights and families within the same text layer
+ */
+function drawRichText(
+  ctx: CanvasRenderingContext2D,
+  richText: RichText,
+  x: number,
+  y: number,
+  maxWidth: number,
+  baseFontSize: number,
+  lineHeight: number,
+  textAlign: 'left' | 'center' | 'right' | 'justify'
+) {
+  const lineHeightPx = baseFontSize * lineHeight;
+  
+  // Convert rich text to plain text for wrapping calculation
+  const plainText = richText.map(span => span.text).join('');
+  
+  // Calculate wrapping using base font
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  
+  // Split into words for wrapping
+  const words = plainText.split(' ');
+  const lines: Array<{ text: string; spans: RichText }> = [];
+  let currentLine = '';
+  let currentOffset = 0;
+  
+  // Build lines with their corresponding spans
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const metrics = ctx.measureText(testLine);
+    
+    if (metrics.width > maxWidth && currentLine) {
+      // Line is full, push it
+      const lineLength = currentLine.length;
+      const spansForLine = extractSpansForRange(richText, currentOffset, currentOffset + lineLength);
+      lines.push({ text: currentLine, spans: spansForLine });
+      currentOffset += lineLength + 1; // +1 for space
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  
+  if (currentLine) {
+    const spansForLine = extractSpansForRange(richText, currentOffset, currentOffset + currentLine.length);
+    lines.push({ text: currentLine, spans: spansForLine });
+  }
+  
+  // Calculate vertical centering (same as drawWrappedText)
+  const totalTextHeight = lines.length * lineHeightPx;
+  const startY = y - (totalTextHeight / 2);
+  
+  // Draw each line with its spans
+  lines.forEach((line, lineIndex) => {
+    const lineY = startY + (lineIndex * lineHeightPx);
+    let currentX = x;
+    
+    // Calculate line width for alignment
+    let lineWidth = 0;
+    line.spans.forEach(span => {
+      const spanFont = `${span.fontWeight || 'normal'} ${span.fontSize || baseFontSize}px ${span.fontFamily || 'Arial'}`;
+      ctx.font = spanFont;
+      lineWidth += ctx.measureText(span.text).width;
+    });
+    
+    // Adjust starting X based on alignment
+    if (textAlign === 'center') {
+      currentX = x - (lineWidth / 2);
+    } else if (textAlign === 'right') {
+      currentX = x - lineWidth;
+    }
+    
+    // Draw each span
+    line.spans.forEach(span => {
+      const spanFontWeight = span.fontWeight || 'normal';
+      const spanFontSize = span.fontSize || baseFontSize;
+      const spanFontFamily = span.fontFamily || 'Arial';
+      const spanColor = span.color || ctx.fillStyle;
+      
+      ctx.font = `${spanFontWeight} ${spanFontSize}px ${spanFontFamily}`;
+      ctx.fillStyle = spanColor;
+      ctx.fillText(span.text, currentX, lineY);
+      
+      // Move X position for next span
+      currentX += ctx.measureText(span.text).width;
+    });
+  });
+}
+
+/**
+ * Extract spans for a specific text range
+ */
+function extractSpansForRange(richText: RichText, start: number, end: number): RichText {
+  const result: RichText = [];
+  let currentOffset = 0;
+  
+  for (const span of richText) {
+    const spanStart = currentOffset;
+    const spanEnd = currentOffset + span.text.length;
+    
+    if (spanEnd <= start || spanStart >= end) {
+      currentOffset = spanEnd;
+      continue;
+    }
+    
+    const overlapStart = Math.max(spanStart, start);
+    const overlapEnd = Math.min(spanEnd, end);
+    
+    result.push({
+      ...span,
+      text: span.text.slice(overlapStart - spanStart, overlapEnd - spanStart)
+    });
+    
+    currentOffset = spanEnd;
+  }
+  
+  return result;
 }
 
 /**

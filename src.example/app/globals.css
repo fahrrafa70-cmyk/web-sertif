@@ -1,0 +1,761 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-poppins), var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.15 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0 0);
+  --primary: oklch(0.55 0.15 264.376);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.25 0 0);
+  --muted: oklch(0.95 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --accent: oklch(0.92 0 0);
+  --accent-foreground: oklch(0.25 0 0);
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.95 0 0);
+  --ring: oklch(0.55 0.15 264.376);
+  --chart-1: oklch(0.65 0.15 264.376);
+  --chart-2: oklch(0.6 0.12 184.704);
+  --chart-3: oklch(0.7 0.1 120);
+  --chart-4: oklch(0.8 0.12 60);
+  --chart-5: oklch(0.75 0.15 300);
+  --sidebar: oklch(0.98 0 0);
+  --sidebar-foreground: oklch(0.25 0 0);
+  --sidebar-primary: oklch(0.55 0.15 264.376);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent-foreground: oklch(0.25 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: oklch(0.55 0.15 264.376);
+}
+
+.dark {
+  --background: oklch(0.18 0 0); /* Hitam agak ke abu-abu (tidak terlalu hitam) */
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.22 0 0); /* Sedikit lebih terang dari background */
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.22 0 0);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.6 0.15 264.376); /* Tetap biru gradient */
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.25 0 0);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.25 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.25 0 0);
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 20%);
+  --ring: oklch(0.6 0.15 264.376); /* Biru untuk ring */
+  --chart-1: oklch(0.6 0.15 264.376); /* Biru */
+  --chart-2: oklch(0.65 0.12 184.704); /* Cyan */
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.22 0 0);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.6 0.15 264.376); /* Biru */
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.25 0 0);
+  --sidebar-accent-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(1 0 0 / 15%);
+  --sidebar-ring: oklch(0.6 0.15 264.376); /* Biru */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+    /* Base font size scaled to ~80% to simulate 80% zoom across rem-based sizing */
+    font-size: 14px;
+    /* CRITICAL: Prevent iOS Safari from auto-sizing text (Canva-style consistency) */
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Enhanced focus styles */
+  *:focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.7 0.01 106.423);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.6 0.01 106.423);
+  }
+
+  /* Prevent horizontal scroll on all screen sizes */
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Responsive containers */
+  .container-responsive {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-responsive {
+      padding: 0 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-responsive {
+      padding: 0 2rem;
+    }
+  }
+
+  /* ABSOLUTE NO-SHIFT POLICY - Never change scroll behavior */
+  html {
+    scrollbar-gutter: stable both-edges !important; /* Always reserve scrollbar space */
+    overflow-y: scroll !important; /* NEVER change this - always show scrollbar */
+    height: 100% !important;
+    /* Prevent any height changes */
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    /* Override any Radix UI modifications */
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Responsive font size adjustments */
+  @media (min-width: 1280px) {
+    /* Maintain ~80% of previous 18px desktop base */
+    html { font-size: 14.4px; }
+  }
+  @media (max-width: 360px) {
+    html { font-size: 16px; }
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    padding-top: 3.5rem !important; /* Account for fixed header height on mobile */
+    overflow-y: scroll !important; /* NEVER change this - always show scrollbar */
+    scrollbar-gutter: stable both-edges !important; /* Prevent content from shifting when scrollbars appear */
+    overscroll-behavior: contain !important; /* Prevent scroll chaining side-effects */
+    height: 100% !important;
+    /* Prevent any layout shifts from scrollbar changes */
+    width: 100% !important;
+    position: relative !important;
+    /* Prevent any height changes */
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    /* Override any Radix UI modifications */
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+    /* Prevent any style mutations */
+    transition: none !important;
+  }
+
+  /* Responsive body padding for different screen sizes */
+  @media (min-width: 640px) {
+    body {
+      padding-top: 4rem !important;
+    }
+  }
+  
+  /* NO SCROLL LOCKING - Use visual overlay instead */
+  body.scroll-locked {
+    /* DO NOT change overflow - keep scrollbar visible */
+    overflow-y: scroll !important;
+    /* Use visual overlay to prevent scrolling instead */
+    position: relative;
+  }
+  
+  /* Visual scroll prevention overlay */
+  .scroll-prevention-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    pointer-events: auto;
+    background: transparent;
+  }
+  
+  /* Ensure main content never shifts */
+  main {
+    width: 100%;
+    position: relative;
+    /* Prevent any height changes */
+    min-height: calc(100vh - 4rem);
+  }
+  
+  /* Smooth transitions for all overlays - only opacity/transform */
+  [data-radix-dialog-overlay],
+  [data-radix-dropdown-menu-content],
+  [data-radix-sheet-overlay] {
+    transition: opacity 200ms ease-in-out;
+  }
+  
+  [data-radix-dialog-content],
+  [data-radix-dropdown-menu-content],
+  [data-radix-sheet-content] {
+    transition: opacity 200ms ease-in-out, transform 200ms ease-in-out;
+  }
+  
+  /* Prevent layout shifts from dropdown menus */
+  [data-radix-dropdown-menu-content] {
+    position: fixed !important;
+    z-index: 50;
+  }
+  
+  /* Ensure modals and sheets don't affect layout */
+  [data-radix-dialog-overlay],
+  [data-radix-sheet-overlay] {
+    position: fixed !important;
+    inset: 0;
+    z-index: 50;
+  }
+  
+  /* Sidebar overlay positioning - prevent layout shifts */
+  .sidebar-overlay {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 100vw;
+    z-index: 60;
+    pointer-events: none;
+  }
+  
+  .sidebar-overlay .sidebar-content {
+    pointer-events: auto;
+  }
+  
+  /* Prevent any element from affecting page height */
+  [data-radix-portal] {
+    position: fixed !important;
+    z-index: 50;
+  }
+  
+  /* Ensure all overlays are completely isolated */
+  .overlay-container {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 50;
+  }
+  
+  .overlay-container .overlay-content {
+    pointer-events: auto;
+  }
+  
+  /* COMPLETE RADIX UI OVERRIDE - Prevent any body/html modifications */
+  [data-radix-scroll-area-viewport],
+  [data-radix-dialog-content],
+  [data-radix-dropdown-menu-content],
+  [data-radix-sheet-content] {
+    /* Prevent any layout-affecting properties */
+    position: fixed !important;
+    transform: none !important;
+    transition: opacity 200ms ease-in-out, transform 200ms ease-in-out !important;
+  }
+  
+  /* Override any Radix UI body modifications */
+  body[data-scroll-locked],
+  body[data-radix-scroll-locked],
+  html[data-scroll-locked],
+  html[data-radix-scroll-locked] {
+    overflow-y: scroll !important;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+  }
+  
+  /* Prevent any style mutations from Radix UI */
+  *[data-radix-portal] {
+    position: fixed !important;
+    z-index: 50 !important;
+  }
+  
+  /* Ensure main content never shifts regardless of any overlay */
+  main {
+    width: 100% !important;
+    position: relative !important;
+    /* Prevent any height changes */
+    min-height: calc(100vh - 4rem) !important;
+    /* Override any potential modifications */
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+    transition: none !important;
+  }
+  
+  /* PERFECT MODAL CENTERING - Ensure all modals are perfectly centered */
+  [data-radix-dialog-content] {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 51 !important;
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    overflow: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Ensure modal overlay darkens the background and creates focus */
+  [data-radix-dialog-overlay] {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 50 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  
+  /* Darken main content when modal is open */
+  [data-radix-dialog-overlay][data-state="open"] {
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(6px) !important;
+  }
+  
+  /* Additional darkening effect for main content when modal is open */
+  body:has([data-radix-dialog-overlay][data-state="open"]) {
+    filter: brightness(0.7) !important;
+    transition: filter 0.2s ease-in-out !important;
+  }
+  
+  /* Ensure modal content stands out with higher brightness */
+  [data-radix-dialog-content] {
+    filter: brightness(1) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
+  }
+  
+  /* SPECIFIC PREVIEW MODAL CENTERING - Enhanced contrast and focus */
+  .preview-modal-content {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 51 !important;
+    max-width: 60vw !important;
+    max-height: 80vh !important;
+    overflow: auto !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 0.75rem !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    filter: brightness(1) !important;
+  }
+
+  .dark .preview-modal-content {
+    background: rgba(15, 23, 42, 0.93) !important;
+    border-color: rgba(148, 163, 184, 0.35) !important;
+    box-shadow: 0 35px 60px -20px rgba(2, 6, 23, 0.75) !important;
+    color: rgba(226, 232, 240, 0.96) !important;
+  }
+  
+  /* Ensure modal content is properly centered on all screen sizes */
+  @media (max-width: 768px) {
+    [data-radix-dialog-content] {
+      max-width: 90vw !important;
+      max-height: 85vh !important;
+      margin: 0.5rem !important;
+    }
+    
+    .preview-modal-content {
+      max-width: 90vw !important;
+      max-height: 85vh !important;
+      padding: 0.75rem !important;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .preview-modal-content {
+      max-width: 95vw !important;
+      max-height: 90vh !important;
+      padding: 0.5rem !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.5s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  .animate-stagger {
+    animation: stagger 0.1s ease-out;
+  }
+
+  /* Hover effects */
+  .hover-lift {
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  .hover-glow {
+    transition: box-shadow 0.3s ease-out;
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  /* Gradient backgrounds */
+  .gradient-primary {
+    background: linear-gradient(135deg, #60A5FA, #1E40AF);
+    /* Light blue (#60A5FA) to dark blue (#1E40AF) - Brighter gradient */
+  }
+
+  .gradient-secondary {
+    background: linear-gradient(135deg, oklch(0.96 0.01 106.423), oklch(0.92 0.02 106.423));
+  }
+
+  /* Hero section gradient - bright blue */
+  .gradient-hero {
+    background: linear-gradient(135deg, #60A5FA, #1E40AF);
+    /* Match primary gradient for consistency */
+  }
+
+  /* Text gradients */
+  .text-gradient {
+    background: linear-gradient(135deg, #60A5FA, #1E40AF);
+    /* Match gradient-primary for consistency */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes stagger {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Sembunyikan badge dev/toast dan overlay error Next.js (Turbopack) */
+nextjs-portal [data-nextjs-toast],
+nextjs-portal [data-nextjs-error-overlay] {
+  display: none !important;
+}
+
+/* Jika ingin sekalian menonaktifkan seluruh portal Next.js dev */
+nextjs-portal {
+  display: none !important;
+}
+
+/* RESPONSIVE DESIGN UTILITIES */
+
+/* Tablet Landscape: max-width 1200px */
+@media (max-width: 1200px) {
+  /* Adjust font sizes for better readability */
+  body {
+    font-size: 15px;
+  }
+}
+
+/* Tablet Portrait: max-width 992px */
+@media (max-width: 992px) {
+  body {
+    font-size: 15px;
+  }
+
+  /* Make cards and grids more compact */
+  .responsive-grid-3 {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  .responsive-grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+}
+
+/* Mobile/Smartphone: max-width 768px */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  /* Stack elements vertically on mobile */
+  .responsive-flex-row {
+    flex-direction: column;
+  }
+
+  .responsive-grid-3,
+  .responsive-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  /* Adjust padding for mobile */
+  .container-responsive {
+    padding: 0 1rem;
+  }
+
+  /* Make tables scrollable horizontally on mobile */
+  .mobile-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Adjust header height for mobile */
+  header {
+    height: 3.5rem;
+    min-height: 3.5rem;
+  }
+}
+
+  /* Small Mobile: max-width 480px */
+  @media (max-width: 480px) {
+    body {
+      font-size: 13px;
+    }
+
+    /* Further reduce spacing on small screens */
+    .container-responsive {
+      padding: 0 0.75rem;
+    }
+
+    /* Reduce header height on small mobile */
+    header {
+      height: 3rem;
+      min-height: 3rem;
+    }
+
+    /* Stack all flex items */
+    .responsive-flex {
+      flex-direction: column;
+    }
+  }
+
+  /* Remove white background from number input spinner controls */
+  /* Hide spinner controls completely to remove white background */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    background: transparent;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Firefox: hide spinner controls */
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+/* Prevent text overflow */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-ellipsis-multiline {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Responsive image containers */
+.responsive-image {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* Responsive modal/dialog */
+@media (max-width: 768px) {
+  [data-radix-dialog-content] {
+    max-width: 95vw !important;
+    margin: 0.5rem !important;
+    padding: 1rem !important;
+  }
+
+  .preview-modal-content {
+    max-width: 95vw !important;
+    padding: 0.75rem !important;
+  }
+}
+
+/* Responsive cards */
+@media (max-width: 768px) {
+  .card-responsive {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-responsive {
+    padding: 0.75rem;
+  }
+}
+
+/* Responsive buttons - stack on mobile */
+.button-group-responsive {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .button-group-responsive {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .button-group-responsive > * {
+    width: 100%;
+  }
+}

@@ -3,6 +3,8 @@
  * Defines the structure for storing complete layout configuration in database
  */
 
+import { RichText } from './rich-text';
+
 export interface TextLayerConfig {
   id: string; // e.g., "name", "certificate_no", "issue_date"
   x: number;
@@ -18,6 +20,9 @@ export interface TextLayerConfig {
   useDefaultText?: boolean; // Whether to use defaultText instead of dynamic data
   maxWidth?: number; // Maximum width for text wrapping (in pixels)
   lineHeight?: number; // Line height multiplier (default 1.2)
+  // Rich text support (inline formatting)
+  richText?: RichText; // Array of text spans with individual styles
+  hasInlineFormatting?: boolean; // Whether this layer uses rich text formatting
 }
 
 export interface OverlayImageConfig {
