@@ -122,19 +122,16 @@
     scroll-behavior: smooth;
     /* Base font size scaled to ~80% to simulate 80% zoom across rem-based sizing */
     font-size: 14px;
-<<<<<<< HEAD
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
     height: 100% !important;
     background-color: var(--background) !important;
-=======
     /* CRITICAL: Prevent iOS Safari from auto-sizing text (Canva-style consistency) */
     -webkit-text-size-adjust: 100%;
     -moz-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
     text-size-adjust: 100%;
->>>>>>> siding
   }
 
   /* Enhanced focus styles */

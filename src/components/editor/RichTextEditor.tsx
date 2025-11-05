@@ -9,6 +9,8 @@ interface RichTextEditorProps {
   onSelectionChange?: (start: number, end: number) => void;
   className?: string;
   style?: React.CSSProperties;
+  // Layer-level default styles (used when typing new text)
+  defaultStyle?: Partial<Omit<TextSpan, 'text'>>;
 }
 
 export function RichTextEditor({
@@ -16,7 +18,8 @@ export function RichTextEditor({
   onChange,
   onSelectionChange,
   className,
-  style
+  style,
+  defaultStyle
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isComposing, setIsComposing] = useState(false);
@@ -27,7 +30,8 @@ export function RichTextEditor({
       const spanStyle: React.CSSProperties = {
         fontWeight: span.fontWeight,
         fontFamily: span.fontFamily,
-        fontSize: span.fontSize ? `${span.fontSize}px` : undefined,
+        // fontSize: REMOVED - Keep text size constant in editor
+        // fontSize setting is still saved in data for preview/PNG rendering
         color: span.color,
       };
       
@@ -53,19 +57,67 @@ export function RichTextEditor({
   const handleInput = () => {
     if (isComposing || !editorRef.current) return;
     
+    // CRITICAL: Save cursor position BEFORE calling onChange
+    const selection = window.getSelection();
+    const cursorOffset = selection && selection.rangeCount > 0 
+      ? getSelectionOffsets(editorRef.current)?.start ?? 0 
+      : 0;
+    
     const plainText = editorRef.current.innerText;
     
-    // For now, convert to simple rich text (no formatting)
-    // This maintains backward compatibility while allowing formatting via selection
+    // Convert to simple rich text using layer-level defaults
+    // This ensures font settings from sidebar are applied when typing
     const newRichText: RichText = [{
       text: plainText,
-      fontWeight: value[0]?.fontWeight,
-      fontFamily: value[0]?.fontFamily,
-      fontSize: value[0]?.fontSize,
-      color: value[0]?.color,
+      fontWeight: defaultStyle?.fontWeight || value[0]?.fontWeight,
+      fontFamily: defaultStyle?.fontFamily || value[0]?.fontFamily,
+      fontSize: defaultStyle?.fontSize || value[0]?.fontSize,
+      color: defaultStyle?.color || value[0]?.color,
     }];
     
     onChange(newRichText);
+    
+    // CRITICAL: Restore cursor position AFTER onChange triggers re-render
+    requestAnimationFrame(() => {
+      if (!editorRef.current) return;
+      
+      try {
+        // Find the text node where cursor should be placed
+        const walker = document.createTreeWalker(
+          editorRef.current,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+        
+        let textNode: Node | null = null;
+        let currentOffset = 0;
+        
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          const nodeLength = node.textContent?.length ?? 0;
+          
+          if (currentOffset + nodeLength >= cursorOffset) {
+            textNode = node;
+            break;
+          }
+          currentOffset += nodeLength;
+        }
+        
+        // Set cursor position
+        if (textNode) {
+          const newRange = document.createRange();
+          const newSelection = window.getSelection();
+          const offset = Math.min(cursorOffset - currentOffset, textNode.textContent?.length ?? 0);
+          newRange.setStart(textNode, offset);
+          newRange.collapse(true);
+          newSelection?.removeAllRanges();
+          newSelection?.addRange(newRange);
+        }
+      } catch (error) {
+        // Ignore cursor restoration errors
+        console.warn('Failed to restore cursor:', error);
+      }
+    });
   };
   
   // Update editor content when value changes externally
@@ -98,11 +150,33 @@ export function RichTextEditor({
       
       // Restore cursor position
       try {
-        const textNode = editorRef.current.firstChild;
-        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+        // Find the text node where cursor should be placed
+        let textNode: Node | null = null;
+        let currentOffset = 0;
+        
+        // Walk through all text nodes to find the one containing cursor position
+        const walker = document.createTreeWalker(
+          editorRef.current,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+        
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          const nodeLength = node.textContent?.length ?? 0;
+          
+          if (currentOffset + nodeLength >= cursorOffset) {
+            textNode = node;
+            break;
+          }
+          currentOffset += nodeLength;
+        }
+        
+        // Set cursor position
+        if (textNode) {
           const newRange = document.createRange();
           const newSelection = window.getSelection();
-          const offset = Math.min(cursorOffset, textNode.textContent?.length ?? 0);
+          const offset = Math.min(cursorOffset - currentOffset, textNode.textContent?.length ?? 0);
           newRange.setStart(textNode, offset);
           newRange.collapse(true);
           newSelection?.removeAllRanges();

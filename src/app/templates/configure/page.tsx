@@ -57,9 +57,8 @@ function ConfigureLayoutContent() {
   const [renamingLayerId, setRenamingLayerId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   
-  // Current text layers based on mode
+  // Current text layers based on mode (read-only computed value)
   const textLayers = configMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
-  const setTextLayers = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
   
   // Preview text state (for testing display only, not saved)
   const [previewTexts, setPreviewTexts] = useState<Record<string, string>>({});
@@ -330,7 +329,8 @@ function ConfigureLayoutContent() {
       const newX = Math.max(0, Math.min(STANDARD_CANVAS_WIDTH, startLayerX + deltaX));
       const newY = Math.max(0, Math.min(STANDARD_CANVAS_HEIGHT, startLayerY + deltaY));
 
-      setTextLayers(prev => prev.map(l => 
+      const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+      setter(prev => prev.map(l => 
         l.id === layerId 
           ? { 
               ...l, 
@@ -345,7 +345,8 @@ function ConfigureLayoutContent() {
     };
 
     const handleMouseUp = () => {
-      setTextLayers(prev => prev.map(l => ({ ...l, isDragging: false })));
+      const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+      setter(prev => prev.map(l => ({ ...l, isDragging: false })));
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -392,7 +393,8 @@ function ConfigureLayoutContent() {
         updates.lineHeight = Math.round(newLineHeight * 10) / 10;
       }
 
-      setTextLayers(prev => prev.map(l => 
+      const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+      setter(prev => prev.map(l => 
         l.id === layerId ? { ...l, ...updates } : l
       ));
     };
@@ -453,7 +455,10 @@ function ConfigureLayoutContent() {
 
   // Update text layer property
   const updateLayer = (layerId: string, updates: Partial<TextLayer>) => {
-    setTextLayers(prev => {
+    // CRITICAL: Use direct setState based on configMode to avoid closure issues
+    const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+    
+    setter(prev => {
       const layer = prev.find(l => l.id === layerId);
       if (!layer) return prev;
       
@@ -560,7 +565,8 @@ function ConfigureLayoutContent() {
       lineHeight: 1.2,
     };
     
-    setTextLayers(prev => {
+    const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+    setter(prev => {
       const updated = [...prev, newLayer];
       console.log(`✅ Layer added. Count: ${prev.length} → ${updated.length}`);
       return updated;
@@ -594,7 +600,8 @@ function ConfigureLayoutContent() {
     
     console.log(`📊 Current ${configMode} layers before deletion:`, textLayers.map(l => l.id));
     
-    setTextLayers(prev => {
+    const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+    setter(prev => {
       const filtered = prev.filter(l => l.id !== layerId);
       console.log(`✅ Layers after deletion:`, filtered.map(l => l.id));
       console.log(`📏 Layer count: ${prev.length} → ${filtered.length}`);
@@ -726,7 +733,8 @@ function ConfigureLayoutContent() {
     }
     
     // Update layer ID
-    setTextLayers(prev => prev.map(l => 
+    const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+    setter(prev => prev.map(l => 
       l.id === oldId ? { ...l, id: renameValue.trim() } : l
     ));
     
@@ -1213,6 +1221,12 @@ function ConfigureLayoutContent() {
                             fontSize: selectedLayer.fontSize,
                             color: selectedLayer.color
                           })}
+                          defaultStyle={{
+                            fontWeight: selectedLayer.fontWeight,
+                            fontFamily: selectedLayer.fontFamily,
+                            fontSize: selectedLayer.fontSize,
+                            color: selectedLayer.color
+                          }}
                           onChange={(richText) => {
                             const plainText = richTextToPlainText(richText);
                             updateLayer(selectedLayer.id, { 
@@ -1266,7 +1280,25 @@ function ConfigureLayoutContent() {
                       <Input
                         type="number"
                         value={selectedLayer.fontSize}
-                        onChange={(e) => updateLayer(selectedLayer.id, { fontSize: parseInt(e.target.value) || 12 })}
+                        onChange={(e) => {
+                          const newSize = parseInt(e.target.value) || 12;
+                          const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
+                            fontWeight: selectedLayer.fontWeight,
+                            fontFamily: selectedLayer.fontFamily,
+                            fontSize: selectedLayer.fontSize
+                          });
+                          
+                          // Update richText to apply new fontSize
+                          const newRichText = currentRichText.map(span => ({
+                            ...span,
+                            fontSize: newSize
+                          }));
+                          
+                          updateLayer(selectedLayer.id, { 
+                            fontSize: newSize,
+                            richText: newRichText
+                          });
+                        }}
                         className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                       />
                     </div>
@@ -1304,8 +1336,15 @@ function ConfigureLayoutContent() {
                             const { start, end } = richTextSelection;
                             
                             if (start === end) {
-                              // No selection - update whole layer
-                              updateLayer(selectedLayer.id, { fontFamily: value });
+                              // No selection - update whole layer AND apply to richText
+                              const newRichText = currentRichText.map(span => ({
+                                ...span,
+                                fontFamily: value
+                              }));
+                              updateLayer(selectedLayer.id, { 
+                                fontFamily: value,
+                                richText: newRichText
+                              });
                             } else {
                               // Has selection - apply to selected text only
                               const newRichText = applyStyleToRange(currentRichText, start, end, { fontFamily: value });
@@ -1355,8 +1394,15 @@ function ConfigureLayoutContent() {
                             const { start, end } = richTextSelection;
                             
                             if (start === end) {
-                              // No selection - update whole layer
-                              updateLayer(selectedLayer.id, { fontWeight: value });
+                              // No selection - update whole layer AND apply to richText
+                              const newRichText = currentRichText.map(span => ({
+                                ...span,
+                                fontWeight: value
+                              }));
+                              updateLayer(selectedLayer.id, { 
+                                fontWeight: value,
+                                richText: newRichText
+                              });
                             } else {
                               // Has selection - apply to selected text only
                               const newRichText = applyStyleToRange(currentRichText, start, end, { fontWeight: value });
@@ -1430,13 +1476,51 @@ function ConfigureLayoutContent() {
                         <input
                           type="color"
                           value={selectedLayer.color || '#000000'}
-                          onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
+                          onChange={(e) => {
+                            const newColor = e.target.value;
+                            const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
+                              fontWeight: selectedLayer.fontWeight,
+                              fontFamily: selectedLayer.fontFamily,
+                              fontSize: selectedLayer.fontSize,
+                              color: selectedLayer.color
+                            });
+                            
+                            // Update richText to apply new color
+                            const newRichText = currentRichText.map(span => ({
+                              ...span,
+                              color: newColor
+                            }));
+                            
+                            updateLayer(selectedLayer.id, { 
+                              color: newColor,
+                              richText: newRichText
+                            });
+                          }}
                           className="h-7 sm:h-8 w-10 sm:w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
                         />
                         <Input
                           type="text"
                           value={selectedLayer.color || '#000000'}
-                          onChange={(e) => updateLayer(selectedLayer.id, { color: e.target.value })}
+                          onChange={(e) => {
+                            const newColor = e.target.value;
+                            const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
+                              fontWeight: selectedLayer.fontWeight,
+                              fontFamily: selectedLayer.fontFamily,
+                              fontSize: selectedLayer.fontSize,
+                              color: selectedLayer.color
+                            });
+                            
+                            // Update richText to apply new color
+                            const newRichText = currentRichText.map(span => ({
+                              ...span,
+                              color: newColor
+                            }));
+                            
+                            updateLayer(selectedLayer.id, { 
+                              color: newColor,
+                              richText: newRichText
+                            });
+                          }}
                           className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 flex-1"
                         />
                       </div>
