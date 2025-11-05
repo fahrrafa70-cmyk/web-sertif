@@ -197,8 +197,8 @@ export function useCertificates() {
     }
   }, []);
 
-  const refresh = useCallback(() => {
-    fetchCertificates();
+  const refresh = useCallback(async () => {
+    await fetchCertificates();
   }, [fetchCertificates]);
 
   useEffect(() => {

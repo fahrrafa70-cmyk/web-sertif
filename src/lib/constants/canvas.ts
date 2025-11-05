@@ -7,9 +7,20 @@
 /**
  * Standard canvas dimensions for consistent positioning
  * Used as reference size for all text layer calculations
+ * 
+ * IMPORTANT: These should match your template's natural dimensions!
+ * Current: A4 Portrait at 300 DPI (1500x2121 pixels)
+ * - A4 = 210mm × 297mm
+ * - At 300 DPI: (210/25.4)*300 × (297/25.4)*300 = 2480 × 3508 pixels
+ * - Scaled down: 1500 × 2121 pixels (maintains aspect ratio)
+ * 
+ * For different templates, you may want to make this dynamic:
+ * - Load template image first
+ * - Get naturalWidth × naturalHeight
+ * - Use those dimensions for canvas
  */
-export const STANDARD_CANVAS_WIDTH = 800;
-export const STANDARD_CANVAS_HEIGHT = 600;
+export const STANDARD_CANVAS_WIDTH = 1500;   // A4 portrait width at 300 DPI (scaled)
+export const STANDARD_CANVAS_HEIGHT = 2121;  // A4 portrait height at 300 DPI (scaled)
 
 /**
  * Score template layout configuration

@@ -1,10 +1,4 @@
 "use client";
-
-/**
- * Template Layout Configuration Page with Full Drag-Drop Interface
- * Allows visual configuration of text layers with drag, resize, and font customization
- */
-
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -46,9 +40,14 @@ function ConfigureLayoutContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [templateImageUrl, setTemplateImageUrl] = useState<string | null>(null);
+  const [certificateImageDimensions, setCertificateImageDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [scoreImageDimensions, setScoreImageDimensions] = useState<{ width: number; height: number } | null>(null);
   
   // Mode switching: certificate or score
   const [configMode, setConfigMode] = useState<'certificate' | 'score'>('certificate');
+  
+  // Get current dimensions based on mode (computed value)
+  const templateImageDimensions = configMode === 'certificate' ? certificateImageDimensions : scoreImageDimensions;
   
   // Text layers state - separate for certificate and score
   const [certificateTextLayers, setCertificateTextLayers] = useState<TextLayer[]>([]);
@@ -106,6 +105,26 @@ function ConfigureLayoutContent() {
         // Load template image
         const imgUrl = await getTemplateImageUrl(tpl);
         setTemplateImageUrl(imgUrl);
+        
+        // Load CERTIFICATE image dimensions for dynamic aspect ratio
+        if (tpl.certificate_image_url) {
+          const certImg = new window.Image();
+          certImg.onload = () => {
+            setCertificateImageDimensions({ width: certImg.naturalWidth, height: certImg.naturalHeight });
+            console.log('📐 Certificate dimensions:', certImg.naturalWidth, 'x', certImg.naturalHeight);
+          };
+          certImg.src = tpl.certificate_image_url;
+        }
+        
+        // Load SCORE image dimensions if dual template
+        if (tpl.is_dual_template && tpl.score_image_url) {
+          const scoreImg = new window.Image();
+          scoreImg.onload = () => {
+            setScoreImageDimensions({ width: scoreImg.naturalWidth, height: scoreImg.naturalHeight });
+            console.log('📊 Score dimensions:', scoreImg.naturalWidth, 'x', scoreImg.naturalHeight);
+          };
+          scoreImg.src = tpl.score_image_url;
+        }
         
         // Load existing layout if available
         const existingLayout = await getTemplateLayout(templateId);
@@ -259,8 +278,20 @@ function ConfigureLayoutContent() {
             return;
           }
           
-          // Hitung scale berdasarkan width dan height, ambil yang lebih kecil untuk memastikan semua konten muat
-          // Ini memastikan aspect ratio terjaga dan semua konten tetap proporsional
+          // CRITICAL FIX: Calculate scale to match PNG generation exactly
+          // 
+          // Generation logic (certificate-render.ts):
+          //   finalWidth = img.naturalWidth (e.g., 1080px for template)
+          //   scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH (e.g., 1080/1500 = 0.72)
+          //   scaledFontSize = baseFontSize * scaleFactor (e.g., 48 * 0.72 = 34.56px at 1080px)
+          // 
+          // Preview should show PROPORTIONALLY the same:
+          //   If template is 1080px and container is 800px:
+          //   displayFontSize = baseFontSize * (800/1500) = 48 * 0.533 = 25.6px
+          //   This is proportional to: 34.56px * (800/1080) = 25.6px ✓
+          // 
+          // So formula remains: containerSize / STANDARD_CANVAS_WIDTH
+          // This automatically accounts for template size differences
           const scaleX = containerWidth / STANDARD_CANVAS_WIDTH;
           const scaleY = containerHeight / STANDARD_CANVAS_HEIGHT;
           const scale = Math.min(scaleX, scaleY);
@@ -823,7 +854,9 @@ function ConfigureLayoutContent() {
                 ref={canvasRef}
                 className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden w-full"
                 style={{ 
-                  aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
+                  aspectRatio: templateImageDimensions 
+                    ? `${templateImageDimensions.width}/${templateImageDimensions.height}`
+                    : `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
                   cursor: 'default',
                   userSelect: 'none',
                   WebkitUserSelect: 'none',
@@ -947,9 +980,10 @@ function ConfigureLayoutContent() {
                           isSelected ? 'bg-blue-50/30' : ''
                         } ${layer.isDragging ? 'opacity-70' : ''}`}
                         style={{
-                          // Ensure font size scales proportionally based on canvas scale
-                          // This ensures certificate_no and issue_date maintain correct proportions on mobile
-                          fontSize: `${layer.fontSize * canvasScale}px`,
+                          // CRITICAL: Match PNG generation rounding behavior
+                          // certificate-render.ts uses: Math.round(baseFontSize * scaleFactor)
+                          // We must do the same to ensure exact visual match
+                          fontSize: `${Math.round(layer.fontSize * canvasScale)}px`,
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
@@ -958,13 +992,14 @@ function ConfigureLayoutContent() {
                           // certificate_no and issue_date should never wrap - always stay on one line
                           whiteSpace: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'nowrap' : (layer.maxWidth ? 'normal' : 'nowrap'),
                           // For certificate_no and issue_date, don't set width/maxWidth to allow full text on one line
+                          // CRITICAL: Round dimensions to match PNG generation
                           width: (layer.id === 'certificate_no' || layer.id === 'issue_date') 
                             ? 'auto' 
-                            : (layer.maxWidth ? `${Math.max(layer.maxWidth * canvasScale, 20)}px` : 'auto'),
+                            : (layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'auto'),
                           maxWidth: (layer.id === 'certificate_no' || layer.id === 'issue_date') 
                             ? 'none' 
-                            : (layer.maxWidth ? `${Math.max(layer.maxWidth * canvasScale, 20)}px` : 'none'),
-                          minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * canvasScale}px`,
+                            : (layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'none'),
+                          minHeight: `${Math.round((layer.fontSize * (layer.lineHeight || 1.2)) * canvasScale)}px`,
                           lineHeight: layer.lineHeight || 1.2,
                           wordWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
                           overflowWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
@@ -1572,7 +1607,9 @@ function ConfigureLayoutContent() {
               className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden mx-auto"
               style={{ 
                 width: '100%',
-                aspectRatio: `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
+                aspectRatio: templateImageDimensions 
+                  ? `${templateImageDimensions.width}/${templateImageDimensions.height}`
+                  : `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
                 maxWidth: '800px',
                 cursor: 'default',
                 userSelect: 'none',

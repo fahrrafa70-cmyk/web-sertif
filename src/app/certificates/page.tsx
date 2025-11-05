@@ -41,7 +41,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
-import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, X } from "lucide-react";
+import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -114,11 +114,6 @@ function CertificatesContent() {
   });
   const [sendPreviewSrcs, setSendPreviewSrcs] = useState<{ cert: string | null; score: string | null }>({ cert: null, score: null });
   const [sendCert, setSendCert] = useState<Certificate | null>(null);
-
-  // Production URL Modal state for localhost detection
-  const [productionUrlModalOpen, setProductionUrlModalOpen] = useState(false);
-  const [productionUrlInput, setProductionUrlInput] = useState("");
-  const [pendingCertificate, setPendingCertificate] = useState<Certificate | null>(null);
 
   useEffect(() => {
     try {
@@ -263,65 +258,17 @@ function CertificatesContent() {
   // Generate public certificate link using public_id
   async function generateCertificateLink(certificate: Certificate) {
     try {
-      // PRIORITY 1: Jika certificate sudah di Supabase Storage, langsung pakai URL gambar
-      // URL ini bisa langsung dibuka tanpa perlu deploy aplikasi
-      if (certificate.certificate_image_url && 
-          (certificate.certificate_image_url.includes('supabase.co/storage') || 
-           certificate.certificate_image_url.includes('supabase.co/storage/v1/object/public'))) {
-        const directImageLink = certificate.certificate_image_url;
-        
-        // Copy to clipboard
-        if (navigator.clipboard) {
-          await navigator.clipboard.writeText(directImageLink);
-          toast.success(t('hero.linkCopied'));
-        } else {
-          // Fallback for older browsers
-          const textArea = document.createElement('textarea');
-          textArea.value = directImageLink;
-          textArea.style.position = 'fixed';
-          textArea.style.opacity = '0';
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textArea);
-          toast.success(t('hero.linkCopied'));
-        }
-        
-        console.log('Generated direct image link from Supabase Storage:', directImageLink);
-        return;
-      }
-
-      // PRIORITY 2: Jika tidak ada Supabase Storage URL, gunakan link ke halaman app
       if (!certificate.public_id) {
         toast.error(t('certificates.generateLink') + ' - ' + t('hero.noPublicLink'));
         return;
       }
 
-      // Get base URL - prefer environment variable, then localStorage, then current origin
+      // Get base URL - prefer environment variable, then use current origin
       let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
       
-      // If no env variable, check localStorage for saved production URL
+      // If no env variable, use current window location
       if (!baseUrl && typeof window !== 'undefined') {
-        const savedUrl = window.localStorage.getItem('production-url');
-        if (savedUrl) {
-          baseUrl = savedUrl;
-        } else {
-          baseUrl = window.location.origin;
-        }
-      }
-      
-      // Check if we're on localhost and no production URL is set
-      if (typeof window !== 'undefined' && baseUrl && (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1'))) {
-        const savedUrl = window.localStorage.getItem('production-url');
-        if (!savedUrl) {
-          // Show modal to input production URL
-          setPendingCertificate(certificate);
-          setProductionUrlInput("");
-          setProductionUrlModalOpen(true);
-          return;
-        }
-        // Use saved production URL
-        baseUrl = savedUrl;
+        baseUrl = window.location.origin;
       }
       
       // Ensure base URL has protocol (http:// or https://)
@@ -329,13 +276,20 @@ function CertificatesContent() {
         baseUrl = `https://${baseUrl.replace(/^\/\//, '')}`;
       }
       
-      // Generate absolute public link to app page
+      // Generate absolute public link
       const certificateLink = `${baseUrl}/cek/${certificate.public_id}`;
       
       // Copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(t('hero.linkCopied'));
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">{t('hero.linkCopied')}</span>
+            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
+          </div>,
+          { duration: 5000 }
+        );
       } else {
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
@@ -346,78 +300,21 @@ function CertificatesContent() {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(t('hero.linkCopied'));
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">{t('hero.linkCopied')}</span>
+            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
+          </div>,
+          { duration: 5000 }
+        );
       }
       
-      console.log('Generated public certificate link to app page:', certificateLink);
+      console.log('Generated public certificate link:', certificateLink);
     } catch (err) {
       console.error('Failed to generate certificate link:', err);
       toast.error(t('hero.linkGenerateFailed'));
     }
-  }
-
-  // Handle production URL submission
-  async function handleProductionUrlSubmit() {
-    if (!pendingCertificate) return;
-    
-    let url = productionUrlInput.trim();
-    
-    // Remove trailing slash
-    url = url.replace(/\/+$/, '');
-    
-    // Validate URL
-    if (!url) {
-      toast.error("Please enter a valid production URL");
-      return;
-    }
-    
-    // Ensure URL has protocol
-    if (!url.match(/^https?:\/\//i)) {
-      url = `https://${url}`;
-    }
-    
-    // Validate URL format
-    try {
-      new URL(url);
-    } catch {
-      toast.error("Please enter a valid URL (e.g., https://yourdomain.com)");
-      return;
-    }
-    
-    // Save to localStorage
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('production-url', url);
-    }
-    
-    // Close modal
-    setProductionUrlModalOpen(false);
-    setProductionUrlInput("");
-    
-    // Generate link with production URL
-    const certificateLink = `${url}/cek/${pendingCertificate.public_id}`;
-    
-    // Copy to clipboard
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(certificateLink);
-        toast.success(t('hero.linkCopied'));
-      } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = certificateLink;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        toast.success(t('hero.linkCopied'));
-      }
-    } catch (err) {
-      console.error('Failed to copy link:', err);
-      toast.error(t('hero.linkGenerateFailed'));
-    }
-    
-    setPendingCertificate(null);
   }
 
   // Open modal to send certificate via email
@@ -602,9 +499,15 @@ function CertificatesContent() {
         // Use database layout (NEW METHOD)
         console.log('✅ Using layout from database');
         
-        // Migrate old data: ensure all layers have maxWidth and lineHeight
+        // Migrate old data: ensure all layers have dual coordinates and defaults
         const migratedLayers = layoutConfig.certificate.textLayers.map(layer => ({
           ...layer,
+          // CRITICAL: Ensure absolute coordinates exist (convert from percentage if needed)
+          x: layer.x !== undefined ? layer.x : (layer.xPercent || 0) * STANDARD_CANVAS_WIDTH,
+          y: layer.y !== undefined ? layer.y : (layer.yPercent || 0) * STANDARD_CANVAS_HEIGHT,
+          // CRITICAL: Ensure percentage coordinates exist (convert from absolute if needed)
+          xPercent: layer.xPercent !== undefined ? layer.xPercent : (layer.x || 0) / STANDARD_CANVAS_WIDTH,
+          yPercent: layer.yPercent !== undefined ? layer.yPercent : (layer.y || 0) / STANDARD_CANVAS_HEIGHT,
           maxWidth: layer.maxWidth || 300, // Default maxWidth if missing
           lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
         }));
@@ -616,7 +519,7 @@ function CertificatesContent() {
           overlayImages: layoutConfig.certificate.overlayImages,
           savedAt: layoutConfig.lastSavedAt
         };
-        console.log('✅ Migrated layers with default maxWidth and lineHeight');
+        console.log('✅ Migrated certificate layers with dual coordinates');
       } else {
         // FALLBACK: Try localStorage (OLD METHOD - deprecated)
         console.warn('⚠️ No database layout found, trying localStorage fallback...');
@@ -649,6 +552,14 @@ function CertificatesContent() {
             try {
               // Get score data for this member (if dual template)
               const memberScoreData = params.scoreDataMap?.[member.id];
+              
+              console.log('🔄 Processing member in batch:', {
+                memberName: member.name,
+                memberID: member.id,
+                hasScoreData: !!memberScoreData,
+                scoreDataKeys: memberScoreData ? Object.keys(memberScoreData) : [],
+                scoreDataSample: memberScoreData
+              });
               
               await generateSingleCertificate(
                 params.template,
@@ -769,9 +680,11 @@ function CertificatesContent() {
     console.log('🎨 Generating certificate:', { 
       template: template.name, 
       member: member.name, 
+      memberID: member.id,
       certData 
     });
     console.log('🗓️ Using date format:', dateFormat);
+    console.log('🎯 Score data received:', scoreData ? Object.keys(scoreData).length + ' fields' : 'none', scoreData);
     
     // CRITICAL: Auto-generate certificate_no if empty
     let finalCertificateNo = certData.certificate_no?.trim();
@@ -876,16 +789,21 @@ function CertificatesContent() {
       maxWidth: l.maxWidth
     })));
     
+    // DYNAMIC CANVAS SIZE: Let renderer use template's natural dimensions
+    // No width/height specified → uses template.naturalWidth × template.naturalHeight
+    // Result: Output matches template resolution exactly (no scaling/distortion)
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,
-      width: STANDARD_CANVAS_WIDTH,
-      height: STANDARD_CANVAS_HEIGHT,
+      // width & height omitted → auto-detect from template
     });
     
     // CRITICAL FIX: Upload to Supabase Storage BEFORE saving to database
     console.log('📤 Uploading certificate PNG to Supabase Storage...');
-    const fileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}.png`;
+    // CRITICAL: Add timestamp to filename to prevent Supabase CDN cache collision
+    // Without timestamp, regenerating same cert_no will be served from CDN cache (old version)
+    const timestamp = Date.now();
+    const fileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}.png`;
     const uploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -956,6 +874,11 @@ function CertificatesContent() {
     // DUAL TEMPLATE: Generate score certificate if template has score image and scoreData
     if (template.score_image_url && scoreData && Object.keys(scoreData).length > 0) {
       console.log('🎯 Generating score certificate for dual template...');
+      console.log('👤 CRITICAL: Using member data:', {
+        memberName: member.name,
+        memberID: member.id,
+        certificateNo: finalCertData.certificate_no
+      });
       
       try {
         // Load score layout from database
@@ -963,9 +886,24 @@ function CertificatesContent() {
         
         if (scoreLayoutConfig && scoreLayoutConfig.textLayers) {
           console.log('✅ Score layout found, generating score certificate...');
+          console.log('📋 Score text layers to process:', scoreLayoutConfig.textLayers.length);
+          
+          // Migrate score layers: ensure dual coordinates
+          const migratedScoreLayers = scoreLayoutConfig.textLayers.map(layer => ({
+            ...layer,
+            // CRITICAL: Ensure absolute coordinates exist (convert from percentage if needed)
+            x: layer.x !== undefined ? layer.x : (layer.xPercent || 0) * STANDARD_CANVAS_WIDTH,
+            y: layer.y !== undefined ? layer.y : (layer.yPercent || 0) * STANDARD_CANVAS_HEIGHT,
+            // CRITICAL: Ensure percentage coordinates exist (convert from absolute if needed)
+            xPercent: layer.xPercent !== undefined ? layer.xPercent : (layer.x || 0) / STANDARD_CANVAS_WIDTH,
+            yPercent: layer.yPercent !== undefined ? layer.yPercent : (layer.y || 0) / STANDARD_CANVAS_HEIGHT,
+            maxWidth: layer.maxWidth || 300,
+            lineHeight: layer.lineHeight || 1.2,
+          }));
+          console.log('✅ Migrated score layers with dual coordinates');
           
           // Prepare score text layers with scoreData
-          const scoreTextLayers: RenderTextLayer[] = scoreLayoutConfig.textLayers.map((layer: TextLayerConfig) => {
+          const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
             
             // Check if layer uses default text
@@ -976,7 +914,10 @@ function CertificatesContent() {
               text = scoreData[layer.id];
             } else {
               // Map common fields (name, date, etc.)
-              if (layer.id === 'name') text = member.name;
+              if (layer.id === 'name') {
+                text = member.name;
+                console.log('✨ Setting name layer:', { layerId: layer.id, text, memberName: member.name });
+              }
               else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
               else if (layer.id === 'issue_date' || layer.id === 'score_date') {
                 text = formatDateString(finalCertData.issue_date, dateFormat);
@@ -1021,17 +962,21 @@ function CertificatesContent() {
           
           console.log('📊 Score text layers:', scoreTextLayers.map(l => ({ id: l.id, text: l.text })));
           
-          // Render score certificate
+          // Render score certificate with DYNAMIC CANVAS SIZE
+          // Uses score template's natural dimensions (no scaling)
           const scoreImageDataUrl = await renderCertificateToDataURL({
             templateImageUrl: template.score_image_url,
             textLayers: scoreTextLayers,
-            width: STANDARD_CANVAS_WIDTH,
-            height: STANDARD_CANVAS_HEIGHT,
+            // width & height omitted → auto-detect from template
           });
           
           // CRITICAL FIX: Upload score PNG to Supabase Storage
           console.log('📤 Uploading score PNG to Supabase Storage...');
-          const scoreFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_score.png`;
+          // CRITICAL: Use same timestamp as certificate to keep them paired
+          const scoreFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}_score.png`;
+          console.log('📁 Score file name:', scoreFileName);
+          console.log('🔗 For member:', member.name, 'Certificate ID:', savedCertificate.id);
+          
           const scoreUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1044,7 +989,7 @@ function CertificatesContent() {
           
           if (!scoreUploadResponse.ok) {
             const errorText = await scoreUploadResponse.text();
-            throw new Error(`Failed to upload score to storage: ${errorText}`);
+            throw new Error(`Failed to upload score certificate to storage: ${errorText}`);
           }
           
           const scoreUploadResult = await scoreUploadResponse.json();
@@ -1056,6 +1001,13 @@ function CertificatesContent() {
           console.log('✅ Score PNG uploaded to Supabase Storage:', finalScoreImageUrl);
           
           // Update certificate with score_image_url (Supabase Storage URL)
+          console.log('💾 Updating certificate with score URL:', {
+            certificateID: savedCertificate.id,
+            certificateNo: savedCertificate.certificate_no,
+            memberName: member.name,
+            scoreImageUrl: finalScoreImageUrl
+          });
+          
           const { error: updateError } = await supabaseClient
             .from('certificates')
             .update({ score_image_url: finalScoreImageUrl })
@@ -1075,8 +1027,8 @@ function CertificatesContent() {
       }
     }
     
-    // Refresh certificates list immediately (hook will handle optimistic update)
-    refresh();
+    // Refresh certificates list and wait for completion to prevent race condition
+    await refresh();
     
     return savedCertificate;
   };
@@ -1141,8 +1093,6 @@ function CertificatesContent() {
     useState<Certificate | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [previewMode, setPreviewMode] = useState<'certificate' | 'score' | 'combined'>('certificate');
-  const [fullImagePreviewOpen, setFullImagePreviewOpen] = useState(false);
-  const [fullImagePreviewUrl, setFullImagePreviewUrl] = useState<string | null>(null);
   const [scoreDefaults, setScoreDefaults] = useState<TemplateDefaults | null>(null);
   const [deletingCertificateId, setDeletingCertificateId] = useState<
     string | null
@@ -1160,20 +1110,6 @@ function CertificatesContent() {
   // Ref for preview container to calculate actual dimensions
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number } | null>(null);
-
-  // Handle keyboard events for full image preview modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (fullImagePreviewOpen && e.key === "Escape") {
-        setFullImagePreviewOpen(false);
-      }
-    };
-
-    if (fullImagePreviewOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }
-  }, [fullImagePreviewOpen]);
 
   // Update container dimensions when it changes
   useEffect(() => {
@@ -1407,38 +1343,6 @@ function CertificatesContent() {
   async function openPreview(certificate: Certificate) {
     setPreviewCertificate(certificate);
     setPreviewMode('certificate');
-    
-    // Aggressive preload with fetchpriority
-    if (certificate.certificate_image_url) {
-      // Preload using Image constructor for browser cache
-      const img = document.createElement('img');
-      img.src = certificate.certificate_image_url;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (img as any).fetchPriority = 'high';
-      img.decoding = 'async';
-      // Also add link preload
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = certificate.certificate_image_url;
-      link.setAttribute('fetchpriority', 'high');
-      document.head.appendChild(link);
-    }
-    
-    // Preload score image if available
-    if (certificate.score_image_url) {
-      const img = document.createElement('img');
-      img.src = certificate.score_image_url;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (img as any).fetchPriority = 'high';
-      img.decoding = 'async';
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = certificate.score_image_url;
-      link.setAttribute('fetchpriority', 'high');
-      document.head.appendChild(link);
-    }
 
     // Load template if available
     if (certificate.template_id) {
@@ -1640,23 +1544,6 @@ function CertificatesContent() {
                                 size="sm"
                                 className="border-gray-300"
                                 onClick={() => openPreview(certificate)}
-                                onMouseEnter={() => {
-                                  // Prefetch image on hover for faster load
-                                  if (certificate.certificate_image_url) {
-                                    const link = document.createElement('link');
-                                    link.rel = 'prefetch';
-                                    link.as = 'image';
-                                    link.href = certificate.certificate_image_url;
-                                    document.head.appendChild(link);
-                                  }
-                                  if (certificate.score_image_url) {
-                                    const link = document.createElement('link');
-                                    link.rel = 'prefetch';
-                                    link.as = 'image';
-                                    link.href = certificate.score_image_url;
-                                    document.head.appendChild(link);
-                                  }
-                                }}
                               >
                                 <Eye className="w-4 h-4 mr-1" />
                                 {t("common.preview")}
@@ -1805,23 +1692,6 @@ function CertificatesContent() {
                             size="sm"
                             className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8"
                             onClick={() => openPreview(certificate)}
-                            onMouseEnter={() => {
-                              // Prefetch image on hover for faster load
-                              if (certificate.certificate_image_url) {
-                                const link = document.createElement('link');
-                                link.rel = 'prefetch';
-                                link.as = 'image';
-                                link.href = certificate.certificate_image_url;
-                                document.head.appendChild(link);
-                              }
-                              if (certificate.score_image_url) {
-                                const link = document.createElement('link');
-                                link.rel = 'prefetch';
-                                link.as = 'image';
-                                link.href = certificate.score_image_url;
-                                document.head.appendChild(link);
-                              }
-                            }}
                           >
                             <Eye className="w-3 h-3 mr-1" />
                             {t("common.preview")}
@@ -1902,8 +1772,8 @@ function CertificatesContent() {
 
             {/* Pagination Controls */}
             {!loading && !error && filtered.length > 0 && (
-              <div className="flex flex-row justify-between items-center gap-2 mt-4 px-2">
-                <div className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mt-4 px-2">
+                <div className="text-xs sm:text-sm text-gray-500">
                   {t("certificates.showing")
                     .replace("{start}", String(indexOfFirstItem + 1))
                     .replace("{end}", String(Math.min(indexOfLastItem, filtered.length)))
@@ -1914,34 +1784,7 @@ function CertificatesContent() {
                     </span>
                   )}
                 </div>
-                {/* Mobile: Compact pagination with chevron only */}
-                <div className="flex items-center gap-2 sm:hidden flex-shrink-0">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="h-7 px-3"
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                  </Button>
-                  <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 px-2 whitespace-nowrap">
-                    {t("certificates.page")
-                      .replace("{current}", String(currentPage))
-                      .replace("{total}", String(totalPages))}
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="h-7 px-3"
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                  </Button>
-                </div>
-                {/* Desktop: Full pagination controls */}
-                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -2116,14 +1959,9 @@ function CertificatesContent() {
       {/* Certificate Preview Modal */}
       <Dialog
         open={!!previewCertificate}
-        onOpenChange={(o) => {
-          setPreviewCertificate(o ? previewCertificate : null);
-          if (!o) {
-            // Close full image preview when certificate preview modal closes
-            setFullImagePreviewOpen(false);
-            setFullImagePreviewUrl(null);
-          }
-        }}
+        onOpenChange={(o) =>
+          setPreviewCertificate(o ? previewCertificate : null)
+        }
       >
         <DialogContent 
           className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6"
@@ -2132,10 +1970,6 @@ function CertificatesContent() {
               e.preventDefault();
               setPreviewCertificate(null);
             }
-          }}
-          style={{
-            animation: 'none',
-            transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
           <DialogHeader className="space-y-1 sm:space-y-1.5 flex-shrink-0 pb-2 sm:pb-4">
@@ -2146,60 +1980,83 @@ function CertificatesContent() {
               {t("certificates.previewDescription")}
             </DialogDescription>
           </DialogHeader>
-          <div 
-            className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 scrollbar-hide"
-            style={{
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-              WebkitOverflowScrolling: 'touch',
-            }}
-          >
+          <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1">
             {previewCertificate && (
               <>
                 {/* Certificate Info */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+                <motion.div
+                  className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
                   <div className="space-y-4 sm:space-y-6">
-                    <div className="space-y-2 sm:space-y-3">
+                    <motion.div
+                      className="space-y-2 sm:space-y-3"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4, delay: 0.1 }}
+                    >
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Certificate Number
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.certificate_no}
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="space-y-2 sm:space-y-3">
+                    <motion.div
+                      className="space-y-2 sm:space-y-3"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4, delay: 0.2 }}
+                    >
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Recipient Name
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.name}
                       </div>
-                    </div>
+                    </motion.div>
 
                     {previewCertificate.category && (
-                      <div className="space-y-2 sm:space-y-3">
+                      <motion.div
+                        className="space-y-2 sm:space-y-3"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.4, delay: 0.3 }}
+                      >
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Category
                         </label>
                         <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm sm:text-base font-medium">
                           {previewCertificate.category}
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
                     {previewCertificate.description && (
-                      <div className="space-y-2 sm:space-y-3">
+                      <motion.div
+                        className="space-y-2 sm:space-y-3"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.4, delay: 0.4 }}
+                      >
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Description
                         </label>
                         <div className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words">
                           {previewCertificate.description}
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <motion.div
+                      className="grid grid-cols-2 gap-3 sm:gap-4"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4, delay: 0.5 }}
+                    >
                       <div className="space-y-1 sm:space-y-2">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Issue Date
@@ -2222,11 +2079,16 @@ function CertificatesContent() {
                           </div>
                         </div>
                       )}
-                    </div>
+                    </motion.div>
                   </div>
 
                   {/* Certificate / Score Preview */}
-                  <div className="space-y-2 sm:space-y-4">
+                  <motion.div
+                    className="space-y-2 sm:space-y-4"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                  >
                     <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                       Certificate Preview
                     </label>
@@ -2289,108 +2151,38 @@ function CertificatesContent() {
                             const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
                             return (
-                              <div
-                                className="relative w-full h-full cursor-zoom-in group"
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => {
-                                  setFullImagePreviewUrl(src);
-                                  setFullImagePreviewOpen(true);
+                              <Image
+                                src={src}
+                                alt={previewMode === 'score' ? "Score" : "Certificate"}
+                                fill
+                                sizes="100vw"
+                                className="object-contain absolute inset-0"
+                                style={{ objectFit: 'contain' }}
+                                onError={() => {
+                                  console.warn('Preview image failed to load', src);
                                 }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setFullImagePreviewUrl(src);
-                                    setFullImagePreviewOpen(true);
-                                  }
-                                }}
-                              >
-                                <Image
-                                  src={src}
-                                  alt={previewMode === 'score' ? "Score" : "Certificate"}
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
-                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
-                                  style={{ objectFit: 'contain' }}
-                                  onError={() => {
-                                    console.warn('Preview image failed to load', src);
-                                  }}
-                                  priority
-                                  fetchPriority="high"
-                                  unoptimized={isRemote || isData}
-                                  decoding="async"
-                                />
-                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage') || 'Click to view full size'}
-                                </div>
-                              </div>
+                                priority
+                                unoptimized={isRemote || isData}
+                              />
                             );
                           })()
                         ) : (
                           <>
                             {/* FIX: Template Image with consistent aspect ratio */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
-                              <div
-                                className="relative w-full h-full cursor-zoom-in group"
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => {
-                                  setFullImagePreviewUrl(previewTemplate.score_image_url!);
-                                  setFullImagePreviewOpen(true);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setFullImagePreviewUrl(previewTemplate.score_image_url!);
-                                    setFullImagePreviewOpen(true);
-                                  }
-                                }}
-                              >
-                                <Image
-                                  src={previewTemplate.score_image_url}
-                                  alt="Score Template"
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
-                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
-                                  loading="eager"
-                                  unoptimized
-                                />
-                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage') || 'Click to view full size'}
-                                </div>
-                              </div>
+                              <Image
+                                src={previewTemplate.score_image_url}
+                                alt="Score Template"
+                                fill
+                                className="object-contain absolute inset-0"
+                              />
                             ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
-                              <div
-                                className="relative w-full h-full cursor-zoom-in group"
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => {
-                                  setFullImagePreviewUrl(getTemplateImageUrl(previewTemplate)!);
-                                  setFullImagePreviewOpen(true);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setFullImagePreviewUrl(getTemplateImageUrl(previewTemplate)!);
-                                    setFullImagePreviewOpen(true);
-                                  }
-                                }}
-                              >
-                                <Image
-                                  src={getTemplateImageUrl(previewTemplate)!}
-                                  alt="Certificate Template"
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
-                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
-                                  priority
-                                  fetchPriority="high"
-                                  decoding="async"
-                                  unoptimized
-                                />
-                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage') || 'Click to view full size'}
-                                </div>
-                              </div>
+                              <Image
+                                src={getTemplateImageUrl(previewTemplate)!}
+                                alt="Certificate Template"
+                                fill
+                                className="object-contain absolute inset-0"
+                              />
                             ) : (
                               <>
                                 {/* Decorative Corners */}
@@ -2401,27 +2193,15 @@ function CertificatesContent() {
                               </>
                             )}
 
-                            {/* FIX: Text Layers with consistent positioning using normalized coordinates */}
-                            {previewMode === 'certificate' && previewCertificate.text_layers &&
+                            {/* CRITICAL: Only render text overlay for certificate if NO generated PNG exists (showing template preview)
+                                If certificate_image_url exists, the generated PNG already has text baked in - don't overlay! */}
+                            {previewMode === 'certificate' && !previewCertificate?.certificate_image_url && previewCertificate.text_layers &&
                               previewCertificate.text_layers.map(
                                 (layer: CertificateTextLayer) => {
-                                  const actualX = layer.xPercent * 100 + "%";
-                                  const actualY = layer.yPercent * 100 + "%";
+                                  // CRITICAL: Prioritize absolute coordinates (x, y) to match rendering logic
+                                  // Fallback to percentage (xPercent, yPercent) for backward compatibility with old layers
                                   
-                                  // CRITICAL FIX: Container uses aspectRatio: "800/600" and image uses object-contain
-                                  // object-contain preserves aspect ratio, so the image will be scaled based on the MORE constrained dimension
-                                  // We need to match this behavior for text scaling
-                                  // 
-                                  // Formula: scale = min(widthScale, heightScale) for object-contain
-                                  // BUT: Since we have aspectRatio CSS constraint, container SHOULD maintain 800/600 ratio
-                                  // However, if maxHeight constrains it, we need to respect that
-                                  // 
-                                  // BEST APPROACH: Calculate scale based on the dimension that would constrain object-contain
-                                  // For object-contain: scale = min(containerWidth/800, containerHeight/600)
-                                  // This ensures text scales EXACTLY like the image
-                                  // 
-                                  // CRITICAL FIX for mobile: Calculate scale even if containerDimensions is null
-                                  // Use previewContainerRef directly to get actual dimensions with robust fallback
+                                  // Calculate container scale for positioning
                                   let containerScale = 1;
                                   let hasValidDimensions = false;
                                   
@@ -2431,7 +2211,7 @@ function CertificatesContent() {
                                     const heightScale = containerDimensions.height / STANDARD_CANVAS_HEIGHT;
                                     containerScale = Math.min(widthScale, heightScale);
                                     hasValidDimensions = true;
-                                  } 
+                                  }
                                   
                                   // Fallback: Calculate from actual container DOM element
                                   if (!hasValidDimensions && previewContainerRef.current) {
@@ -2476,6 +2256,16 @@ function CertificatesContent() {
                                     console.warn('⚠️ Using fallback containerScale:', containerScale, 'for layer:', layer.id);
                                   }
                                   
+                                  // CRITICAL: Use absolute coordinates with scaleFactor (matching certificate-render.ts)
+                                  // Fallback to percentage for backward compatibility with old layers
+                                  const actualX = layer.x !== undefined && layer.x !== null
+                                    ? `${layer.x * containerScale}px`  // Absolute with scale
+                                    : `${(layer.xPercent || 0) * 100}%`; // Fallback percentage
+                                  
+                                  const actualY = layer.y !== undefined && layer.y !== null
+                                    ? `${layer.y * containerScale}px`  // Absolute with scale
+                                    : `${(layer.yPercent || 0) * 100}%`; // Fallback percentage
+                                  
                                   const scaledFontSize = layer.fontSize * containerScale;
                                   const scaledMaxWidth = layer.maxWidth ? layer.maxWidth * containerScale : undefined;
 
@@ -2484,11 +2274,6 @@ function CertificatesContent() {
                                   // - center: translate(-50%, -50%) → (x,y) is the CENTER
                                   // - right: translate(-100%, -50%) → (x,y) is the RIGHT edge, center Y
                                   // - left: translate(0%, -50%) → (x,y) is the LEFT edge, center Y
-                                  // 
-                                  // PROBLEM: For certificate_no and issue_date, translate(0%, -50%) causes text to shift down
-                                  // because -50% refers to element box height which includes line-height space
-                                  // SOLUTION: For left-aligned text, use top positioning with calculated offset
-                                  // OR adjust transform percentage based on actual text metrics
                                   const textAlign = (layer.id === 'certificate_no' || layer.id === 'issue_date') 
                                     ? 'left' 
                                     : (layer.textAlign || 'left');
@@ -2496,51 +2281,8 @@ function CertificatesContent() {
                                   const getTransform = () => {
                                     if (textAlign === 'center') return 'translate(-50%, -50%)';
                                     if (textAlign === 'right') return 'translate(-100%, -50%)';
-                                    
-                                  // For left-aligned (certificate_no, issue_date):
-                                  // PROBLEM: Text appears shifted DOWN (tidak full - bagian bawah terpotong)
-                                  // 
-                                  // Root cause:
-                                  // - translate(0%, -50%) uses element box height (fontSize * lineHeight)
-                                  // - Line-height space adds extra height, making element box taller
-                                  // - Element box center ≠ visual glyph center
-                                  // - Text appears lower than intended
-                                  // 
-                                  // Canvas rendering comparison:
-                                  // - Canvas uses: startY = y - (lineHeightPx / 2) + adjustments
-                                  // - For certificate_no: adjustment = -6px (moves UP)
-                                  // - For issue_date: adjustment = +9px (moves DOWN)
-                                  // 
-                                  // Solution: Use same approach as canvas with fine-tuning
-                                  // - Calculate geometric center of line-height box
-                                  // - Apply same fine-tuning adjustments as canvas
-                                  const lineHeight = layer.lineHeight || 1.2;
-                                  const lineHeightPx = scaledFontSize * lineHeight;
-                                  const geometricCenter = lineHeightPx / 2;
-                                  
-                                  // Apply fine-tuning adjustments to match canvas rendering
-                                  // Canvas positioning: startY = y - (lineHeightPx/2) + adjustment
-                                  // CSS transform: translate(0, -offset) shifts UP by offset
-                                  // To match canvas: offset = (lineHeightPx/2) - adjustment
-                                  let fineTuneAdjustment = 0;
-                                  if (layer.id === 'certificate_no') {
-                                    // Canvas: adjustment = -6px (moves UP, text starts higher)
-                                    // CSS: translate(0, -offset) moves UP
-                                    // So: offset = (lineHeightPx/2) - (-6) = (lineHeightPx/2) + 6
-                                    fineTuneAdjustment = 6 * containerScale;
-                                  } else if (layer.id === 'issue_date') {
-                                    // Canvas: adjustment = +9px (moves DOWN, text starts lower)
-                                    // CSS: translate(0, -offset) moves UP
-                                    // So: offset = (lineHeightPx/2) - (+9) = (lineHeightPx/2) - 9
-                                    fineTuneAdjustment = -9 * containerScale;
-                                  }
-                                  
-                                  // Final offset: geometric center PLUS fine-tuning (reversed sign for CSS transform)
-                                  // translate(0, -offset) where offset = geometric center + fine-tuning
-                                  const finalOffset = geometricCenter + fineTuneAdjustment;
-                                  
-                                  // Return pixel-based transform for precise positioning
-                                  return `translate(0, -${finalOffset}px)`;
+                                    // For left: Use simple percentage-based transform (uniform for all layers)
+                                    return 'translate(0%, -50%)';
                                   };
 
                                   return (
@@ -2571,10 +2313,11 @@ function CertificatesContent() {
                                 },
                               )}
 
-                            {previewMode === 'score' && scoreDefaults && scoreDefaults.textLayers && scoreDefaults.textLayers.map((layer: TextLayerDefault) => {
-                              // CRITICAL FIX: Use the same positioning logic as certificate mode for consistency
-                              const actualX = layer.xPercent * 100 + "%";
-                              const actualY = layer.yPercent * 100 + "%";
+                            {/* CRITICAL: Only render text overlay for score if NO generated PNG exists (showing template preview)
+                                If score_image_url exists, the generated PNG already has text baked in - don't overlay! */}
+                            {previewMode === 'score' && !previewCertificate?.score_image_url && scoreDefaults && scoreDefaults.textLayers && scoreDefaults.textLayers.map((layer: TextLayerDefault) => {
+                              // CRITICAL: Prioritize absolute coordinates (x, y) to match rendering logic
+                              // Fallback to percentage (xPercent, yPercent) for backward compatibility
                               
                               // Decide content: try to map known IDs to certificate data, otherwise show placeholder id
                               let content = '';
@@ -2583,8 +2326,8 @@ function CertificatesContent() {
                               else if (layer.id === 'nilai_prestasi') content = '';
                               else content = layer.id.replace(/_/g, ' ');
 
-                              // CRITICAL FIX: Container uses aspectRatio: "800/600" and image uses object-contain
-                              // Use same scaling logic as certificate text layers for consistency
+                              // CRITICAL: Use absolute coordinates with scaleFactor (matching certificate-render.ts)
+                              // Fallback to percentage for backward compatibility with old layers
                               // Also includes robust fallback calculation for mobile initial render
                               let containerScale = 1;
                               let hasValidDimensions = false;
@@ -2633,6 +2376,16 @@ function CertificatesContent() {
                                   : 0.4;
                                 containerScale = Math.max(0.2, Math.min(1.0, estimatedMobileScale)); // Clamp between 0.2 and 1.0
                               }
+                              
+                              // CRITICAL: Use absolute coordinates with scaleFactor (matching certificate-render.ts)
+                              // Fallback to percentage for backward compatibility with old layers
+                              const actualX = layer.x !== undefined && layer.x !== null
+                                ? `${layer.x * containerScale}px`  // Absolute with scale
+                                : `${(layer.xPercent || 0) * 100}%`; // Fallback percentage
+                              
+                              const actualY = layer.y !== undefined && layer.y !== null
+                                ? `${layer.y * containerScale}px`  // Absolute with scale
+                                : `${(layer.yPercent || 0) * 100}%`; // Fallback percentage
                               
                               const scaledFontSize = layer.fontSize * containerScale;
                               const scaledMaxWidth = layer.maxWidth ? layer.maxWidth * containerScale : undefined;
@@ -2729,11 +2482,16 @@ function CertificatesContent() {
                         )}
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </motion.div>
+                </motion.div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+                <motion.div
+                  className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.6 }}
+                >
                   <div className="flex flex-wrap gap-2">
                     {(canDelete || forceCanDelete) && previewCertificate && (
                       <button
@@ -2773,53 +2531,12 @@ function CertificatesContent() {
                       </Button>
                     )}
                   </div>
-                </div>
+                </motion.div>
               </>
             )}
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Full Image Preview Modal */}
-      {fullImagePreviewOpen && fullImagePreviewUrl && (
-        <div 
-          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" 
-          onClick={() => setFullImagePreviewOpen(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              setFullImagePreviewOpen(false);
-            }
-          }}
-          tabIndex={0}
-        >
-          <div 
-            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden" 
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {previewMode === 'score' ? 'Score Preview' : 'Certificate Preview'} - {previewCertificate?.certificate_no || ''}
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => setFullImagePreviewOpen(false)}
-                size="icon"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 overflow-auto flex-1">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
-                src={fullImagePreviewUrl} 
-                alt={previewMode === 'score' ? "Score" : "Certificate"} 
-                className="w-full h-auto rounded-lg border shadow-sm" 
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Send Certificate Email Modal */}
       <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
@@ -2965,78 +2682,6 @@ function CertificatesContent() {
                 )}
               </Button>
             </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Production URL Modal for localhost detection */}
-      <Dialog open={productionUrlModalOpen} onOpenChange={setProductionUrlModalOpen}>
-        <DialogContent 
-          className="max-w-md w-full"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && e.target instanceof HTMLInputElement) {
-              e.preventDefault();
-              handleProductionUrlSubmit();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              setProductionUrlModalOpen(false);
-            }
-          }}
-        >
-          <DialogHeader className="flex-shrink-0 pb-4">
-            <DialogTitle className="text-xl font-bold">Production URL Required</DialogTitle>
-            <DialogDescription className="text-sm">
-              You&apos;re running on localhost. Please enter your production URL to generate shareable links.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Production URL
-              </label>
-              <Input
-                value={productionUrlInput}
-                onChange={(e) => setProductionUrlInput(e.target.value)}
-                placeholder="https://yourdomain.com"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleProductionUrlSubmit();
-                  }
-                }}
-                autoFocus
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                This will be saved in your browser for future use.
-              </p>
-            </div>
-            {typeof window !== 'undefined' && window.localStorage.getItem('production-url') && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                <p className="text-xs text-blue-700 dark:text-blue-300">
-                  Current saved URL: <span className="font-mono font-semibold">{window.localStorage.getItem('production-url')}</span>
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t flex-shrink-0">
-            <Button 
-              variant="outline" 
-              className="border-gray-300 w-full sm:w-auto" 
-              onClick={() => {
-                setProductionUrlModalOpen(false);
-                setProductionUrlInput("");
-                setPendingCertificate(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto" 
-              onClick={handleProductionUrlSubmit}
-              disabled={!productionUrlInput.trim()}
-            >
-              Save & Generate Link
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
 

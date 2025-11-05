@@ -28,8 +28,8 @@ export interface RenderTextLayer {
 export interface RenderCertificateParams {
   templateImageUrl: string;
   textLayers: RenderTextLayer[];
-  width: number;
-  height: number;
+  width?: number;  // Optional: If not provided, use template's natural width
+  height?: number; // Optional: If not provided, use template's natural height
 }
 
 /**
@@ -100,17 +100,26 @@ export async function renderCertificateToDataURL(
   // Load template image
   const img = await loadImage(templateImageUrl);
   
-  console.log('🖼️ Template image loaded:', {
+  // DYNAMIC CANVAS SIZE (like Canva/Affinity):
+  // Use template's NATURAL dimensions if not explicitly provided
+  // This ensures output matches template resolution exactly (no scaling/distortion)
+  const finalWidth = width ?? img.naturalWidth;
+  const finalHeight = height ?? img.naturalHeight;
+  
+  console.log('🖼️ Template image loaded (Dynamic Canvas Size):', {
     naturalWidth: img.naturalWidth,
     naturalHeight: img.naturalHeight,
-    targetWidth: width,
-    targetHeight: height
+    providedWidth: width,
+    providedHeight: height,
+    finalWidth,
+    finalHeight,
+    usingNaturalSize: width === undefined || height === undefined
   });
 
-  // Create offscreen canvas
+  // Create offscreen canvas at FINAL dimensions
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = finalWidth;
+  canvas.height = finalHeight;
   const ctx = canvas.getContext('2d');
   
   if (!ctx) {
@@ -118,7 +127,7 @@ export async function renderCertificateToDataURL(
   }
 
   // Draw template background
-  ctx.drawImage(img, 0, 0, width, height);
+  ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
 
   // Draw text layers
   console.log(`TOTAL TEXT LAYERS TO RENDER: ${textLayers.length}`, 
@@ -145,16 +154,21 @@ export async function renderCertificateToDataURL(
       continue; // Skip empty text
     }
 
-    // Calculate position - CRITICAL: Prioritize absolute x/y coordinates
-    // Some layers (especially score layers) may only have absolute coordinates
-    // If both exist, prefer absolute for accuracy
-    const scaleFactor = width / STANDARD_CANVAS_WIDTH;
-    const x = layer.x !== undefined && layer.x !== null 
-      ? Math.round(layer.x * scaleFactor) 
-      : Math.round((layer.xPercent || 0) * width);
-    const y = layer.y !== undefined && layer.y !== null 
-      ? Math.round(layer.y * scaleFactor) 
-      : Math.round((layer.yPercent || 0) * height);
+    // Calculate position - CANVA APPROACH: Prioritize PERCENTAGE coordinates
+    // Percentage-based positioning is resolution-independent (like Canva/Affinity)
+    // Benefits:
+    // - Consistent positioning across ANY template resolution
+    // - No scaling artifacts or rounding errors
+    // - "50% = center" works at 800px, 1080px, 2000px, etc.
+    // 
+    // Priority: Percentage FIRST → Absolute as fallback (for backward compatibility)
+    const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH;
+    const x = layer.xPercent !== undefined && layer.xPercent !== null
+      ? Math.round(layer.xPercent * finalWidth)    // Percentage (resolution-independent) ✅
+      : Math.round((layer.x || 0) * scaleFactor);  // Absolute with scaling (fallback)
+    const y = layer.yPercent !== undefined && layer.yPercent !== null
+      ? Math.round(layer.yPercent * finalHeight)   // Percentage (resolution-independent) ✅
+      : Math.round((layer.y || 0) * scaleFactor);  // Absolute with scaling (fallback)
     
     // CRITICAL: Scale maxWidth based on canvas size
     const scaledMaxWidth = (layer.maxWidth || 300) * scaleFactor;
@@ -518,142 +532,23 @@ function drawWrappedText(
     });
   }
   
-  // CRITICAL: Use appropriate centering method based on layer
+  // REFACTOR: Use uniform geometric center for ALL layers
+  // This ensures consistent positioning between Preview (CSS) and Generated PNG (Canvas)
+  // No special casing, no hardcoded adjustments, no padding/border compensation
+  // 
+  // Why this works:
+  // - Both CSS and Canvas now center text block (fontSize * lineHeight) at stored y
+  // - No padding/border in CSS preview (removed to match Canvas)
+  // - Geometric center: startY = y - (totalTextHeight / 2)
+  // - Works uniformly for all font sizes and lineHeight values
   //
-  // DISCOVERY from console logs:
-  // - Name layer: Works with simple geometric center
-  // - certificate_no & issue_date: Still shift with geometric center
-  //   Console shows centerDifference: 0 but visual shift still exists
-  //
-  // ROOT CAUSE:
-  // For small fonts (13px) with line-height > 1:
-  // - Geometric center (line-height box center) ≠ Visual center (glyphs center)
-  // - Line-height space is distributed around baseline, not evenly
-  // - Visual center of glyphs = baseline + (actualTextHeight / 2)
-  // - Geometric center = (totalTextHeight / 2)
-  //
-  // Solution:
-  // - Name layer (large font): Use simple geometric center (works!)
-  // - certificate_no & issue_date (small fonts): Use visual center calculation
-  //
-  const isProblematicLayer = layerId === 'certificate_no' || layerId === 'issue_date';
+  // Benefits:
+  // - Consistent positioning across all layers
+  // - Scalable: works for any template without per-layer adjustments
+  // - Maintainable: simple, clear logic
+  // - Predictable: same calculation for preview and generation
   
-  let startY: number;
-  
-  if (isProblematicLayer) {
-    // For problematic layers: Calculate visual center to match CSS glyph positioning
-    // 
-    // CRITICAL DISCOVERY from console logs:
-    // - certificate_no (lineHeight 1.2): Works with visual center calculation
-    // - issue_date (lineHeight 1.3): Still shifts, needs different calculation
-    //
-    // CSS line-height behavior:
-    // - Line-box height = fontSize * lineHeight
-    // - Baseline is positioned within line-box (typically at ~0.8 * fontSize from top)
-    // - Line-height space is distributed around baseline (NOT evenly above/below)
-    // - Visual center of glyphs = baseline position + (actualTextHeight / 2)
-    // - For lineHeight > 1: More space is added, but distribution around baseline matters
-    //
-    // For lineHeight 1.3 vs 1.2:
-    // - More space is added (3.9px vs 2.6px for fontSize 13)
-    // - Space distribution around baseline affects visual center position
-    // - Need to account for how CSS distributes this extra space
-    //
-    // Visual center calculation:
-    // - Visual center from top = actualAscent + (actualTextHeight / 2)
-    // - This represents where the visual center of glyphs is within the line-height box
-    // - For lineHeight > 1, space is added around baseline, not evenly distributed
-    // - The extra space (lineHeight - 1) * fontSize is distributed around baseline
-    //
-    // CRITICAL: For lineHeight 1.3 vs 1.2:
-    // - More space is added: (1.3 - 1) * 13 = 3.9px vs (1.2 - 1) * 13 = 2.6px
-    // - This extra space affects visual center position
-    // - CSS distributes this space around baseline, so visual center shifts
-    //
-    // Better calculation: Account for line-height space distribution
-    // Visual center = baseline + (actualTextHeight / 2)
-    // Baseline ≈ actualAscent (distance from top to baseline)
-    // But with line-height space, the visual center shifts slightly
-    //
-    // For both certificate_no and issue_date: Use visual center based on actualAscent
-    // This matches CSS glyph positioning within the line-height box
-    //
-    // CRITICAL DISCOVERY from console logs:
-    // - certificate_no (lineHeight 1.2): Works correctly with visual center
-    // - issue_date (lineHeight 1.3): Still shifts - needs different approach
-    //
-    // The issue: For single-line text, visualCenterOfBlock = visualCenterFromTop
-    // But visualCenterFromTop doesn't account for lineHeight differences!
-    //
-    // CSS line-height behavior:
-    // - Line-box height = fontSize * lineHeight
-    // - Baseline position ≈ actualAscent from top
-    // - Visual center of glyphs = baseline + (actualTextHeight / 2)
-    // - BUT: With lineHeight > 1, extra space is distributed around baseline
-    // - This shifts the visual center within the line-height box
-    //
-    // For different lineHeight values:
-    // - lineHeight 1.2: 2.6px extra space (for fontSize 13)
-    // - lineHeight 1.3: 3.9px extra space (1.3px more)
-    // 
-    // The extra space distribution affects where visual center appears
-    // We need to account for this in visualCenter calculation
-    //
-    // Better approach: Use geometric center of line-height box for issue_date
-    // This ensures consistency with CSS element box centering
-    // CRITICAL: For both certificate_no and issue_date, use geometric center of line-height box
-    // This ensures consistency with CSS element box centering
-    // CSS centers element box at stored y, and geometric center matches this better than visual center
-    // 
-    // Why geometric center works better:
-    // - CSS element box height = fontSize * lineHeight + padding + border
-    // - CSS centers this box at stored y
-    // - Canvas text height = fontSize * lineHeight (no padding/border)
-    // - Geometric center of line-height box aligns with CSS element box center
-    // - Visual center (based on actualAscent) may shift due to baseline position variations
-    // CRITICAL: For issue_date, account for CSS padding/border (12px total) that affects visual center
-    // CSS element box height = fontSize * lineHeight + 12px (padding 8px + border 4px)
-    // Canvas text height = fontSize * lineHeight (no padding/border)
-    // 
-    // CSS centers element box at stored y using transform: translate(0%, -50%)
-    // The stored y represents center of element box (text + padding + border)
-    // Since padding/border is symmetric (6px top, 6px bottom), 
-    // center of element box = center of text + 6px down (padding/border below text)
-    // 
-    // However, with geometric center of line-height box, we're centering the text block
-    // To match CSS element box center, we need slight adjustment for the padding/border
-    //
-    // For issue_date specifically: Use geometric center with precise padding/border compensation
-    if (layerId === 'issue_date') {
-      // Calculate geometric center of line-height box
-      const geometricCenterOfLineBox = lineHeightPx / 2;
-      const visualCenterOfBlock = geometricCenterOfLineBox + ((lines.length - 1) * lineHeightPx) / 2;
-      
-      // CRITICAL: User reports text too left and slightly too low (needs to move right and up)
-      // Need upward adjustment (Y) and right adjustment (X will be handled separately)
-      const paddingBorderAdjustment = 9; // User requested: 9px to move down (increase downward shift)
-      
-      startY = y - visualCenterOfBlock + paddingBorderAdjustment;
-    } else if (layerId === 'certificate_no') {
-      // For certificate_no: User reports text still slightly too high
-      // Need to move text up slightly (reduce startY) and to the right
-      const geometricCenterOfLineBox = lineHeightPx / 2;
-      const visualCenterOfBlock = geometricCenterOfLineBox + ((lines.length - 1) * lineHeightPx) / 2;
-      
-      // Fine-tuning: Move up more (negative adjustment) to avoid collision with "NOMOR"
-      const fineTuneAdjustment = -6; // User requested: -6px to move up more
-      
-      startY = y - visualCenterOfBlock + fineTuneAdjustment;
-    } else {
-      // For other problematic layers (shouldn't happen, but fallback)
-      const visualCenterFromTop = actualAscent + (actualTextHeight / 2);
-      const visualCenterOfBlock = visualCenterFromTop + ((lines.length - 1) * lineHeightPx) / 2;
-      startY = y - visualCenterOfBlock;
-    }
-  } else {
-    // For all other layers (name, score layers): Use simple geometric center
-    startY = y - (totalTextHeight / 2);
-  }
+  const startY = y - (totalTextHeight / 2);
   
   // CRITICAL FIX: Calculate x position for each line based on textAlign
   // 
@@ -675,58 +570,19 @@ function drawWrappedText(
   
   let drawX = x;
   
-  // CRITICAL: X position adjustment for alignment conversion
-  if (layerId === 'issue_date') {
-    // Move more to the right to avoid collision with "Malang" text
-    const xAdjustment = 11; // User requested: 11px to move right
-    drawX = x + xAdjustment;
-  } else if (layerId === 'certificate_no') {
-    // Move more to the right to avoid collision with "NOMOR" text
-    const xAdjustment = 8; // User requested: 8px to move right
-    drawX = x + xAdjustment;
-  } else {
-    // For all other layers, use stored x coordinate directly
-    // CSS transform already accounts for alignment, and Canvas textAlign matches this
-    drawX = x;
-  }
+  // REFACTOR: Use stored x coordinate directly for ALL layers
+  // No adjustments needed - CSS transform and Canvas textAlign are already aligned
+  drawX = x;
   
-  // COMPREHENSIVE DEBUG LOGGING: Compare working vs broken layers
+  // SIMPLIFIED DEBUG LOGGING: Verify uniform geometric center calculation
   if (layerId === 'name' || layerId === 'certificate_no' || layerId === 'issue_date') {
-    let calculatedCenter: number;
-    let centerDifference: number;
+    // All layers now use simple geometric center
+    const calculatedCenter = startY + (totalTextHeight / 2);
+    const centerDifference = calculatedCenter - y;
     
-    if (isProblematicLayer) {
-      // For problematic layers: Calculate center based on method used
-      if (layerId === 'issue_date') {
-        // issue_date uses geometric center with padding/border adjustment
-        const geometricCenterOfLineBox = lineHeightPx / 2;
-        const calculatedVisualCenter = geometricCenterOfLineBox + ((lines.length - 1) * lineHeightPx) / 2;
-        const paddingBorderAdjustment = 9; // Match the adjustment in startY calculation
-        calculatedCenter = startY + calculatedVisualCenter - paddingBorderAdjustment;
-        centerDifference = calculatedCenter - y;
-      } else if (layerId === 'certificate_no') {
-        // certificate_no uses geometric center with fine-tuning adjustment
-        const geometricCenterOfLineBox = lineHeightPx / 2;
-        const calculatedVisualCenter = geometricCenterOfLineBox + ((lines.length - 1) * lineHeightPx) / 2;
-        const fineTuneAdjustment = -6; // Match the adjustment in startY calculation (negative = move up)
-        calculatedCenter = startY + calculatedVisualCenter - fineTuneAdjustment;
-        centerDifference = calculatedCenter - y;
-      } else {
-        // Fallback: Use visual center based on actualAscent
-        const visualCenterFromTop = actualAscent + (actualTextHeight / 2);
-        const visualCenterOfBlock = visualCenterFromTop + ((lines.length - 1) * lineHeightPx) / 2;
-        calculatedCenter = startY + visualCenterOfBlock;
-        centerDifference = calculatedCenter - y;
-      }
-    } else {
-      // For other layers: Calculate geometric center
-      calculatedCenter = startY + (totalTextHeight / 2);
-      centerDifference = calculatedCenter - y;
-    }
-    
-    console.log(`🔍 [${layerId}] DRAW_WRAPPED_TEXT CALCULATION:`, {
+    console.log(`🔍 [${layerId}] POSITIONING (Uniform Geometric Center):`, {
       layerId,
-      // Input
+      // Input coordinates
       x,
       y,
       fontSize,
@@ -734,73 +590,20 @@ function drawWrappedText(
       textAlign,
       text: text.substring(0, 20),
       linesCount: lines.length,
-      // Text metrics
-      hasValidMetrics,
-      actualBoundingBoxAscent: firstLineMetrics.actualBoundingBoxAscent,
-      actualBoundingBoxDescent: firstLineMetrics.actualBoundingBoxDescent,
-      actualAscent,
-      actualDescent,
-      actualTextHeight,
-      // Line height calculations
+      // Calculations
       lineHeightPx,
       totalTextHeight,
-      // Final positioning (simple geometric center - same as name layer that works)
       startY,
       calculatedCenter,
       expectedCenter: y,
       centerDifference,
-      // Critical: This shows if we're off
+      // Verification
       isOffsetCorrect: Math.abs(centerDifference) < 0.5,
-      // Visual shift analysis
       actualShift: centerDifference > 0 ? `${centerDifference.toFixed(2)}px DOWN` : `${Math.abs(centerDifference).toFixed(2)}px UP`,
-      // CRITICAL: Method depends on layer
-      calculationMethod: isProblematicLayer 
-        ? (layerId === 'issue_date'
-          ? 'GEOMETRIC_CENTER_LINEBOX_WITH_PADDING_ADJUSTMENT - accounts for CSS padding/border (12px) for perfect alignment'
-          : layerId === 'certificate_no'
-          ? 'GEOMETRIC_CENTER_LINEBOX - uses geometric center of line-height box'
-          : 'VISUAL_CENTER - matches CSS glyph visual center (fallback)')
-        : 'GEOMETRIC_CENTER - simple centering (same as name layer that works)',
-      // For problematic layers: Show calculation details
-      ...(isProblematicLayer ? {
-        ...(layerId === 'issue_date' ? {
-          // issue_date uses geometric center with padding/border adjustment
-          geometricCenterOfLineBox: lineHeightPx / 2,
-          visualCenterOfBlock: (lineHeightPx / 2) + ((lines.length - 1) * lineHeightPx) / 2,
-          paddingBorderAdjustment: 9, // User requested: 9px to move down
-          xAdjustment: 11, // User requested: 11px to move right
-          cssElementBoxHeight: lineHeightPx + 12, // text + padding (8px) + border (4px)
-          canvasTextHeight: lineHeightPx,
-          visualCenterFromTop: actualAscent + (actualTextHeight / 2),
-          geometricCenter: startY + (totalTextHeight / 2),
-          geometricCenterDifference: (startY + (totalTextHeight / 2)) - y,
-          comparison: 'Using geometric center with 9px Y adjustment (down) and 11px X adjustment (right) to avoid collision with "Malang"'
-        } : layerId === 'certificate_no' ? {
-          // certificate_no uses geometric center with fine-tuning adjustment
-          geometricCenterOfLineBox: lineHeightPx / 2,
-          visualCenterOfBlock: (lineHeightPx / 2) + ((lines.length - 1) * lineHeightPx) / 2,
-          fineTuneAdjustment: -6, // User requested: -6px to move up more
-          xAdjustment: 8, // User requested: 8px to move right
-          visualCenterFromTop: actualAscent + (actualTextHeight / 2),
-          geometricCenter: startY + (totalTextHeight / 2),
-          geometricCenterDifference: (startY + (totalTextHeight / 2)) - y,
-          comparison: 'Using geometric center with -6px Y adjustment (move up) and 8px X adjustment (right) to avoid collision with "NOMOR"'
-        } : {
-          // Fallback: Use visual center
-          visualCenterFromTop: actualAscent + (actualTextHeight / 2),
-          visualCenterOfBlock: (actualAscent + (actualTextHeight / 2)) + ((lines.length - 1) * lineHeightPx) / 2,
-          geometricCenter: startY + (totalTextHeight / 2),
-          geometricCenterDifference: (startY + (totalTextHeight / 2)) - y
-        })
-      } : {}),
-      // Analysis for debugging
-      cssElementBoxHeight: totalTextHeight + 12, // text + padding (8px) + border (4px)
-      canvasTextHeight: totalTextHeight,
-      paddingBorderHeight: 12,
-      // Recommendation
-      recommendation: Math.abs(centerDifference) > 0.5
-        ? `Geometric center differs by ${Math.abs(centerDifference).toFixed(1)}px ${centerDifference > 0 ? 'DOWN' : 'UP'}. This suggests a fundamental issue with: (1) Y coordinate storage/loading, (2) totalTextHeight calculation, or (3) CSS vs Canvas height mismatch.`
-        : 'Geometric center matches layout setting perfectly ✓'
+      method: 'UNIFORM_GEOMETRIC_CENTER - same for all layers',
+      recommendation: Math.abs(centerDifference) < 0.5
+        ? 'Perfect center alignment ✓'
+        : `Off by ${Math.abs(centerDifference).toFixed(1)}px - check coordinates or CSS`
     });
   }
 
