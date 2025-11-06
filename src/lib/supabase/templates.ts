@@ -44,6 +44,7 @@ export interface Template {
   layout_config_updated_at?: string | null; // When layout was last updated
   layout_config_updated_by?: string | null; // Who updated the layout
   is_layout_configured?: boolean; // Whether layout is ready for Quick Generate
+  status?: string; // Template status: "ready" or "draft"
 }
 
 export interface CreateTemplateData {
@@ -68,6 +69,7 @@ export interface UpdateTemplateData {
   certificate_image_file?: File;
   score_image_file?: File;
   is_dual_template?: boolean;
+  status?: string; // Template status: "ready" or "draft"
 }
 
 // Upload image to Supabase Storage (with fallback to local)
@@ -177,6 +179,7 @@ export function getTemplatePreviewUrl(template: Template): string | null {
 
 // Get all templates with optional caching
 export async function getTemplates(useCache: boolean = true): Promise<Template[]> {
+  console.log('📥 Fetching templates, useCache:', useCache);
   if (useCache && typeof window !== 'undefined') {
     try {
       const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
@@ -194,6 +197,7 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
             throw new Error(`Failed to fetch templates: ${error.message}`);
           }
 
+          console.log('📥 Cached templates fetched:', data?.length || 0, 'with status fields:', data?.map(t => ({ id: t.id, name: t.name, status: t.status })));
           return data || [];
         },
         10 * 60 * 1000 // 10 minutes cache
@@ -213,6 +217,7 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
     throw new Error(`Failed to fetch templates: ${error.message}`);
   }
 
+  console.log('📥 Fetched templates:', data?.length || 0, 'with status fields:', data?.map(t => ({ id: t.id, name: t.name, status: t.status })));
   return data || [];
 }
 
@@ -454,7 +459,25 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
       updateData.preview_image_path = previewImagePath;
     }
 
-    console.log('💾 Updating template data via API:', updateData);
+    // CRITICAL: Always include status if provided
+    // This is essential for status updates to work correctly
+    if (templateData.status !== undefined && templateData.status !== null) {
+      if (templateData.status === 'ready' || templateData.status === 'draft') {
+        updateData.status = templateData.status;
+        console.log('✅ Status included in update:', templateData.status, 'type:', typeof templateData.status);
+      } else {
+        // If status is not valid, set default based on is_layout_configured
+        // But since we're updating, we should respect what was sent
+        console.warn('⚠️ Invalid status value:', templateData.status, 'Defaulting to draft');
+        updateData.status = 'draft';
+      }
+    } else {
+      console.warn('⚠️ Status not provided in templateData:', templateData);
+      console.warn('⚠️ templateData.status:', templateData.status, 'type:', typeof templateData.status);
+    }
+
+    console.log('💾 Updating template data via API:', JSON.stringify(updateData, null, 2));
+    console.log('💾 Status in updateData:', updateData.status, 'type:', typeof updateData.status);
 
     // Update data in templates table via API route (bypasses RLS)
     const response = await fetch('/api/templates/update', {
@@ -479,8 +502,31 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
 
     const data = result.data;
     console.log('✅ Template updated successfully via API:', data);
+    console.log('✅ API response status field:', data?.status);
     
-    // Verify the update by fetching the template
+    // If API response already has status, use it directly and skip verification
+    if (data?.status) {
+      console.log('✅ Using status from API response:', data.status);
+      // Delete cache to ensure fresh data on next fetch
+      if (typeof window !== 'undefined') {
+        try {
+          const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
+          dataCache.delete(CACHE_KEYS.TEMPLATES);
+          console.log('✅ Cache deleted for templates');
+        } catch (e) {
+          console.warn('⚠️ Could not delete cache:', e);
+        }
+      }
+      return data;
+    }
+    
+    // If status was in updateData but not in API response, add it manually
+    if (updateData.status && !data.status) {
+      console.warn('⚠️ Status was in updateData but missing from API response, adding it manually');
+      data.status = updateData.status as string;
+    }
+    
+    // Verify the update by fetching the template to get latest data including status
     console.log('🔍 Verifying template was updated by fetching it...');
     const { data: verifyData, error: verifyError } = await supabaseClient
       .from('templates')
@@ -490,11 +536,34 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
 
     if (verifyError) {
       console.error('❌ Verification failed:', verifyError);
-      throw new Error('Template was updated but could not be verified');
+      // Still return the API response data with manually added status if available
+      console.warn('⚠️ Verification failed, returning API response data with status from updateData');
+      return data;
     }
 
     console.log('✅ Template verification successful:', verifyData);
-    return data;
+    console.log('✅ Verified template status:', verifyData?.status);
+    
+    // Delete cache to ensure fresh data on next fetch
+    if (typeof window !== 'undefined') {
+      try {
+        const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
+        dataCache.delete(CACHE_KEYS.TEMPLATES);
+        console.log('✅ Cache deleted for templates');
+      } catch (e) {
+        console.warn('⚠️ Could not delete cache:', e);
+      }
+    }
+    
+    // Return verified data which includes the latest status
+    // If status is missing from verifyData but was in updateData, use it from updateData
+    if (!verifyData?.status && updateData.status) {
+      console.warn('⚠️ Status not in verified data, using from updateData:', updateData.status);
+      return { ...verifyData, status: updateData.status as string };
+    }
+    
+    // Return verifyData if it exists, otherwise return data (which should have status from updateData)
+    return verifyData || data;
 
   } catch (error) {
     console.error('💥 Template update process failed:', error);

@@ -6,20 +6,27 @@ import { LayoutStability } from "@/components/layout-stability";
 import { LanguageProvider } from "@/contexts/language-context";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { AuthProvider } from "@/contexts/auth-context";
+import { ModalProvider } from "@/contexts/modal-context";
 import { LoginModal } from "@/components/ui/login-modal";
 import { ThemeScript } from "@/components/theme-script";
+import { ErrorBoundaryWrapper } from "@/components/error-boundary-wrapper";
+import { ScrollbarVisibility } from "@/components/scrollbar-visibility";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  display: "swap",
+  display: "swap", // Prevent FOUT (Flash of Unstyled Text)
+  preload: true, // Preload critical fonts
+  adjustFontFallback: true, // Better font fallback
 });
 
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-poppins",
-  display: "swap",
+  display: "swap", // Prevent FOUT (Flash of Unstyled Text)
+  preload: true, // Preload critical fonts
+  adjustFontFallback: true, // Better font fallback
 });
 
 export const metadata: Metadata = {
@@ -139,15 +146,20 @@ export default function RootLayout({
           }}
         />
         <ThemeScript />
-        <ThemeProvider>
-          <LanguageProvider>
-            <AuthProvider>
-              <LayoutStability />
-              {children}
-              <LoginModal />
-            </AuthProvider>
-          </LanguageProvider>
-        </ThemeProvider>
+        <ErrorBoundaryWrapper>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AuthProvider>
+                <ModalProvider>
+                  <LayoutStability />
+                  <ScrollbarVisibility />
+                  {children}
+                  <LoginModal />
+                </ModalProvider>
+              </AuthProvider>
+            </LanguageProvider>
+          </ThemeProvider>
+        </ErrorBoundaryWrapper>
       </body>
     </html>
   );

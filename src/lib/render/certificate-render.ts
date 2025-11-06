@@ -266,8 +266,8 @@ export async function renderCertificateToDataURL(
     }
   }
 
-  // Convert to PNG DataURL
-  return canvas.toDataURL('image/png');
+  // Convert to WebP DataURL (better compression than PNG)
+  return canvas.toDataURL('image/webp', 0.9);
 }
 
 /**

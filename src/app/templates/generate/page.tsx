@@ -2172,12 +2172,12 @@ function CertificateGeneratorContent() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedLayerId, deleteTextLayer, stopEditingText]);
 
-  // Function to save generated Score PNG to storage
+  // Function to save generated Score WebP to storage
   const saveGeneratedScorePNG = async (imageDataUrl: string, certificateNo?: string): Promise<string> => {
     const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
-    const fileName = `${baseName}_score.png`;
+    const fileName = `${baseName}_score.webp`;
     
-    console.log('📤 Uploading score PNG to Supabase Storage...', { fileName });
+    console.log('📤 Uploading score WebP to Supabase Storage...', { fileName });
     
     // Upload to Supabase Storage (no fallback - must succeed)
     const storageResponse = await fetch('/api/upload-to-storage', {
@@ -2213,12 +2213,12 @@ function CertificateGeneratorContent() {
     return storageResult.url;
   };
 
-  // Function to save generated PNG to Supabase Storage
+  // Function to save generated WebP to Supabase Storage
   const saveGeneratedPNG = async (imageDataUrl: string, certificateNo?: string, suffix?: string): Promise<string> => {
     const baseName = certificateNo ? certificateNo.replace(/[^a-zA-Z0-9-_]/g, '_') : `generated_${Date.now()}`;
-    const fileName = suffix ? `${baseName}_${suffix}.png` : `${baseName}.png`;
+    const fileName = suffix ? `${baseName}_${suffix}.webp` : `${baseName}.webp`;
     
-    console.log('📤 Uploading certificate PNG to Supabase Storage...', { fileName });
+    console.log('📤 Uploading certificate WebP to Supabase Storage...', { fileName });
     
     // Upload to Supabase Storage (no fallback - must succeed)
     const storageResponse = await fetch('/api/upload-to-storage', {
@@ -2376,7 +2376,7 @@ function CertificateGeneratorContent() {
         devicePixelRatio: devicePixelRatio
       });
       
-      return canvas.toDataURL('image/png');
+      return canvas.toDataURL('image/webp', 0.9);
       
     } catch (error) {
       console.error('❌ html2canvas capture failed:', error);
@@ -2565,8 +2565,8 @@ function CertificateGeneratorContent() {
               }
             });
             
-            // Convert to data URL
-            const dataUrl = canvas.toDataURL("image/png");
+            // Convert to WebP data URL (better compression than PNG)
+            const dataUrl = canvas.toDataURL("image/webp", 0.9);
             console.log("✅ Score image created with consistent dimensions");
             resolve(dataUrl);
           } catch (error) {
@@ -2685,7 +2685,7 @@ function CertificateGeneratorContent() {
             }
           });
 
-          const dataURL = canvas.toDataURL("image/png");
+          const dataURL = canvas.toDataURL("image/webp", 0.9);
           resolve(dataURL);
         };
         img.onerror = async () => {
@@ -2738,7 +2738,7 @@ function CertificateGeneratorContent() {
             }
           });
 
-          const dataURL = canvas.toDataURL("image/png");
+          const dataURL = canvas.toDataURL("image/webp", 0.9);
           resolve(dataURL);
         };
         img.src = getActiveTemplateImageUrl(selectedTemplate)!
@@ -2793,7 +2793,7 @@ function CertificateGeneratorContent() {
             }
           });
 
-          const dataURL = canvas.toDataURL("image/png");
+          const dataURL = canvas.toDataURL("image/webp", 0.9);
           resolve(dataURL);
         })();
       }
@@ -2890,10 +2890,10 @@ function CertificateGeneratorContent() {
           const scoreImageDataUrl = await createScoreImageWithTemplate(synchronizedScoreTextLayers, selectedTemplate!);
           console.log("✅ Score image created:", scoreImageDataUrl.substring(0, 50) + "...");
           
-          // CRITICAL FIX: Save Score PNG to storage like certificate
-          console.log("💾 Saving Score PNG to storage...");
+          // CRITICAL FIX: Save Score WebP to storage like certificate
+          console.log("💾 Saving Score WebP to storage...");
           const finalScoreImageUrl = await saveGeneratedScorePNG(scoreImageDataUrl, finalCertificateNo);
-          console.log("✅ Score PNG saved:", finalScoreImageUrl);
+          console.log("✅ Score WebP saved:", finalScoreImageUrl);
           
           // CRITICAL FIX: Save Score text layout as persistent defaults after generation
           console.log("💾 Saving Score text layout as persistent defaults...");
@@ -2933,10 +2933,10 @@ function CertificateGeneratorContent() {
           setCertificateImageUrl(certificateImageDataUrl);
           setScoreImageUrl(scoreImageDataUrl);
           
-          // Save certificate PNG to Supabase Storage
-          console.log("💾 Saving certificate PNG to storage...");
+          // Save certificate WebP to Supabase Storage
+          console.log("💾 Saving certificate WebP to storage...");
           const finalCertificateImageUrl = await saveGeneratedPNG(certificateImageDataUrl, finalCertificateNo);
-          console.log("✅ Certificate PNG saved:", finalCertificateImageUrl);
+          console.log("✅ Certificate WebP saved:", finalCertificateImageUrl);
           
           // Update preview with storage URLs
           setCertificateImageUrl(finalCertificateImageUrl);
@@ -3055,9 +3055,9 @@ function CertificateGeneratorContent() {
         }
 
         // CRITICAL FIX: Upload to Supabase Storage FIRST before saving to database
-        console.log("💾 Uploading certificate PNG to Supabase Storage...");
+        console.log("💾 Uploading certificate WebP to Supabase Storage...");
         const finalCertificateImageUrl = await saveGeneratedPNG(mergedImageDataUrl, finalCertificateNo);
-        console.log("✅ Certificate PNG uploaded:", finalCertificateImageUrl);
+        console.log("✅ Certificate WebP uploaded:", finalCertificateImageUrl);
         
         // Update preview with storage URL
         setGeneratedImageUrl(finalCertificateImageUrl);
@@ -4917,13 +4917,13 @@ function CertificateGeneratorContent() {
                         setScoreImageUrl(scoreImageDataUrl);
                         
                         // CRITICAL FIX: Upload to Supabase Storage FIRST before saving to database
-                        console.log("💾 Uploading score PNG to Supabase Storage...");
+                        console.log("💾 Uploading score WebP to Supabase Storage...");
                         const finalScoreImageUrl = await saveGeneratedScorePNG(scoreImageDataUrl, finalCertificateNo);
-                        console.log("✅ Score PNG uploaded:", finalScoreImageUrl);
+                        console.log("✅ Score WebP uploaded:", finalScoreImageUrl);
                         
-                        console.log("💾 Uploading certificate PNG to Supabase Storage...");
+                        console.log("💾 Uploading certificate WebP to Supabase Storage...");
                         const finalCertificateImageUrl = await saveGeneratedPNG(certificateImageDataUrl, finalCertificateNo);
-                        console.log("✅ Certificate PNG uploaded:", finalCertificateImageUrl);
+                        console.log("✅ Certificate WebP uploaded:", finalCertificateImageUrl);
                         
                         // Update preview with storage URLs
                         setCertificateImageUrl(finalCertificateImageUrl);
