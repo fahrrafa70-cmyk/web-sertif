@@ -65,8 +65,6 @@ function SearchResultsContent() {
   const [categories, setCategories] = useState<string[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewCert, setPreviewCert] = useState<Certificate | null>(null);
-  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [sendFormErrors, setSendFormErrors] = useState<{ email?: string; subject?: string; message?: string }>({});
@@ -100,11 +98,6 @@ function SearchResultsContent() {
           e.preventDefault();
           return;
         }
-        if (imagePreviewOpen) {
-          setImagePreviewOpen(false);
-          e.preventDefault();
-          return;
-        }
         if (previewOpen) {
           setPreviewOpen(false);
           setPreviewCert(null);
@@ -124,14 +117,14 @@ function SearchResultsContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router, previewOpen, imagePreviewOpen, sendModalOpen, showFilters, setIsModalOpen]);
+  }, [router, previewOpen, sendModalOpen, showFilters, setIsModalOpen]);
 
   // Lock scroll when modal is open
   const scrollYRef = useRef(0);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    if (previewOpen || imagePreviewOpen || sendModalOpen) {
+    if (previewOpen || sendModalOpen) {
       // Save current scroll position
       scrollYRef.current = window.scrollY;
       document.body.style.position = 'fixed';
@@ -149,7 +142,7 @@ function SearchResultsContent() {
         window.scrollTo(0, savedScrollY);
       };
     }
-  }, [previewOpen, imagePreviewOpen, sendModalOpen]);
+  }, [previewOpen, sendModalOpen]);
   const [filters, setFilters] = useState<SearchFilters>({
     keyword: initialQuery,
     category: "",
@@ -959,13 +952,37 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
     setIsModalOpen(false); // Update modal context for header blur
   }, [setIsModalOpen]);
 
-  const handleOpenImagePreview = useCallback((url: string) => {
-    setImagePreviewUrl(url);
-    setImagePreviewOpen(true);
-  }, []);
-
-  const handleCloseImagePreview = useCallback(() => {
-    setImagePreviewOpen(false);
+  const handleOpenImagePreview = useCallback((url: string | null | undefined, updatedAt?: string | null) => {
+    if (!url) return;
+    
+    // Normalize URL untuk memastikan URL lengkap
+    let imageUrl = url;
+    
+    // Jika sudah full URL (http/https) atau data URL, gunakan langsung
+    if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
+      // URL Supabase atau external URL sudah lengkap, gunakan langsung
+      window.open(imageUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    
+    // Normalize local relative path like "generate/file.png" => "/generate/file.png"
+    if (!imageUrl.startsWith('/')) {
+      imageUrl = `/${imageUrl}`;
+    }
+    
+    // Add cache bust for local paths if updated_at is available
+    if (updatedAt) {
+      const cacheBust = `?v=${new Date(updatedAt).getTime()}`;
+      imageUrl = `${imageUrl}${cacheBust}`;
+    }
+    
+    // Convert relative path to absolute URL
+    if (typeof window !== 'undefined') {
+      imageUrl = `${window.location.origin}${imageUrl}`;
+    }
+    
+    // Open image in new tab
+    window.open(imageUrl, '_blank', 'noopener,noreferrer');
   }, []);
 
   // Memoized results count text
@@ -1251,14 +1268,14 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                             tabIndex={isExpired ? undefined : 0}
                             onClick={() => {
                               if (!isExpired && previewCert.certificate_image_url) {
-                                handleOpenImagePreview(previewCert.certificate_image_url);
+                                handleOpenImagePreview(previewCert.certificate_image_url, previewCert.updated_at);
                               }
                             }}
                             onKeyDown={(e) => {
                               if (!isExpired && (e.key === 'Enter' || e.key === ' ')) {
                                 e.preventDefault();
                                 if (previewCert.certificate_image_url) {
-                                  handleOpenImagePreview(previewCert.certificate_image_url);
+                                  handleOpenImagePreview(previewCert.certificate_image_url, previewCert.updated_at);
                                 }
                               }
                             }}
@@ -1388,38 +1405,6 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                       )}
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            </>
-          )}
-
-        {/* Full Image Preview Modal */}
-        {imagePreviewOpen && (
-          <>
-            {/* No backdrop - clean preview */}
-            {/* Modal Content */}
-            <div 
-              className="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none bg-black/20"
-              onClick={handleCloseImagePreview}
-            >
-              <div 
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col pointer-events-auto" 
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700 flex-shrink-0">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">{t('hero.certificate')}</div>
-                  <Button variant="outline" onClick={() => setImagePreviewOpen(false)} size="icon" aria-label="Close">
-                    <XIcon className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-900 overflow-auto flex-1">
-                  {imagePreviewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imagePreviewUrl} alt="Certificate" className="w-full h-auto rounded-lg border" />
-                  ) : (
-                    <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
-                  )}
                 </div>
               </div>
             </div>

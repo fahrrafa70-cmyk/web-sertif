@@ -252,7 +252,7 @@ const translations: Translations = {
     'analytics.certificateCategories': 'Certificate Categories',
     
     // Members
-    'members.title': 'Members',
+    'members.title': 'Data',
     'members.subtitle': 'Manage members and their certificates',
     'members.addMember': 'Add Member',
     'members.viewCertificates': 'View Certificates',
@@ -652,7 +652,7 @@ const translations: Translations = {
     'analytics.certificateCategories': 'Kategori Sertifikat',
     
     // Members
-    'members.title': 'Anggota',
+    'members.title': 'Data',
     'members.subtitle': 'Kelola anggota dan sertifikatnya',
     'members.addMember': 'Tambah Anggota',
     'members.viewCertificates': 'Lihat Sertifikat',
