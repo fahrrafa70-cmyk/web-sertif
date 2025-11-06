@@ -156,8 +156,65 @@
 }
 
 @layer base {
+  /* Global transition for all elements - synchronized change - INSTANT */
   * {
     @apply border-border outline-ring/50;
+    /* Very fast theme transition - semua elemen berubah serentak dan instant */
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+    /* Optimasi rendering untuk perubahan yang lebih smooth */
+    will-change: background-color, color, border-color;
+  }
+
+  /* Exclude elements that should not transition */
+  img, video, iframe, svg, canvas, [data-no-transition] {
+    transition-property: none !important;
+    will-change: auto;
+  }
+
+  /* Force all elements with border to transition instantly - override Tailwind classes */
+  [class*="border"]:not([data-no-transition]),
+  button:not([data-no-transition]),
+  input:not([data-no-transition]),
+  select:not([data-no-transition]),
+  textarea:not([data-no-transition]),
+  [class*="text-gray"]:not([data-no-transition]),
+  [class*="text-black"]:not([data-no-transition]),
+  [class*="text-white"]:not([data-no-transition]) {
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+  }
+
+  /* Prevent black border flash - force border colors to use CSS variables - INSTANT */
+  [class*="border-gray"]:not([data-no-transition]),
+  [class*="border-black"]:not([data-no-transition]),
+  [class*="border-"]:not([data-no-transition]) {
+    border-color: var(--border) !important;
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+  }
+
+  /* Force text colors to transition instantly - ensure synchronized text color change */
+  [class*="text-gray"]:not([data-no-transition]),
+  [class*="text-black"]:not([data-no-transition]),
+  [class*="text-white"]:not([data-no-transition]),
+  [class*="text-"]:not([data-no-transition]) {
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+  }
+
+  /* Ensure all buttons and inputs transition text and border together - INSTANT */
+  button:not([data-no-transition]),
+  input:not([data-no-transition]),
+  select:not([data-no-transition]),
+  textarea:not([data-no-transition]) {
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
   }
 
   /* Smooth scroll behavior */
@@ -170,11 +227,34 @@
     width: 100% !important;
     height: 100% !important;
     background-color: var(--background) !important;
+    /* Very fast theme transition - synchronized change - INSTANT */
+    color: var(--foreground);
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+    will-change: background-color, color, border-color;
     /* CRITICAL: Prevent iOS Safari from auto-sizing text (Canva-style consistency) */
     -webkit-text-size-adjust: 100%;
     -moz-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
     text-size-adjust: 100%;
+  }
+
+  /* Very fast theme transition for body - synchronized change - INSTANT */
+  body {
+    color: var(--foreground);
+    background-color: var(--background);
+    transition-property: background-color, color, border-color !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+    will-change: background-color, color, border-color;
+  }
+
+  /* Ensure all text elements transition color synchronously - INSTANT */
+  p, span, div, h1, h2, h3, h4, h5, h6, a, label, button, input, select, textarea {
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
   }
 
   /* Enhanced focus styles */
@@ -303,45 +383,69 @@
     height: 0 !important;
   }
   
-  /* Completely remove header border in dark mode - NO WHITE GAPS - AGGRESSIVE */
+  /* Completely remove header border in dark mode - NO FLICKER - INSTANT */
+  /* Force header border to match background instantly - NO DELAY - NO TRANSITION */
   header {
-    border-bottom-color: var(--background) !important;
+    border-bottom-width: 1px !important;
+    border-bottom-style: solid !important;
+    /* Light mode: subtle border, dark mode: match background (invisible) */
+    border-bottom-color: var(--border) !important;
+    /* NO TRANSITION for header border - instant change to prevent flicker */
+    transition-property: background-color, color !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
   }
-  
+
+  /* Dark mode: border matches background instantly (invisible border) - NO TRANSITION */
   .dark header,
-  header.dark,
-  .dark header * {
-    border: none !important;
-    border-bottom: none !important;
+  header.dark {
+    border-bottom-color: var(--background) !important;
     border-top: none !important;
     border-left: none !important;
     border-right: none !important;
-    border-bottom-width: 0 !important;
-    border-width: 0 !important;
-    border-color: transparent !important;
-    border-bottom-color: transparent !important;
+    border-bottom-width: 1px !important;
+    border-width: 0 0 1px 0 !important;
+    border-color: transparent transparent var(--background) transparent !important;
+    /* NO TRANSITION for border - instant change */
+    transition-property: background-color, color !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+  }
+
+  /* Ensure header children also transit instantly - NO TRANSITION for border */
+  .dark header *,
+  header * {
+    /* NO TRANSITION for border - instant change */
+    transition-property: background-color, color !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
   }
   
-  /* Also ensure no border on mobile - EXTRA AGGRESSIVE */
+  /* Also ensure border matches background on mobile - instant change - NO TRANSITION */
   @media (max-width: 1023px) {
+    header {
+      border-bottom-color: var(--border) !important;
+      /* NO TRANSITION for border - instant change */
+      transition-property: background-color, color !important;
+      transition-timing-function: linear !important;
+      transition-duration: 0.05s !important;
+    }
+    
     .dark header,
     header.dark {
-      border: none !important;
-      border-bottom: none !important;
-      border-width: 0 !important;
-      border-bottom-width: 0 !important;
-      border-color: transparent !important;
-      border-bottom-color: transparent !important;
+      border-bottom-color: var(--background) !important;
     }
   }
   
-  /* Force remove border on all screen sizes for dark mode */
+  /* Force border to match background instantly - NO TRANSITION */
   @media (prefers-color-scheme: dark) {
     .dark header,
     header.dark {
-      border: none !important;
-      border-bottom: none !important;
-      border-width: 0 !important;
+      border-bottom-color: var(--background) !important;
+      /* NO TRANSITION for border - instant change */
+      transition-property: background-color, color !important;
+      transition-timing-function: linear !important;
+      transition-duration: 0.05s !important;
     }
   }
   
@@ -349,11 +453,47 @@
   .dark #__next,
   .dark [data-nextjs-scroll-focus-boundary] {
     background-color: var(--background) !important;
+    transition-property: background-color, color, border-color !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
   }
   
   /* Ensure no white gaps anywhere - override any default browser styles */
   html, body, #__next, [data-nextjs-scroll-focus-boundary] {
     background-color: var(--background) !important;
+    transition-property: background-color, color, border-color !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+  }
+  
+  /* Force all elements with bg-gray-50 and bg-gray-900 to transition instantly */
+  /* This prevents separated boxes from flickering during theme change */
+  [class*="bg-gray-50"],
+  [class*="bg-gray-900"],
+  [class*="bg-white"],
+  [class*="bg-gray-800"],
+  [class*="bg-gray"] {
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+  }
+  
+  /* Ensure main, div, and section elements with background colors transition instantly */
+  main[class*="bg-"],
+  div[class*="bg-"],
+  section[class*="bg-"] {
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
+  }
+  
+  /* Force all main and div elements to transition background instantly */
+  /* This specifically targets the ModernLayout container and main elements */
+  main,
+  div.min-h-screen {
+    transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
+    transition-timing-function: linear !important;
+    transition-duration: 0.05s !important;
   }
   
   /* Ensure no white gaps anywhere */

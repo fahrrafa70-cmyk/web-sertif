@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function ThemeScript() {
+  const isInitialLoad = useRef(true);
+
   useEffect(() => {
     // This ensures the theme is applied immediately on client-side navigation
     // The blocking script in layout.tsx handles initial page load
-    const applyTheme = () => {
+    const applyTheme = (isInitial: boolean = false) => {
       try {
         const theme = localStorage.getItem('ecert-theme');
         const root = document.documentElement;
@@ -28,50 +30,55 @@ export function ThemeScript() {
           }
         }
         
-        // Set inline background color immediately to prevent flash during navigation
-        const bgColor = isDark ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)';
-        root.style.setProperty('background-color', bgColor, 'important');
+        // Set color-scheme for browser native dark mode support
         root.style.setProperty('color-scheme', isDark ? 'dark' : 'light', 'important');
-        if (document.body) {
-          document.body.style.setProperty('background-color', bgColor, 'important');
-        }
         
-        // Inject style tag for extra protection
-        let styleEl = document.getElementById('theme-bg-inline-client');
-        if (styleEl) styleEl.remove();
-        styleEl = document.createElement('style');
-        styleEl.id = 'theme-bg-inline-client';
-        styleEl.textContent = `body{background-color:${bgColor}!important;}html{background-color:${bgColor}!important;}`;
-        if (document.head) {
-          document.head.appendChild(styleEl);
+        // Only set inline styles on initial load to prevent FOUC
+        // On theme switching, let CSS transition handle the change smoothly
+        if (isInitial) {
+          // This is initial load, set inline to prevent flash
+          const bgColor = isDark ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)';
+          root.style.setProperty('background-color', bgColor, 'important');
+          if (document.body) {
+            document.body.style.setProperty('background-color', bgColor, 'important');
+          }
+          
+          // Inject style tag for extra protection on initial load
+          let styleEl = document.getElementById('theme-bg-inline-client');
+          if (styleEl) styleEl.remove();
+          styleEl = document.createElement('style');
+          styleEl.id = 'theme-bg-inline-client';
+          styleEl.textContent = `body{background-color:${bgColor}!important;}html{background-color:${bgColor}!important;}`;
+          if (document.head) {
+            document.head.appendChild(styleEl);
+          }
+        } else {
+          // On theme switching, remove inline styles to allow CSS transition
+          root.style.removeProperty('background-color');
+          if (document.body) {
+            document.body.style.removeProperty('background-color');
+          }
         }
       } catch {}
     };
     
-    // Apply immediately
-    applyTheme();
+    // Apply immediately on initial load
+    if (isInitialLoad.current) {
+      applyTheme(true);
+      isInitialLoad.current = false;
+    }
     
-    // Also apply on route change (for Next.js navigation)
+    // Also apply on route change (for Next.js navigation) - without inline styles
     const handleRouteChange = () => {
-      setTimeout(applyTheme, 0);
+      setTimeout(() => applyTheme(false), 0);
     };
     
     // Listen for route changes
     if (typeof window !== 'undefined') {
       window.addEventListener('popstate', handleRouteChange);
-      // Also check periodically during initial load
-      const checkInterval = setInterval(() => {
-        applyTheme();
-        if (document.readyState === 'complete') {
-          clearInterval(checkInterval);
-        }
-      }, 10);
-      
-      setTimeout(() => clearInterval(checkInterval), 1000);
       
       return () => {
         window.removeEventListener('popstate', handleRouteChange);
-        clearInterval(checkInterval);
       };
     }
   }, []);

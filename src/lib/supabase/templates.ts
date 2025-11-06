@@ -177,20 +177,33 @@ export function getTemplatePreviewUrl(template: Template): string | null {
 
 // Get all templates with optional caching
 export async function getTemplates(useCache: boolean = true): Promise<Template[]> {
-  // Check cache first
   if (useCache && typeof window !== 'undefined') {
     try {
       const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-      const cached = dataCache.get<Template[]>(CACHE_KEYS.TEMPLATES);
-      if (cached) {
-        console.log("✅ Using cached templates");
-        return cached;
-      }
+      
+      // Use getOrFetch for automatic deduplication and caching
+      return dataCache.getOrFetch<Template[]>(
+        CACHE_KEYS.TEMPLATES,
+        async () => {
+          const { data, error } = await supabaseClient
+            .from('templates')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (error) {
+            throw new Error(`Failed to fetch templates: ${error.message}`);
+          }
+
+          return data || [];
+        },
+        10 * 60 * 1000 // 10 minutes cache
+      );
     } catch {
       // Cache module not available, continue with fetch
     }
   }
 
+  // If cache is disabled, fetch directly
   const { data, error } = await supabaseClient
     .from('templates')
     .select('*')
@@ -200,19 +213,7 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
     throw new Error(`Failed to fetch templates: ${error.message}`);
   }
 
-  const templates = data || [];
-
-  // Cache the result (10 minutes - templates don't change often)
-  if (useCache && typeof window !== 'undefined') {
-    try {
-      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-      dataCache.set(CACHE_KEYS.TEMPLATES, templates, 10 * 60 * 1000);
-    } catch {
-      // Cache module not available, ignore
-    }
-  }
-
-  return templates;
+  return data || [];
 }
 
 // Get template by ID

@@ -1,7 +1,10 @@
 /**
  * Simple in-memory cache for frequently accessed data
  * Helps reduce unnecessary API calls and improves performance
+ * Enhanced with request deduplication support
  */
+
+import { requestDeduplicator } from '@/hooks/use-request-deduplication';
 
 interface CacheEntry<T> {
   data: T;
@@ -11,11 +14,20 @@ interface CacheEntry<T> {
 
 class DataCache {
   private cache = new Map<string, CacheEntry<unknown>>();
+  private maxSize = 100; // Maximum cache entries to prevent memory issues
 
   /**
    * Set cache entry
    */
   set<T>(key: string, data: T, expiresIn: number = 60000): void {
+    // If cache is full, remove oldest entry
+    if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey) {
+        this.cache.delete(firstKey);
+      }
+    }
+
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -42,6 +54,29 @@ class DataCache {
     }
 
     return entry.data;
+  }
+
+  /**
+   * Get or fetch with deduplication
+   * If cached, return cached data. If not, fetch with deduplication.
+   */
+  async getOrFetch<T>(
+    key: string,
+    fetchFn: () => Promise<T>,
+    expiresIn: number = 60000
+  ): Promise<T> {
+    // Check cache first
+    const cached = this.get<T>(key);
+    if (cached !== null) {
+      return cached;
+    }
+
+    // Use request deduplication to prevent multiple simultaneous requests
+    return requestDeduplicator.deduplicate(key, async () => {
+      const data = await fetchFn();
+      this.set(key, data, expiresIn);
+      return data;
+    });
   }
 
   /**
@@ -76,6 +111,16 @@ class DataCache {
         this.cache.delete(key);
       }
     }
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats() {
+    return {
+      size: this.cache.size,
+      maxSize: this.maxSize,
+    };
   }
 }
 

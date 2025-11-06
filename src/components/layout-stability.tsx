@@ -98,46 +98,51 @@ export function LayoutStability() {
       // Inject at the end of head for maximum priority
       document.head.appendChild(styleElement);
       
-      // Ensure header border is completely removed in dark mode - FORCE REMOVE
+      // Ensure header border uses CSS variables for smooth transition
+      // Don't set inline styles - let CSS transition handle it
       const headerElement = document.querySelector('header');
-      if (headerElement && html.classList.contains('dark')) {
+      if (headerElement) {
         const headerEl = headerElement as HTMLElement;
-        headerEl.style.setProperty('border', 'none', 'important');
-        headerEl.style.setProperty('border-bottom', 'none', 'important');
-        headerEl.style.setProperty('border-top', 'none', 'important');
-        headerEl.style.setProperty('border-left', 'none', 'important');
-        headerEl.style.setProperty('border-right', 'none', 'important');
-        headerEl.style.setProperty('border-width', '0', 'important');
-        headerEl.style.setProperty('border-bottom-width', '0', 'important');
-        headerEl.style.setProperty('border-color', 'transparent', 'important');
-        headerEl.style.setProperty('border-bottom-color', 'transparent', 'important');
-        // Also remove any computed border
-        const computedBorder = getComputedStyle(headerEl).borderBottom;
-        if (computedBorder && computedBorder !== '0px none rgb(0, 0, 0)') {
-          headerEl.style.borderBottom = 'none';
-        }
+        // Remove any inline styles that might interfere with CSS transition
+        headerEl.style.removeProperty('border');
+        headerEl.style.removeProperty('border-bottom');
+        headerEl.style.removeProperty('border-top');
+        headerEl.style.removeProperty('border-left');
+        headerEl.style.removeProperty('border-right');
+        headerEl.style.removeProperty('border-width');
+        headerEl.style.removeProperty('border-bottom-width');
+        headerEl.style.removeProperty('border-color');
+        headerEl.style.removeProperty('border-bottom-color');
       }
       
       // Use more aggressive selectors to ensure override - highest priority
       // FORCE use computed RGB color for scrollbar track - don't use CSS variable
       styleElement.textContent = `
-        /* FORCE REMOVE HEADER BORDER IN DARK MODE - ABSOLUTE HIGHEST PRIORITY */
+        /* Header border uses CSS variables for instant change - NO FLICKER - NO TRANSITION */
+        /* Border changes instantly without transition to prevent flicker */
         header {
-          border-bottom-color: ${bgColor} !important;
+          border-bottom-color: var(--border) !important;
+          /* NO TRANSITION for border - instant change */
+          transition-property: background-color, color !important;
+          transition-timing-function: linear !important;
+          transition-duration: 0.05s !important;
         }
         
         .dark header,
-        header.dark,
-        .dark header * {
-          border: none !important;
-          border-bottom: none !important;
-          border-top: none !important;
-          border-left: none !important;
-          border-right: none !important;
-          border-width: 0 !important;
-          border-bottom-width: 0 !important;
-          border-color: transparent !important;
-          border-bottom-color: transparent !important;
+        header.dark {
+          border-bottom-color: var(--background) !important;
+          /* NO TRANSITION for border - instant change */
+          transition-property: background-color, color !important;
+          transition-timing-function: linear !important;
+          transition-duration: 0.05s !important;
+        }
+        
+        /* Ensure header children transit instantly */
+        .dark header *,
+        header * {
+          transition-property: background-color, color !important;
+          transition-timing-function: linear !important;
+          transition-duration: 0.05s !important;
         }
         
         /* Force scrollbar track to match background - USE COMPUTED RGB COLOR */
@@ -290,24 +295,22 @@ export function LayoutStability() {
     const themeObserver = new MutationObserver(() => {
       requestAnimationFrame(() => {
         ensureScrollbarStability();
-        setTimeout(() => {
-          ensureScrollbarStability();
-          // Also ensure header border is completely removed when theme changes - FORCE
-          const headerEl = document.querySelector('header');
-          if (headerEl && document.documentElement.classList.contains('dark')) {
-            const el = headerEl as HTMLElement;
-            el.style.setProperty('border', 'none', 'important');
-            el.style.setProperty('border-bottom', 'none', 'important');
-            el.style.setProperty('border-top', 'none', 'important');
-            el.style.setProperty('border-left', 'none', 'important');
-            el.style.setProperty('border-right', 'none', 'important');
-            el.style.setProperty('border-width', '0', 'important');
-            el.style.setProperty('border-bottom-width', '0', 'important');
-            el.style.setProperty('border-color', 'transparent', 'important');
-            el.style.setProperty('border-bottom-color', 'transparent', 'important');
-            el.style.borderBottom = 'none';
-          }
-        }, 50);
+        // Don't set inline styles on header border - let CSS transition handle it smoothly
+        // This prevents flicker during theme switching
+        const headerEl = document.querySelector('header');
+        if (headerEl) {
+          const el = headerEl as HTMLElement;
+          // Remove any inline styles that might interfere with CSS transition
+          el.style.removeProperty('border');
+          el.style.removeProperty('border-bottom');
+          el.style.removeProperty('border-top');
+          el.style.removeProperty('border-left');
+          el.style.removeProperty('border-right');
+          el.style.removeProperty('border-width');
+          el.style.removeProperty('border-bottom-width');
+          el.style.removeProperty('border-color');
+          el.style.removeProperty('border-bottom-color');
+        }
       });
     });
     
@@ -326,20 +329,19 @@ export function LayoutStability() {
     // Also reapply periodically to catch any missed updates (every 2 seconds)
     const intervalId = setInterval(() => {
       ensureScrollbarStability();
-      // Also ensure header border is completely removed periodically in dark mode - FORCE
+      // Remove any inline styles from header that might interfere with CSS transition
       const headerEl = document.querySelector('header');
-      if (headerEl && document.documentElement.classList.contains('dark')) {
+      if (headerEl) {
         const el = headerEl as HTMLElement;
-        el.style.setProperty('border', 'none', 'important');
-        el.style.setProperty('border-bottom', 'none', 'important');
-        el.style.setProperty('border-top', 'none', 'important');
-        el.style.setProperty('border-left', 'none', 'important');
-        el.style.setProperty('border-right', 'none', 'important');
-        el.style.setProperty('border-width', '0', 'important');
-        el.style.setProperty('border-bottom-width', '0', 'important');
-        el.style.setProperty('border-color', 'transparent', 'important');
-        el.style.setProperty('border-bottom-color', 'transparent', 'important');
-        el.style.borderBottom = 'none';
+        el.style.removeProperty('border');
+        el.style.removeProperty('border-bottom');
+        el.style.removeProperty('border-top');
+        el.style.removeProperty('border-left');
+        el.style.removeProperty('border-right');
+        el.style.removeProperty('border-width');
+        el.style.removeProperty('border-bottom-width');
+        el.style.removeProperty('border-color');
+        el.style.removeProperty('border-bottom-color');
       }
     }, 2000);
 

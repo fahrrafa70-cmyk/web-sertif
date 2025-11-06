@@ -35,16 +35,27 @@ function sanitize(input: string | undefined | null): string | null {
 }
 
 export async function getMembers(useCache: boolean = true): Promise<Member[]> {
-  // Check cache first
   if (useCache && typeof window !== 'undefined') {
     const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-    const cached = dataCache.get<Member[]>(CACHE_KEYS.MEMBERS);
-    if (cached) {
-      console.log("✅ Using cached members");
-      return cached;
-    }
+    
+    // Use getOrFetch for automatic deduplication and caching
+    return dataCache.getOrFetch<Member[]>(
+      CACHE_KEYS.MEMBERS,
+      async () => {
+        const { data, error } = await supabaseClient
+          .from('members')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw new Error(`Failed to fetch members: ${error.message}`);
+        
+        return (data as Member[]) || [];
+      },
+      10 * 60 * 1000 // 10 minutes cache
+    );
   }
 
+  // If cache is disabled, fetch directly
   const { data, error } = await supabaseClient
     .from('members')
     .select('*')
@@ -52,15 +63,7 @@ export async function getMembers(useCache: boolean = true): Promise<Member[]> {
   
   if (error) throw new Error(`Failed to fetch members: ${error.message}`);
   
-  const members = (data as Member[]) || [];
-
-  // Cache the result (10 minutes - members don't change often)
-  if (useCache && typeof window !== 'undefined') {
-    const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-    dataCache.set(CACHE_KEYS.MEMBERS, members, 10 * 60 * 1000);
-  }
-
-  return members;
+  return (data as Member[]) || [];
 }
 
 export async function getMember(id: string): Promise<Member> {

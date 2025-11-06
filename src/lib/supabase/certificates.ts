@@ -112,25 +112,53 @@ export interface UpdateCertificateData {
   text_layers?: TextLayer[];
 }
 
-// Get all certificates with optional caching
+// Get all certificates with optional caching and request deduplication
 export async function getCertificates(useCache: boolean = true): Promise<Certificate[]> {
-  // Check cache first
   if (useCache && typeof window !== 'undefined') {
     try {
       const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-      const cached = dataCache.get<Certificate[]>(CACHE_KEYS.CERTIFICATES);
-      if (cached) {
-        console.log("✅ Using cached certificates");
-        return cached;
-      }
+      
+      // Use getOrFetch for automatic deduplication and caching
+      return dataCache.getOrFetch<Certificate[]>(
+        CACHE_KEYS.CERTIFICATES,
+        async () => {
+          // Optimize query - only fetch essential fields from relations
+          const { data, error } = await supabaseClient
+            .from("certificates")
+            .select(
+              `
+              *,
+              templates (
+                id,
+                name,
+                category,
+                orientation
+              ),
+              members:members(
+                id,
+                name,
+                email,
+                organization,
+                phone
+              )
+            `,
+            )
+            .order("created_at", { ascending: false });
+
+          if (error) {
+            throw new Error(`Failed to fetch certificates: ${error.message}`);
+          }
+
+          return data || [];
+        },
+        5 * 60 * 1000 // 5 minutes cache
+      );
     } catch {
       // Cache module not available, continue with fetch
     }
   }
 
-  console.log("🔍 Fetching all certificates from database...");
-  
-  // Optimize query - only fetch essential fields from relations
+  // If cache is disabled, fetch directly
   const { data, error } = await supabaseClient
     .from("certificates")
     .select(
@@ -154,24 +182,10 @@ export async function getCertificates(useCache: boolean = true): Promise<Certifi
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("❌ Error fetching certificates:", error);
     throw new Error(`Failed to fetch certificates: ${error.message}`);
   }
 
-  const certificates = data || [];
-  console.log(`✅ Successfully fetched ${certificates.length} certificates from database`);
-
-  // Cache the result (5 minutes)
-  if (useCache && typeof window !== 'undefined') {
-    try {
-      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-      dataCache.set(CACHE_KEYS.CERTIFICATES, certificates, 5 * 60 * 1000);
-    } catch {
-      // Cache module not available, ignore
-    }
-  }
-
-  return certificates;
+  return data || [];
 }
 
 // Get certificate by ID
