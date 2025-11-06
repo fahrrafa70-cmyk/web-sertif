@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
@@ -27,19 +27,42 @@ export const metadata: Metadata = {
   description: "Create, manage, and verify certificates for trainings, internships, MoUs, and industrial visits with our multilingual platform.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
+                  // Prevent FOUC by setting viewport width immediately
+                  var metaViewport = document.querySelector('meta[name="viewport"]');
+                  if (!metaViewport) {
+                    var meta = document.createElement('meta');
+                    meta.name = 'viewport';
+                    meta.content = 'width=device-width, initial-scale=1, maximum-scale=5';
+                    document.head.appendChild(meta);
+                  }
+                  
+                  // Set responsive classes immediately based on viewport
+                  var width = window.innerWidth || document.documentElement.clientWidth || 640;
+                  if (width < 640) {
+                    document.documentElement.classList.add('mobile');
+                  } else {
+                    document.documentElement.classList.add('desktop');
+                  }
+                  
                   var theme = localStorage.getItem('ecert-theme');
                   var isDark = false;
                   if (theme === 'light' || theme === 'dark') {

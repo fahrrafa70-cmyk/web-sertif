@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 
 export type Theme = 'light' | 'dark';
 
@@ -27,15 +27,32 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return 'light';
   });
 
-  useEffect(() => {
+  // Use useLayoutEffect for immediate DOM updates before paint
+  useLayoutEffect(() => {
     try {
       if (typeof window !== 'undefined') {
         const root = window.document.documentElement;
-        // Only update if the class is different to avoid unnecessary re-renders
+        
+        // Remove inline styles to allow CSS transition
+        root.style.removeProperty('background-color');
+        if (document.body) {
+          document.body.style.removeProperty('background-color');
+        }
+        
+        // Remove inline style tag if exists
+        const existingStyle = document.getElementById('theme-bg-inline-client');
+        if (existingStyle) {
+          existingStyle.remove();
+        }
+        
+        // Apply theme class immediately for synchronized change - NO DELAY
+        // Apply synchronously without requestAnimationFrame for instant change
         if (!root.classList.contains(theme)) {
+          // Batch DOM updates for better performance - change happens immediately
           root.classList.remove('light', 'dark');
           root.classList.add(theme);
         }
+        // Save to localStorage
         window.localStorage.setItem('ecert-theme', theme);
       }
     } catch {}

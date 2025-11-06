@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   Sheet,
@@ -58,11 +58,21 @@ import { getTemplates } from "@/lib/supabase/templates";
 import { getMembers } from "@/lib/supabase/members";
 import { renderCertificateToDataURL, RenderTextLayer } from "@/lib/render/certificate-render";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
-import { formatDateString } from "@/lib/utils/certificate-formatters";
+import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
 
 function CertificatesContent() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  // Format: 2 Nov 2025
+  const formatDateShort = useCallback((input?: string | null) => {
+    if (!input) return "—";
+    const d = new Date(input);
+    if (isNaN(d.getTime())) return "—";
+    const day = d.getDate();
+    const month = d.toLocaleString(language === 'id' ? 'id-ID' : 'en-US', { month: 'short' });
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  }, [language]);
   const params = useSearchParams();
   const certQuery = (params?.get("cert") || "").toLowerCase();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
@@ -1395,7 +1405,7 @@ function CertificatesContent() {
               <div className="flex flex-col gap-4 mb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                   <div>
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb]">
                       {t("certificates.title")}
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
@@ -1481,7 +1491,7 @@ function CertificatesContent() {
                   <p className="text-gray-500 text-sm mb-6">{error}</p>
                   <Button
                     onClick={() => refresh()}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                    className="bg-[#2563eb] text-white"
                   >
                     {t("certificates.tryAgain")}
                   </Button>
@@ -1526,15 +1536,11 @@ function CertificatesContent() {
                             <TableCell className="text-gray-700 dark:text-gray-300">{certificate.name}</TableCell>
                             <TableCell className="text-gray-700 dark:text-gray-300">{certificate.category || "—"}</TableCell>
                             <TableCell className="text-gray-700 dark:text-gray-300">
-                              {new Date(
-                                certificate.issue_date,
-                              ).toLocaleDateString()}
+                              {formatDateShort(certificate.issue_date)}
                             </TableCell>
                             <TableCell className="text-gray-700 dark:text-gray-300">
                               {certificate.expired_date
-                                ? new Date(
-                                    certificate.expired_date,
-                                  ).toLocaleDateString()
+                                ? formatDateShort(certificate.expired_date)
                                 : "—"}
                             </TableCell>
                             <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -1667,7 +1673,7 @@ function CertificatesContent() {
                             {t("certificates.issuedDate")}
                           </div>
                           <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                            {new Date(certificate.issue_date).toLocaleDateString()}
+                            {formatReadableDate(certificate.issue_date, language)}
                           </div>
                         </div>
 
@@ -1678,7 +1684,7 @@ function CertificatesContent() {
                               {t("certificates.expiryDate")}
                             </div>
                             <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                              {new Date(certificate.expired_date).toLocaleDateString()}
+                              {formatReadableDate(certificate.expired_date, language)}
                             </div>
                           </div>
                         )}
@@ -2029,7 +2035,7 @@ function CertificatesContent() {
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Category
                         </label>
-                        <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm sm:text-base font-medium">
+                        <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#2563eb] text-white text-sm sm:text-base font-medium">
                           {previewCertificate.category}
                         </div>
                       </motion.div>
@@ -2059,23 +2065,19 @@ function CertificatesContent() {
                     >
                       <div className="space-y-1 sm:space-y-2">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                          Issue Date
+                          {t('hero.issued')}
                         </label>
                         <div className="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-300">
-                          {new Date(
-                            previewCertificate.issue_date,
-                          ).toLocaleDateString()}
+                          {formatDateShort(previewCertificate.issue_date)}
                         </div>
                       </div>
                       {previewCertificate.expired_date && (
                         <div className="space-y-1 sm:space-y-2">
                           <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                            Expiry Date
+                            {t('hero.expires')}
                           </label>
                           <div className="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-300">
-                            {new Date(
-                              previewCertificate.expired_date,
-                            ).toLocaleDateString()}
+                            {formatDateShort(previewCertificate.expired_date)}
                           </div>
                         </div>
                       )}
@@ -2090,7 +2092,7 @@ function CertificatesContent() {
                     transition={{ duration: 0.5, delay: 0.2 }}
                   >
                     <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                      Certificate Preview
+                      {t('hero.certificate')}
                     </label>
                     {/* Toggle for dual templates - only show if score image exists */}
                     {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url && (
@@ -2161,15 +2163,46 @@ function CertificatesContent() {
                                 onError={() => {
                                   console.warn('Preview image failed to load', src);
                                 }}
+<<<<<<< HEAD
                                 priority
                                 unoptimized={isRemote || isData}
                               />
+=======
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setFullImagePreviewUrl(src);
+                                    setFullImagePreviewOpen(true);
+                                  }
+                                }}
+                              >
+                                <Image
+                                  src={src}
+                                  alt={previewMode === 'score' ? "Score" : "Certificate"}
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
+                                  style={{ objectFit: 'contain' }}
+                                  onError={() => {
+                                    console.warn('Preview image failed to load', src);
+                                  }}
+                                  priority
+                                  fetchPriority="high"
+                                  unoptimized={isRemote || isData}
+                                  decoding="async"
+                                />
+                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {t('hero.viewFullImage')}
+                                </div>
+                              </div>
+>>>>>>> 85b5b5e0bc3ee129a634e0f51e7ea00af0aed3b2
                             );
                           })()
                         ) : (
                           <>
                             {/* FIX: Template Image with consistent aspect ratio */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
+<<<<<<< HEAD
                               <Image
                                 src={previewTemplate.score_image_url}
                                 alt="Score Template"
@@ -2183,6 +2216,69 @@ function CertificatesContent() {
                                 fill
                                 className="object-contain absolute inset-0"
                               />
+=======
+                              <div
+                                className="relative w-full h-full cursor-zoom-in group"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  setFullImagePreviewUrl(previewTemplate.score_image_url!);
+                                  setFullImagePreviewOpen(true);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setFullImagePreviewUrl(previewTemplate.score_image_url!);
+                                    setFullImagePreviewOpen(true);
+                                  }
+                                }}
+                              >
+                                <Image
+                                  src={previewTemplate.score_image_url}
+                                  alt="Score Template"
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
+                                  loading="eager"
+                                  unoptimized
+                                />
+                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {t('hero.viewFullImage')}
+                                </div>
+                              </div>
+                            ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
+                              <div
+                                className="relative w-full h-full cursor-zoom-in group"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  setFullImagePreviewUrl(getTemplateImageUrl(previewTemplate)!);
+                                  setFullImagePreviewOpen(true);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setFullImagePreviewUrl(getTemplateImageUrl(previewTemplate)!);
+                                    setFullImagePreviewOpen(true);
+                                  }
+                                }}
+                              >
+                                <Image
+                                  src={getTemplateImageUrl(previewTemplate)!}
+                                  alt="Certificate Template"
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
+                                  priority
+                                  fetchPriority="high"
+                                  decoding="async"
+                                  unoptimized
+                                />
+                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {t('hero.viewFullImage')}
+                                </div>
+                              </div>
+>>>>>>> 85b5b5e0bc3ee129a634e0f51e7ea00af0aed3b2
                             ) : (
                               <>
                                 {/* Decorative Corners */}
@@ -2437,7 +2533,7 @@ function CertificatesContent() {
                                   <h3 className="text-2xl xl:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                                      {t("certificates.certificateTitle")}
                                    </h3>
-                                   <div className="w-16 xl:w-20 h-1 bg-gradient-to-r from-blue-500 to-blue-600 mx-auto rounded-full"></div>
+                                   <div className="w-16 xl:w-20 h-1 bg-[#2563eb] mx-auto rounded-full"></div>
                                  </div>
  
                                 <p className="text-gray-600 dark:text-gray-400 mb-3 xl:mb-4">
@@ -2538,6 +2634,50 @@ function CertificatesContent() {
         </DialogContent>
       </Dialog>
 
+<<<<<<< HEAD
+=======
+      {/* Full Image Preview Modal */}
+      {fullImagePreviewOpen && fullImagePreviewUrl && (
+        <div 
+          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" 
+          onClick={() => setFullImagePreviewOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setFullImagePreviewOpen(false);
+            }
+          }}
+          tabIndex={0}
+        >
+          <div 
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {previewMode === 'score' ? 'Score' : t('hero.certificate')} - {previewCertificate?.certificate_no || ''}
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => setFullImagePreviewOpen(false)}
+                size="icon"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 overflow-auto flex-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={fullImagePreviewUrl} 
+                alt={previewMode === 'score' ? "Score" : "Certificate"} 
+                className="w-full h-auto rounded-lg border shadow-sm" 
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+>>>>>>> 85b5b5e0bc3ee129a634e0f51e7ea00af0aed3b2
       {/* Send Certificate Email Modal */}
       <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
         <DialogContent 
@@ -2739,11 +2879,7 @@ function CertificatesContent() {
                         <div>
                           <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
                           <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                            {new Date(detailMember.date_of_birth).toLocaleDateString('id-ID', { 
-                              year: 'numeric', 
-                              month: 'short', 
-                              day: 'numeric' 
-                            })}
+                            {formatReadableDate(detailMember.date_of_birth, language)}
                           </div>
                         </div>
                       )}
@@ -2796,23 +2932,13 @@ function CertificatesContent() {
                           {detailMember.created_at && (
                             <div>
                               <span className="font-medium">Created:</span>{' '}
-                              {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                              {formatReadableDate(detailMember.created_at, language)}
                             </div>
                           )}
                           {detailMember.updated_at && (
                             <div>
                               <span className="font-medium">Updated:</span>{' '}
-                              {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                              {formatReadableDate(detailMember.updated_at, language)}
                             </div>
                           )}
                         </div>
@@ -2930,25 +3056,13 @@ function CertificatesContent() {
                         {detailMember.created_at && (
                           <div>
                             <span className="font-medium">Created:</span>{' '}
-                            {new Date(detailMember.created_at).toLocaleDateString('id-ID', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                            {formatReadableDate(detailMember.created_at, language)}
                           </div>
                         )}
                         {detailMember.updated_at && (
                           <div>
                             <span className="font-medium">Updated:</span>{' '}
-                            {new Date(detailMember.updated_at).toLocaleDateString('id-ID', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                            {formatReadableDate(detailMember.updated_at, language)}
                           </div>
                         )}
                       </div>

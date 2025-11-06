@@ -88,6 +88,45 @@ export function formatDateString(iso: string, fmt: string): string {
 }
 
 /**
+ * Format date to readable format based on language
+ * @param date - Date string or Date object
+ * @param language - Language code ('en' | 'id')
+ * @returns Formatted date string like "1 Okt 2025" (id) or "1 Oct 2025" (en)
+ * 
+ * @example
+ * formatReadableDate('2025-10-01', 'id') // "1 Okt 2025"
+ * formatReadableDate('2025-11-02', 'en') // "2 Nov 2025"
+ * formatReadableDate(new Date(), 'id') // "1 Okt 2025"
+ */
+export function formatReadableDate(date: string | Date | null | undefined, language: 'en' | 'id' = 'id'): string {
+  if (!date) return '';
+  
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '';
+  
+  const day = d.getDate(); // No leading zero
+  const year = d.getFullYear();
+  
+  if (language === 'id') {
+    // Indonesian month abbreviations (as requested: Okt, Nov, Des)
+    const indonesianMonths = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    const month = indonesianMonths[d.getMonth()];
+    return `${day} ${month} ${year}`;
+  } else {
+    // English month abbreviations
+    const englishMonths = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    const month = englishMonths[d.getMonth()];
+    return `${day} ${month} ${year}`;
+  }
+}
+
+/**
  * Convert Excel date serial number or string to ISO date
  * Excel stores dates as serial numbers (days since 1900-01-01)
  * 

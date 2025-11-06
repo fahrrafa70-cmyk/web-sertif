@@ -112,25 +112,53 @@ export interface UpdateCertificateData {
   text_layers?: TextLayer[];
 }
 
-// Get all certificates with optional caching
+// Get all certificates with optional caching and request deduplication
 export async function getCertificates(useCache: boolean = true): Promise<Certificate[]> {
-  // Check cache first
   if (useCache && typeof window !== 'undefined') {
     try {
       const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-      const cached = dataCache.get<Certificate[]>(CACHE_KEYS.CERTIFICATES);
-      if (cached) {
-        console.log("✅ Using cached certificates");
-        return cached;
-      }
+      
+      // Use getOrFetch for automatic deduplication and caching
+      return dataCache.getOrFetch<Certificate[]>(
+        CACHE_KEYS.CERTIFICATES,
+        async () => {
+          // Optimize query - only fetch essential fields from relations
+          const { data, error } = await supabaseClient
+            .from("certificates")
+            .select(
+              `
+              *,
+              templates (
+                id,
+                name,
+                category,
+                orientation
+              ),
+              members:members(
+                id,
+                name,
+                email,
+                organization,
+                phone
+              )
+            `,
+            )
+            .order("created_at", { ascending: false });
+
+          if (error) {
+            throw new Error(`Failed to fetch certificates: ${error.message}`);
+          }
+
+          return data || [];
+        },
+        5 * 60 * 1000 // 5 minutes cache
+      );
     } catch {
       // Cache module not available, continue with fetch
     }
   }
 
-  console.log("🔍 Fetching all certificates from database...");
-  
-  // Optimize query - only fetch essential fields from relations
+  // If cache is disabled, fetch directly
   const { data, error } = await supabaseClient
     .from("certificates")
     .select(
@@ -154,24 +182,10 @@ export async function getCertificates(useCache: boolean = true): Promise<Certifi
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("❌ Error fetching certificates:", error);
     throw new Error(`Failed to fetch certificates: ${error.message}`);
   }
 
-  const certificates = data || [];
-  console.log(`✅ Successfully fetched ${certificates.length} certificates from database`);
-
-  // Cache the result (5 minutes)
-  if (useCache && typeof window !== 'undefined') {
-    try {
-      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-      dataCache.set(CACHE_KEYS.CERTIFICATES, certificates, 5 * 60 * 1000);
-    } catch {
-      // Cache module not available, ignore
-    }
-  }
-
-  return certificates;
+  return data || [];
 }
 
 // Get certificate by ID
@@ -676,136 +690,151 @@ export interface SearchFilters {
 export async function advancedSearchCertificates(
   filters: SearchFilters,
 ): Promise<Certificate[]> {
-  // Check if keyword is provided
-  const hasKeyword = filters.keyword && filters.keyword.trim();
-  
-  // MUST have keyword to search - filters only narrow down search results
-  if (!hasKeyword) {
-    return [];
-  }
+  try {
+    // Check if keyword is provided
+    const hasKeyword = filters.keyword && typeof filters.keyword === 'string' && filters.keyword.trim();
+    
+    // MUST have keyword to search - filters only narrow down search results
+    if (!hasKeyword) {
+      return [];
+    }
 
-  let query = supabaseClient
-    .from("certificates")
-    .select(
-      `
-      *,
-      templates (
-        id,
-        name,
-        category,
-        orientation
-      ),
-      members:members(*)
-    `,
+    let query = supabaseClient
+      .from("certificates")
+      .select(
+        `
+        *,
+        templates (
+          id,
+          name,
+          category,
+          orientation
+        ),
+        members:members(*)
+      `,
+      );
+
+    // Keyword search - search in certificate_no and name (participant name in certificates table)
+    // Note: We'll also filter by member name on client side after fetching
+    const keyword = filters.keyword!.trim();
+    
+    // Sanitize keyword to prevent SQL injection
+    const sanitizedKeyword = keyword.replace(/[%_]/g, '');
+    if (!sanitizedKeyword) {
+      return [];
+    }
+    
+    query = query.or(
+      `certificate_no.ilike.%${sanitizedKeyword}%,name.ilike.%${sanitizedKeyword}%`,
     );
 
-  // Keyword search - search in certificate_no and name (participant name in certificates table)
-  // Note: We'll also filter by member name on client side after fetching
-  const keyword = filters.keyword!.trim();
-  query = query.or(
-    `certificate_no.ilike.%${keyword}%,name.ilike.%${keyword}%`,
-  );
+    // Category filter (optional - to narrow down results)
+    if (filters.category && typeof filters.category === 'string' && filters.category.trim()) {
+      query = query.eq("category", filters.category.trim());
+    }
 
-  // Category filter (optional - to narrow down results)
-  if (filters.category && filters.category.trim()) {
-    query = query.eq("category", filters.category);
+    // Date range filter (optional - to narrow down results)
+    if (filters.startDate && typeof filters.startDate === 'string') {
+      query = query.gte("issue_date", filters.startDate);
+    }
+    if (filters.endDate && typeof filters.endDate === 'string') {
+      query = query.lte("issue_date", filters.endDate);
+    }
+
+    // Limit results to prevent overwhelming the UI
+    query = query.limit(100);
+
+    // Order by most recent
+    query = query.order("created_at", { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Search error details:', error);
+      // Return empty array instead of throwing to prevent crashes
+      return [];
+    }
+
+    // Validate data
+    if (!data || !Array.isArray(data)) {
+      console.error('Invalid search response:', data);
+      return [];
+    }
+
+    // If keyword search, also filter by member name on client side (since we can't do it in SQL with joined tables)
+    let results = data || [];
+    if (hasKeyword) {
+      const keywordLower = filters.keyword!.trim().toLowerCase();
+      results = results.filter(cert => {
+        try {
+          const certNo = (cert?.certificate_no || '').toLowerCase();
+          const certName = (cert?.name || '').toLowerCase();
+          const memberName = (cert?.members?.name || '').toLowerCase();
+          
+          return certNo.includes(keywordLower) || 
+                 certName.includes(keywordLower) || 
+                 memberName.includes(keywordLower);
+        } catch (filterError) {
+          console.error('Error filtering certificate:', filterError);
+          return false;
+        }
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Advanced search certificates error:', error);
+    // Return empty array instead of throwing to prevent crashes
+    return [];
   }
-
-  // Date range filter (optional - to narrow down results)
-  if (filters.startDate) {
-    query = query.gte("issue_date", filters.startDate);
-  }
-  if (filters.endDate) {
-    query = query.lte("issue_date", filters.endDate);
-  }
-
-  // Limit results to prevent overwhelming the UI
-  query = query.limit(100);
-
-  // Order by most recent
-  query = query.order("created_at", { ascending: false });
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Search error details:', error);
-    throw new Error(`Failed to search certificates: ${error.message}`);
-  }
-
-  // If keyword search, also filter by member name on client side (since we can't do it in SQL with joined tables)
-  let results = data || [];
-  if (hasKeyword) {
-    const keyword = filters.keyword!.trim().toLowerCase();
-    results = results.filter(cert => {
-      const certNo = (cert.certificate_no || '').toLowerCase();
-      const certName = (cert.name || '').toLowerCase();
-      const memberName = (cert.members?.name || '').toLowerCase();
-      
-      return certNo.includes(keyword) || 
-             certName.includes(keyword) || 
-             memberName.includes(keyword);
-    });
-  }
-
-  return results;
 }
 
 // Get unique categories from certificates and templates
 export async function getCertificateCategories(): Promise<string[]> {
-  const categoriesSet = new Set<string>();
+  try {
+    const categoriesSet = new Set<string>();
 
-  // Fetch categories from certificates table
-  const { data: certData, error: certError } = await supabaseClient
-    .from("certificates")
-    .select("category")
-    .not("category", "is", null)
-    .limit(1000);
+    // Fetch categories from certificates table
+    const { data: certData, error: certError } = await supabaseClient
+      .from("certificates")
+      .select("category")
+      .not("category", "is", null)
+      .limit(1000);
 
-  if (certError) {
-    console.error('Failed to fetch certificate categories:', certError);
-  } else if (certData) {
-    console.log('Raw certificate data:', certData);
-    certData.forEach((item) => {
-      if (item.category && item.category.trim()) {
-        categoriesSet.add(item.category.trim());
-      }
-    });
+    if (certError) {
+      console.error('Failed to fetch certificate categories:', certError);
+    } else if (certData && Array.isArray(certData)) {
+      certData.forEach((item) => {
+        if (item && item.category && typeof item.category === 'string' && item.category.trim()) {
+          categoriesSet.add(item.category.trim());
+        }
+      });
+    }
+
+    // Also fetch categories from templates table (if they exist there)
+    const { data: templateData, error: templateError } = await supabaseClient
+      .from("templates")
+      .select("category")
+      .not("category", "is", null)
+      .limit(1000);
+
+    if (templateError) {
+      console.error('Failed to fetch template categories:', templateError);
+    } else if (templateData && Array.isArray(templateData)) {
+      templateData.forEach((item) => {
+        if (item && item.category && typeof item.category === 'string' && item.category.trim()) {
+          categoriesSet.add(item.category.trim());
+        }
+      });
+    }
+
+    return Array.from(categoriesSet).sort();
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return [];
   }
-
-  // Also fetch categories from templates table (if they exist there)
-  const { data: templateData, error: templateError } = await supabaseClient
-    .from("templates")
-    .select("category")
-    .not("category", "is", null)
-    .limit(1000);
-
-  if (templateError) {
-    console.error('Failed to fetch template categories:', templateError);
-  } else if (templateData) {
-    console.log('Raw template data:', templateData);
-    templateData.forEach((item) => {
-      if (item.category && item.category.trim()) {
-        categoriesSet.add(item.category.trim());
-      }
-    });
-  }
-
-  // Add common categories as fallback if none found
-  const commonCategories = ['Magang', 'Pelatihan', 'MoU', 'Kunjungan Industri', 'Sertifikat', 'Workshop', 'Seminar'];
-  
-  // If we found very few categories, add the common ones
-  if (categoriesSet.size < 3) {
-    console.warn('Only found', categoriesSet.size, 'categories, adding common categories as fallback');
-    commonCategories.forEach(cat => categoriesSet.add(cat));
-  }
-
-  const categories = Array.from(categoriesSet).sort();
-  console.log('Found categories from certificates:', certData?.length || 0, 'records');
-  console.log('Found categories from templates:', templateData?.length || 0, 'records');
-  console.log('Unique categories:', categories);
-  
-  return categories;
 }
+  
 
 // Get certificates by category
 export async function getCertificatesByCategory(

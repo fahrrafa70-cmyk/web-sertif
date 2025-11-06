@@ -24,7 +24,7 @@ const ModernHeader = memo(function ModernHeader() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-0 dark:border-b-0 h-14 sm:h-16 w-full">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b h-14 sm:h-16 w-full">
         <div className="h-full w-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2">
           {/* Mobile Menu Button */}
           <button
