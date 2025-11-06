@@ -68,20 +68,9 @@ function ConfigureLayoutContent() {
   // Canvas ref
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasScale, setCanvasScale] = useState(1);
-  const [isMobile, setIsMobile] = useState(false);
 
   // Preview modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
-  
-  // Detect mobile device
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768); // md breakpoint
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Load template and existing layout
   useEffect(() => {
@@ -944,40 +933,22 @@ function ConfigureLayoutContent() {
                     return 'translate(0%, -50%)';
                   };
                   
-                  // ============================================================
-                  // MOBILE Y POSITION OFFSET ADJUSTMENT
-                  // ============================================================
-                  // Untuk menyesuaikan posisi Y pada mobile agar sesuai dengan desktop
-                  // HANYA DITERAPKAN PADA MOBILE (< 768px), tidak mempengaruhi desktop
+                  // ✅ DYNAMIC POSITIONING (Nov 5, 2025): No Manual Offset Needed!
                   // 
-                  // CARA KERJA:
-                  // - Nilai POSITIF = menurunkan posisi (turun ke bawah)
-                  // - Nilai NEGATIF = menaikkan posisi (naik ke atas)
+                  // REMOVED: Legacy mobileYOffset logic (certificate_no: +0.16%, issue_date: +0.50%)
                   // 
-                  // JIKA DI MOBILE:
-                  // - Posisi terlalu TINGGI (naik) → NAIKKAN nilai offset (misal: 0.10 → 0.15)
-                  // - Posisi terlalu RENDAH (turun) → TURUNKAN nilai offset (misal: 0.10 → 0.05 atau gunakan negatif)
+                  // OLD SYSTEM (REMOVED):
+                  //   - Manual offset per layer (hardcoded adjustments)
+                  //   - Different positioning between preview and generation
+                  //   - Required tweaking for each template
                   // 
-                  // CATATAN: Nilai dalam persentase dari tinggi canvas (0.1% ≈ 1-2px)
-                  // ============================================================
-                  let mobileYOffset = 0;
-                  // Hanya terapkan offset pada mobile
-                  if (isMobile) {
-                    if (layer.id === 'certificate_no') {
-                      // Nomor Sertifikat: Ubah nilai ini untuk menyesuaikan posisi Y
-                      // Nilai lebih besar = turun lebih banyak, Nilai lebih kecil = turun lebih sedikit
-                      // SUDAH SESUAI - tidak perlu diubah
-                      mobileYOffset = 0.16; // Sudah sesuai dengan desktop
-                    } else if (layer.id === 'issue_date') {
-                      // Tanggal: Ubah nilai ini untuk menyesuaikan posisi Y
-                      // Nilai lebih besar = turun lebih banyak, Nilai lebih kecil = turun lebih sedikit
-                      // TANGGAL NAIK SEDIKIT - perlu offset lebih besar untuk menurunkannya
+                  // NEW SYSTEM (DYNAMIC):
+                  //   - Pure percentage positioning (resolution-independent)
+                  //   - Preview = Generation (exact visual match)
+                  //   - Works with ANY template size without adjustment
+                  //   - Fully WYSIWYG ✅
                   
-                      mobileYOffset = 0.50; // Diturunkan lebih banyak untuk mengkompensasi posisi yang naik sedikit
-                    }
-                  }
-                  const baseTopPercent = (layer.y / STANDARD_CANVAS_HEIGHT) * 100;
-                  const adjustedTopPercent = baseTopPercent + mobileYOffset;
+                  const topPercent = (layer.y / STANDARD_CANVAS_HEIGHT) * 100;
                   
                   return (
                     <div
@@ -985,7 +956,7 @@ function ConfigureLayoutContent() {
                       className="absolute"
                       style={{
                         left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
-                        top: `${adjustedTopPercent}%`,
+                        top: `${topPercent}%`,
                         transform: getTransform(),
                         zIndex: isSelected ? 10 : 1
                       }}
@@ -1007,16 +978,16 @@ function ConfigureLayoutContent() {
                           textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                           // certificate_no and issue_date should never wrap - always stay on one line
                           whiteSpace: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'nowrap' : (layer.maxWidth ? 'normal' : 'nowrap'),
-                          // For certificate_no and issue_date, don't set width/maxWidth to allow full text on one line
+                          // ✅ ENABLED: Width control for certificate_no and issue_date (Nov 5, 2025)
+                          // Now respects maxWidth setting while maintaining single-line behavior
                           // CRITICAL: Round dimensions to match PNG generation
-                          width: (layer.id === 'certificate_no' || layer.id === 'issue_date') 
-                            ? 'auto' 
-                            : (layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'auto'),
-                          maxWidth: (layer.id === 'certificate_no' || layer.id === 'issue_date') 
-                            ? 'none' 
-                            : (layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'none'),
+                          width: layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'auto',
+                          maxWidth: layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'none',
                           minHeight: `${Math.round((layer.fontSize * (layer.lineHeight || 1.2)) * canvasScale)}px`,
                           lineHeight: layer.lineHeight || 1.2,
+                          // certificate_no and issue_date: truncate with ellipsis if text overflows
+                          textOverflow: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'ellipsis' : 'clip',
+                          overflow: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'hidden' : 'visible',
                           wordWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
                           overflowWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
                           userSelect: 'none',
