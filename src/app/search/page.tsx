@@ -643,17 +643,52 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
     return str.charAt(0).toUpperCase() + str.slice(1);
   }, []);
 
+  // Helper function to normalize image URL and determine optimization strategy
+  const normalizeImageUrl = useCallback((url: string | null | undefined, updatedAt?: string | null): { src: string; shouldOptimize: boolean } => {
+    if (!url) {
+      return { src: '', shouldOptimize: false };
+    }
+
+    let srcRaw = url;
+    
+    // Normalize local relative path like "generate/file.png" => "/generate/file.png"
+    if (!/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
+      srcRaw = `/${srcRaw}`;
+    }
+
+    // Add cache bust for local paths if updated_at is available
+    const cacheBust = updatedAt && srcRaw.startsWith('/')
+      ? `?v=${new Date(updatedAt).getTime()}`
+      : '';
+    
+    const src = srcRaw.startsWith('/')
+      ? `${srcRaw}${cacheBust}`
+      : srcRaw;
+
+    // Determine if we should optimize:
+    // - Optimize: local paths (/generate/...), Supabase Storage URLs
+    // - Don't optimize: data URLs, remote URLs that might not support optimization
+    const isDataUrl = srcRaw.startsWith('data:');
+    const isSupabase = /supabase\.(co|in)\/storage/i.test(srcRaw);
+    const isLocal = srcRaw.startsWith('/');
+    const shouldOptimize = (isLocal || isSupabase) && !isDataUrl;
+
+    return { src, shouldOptimize };
+  }, []);
+
   // Memoized certificate card component for better performance
   const CertificateCard = memo(({ 
     certificate, 
     onPreview,
     language,
-    t
+    t,
+    index = 0
   }: { 
     certificate: Certificate; 
     onPreview: (cert: Certificate) => void;
     language: 'en' | 'id';
     t: (key: string) => string;
+    index?: number;
   }) => {
     const handleClick = useCallback(() => {
       onPreview(certificate);
@@ -664,6 +699,10 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
       return formatReadableDate(certificate.issue_date, language);
     }, [certificate.issue_date, language]);
 
+    const imageConfig = useMemo(() => {
+      return normalizeImageUrl(certificate.certificate_image_url, certificate.updated_at);
+    }, [certificate.certificate_image_url, certificate.updated_at]);
+
     return (
       <div
         onClick={handleClick}
@@ -671,15 +710,18 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
       >
         {/* Certificate Thumbnail - Left Side */}
         <div className="relative w-[170px] flex-shrink-0 bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
-          {certificate.certificate_image_url ? (
+          {imageConfig.src ? (
             <Image
-              src={certificate.certificate_image_url}
+              src={imageConfig.src}
               alt={certificate.name}
               fill
               sizes="170px"
               className="object-contain group-hover:scale-105 transition-transform duration-200 ease-in-out will-change-transform"
-              loading="lazy"
-              unoptimized
+              loading={index < 3 ? "eager" : "lazy"}
+              priority={index < 3}
+              unoptimized={!imageConfig.shouldOptimize}
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
@@ -983,13 +1025,14 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         {/* Results Grid */}
         {!searching && searchResults.length > 0 && searchQuery.trim() && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
-            {searchResults.map((certificate) => (
+            {searchResults.map((certificate, index) => (
               <CertificateCard
                 key={certificate.id}
                 certificate={certificate}
                 onPreview={handlePreview}
                 language={language}
                 t={t}
+                index={index}
               />
             ))}
           </div>
@@ -1066,12 +1109,27 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                           }
                         }}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={previewCert.certificate_image_url ?? undefined}
-                          alt="Certificate"
-                          className="w-full h-auto rounded-lg border transition-transform duration-200 group-hover:scale-[1.01]"
-                        />
+                        {(() => {
+                          const { src, shouldOptimize } = normalizeImageUrl(previewCert.certificate_image_url, previewCert.updated_at);
+                          return (
+                            <div className="relative w-full aspect-auto">
+                              <Image
+                                src={src}
+                                alt="Certificate"
+                                width={800}
+                                height={600}
+                                className="w-full h-auto rounded-lg border transition-transform duration-200 group-hover:scale-[1.01]"
+                                priority
+                                unoptimized={!shouldOptimize}
+                                placeholder="blur"
+                                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          );
+                        })()}
                         <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
                           {t('hero.viewFullImage')}
                         </div>
