@@ -30,9 +30,7 @@ export function RichTextEditor({
       const spanStyle: React.CSSProperties = {
         fontWeight: span.fontWeight,
         fontFamily: span.fontFamily,
-        // fontSize: REMOVED - Keep text size constant in editor
-        // fontSize setting is still saved in data for preview/PNG rendering
-        color: span.color,
+
       };
       
       return (
@@ -141,7 +139,9 @@ export function RichTextEditor({
         if (React.isValidElement(element)) {
           const props = element.props as { style?: React.CSSProperties; children?: string };
           if (props.style) {
-            Object.assign(span.style, props.style);
+            const { color, ...styleWithoutColor } = props.style;
+            void color;
+            Object.assign(span.style, styleWithoutColor);
           }
           span.textContent = props.children || '';
         }
