@@ -12,7 +12,7 @@ import { toast, Toaster } from "sonner";
 import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import Image from "next/image";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { plainTextToRichText, applyStyleToRange, richTextToPlainText, getCommonStyleValue, hasMixedStyle } from "@/types/rich-text";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { FontWeightSelect, FontFamilySelect } from "@/components/editor/MixedStyleSelect";
@@ -1566,9 +1566,6 @@ function ConfigureLayoutContent() {
             <DialogTitle className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
               Template Preview
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
-              Informasi dan preview template sertifikat
-            </DialogDescription>
           </DialogHeader>
           
           {/* Template Information */}

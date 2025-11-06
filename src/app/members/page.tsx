@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Member, createMember, getMembers, updateMember, deleteMember as deleteMemberService } from "@/lib/supabase/members";
 import { toast } from "sonner";
@@ -930,9 +930,6 @@ export default function MembersPage() {
               <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
               {t('members.excel.title')}
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {t('members.excel.description')}
-            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-3 sm:space-y-4">

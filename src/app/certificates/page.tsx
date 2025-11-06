@@ -28,7 +28,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -1982,9 +1981,6 @@ function CertificatesContent() {
             <DialogTitle className="text-xl sm:text-2xl font-bold text-gradient dark:text-white">
               {t("certificates.preview")}
             </DialogTitle>
-            <DialogDescription className="text-sm sm:text-lg text-gray-600 dark:text-gray-300">
-              {t("certificates.previewDescription")}
-            </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1">
             {previewCertificate && (
@@ -2163,46 +2159,15 @@ function CertificatesContent() {
                                 onError={() => {
                                   console.warn('Preview image failed to load', src);
                                 }}
-<<<<<<< HEAD
                                 priority
                                 unoptimized={isRemote || isData}
                               />
-=======
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setFullImagePreviewUrl(src);
-                                    setFullImagePreviewOpen(true);
-                                  }
-                                }}
-                              >
-                                <Image
-                                  src={src}
-                                  alt={previewMode === 'score' ? "Score" : "Certificate"}
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
-                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
-                                  style={{ objectFit: 'contain' }}
-                                  onError={() => {
-                                    console.warn('Preview image failed to load', src);
-                                  }}
-                                  priority
-                                  fetchPriority="high"
-                                  unoptimized={isRemote || isData}
-                                  decoding="async"
-                                />
-                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage')}
-                                </div>
-                              </div>
->>>>>>> 85b5b5e0bc3ee129a634e0f51e7ea00af0aed3b2
                             );
                           })()
                         ) : (
                           <>
                             {/* FIX: Template Image with consistent aspect ratio */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
-<<<<<<< HEAD
                               <Image
                                 src={previewTemplate.score_image_url}
                                 alt="Score Template"
@@ -2216,69 +2181,6 @@ function CertificatesContent() {
                                 fill
                                 className="object-contain absolute inset-0"
                               />
-=======
-                              <div
-                                className="relative w-full h-full cursor-zoom-in group"
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => {
-                                  setFullImagePreviewUrl(previewTemplate.score_image_url!);
-                                  setFullImagePreviewOpen(true);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setFullImagePreviewUrl(previewTemplate.score_image_url!);
-                                    setFullImagePreviewOpen(true);
-                                  }
-                                }}
-                              >
-                                <Image
-                                  src={previewTemplate.score_image_url}
-                                  alt="Score Template"
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
-                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
-                                  loading="eager"
-                                  unoptimized
-                                />
-                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage')}
-                                </div>
-                              </div>
-                            ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
-                              <div
-                                className="relative w-full h-full cursor-zoom-in group"
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => {
-                                  setFullImagePreviewUrl(getTemplateImageUrl(previewTemplate)!);
-                                  setFullImagePreviewOpen(true);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setFullImagePreviewUrl(getTemplateImageUrl(previewTemplate)!);
-                                    setFullImagePreviewOpen(true);
-                                  }
-                                }}
-                              >
-                                <Image
-                                  src={getTemplateImageUrl(previewTemplate)!}
-                                  alt="Certificate Template"
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
-                                  className="object-contain absolute inset-0 transition-transform duration-200 group-hover:scale-[1.01]"
-                                  priority
-                                  fetchPriority="high"
-                                  decoding="async"
-                                  unoptimized
-                                />
-                                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {t('hero.viewFullImage')}
-                                </div>
-                              </div>
->>>>>>> 85b5b5e0bc3ee129a634e0f51e7ea00af0aed3b2
                             ) : (
                               <>
                                 {/* Decorative Corners */}
@@ -2634,50 +2536,6 @@ function CertificatesContent() {
         </DialogContent>
       </Dialog>
 
-<<<<<<< HEAD
-=======
-      {/* Full Image Preview Modal */}
-      {fullImagePreviewOpen && fullImagePreviewUrl && (
-        <div 
-          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" 
-          onClick={() => setFullImagePreviewOpen(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              setFullImagePreviewOpen(false);
-            }
-          }}
-          tabIndex={0}
-        >
-          <div 
-            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden" 
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {previewMode === 'score' ? 'Score' : t('hero.certificate')} - {previewCertificate?.certificate_no || ''}
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => setFullImagePreviewOpen(false)}
-                size="icon"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 overflow-auto flex-1">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
-                src={fullImagePreviewUrl} 
-                alt={previewMode === 'score' ? "Score" : "Certificate"} 
-                className="w-full h-auto rounded-lg border shadow-sm" 
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
->>>>>>> 85b5b5e0bc3ee129a634e0f51e7ea00af0aed3b2
       {/* Send Certificate Email Modal */}
       <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
         <DialogContent 
@@ -2694,7 +2552,6 @@ function CertificatesContent() {
         >
           <DialogHeader className="flex-shrink-0 pb-2 sm:pb-4">
             <DialogTitle className="text-xl sm:text-2xl font-bold">Send Certificate via Email</DialogTitle>
-            <DialogDescription className="text-sm sm:text-base">Review and customize the email before sending.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 pr-1 -mr-1">
             <div className="space-y-2">
@@ -2958,9 +2815,6 @@ function CertificatesContent() {
                 <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   Member Information
                 </DialogTitle>
-                <DialogDescription className="text-base text-gray-600 dark:text-gray-400">
-                  {detailMember ? `Detailed information about ${detailMember.name}` : 'Loading...'}
-                </DialogDescription>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto pr-1 -mr-1">
                 {loadingMemberDetail ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -366,9 +366,6 @@ export function QuickGenerateModal({
             <Zap className="w-6 h-6 text-yellow-500" />
             {t('quickGenerate.title')} {isDualTemplate && currentStep === 2 && '- Input Data Nilai'}
           </DialogTitle>
-          <DialogDescription>
-            {currentStep === 1 ? t('quickGenerate.description') : 'Isi data nilai untuk setiap member yang dipilih'}
-          </DialogDescription>
         </DialogHeader>
 
         {currentStep === 1 ? (

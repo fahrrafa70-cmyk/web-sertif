@@ -25,9 +25,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-<<<<<<< HEAD
-  "exclude": ["node_modules", "scripts", "src.example/**/*"]
-=======
   "exclude": ["node_modules", "scripts", "src.example"]
->>>>>>> 85b5b5e0bc3ee129a634e0f51e7ea00af0aed3b2
 }

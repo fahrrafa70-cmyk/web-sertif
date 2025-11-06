@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
 import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from "react";
@@ -4998,9 +4997,6 @@ function CertificateGeneratorContent() {
         <DialogContent className="max-w-3xl w-full">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Import Data dari Excel</DialogTitle>
-            <DialogDescription>
-              Sesuaikan header agar data dapat dipetakan ke field template. Anda dapat melakukan preview baris dan generate semua data.
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-5">
             <div className="space-y-2">
