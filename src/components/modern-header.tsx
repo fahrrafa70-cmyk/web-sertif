@@ -32,10 +32,9 @@ const ModernHeader = memo(function ModernHeader() {
   return (
     <>
       <header 
-        className={`fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b h-14 sm:h-16 w-full transition-all duration-300 ${
-          shouldBlur ? 'bg-gray-50/70 dark:bg-gray-900/70' : ''
-        }`}
+        className={`fixed top-0 left-0 right-0 z-50 border-b h-14 sm:h-16 w-full transition-all duration-300`}
         style={{
+          backgroundColor: 'var(--background)',
           transition: 'filter 300ms ease-in-out, background-color 300ms ease-in-out',
           ...(shouldBlur ? {
             filter: 'blur(4px)',

@@ -1431,7 +1431,7 @@ function CertificatesContent() {
 
   return (
     <ModernLayout>
-      <section className="py-4 sm:py-6 md:py-8">
+      <section className="py-4 sm:py-6 md:py-8 bg-gray-50 dark:bg-gray-900">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
             {/* Header */}
             <div className="mb-4 sm:mb-6">
@@ -1907,119 +1907,150 @@ function CertificatesContent() {
         </div>
       </section>
 
-      {/* Edit Certificate Sheet */}
-      <Sheet
+      {/* Edit Certificate Dialog */}
+      <Dialog
         open={!!isEditOpen}
         onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}
       >
-        <SheetContent side="right" className="overflow-y-auto">
-          <SheetHeader className="pb-4">
-            <SheetTitle className="text-lg sm:text-xl">
-              {t("common.edit")} {t("certificates.title")}
-            </SheetTitle>
-            <SheetDescription className="text-sm">{t("certificates.updateDetails")}</SheetDescription>
-          </SheetHeader>
-          <div className="px-2 sm:px-4 pb-4 space-y-3 sm:space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600">
-                {t("certificates.certificateId")}
-              </label>
-              <Input
-                value={draft?.certificate_no ?? ""}
-                onChange={(e) =>
-                  setDraft((d) =>
-                    d ? { ...d, certificate_no: e.target.value } : d,
-                  )
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600">
-                {t("certificates.recipient")}
-              </label>
-              <Input
-                value={draft?.name ?? ""}
-                onChange={(e) =>
-                  setDraft((d) => (d ? { ...d, name: e.target.value } : d))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600">{t("certificates.description")}</label>
-              <textarea
-                value={draft?.description ?? ""}
-                onChange={(e) =>
-                  setDraft((d) =>
-                    d ? { ...d, description: e.target.value } : d,
-                  )
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600">{t("certificates.category")}</label>
-              <select
-                value={draft?.category ?? ""}
-                onChange={(e) =>
-                  setDraft((d) => (d ? { ...d, category: e.target.value } : d))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">{t("certificates.selectCategory")}</option>
-                <option value="MoU">MoU</option>
-                <option value="Magang">Magang</option>
-                <option value="Pelatihan">Pelatihan</option>
-                <option value="Kunjungan Industri">Kunjungan Industri</option>
-                <option value="Sertifikat">Sertifikat</option>
-                <option value="Surat">Surat</option>
-                <option value="Lainnya">Lainnya</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600">
-                {t("certificates.issuedDate")}
-              </label>
-              <Input
-                type="date"
-                value={draft?.issue_date ?? ""}
-                onChange={(e) =>
-                  setDraft((d) =>
-                    d ? { ...d, issue_date: e.target.value } : d,
-                  )
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600">{t("certificates.expiryDate")}</label>
-              <Input
-                type="date"
-                value={draft?.expired_date ?? ""}
-                onChange={(e) =>
-                  setDraft((d) =>
-                    d ? { ...d, expired_date: e.target.value } : d,
-                  )
-                }
-              />
-            </div>
-            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-2 pt-2">
-              <Button
-                variant="outline"
-                className="border-gray-300 w-full sm:w-auto"
-                onClick={() => setIsEditOpen(null)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                className="gradient-primary text-white w-full sm:w-auto"
-                onClick={submitEdit}
-              >
-                {t("common.save")}
-              </Button>
+        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+          {/* Header */}
+          <DialogHeader className="px-5 pt-4 pb-3 pr-12 border-b border-gray-200 dark:border-gray-700">
+            <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Edit Certificate
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            <div className="space-y-2.5">
+              {/* Certificate Number */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  Certificate Number
+                </label>
+                <Input
+                  value={draft?.certificate_no ?? ""}
+                  onChange={(e) =>
+                    setDraft((d) =>
+                      d ? { ...d, certificate_no: e.target.value } : d,
+                    )
+                  }
+                  className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                  placeholder="251102038"
+                />
+              </div>
+
+              {/* Recipient */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  Recipient
+                </label>
+                <Input
+                  value={draft?.name ?? ""}
+                  onChange={(e) =>
+                    setDraft((d) => (d ? { ...d, name: e.target.value } : d))
+                  }
+                  className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                  placeholder="Naufal Hafizh Ghani Afandi"
+                />
+              </div>
+
+              {/* Category & Issue Date */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                    Category
+                  </label>
+                  <select
+                    value={draft?.category ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => (d ? { ...d, category: e.target.value } : d))
+                    }
+                    className="h-8 w-full px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">Select...</option>
+                    <option value="MoU">MoU</option>
+                    <option value="Magang">Magang</option>
+                    <option value="Pelatihan">Pelatihan</option>
+                    <option value="Kunjungan Industri">Kunjungan Industri</option>
+                    <option value="Sertifikat">Sertifikat</option>
+                    <option value="Surat">Surat</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                    Issued Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={draft?.issue_date ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) =>
+                        d ? { ...d, issue_date: e.target.value } : d,
+                      )
+                    }
+                    className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                  />
+                </div>
+              </div>
+
+              {/* Expiry Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  Expiry Date
+                </label>
+                <Input
+                  type="date"
+                  value={draft?.expired_date ?? ""}
+                  onChange={(e) =>
+                    setDraft((d) =>
+                      d ? { ...d, expired_date: e.target.value } : d,
+                    )
+                  }
+                  className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  Description
+                </label>
+                <textarea
+                  value={draft?.description ?? ""}
+                  onChange={(e) =>
+                    setDraft((d) =>
+                      d ? { ...d, description: e.target.value } : d,
+                    )
+                  }
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
+                  rows={2}
+                  placeholder="Optional description..."
+                />
+              </div>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+
+          {/* Footer */}
+          <div className="px-4 py-2.5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditOpen(null)}
+              className="h-8 px-3 text-sm"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-8 px-3 text-sm gradient-primary text-white shadow-sm hover:shadow-md transition-shadow"
+              onClick={submitEdit}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Certificate Preview Modal */}
       <Dialog

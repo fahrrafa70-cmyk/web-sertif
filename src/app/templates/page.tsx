@@ -1565,25 +1565,38 @@ export default function TemplatesPage() {
                     {/* Preview Image - Left Side */}
                     <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
                       {getTemplatePreviewUrl(previewTemplate) ? (
-                        <div className="relative w-full aspect-auto bg-gray-100 dark:bg-gray-900 rounded-lg">
+                        <div className="relative w-full aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
+                          {/* Skeleton loader - shown while image loads */}
+                          <div className="absolute inset-0 bg-gray-200 dark:bg-gray-800 animate-pulse" />
                           <Image
                             src={getTemplatePreviewUrl(previewTemplate)!}
                             alt={previewTemplate.name}
-                            width={800}
-                            height={600}
-                            className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 transition-transform duration-200"
+                            fill
+                            className="object-contain rounded-lg border border-gray-200 dark:border-gray-700 transition-opacity duration-300"
                             style={{
                               backgroundColor: 'transparent',
                             }}
+                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 800px"
                             priority
                             unoptimized
+                            onLoadingComplete={(img) => {
+                              // Hide skeleton when image loads
+                              const skeleton = img.parentElement?.querySelector('.animate-pulse');
+                              if (skeleton) {
+                                (skeleton as HTMLElement).style.display = 'none';
+                              }
+                            }}
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
+                              const skeleton = e.currentTarget.parentElement?.querySelector('.animate-pulse');
+                              if (skeleton) {
+                                (skeleton as HTMLElement).style.display = 'none';
+                              }
                             }}
                           />
                         </div>
                       ) : (
-                        <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
+                        <div className="aspect-[4/3] flex items-center justify-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
                           <div className="text-center">
                             <Layout className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                             <p className="text-sm">No preview image</p>

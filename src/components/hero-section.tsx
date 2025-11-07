@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { getCertificateByNumber, getCertificateByPublicId, Certificate, advancedSearchCertificates, getCertificateCategories, SearchFilters } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { ArrowRight, Search, Download, ChevronDown, FileText, Link, Filter, X, Image as ImageIcon } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { useRouter } from "next/navigation";
@@ -688,7 +689,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
 
   return (
     <>
-    <section className="relative w-full flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <section className="relative w-full flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
       <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 text-center py-8 sm:py-12 md:py-20">
         <motion.div
           variants={containerVariants}
@@ -737,16 +738,18 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                       className="h-9 sm:h-10 pl-8 sm:pl-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
                     />
                   </div>
-                  <Button
+                  <LoadingButton
                     type="button"
                     onClick={handleSearch}
-                    disabled={searching}
-                    className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
+                    isLoading={searching}
+                    loadingText={t('hero.searching')}
+                    variant="primary"
+                    className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] text-xs sm:text-sm"
                   >
-                    <span className="hidden sm:inline">{searching ? t('hero.searching') : t('hero.searchButton')}</span>
-                    <span className="sm:hidden">{searching ? t('hero.searching') : t('hero.searchButton')}</span>
+                    <span className="hidden sm:inline">{t('hero.searchButton')}</span>
+                    <span className="sm:hidden">{t('hero.searchButton')}</span>
                     <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                  </Button>
+                  </LoadingButton>
                 </div>
                 
                 {/* Filter Toggle Button */}
@@ -1006,7 +1009,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
             <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
               {previewCert!.certificate_image_url ? (
                 <div
-                  className="relative w-full cursor-zoom-in group"
+                  className="relative w-full aspect-[4/3] cursor-zoom-in group overflow-hidden rounded-lg"
                   role="button"
                   tabIndex={0}
                   onClick={() => {
@@ -1021,18 +1024,33 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                     }
                   }}
                 >
+                  {/* Skeleton loader */}
+                  <div className="absolute inset-0 bg-gray-200 dark:bg-gray-800 animate-pulse" />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={previewCert!.certificate_image_url ?? undefined}
                     alt="Certificate"
-                    className="w-full h-auto rounded-lg border transition-transform duration-200 group-hover:scale-[1.01]"
+                    className="absolute inset-0 w-full h-full object-contain rounded-lg border transition-transform duration-200 group-hover:scale-[1.01]"
+                    onLoad={(e) => {
+                      // Hide skeleton when image loads
+                      const skeleton = e.currentTarget.parentElement?.querySelector('.animate-pulse');
+                      if (skeleton) {
+                        (skeleton as HTMLElement).style.display = 'none';
+                      }
+                    }}
+                    onError={(e) => {
+                      const skeleton = e.currentTarget.parentElement?.querySelector('.animate-pulse');
+                      if (skeleton) {
+                        (skeleton as HTMLElement).style.display = 'none';
+                      }
+                    }}
                   />
                   <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
                     {t('hero.viewFullImage')}
                   </div>
                 </div>
               ) : (
-                <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
+                <div className="aspect-[4/3] flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
               )}
             </div>
             <div className="p-4 sm:p-6">
@@ -1216,23 +1234,15 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
               >
                 {t('hero.cancel')}
               </Button>
-               <Button 
+               <LoadingButton 
                  onClick={confirmSendEmail} 
-                 className="gradient-primary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-300"
-                 disabled={isSendingEmail}
+                 isLoading={isSendingEmail}
+                 loadingText={t('hero.sending')}
+                 variant="primary"
+                 className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300"
                >
-                {isSendingEmail ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {t('hero.sending')}
-                  </>
-                ) : (
-                  t('hero.sendEmail')
-                )}
-              </Button>
+                {t('hero.sendEmail')}
+              </LoadingButton>
             </div>
           </div>
         </div>

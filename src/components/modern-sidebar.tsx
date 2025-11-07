@@ -88,7 +88,7 @@ const ModernSidebar = memo(function ModernSidebar() {
   return (
     <>
       {/* Desktop Sidebar - Fixed Left */}
-      <aside className="hidden lg:flex fixed left-0 top-16 h-[calc(100vh-4rem)] w-20 bg-gray-50 dark:bg-gray-900 flex-col items-center z-40">
+      <aside className="hidden lg:flex fixed left-0 top-16 h-[calc(100vh-4rem)] w-20 flex-col items-center z-40" style={{ backgroundColor: 'var(--background)' }}>
         {/* Spacer for alignment */}
         <div className="mt-6 mb-6"></div>
 

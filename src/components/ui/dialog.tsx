@@ -10,7 +10,7 @@ function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>)
   return (
     <DialogPrimitive.Root 
       data-slot="dialog" 
-      modal={false}
+      modal={true}
       {...props} 
     />
   )
@@ -42,7 +42,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 backdrop-blur-md transition-all duration-300 data-[state=open]:opacity-100 data-[state=closed]:opacity-0",
+        "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-all duration-300 data-[state=open]:opacity-100 data-[state=closed]:opacity-0",
         className
       )}
       style={{
@@ -54,7 +54,7 @@ function DialogOverlay({
         height: '100vh',
         zIndex: 50,
         background: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(4px)',
+        backdropFilter: 'blur(2px)',
         transition: 'all 0.2s ease-in-out'
       }}
       {...props}
@@ -90,7 +90,7 @@ function DialogContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full bg-gray-100/80 dark:bg-gray-800/80 p-2 text-gray-600 dark:text-gray-200 shadow-sm transition-all hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 disabled:pointer-events-none">
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full bg-gray-100/80 dark:bg-gray-800/80 p-1.5 text-gray-600 dark:text-gray-200 shadow-sm transition-all hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 disabled:pointer-events-none">
           <XIcon className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
