@@ -42,20 +42,20 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-all duration-300 data-[state=open]:opacity-100 data-[state=closed]:opacity-0",
+        "fixed inset-0 z-50 bg-black/40 dark:bg-black/60",
         className
       )}
       style={{
         position: 'fixed',
         top: 0,
-        transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
         left: 0,
         width: '100vw',
         height: '100vh',
         zIndex: 50,
-        background: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(2px)',
-        transition: 'all 0.2s ease-in-out'
+        opacity: 0,
+        transition: 'opacity 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+        willChange: 'opacity',
+        pointerEvents: 'auto',
       }}
       {...props}
     />
@@ -73,19 +73,19 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background fixed z-50 grid w-full max-w-lg gap-4 border border-gray-200 dark:border-gray-700 p-6 shadow-lg sm:rounded-lg transition-all duration-300 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=closed]:scale-95",
+          "bg-white dark:bg-gray-800 fixed z-50 grid w-full max-w-lg gap-4 border border-gray-200 dark:border-gray-700 p-6 shadow-lg sm:rounded-lg",
           className
         )}
         style={{
           position: 'fixed',
           left: '50%',
           top: '50%',
-          transform: 'translate(-50%, -50%)',
+          transform: 'translate(-50%, -50%) scale(0.96)',
           zIndex: 51,
           maxWidth: '90vw',
           maxHeight: '90vh',
-          overflow: 'auto',
-          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          overflow: 'hidden',
+          willChange: 'opacity, transform',
         }}
         {...props}
       >

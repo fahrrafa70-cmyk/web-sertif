@@ -17,6 +17,7 @@ import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl
 import { getCertificatesByTemplate } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
+import { LoadingButton } from "@/components/ui/loading-button";
 import Image from "next/image";
 
 export default function TemplatesPage() {
@@ -91,6 +92,8 @@ export default function TemplatesPage() {
   const [previewImageFile, setPreviewImageFile] = useState<File | null>(null);
   const [previewImagePreview, setPreviewImagePreview] = useState<string | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(false);
   const [templateUsageMap, setTemplateUsageMap] = useState<Map<string, number>>(new Map()); // Map<templateId, certificateCount>
   
   // Dual template mode state
@@ -125,34 +128,35 @@ export default function TemplatesPage() {
   async function submitCreate() {
     // Validate name
     if (!draft || !draft.name?.trim()) {
-      toast.error("Please fill in Template Name");
+      toast.error(t('templates.fillTemplateName'));
       return;
     }
 
     // Validate category
     if (!draft || !draft.category?.trim()) {
-      toast.error("Please select a Category");
+      toast.error(t('templates.selectCategory'));
       return;
     }
 
     // Validate based on template mode
     if (isDualTemplate) {
       if (!certificateImageFile) {
-        toast.error("Please upload Certificate Image (Front)");
+        toast.error(t('templates.uploadCertificateImage'));
         return;
       }
       if (!scoreImageFile) {
-        toast.error("Please upload Score Image (Back)");
+        toast.error(t('templates.uploadScoreImage'));
         return;
       }
     } else {
       if (!imageFile) {
-        toast.error("Please upload Template Image");
+        toast.error(t('templates.uploadTemplateImage'));
         return;
       }
     }
 
     try {
+      setCreatingTemplate(true);
       const templateData: CreateTemplateData = {
         name: draft.name.trim(),
         category: draft.category.trim(),
@@ -185,12 +189,14 @@ export default function TemplatesPage() {
       setCertificateImagePreview(null);
       setScoreImageFile(null);
       setScoreImagePreview(null);
-      toast.success("Template created successfully!");
+      toast.success(t('templates.createSuccess'));
       // Refresh templates to show the new template immediately
       refresh();
     } catch (error) {
       console.error('💥 Template creation failed:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to create template");
+      toast.error(error instanceof Error ? error.message : t('templates.createFailed'));
+    } finally {
+      setCreatingTemplate(false);
     }
   }
 
@@ -220,28 +226,29 @@ export default function TemplatesPage() {
 
   async function submitEdit() {
     if (!draft || !isEditOpen || !draft.name || !draft.category) {
-      toast.error("Please fill in all required fields");
+      toast.error(t('templates.fillRequiredFields'));
       return;
     }
 
     // Validate based on template mode
     if (isDualTemplate) {
       if (!certificateImageFile && !draft.certificate_image_url) {
-        toast.error("Certificate image is required for dual templates");
+        toast.error(t('templates.certificateImageRequired'));
         return;
       }
       if (!scoreImageFile && !draft.score_image_url) {
-        toast.error("Score image is required for dual templates");
+        toast.error(t('templates.scoreImageRequired'));
         return;
       }
     } else {
       if (!imageFile && !draft.image_path) {
-        toast.error("Template image is required");
+        toast.error(t('templates.templateImageRequired'));
         return;
       }
     }
 
     try {
+      setEditingTemplate(true);
       // Get status from draft - CRITICAL: Always use draft.status if it exists (even if empty string)
       // This ensures the user's selection is always sent to the API
       // Only use fallback if draft.status is truly undefined or null
@@ -310,15 +317,17 @@ export default function TemplatesPage() {
       setCertificateImagePreview(null);
       setScoreImageFile(null);
       setScoreImagePreview(null);
-      toast.success("Template updated successfully!");
+      toast.success(t('templates.updateSuccess'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update template");
+      toast.error(error instanceof Error ? error.message : t('templates.updateFailed'));
+    } finally {
+      setEditingTemplate(false);
     }
   }
 
   async function requestDelete(id: string) {
     if (!canDelete) {
-      toast.error("You don't have permission to delete templates");
+      toast.error(t('templates.deleteNoPermission'));
       return;
     }
     
@@ -330,16 +339,16 @@ export default function TemplatesPage() {
     try {
       const certificates = await getCertificatesByTemplate(id);
       if (certificates && certificates.length > 0) {
-        toast.error(`Cannot delete "${templateName}" because it is being used by ${certificates.length} certificate(s). Please delete the certificates first.`);
+        toast.error(t('templates.cannotDeleteInUse').replace('{name}', templateName).replace('{count}', certificates.length.toString()));
         return;
       }
     } catch (error) {
       console.error('Error checking template usage:', error);
       // Continue with deletion if check fails (don't block deletion)
-      toast.warning("Could not verify if template is in use. Proceeding with deletion...");
+      toast.warning(t('templates.cannotVerifyUsage'));
     }
     
-    const ok = await confirmToast(`Are you sure you want to delete "${templateName}"? This action cannot be undone and will also delete the associated image file.`, { confirmText: "Delete", tone: "destructive" });
+    const ok = await confirmToast(t('templates.deleteConfirm').replace('{name}', templateName), { confirmText: t('common.delete'), tone: "destructive" });
   if (ok) {
       try {
         // User confirmed deletion
@@ -353,13 +362,13 @@ export default function TemplatesPage() {
           return newSet;
         });
         
-        toast.success(`Template "${templateName}" deleted successfully!`);
+        toast.success(t('templates.deleteSuccess').replace('{name}', templateName));
         
         // Note: No need to call refresh() here because deleteTemplate already updates state
         // Calling refresh() can cause race condition if database hasn't propagated the delete yet
       } catch (error) {
         console.error('💥 Delete failed:', error);
-        toast.error(error instanceof Error ? error.message : "Failed to delete template");
+        toast.error(error instanceof Error ? error.message : t('templates.deleteFailed'));
       } finally {
         setDeletingTemplateId(null);
       }
@@ -375,13 +384,13 @@ export default function TemplatesPage() {
       // Validate file type
       const fileExt = file.name.split('.').pop()?.toLowerCase();
       if (!fileExt || !['jpg', 'jpeg', 'png'].includes(fileExt)) {
-        toast.error('Invalid file type. Only JPG, JPEG, and PNG are allowed.');
+        toast.error(t('templates.invalidFileType'));
         return;
       }
       
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        toast.error('File size too large. Maximum size is 10MB.');
+        toast.error(t('templates.fileTooLarge'));
         return;
       }
       
@@ -492,7 +501,7 @@ export default function TemplatesPage() {
                     className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Create
+                    {t('templates.create')}
                   </Button>
                 )}
               </div>
@@ -507,7 +516,7 @@ export default function TemplatesPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <Input 
-                    placeholder="Cari template..." 
+                    placeholder={t('templates.search')} 
                     className="pl-10 h-10 rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 text-sm bg-white dark:bg-gray-800" 
                     value={query} 
                     onChange={(e) => setQuery(e.target.value)} 
@@ -533,14 +542,14 @@ export default function TemplatesPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Category
+                        {t('templates.category')}
                       </label>
                       <select
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
                       >
-                        <option value="">All Categories</option>
+                        <option value="">{t('templates.allCategories')}</option>
                         <option value="MoU">MoU</option>
                         <option value="Magang">Magang</option>
                         <option value="Pelatihan">Pelatihan</option>
@@ -603,7 +612,7 @@ export default function TemplatesPage() {
             {!loading && !error && filtered.length > 0 && (
               <div className="mb-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Found {filtered.length} template{filtered.length !== 1 ? 's' : ''}
+                  {t('templates.found').replace('{count}', filtered.length.toString()).replace('{plural}', filtered.length !== 1 ? 's' : '')}
                 </p>
               </div>
             )}
@@ -662,11 +671,11 @@ export default function TemplatesPage() {
                         {/* If status exists (even if empty string), use it directly */}
                         {(tpl.status === "ready" || ((tpl.status === undefined || tpl.status === null || tpl.status === '') && tpl.is_layout_configured)) ? (
                           <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white text-xs shadow-sm px-1.5 py-0.5">
-                            ✓ Ready
+                            ✓ {t('templates.status.ready')}
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs shadow-sm px-1.5 py-0.5">
-                            Draft
+                            {t('templates.status.draft')}
                           </Badge>
                         )}
                       </div>
@@ -714,7 +723,7 @@ export default function TemplatesPage() {
                             }}
                           >
                             <Settings className="w-3 h-3 mr-1" />
-                            <span className="truncate">Configure</span>
+                            <span className="truncate">{t('templates.configure')}</span>
                           </Button>
                           <Button 
                             variant="outline" 
@@ -727,7 +736,7 @@ export default function TemplatesPage() {
                           >
                             <Edit className="w-3 h-3" />
                           </Button>
-                          <Button 
+                          <LoadingButton 
                             variant="outline" 
                             size="sm"
                             className={`h-7 w-7 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 ${canDelete && !templateUsageMap.has(tpl.id) ? 'hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' : 'opacity-50 cursor-not-allowed'}`}
@@ -737,18 +746,16 @@ export default function TemplatesPage() {
                                 requestDelete(tpl.id);
                               } else if (templateUsageMap.has(tpl.id)) {
                                 const count = templateUsageMap.get(tpl.id) || 0;
-                                toast.error(`Cannot delete "${tpl.name}" because it is being used by ${count} certificate(s). Please delete the certificates first.`);
+                                toast.error(t('templates.cannotDeleteInUse').replace('{name}', tpl.name).replace('{count}', count.toString()));
                               }
                             }}
-                            disabled={!canDelete || deletingTemplateId === tpl.id || templateUsageMap.has(tpl.id)}
-                            title={templateUsageMap.has(tpl.id) ? `This template is being used by ${templateUsageMap.get(tpl.id)} certificate(s)` : undefined}
+                            disabled={!canDelete || templateUsageMap.has(tpl.id)}
+                            isLoading={deletingTemplateId === tpl.id}
+                            loadingText=""
+                            title={templateUsageMap.has(tpl.id) ? t('templates.usedBy').replace('{count}', (templateUsageMap.get(tpl.id) || 0).toString()) : undefined}
                           >
-                            {deletingTemplateId === tpl.id ? (
-                              <div className="w-3 h-3 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
-                            ) : (
-                              <Trash2 className="w-3 h-3" />
-                            )}
-                          </Button>
+                            <Trash2 className="w-3 h-3" />
+                          </LoadingButton>
                         </div>
                       )}
                     </div>
@@ -770,10 +777,10 @@ export default function TemplatesPage() {
                     <FileText className="w-10 h-10 text-gray-400 dark:text-gray-500" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    Belum ada template
+                    {t('templates.noTemplates')}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    Buat template sertifikat pertama Anda untuk memulai
+                    {t('templates.noTemplatesMessage')}
                   </p>
                   {(role === "Admin" || role === "Team") && (
                     <Button 
@@ -795,8 +802,8 @@ export default function TemplatesPage() {
       <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md">
           <SheetHeader>
-            <SheetTitle className="text-xl font-bold text-gradient">Create Template</SheetTitle>
-            <SheetDescription>Define the basic details of your template.</SheetDescription>
+            <SheetTitle className="text-xl font-bold text-gradient">{t('templates.createTitle')}</SheetTitle>
+            <SheetDescription>{t('templates.createDescription')}</SheetDescription>
           </SheetHeader>
           <div className="p-4 space-y-6">
             <motion.div 
@@ -805,12 +812,12 @@ export default function TemplatesPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <label className="text-sm font-semibold text-gray-700">Template Name</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateName')}</label>
               <Input 
                 value={draft?.name ?? ""} 
                 onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))} 
-                placeholder="Enter template name"
-                className="rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+                placeholder={t('templates.templateNamePlaceholder')}
+                className="rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 dark:bg-gray-900 dark:text-gray-100"
               />
             </motion.div>
             
@@ -820,13 +827,13 @@ export default function TemplatesPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.1 }}
             >
-              <label className="text-sm font-semibold text-gray-700">Category</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.category')}</label>
               <select 
                 value={draft?.category ?? ""} 
                 onChange={(e) => setDraft((d) => (d ? { ...d, category: e.target.value } : d))} 
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">Select category</option>
+                <option value="">{t('templates.selectCategory')}</option>
                 <option value="MoU">MoU</option>
                 <option value="Magang">Magang</option>
                 <option value="Pelatihan">Pelatihan</option>
@@ -843,7 +850,7 @@ export default function TemplatesPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.2 }}
             >
-              <label className="text-sm font-semibold text-gray-700">Orientation</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.orientation')}</label>
               <div className="grid grid-cols-2 gap-3">
                 <Button 
                   variant={draft?.orientation === "Landscape" ? "default" : "outline"} 
@@ -851,7 +858,7 @@ export default function TemplatesPage() {
                   className="rounded-lg"
                 >
                   <Layout className="w-4 h-4 mr-2" />
-                  Landscape
+                  {t('templates.landscape')}
                 </Button>
                 <Button 
                   variant={draft?.orientation === "Portrait" ? "default" : "outline"} 
@@ -859,7 +866,7 @@ export default function TemplatesPage() {
                   className="rounded-lg"
                 >
                   <Layout className="w-4 h-4 mr-2" />
-                  Portrait
+                  {t('templates.portrait')}
                 </Button>
               </div>
             </motion.div>
@@ -871,7 +878,7 @@ export default function TemplatesPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.25 }}
             >
-              <label className="text-sm font-semibold text-gray-700">Template Mode</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateMode')}</label>
               <div className="grid grid-cols-2 gap-3">
                 <Button 
                   variant={!isDualTemplate ? "default" : "outline"} 
@@ -879,7 +886,7 @@ export default function TemplatesPage() {
                   className="rounded-lg"
                 >
                   <FileText className="w-4 h-4 mr-2" />
-                  Single Side
+                  {t('templates.singleSide')}
                 </Button>
                 <Button 
                   variant={isDualTemplate ? "default" : "outline"} 
@@ -887,12 +894,12 @@ export default function TemplatesPage() {
                   className="rounded-lg"
                 >
                   <Layout className="w-4 h-4 mr-2" />
-                  Double Side
+                  {t('templates.doubleSide')}
                 </Button>
               </div>
               {isDualTemplate && (
-                <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
-                  Dual templates support both certificate and score views. You will need to upload both images.
+                <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg">
+                  {t('templates.dualTemplateInfo')}
                 </p>
               )}
             </motion.div>
@@ -905,7 +912,7 @@ export default function TemplatesPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.3 }}
             >
-              <label className="text-sm font-semibold text-gray-700">Template Image</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateImage')}</label>
               <div className="space-y-3">
                 <input
                   type="file"
@@ -920,14 +927,14 @@ export default function TemplatesPage() {
                         src={imagePreview} 
                         alt="Template preview" 
                         fill
-                        className="object-cover rounded-lg border border-gray-200"
+                        className="object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                         unoptimized
                       />
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                      className="absolute top-2 right-2 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800"
                       onClick={() => handleImageUpload(null)}
                     >
                       <X className="w-4 h-4" />
@@ -948,7 +955,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.3 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Certificate Image (Front)</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.certificateImage')}</label>
                   <div className="space-y-3">
                     <input
                       type="file"
@@ -963,14 +970,14 @@ export default function TemplatesPage() {
                             src={certificateImagePreview} 
                             alt="Certificate preview" 
                             fill
-                            className="object-cover rounded-lg border border-gray-200"
+                            className="object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                             unoptimized
                           />
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                          className="absolute top-2 right-2 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800"
                           onClick={() => handleCertificateImageUpload(null)}
                         >
                           <X className="w-4 h-4" />
@@ -987,7 +994,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.35 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700">Score Image (Back)</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.scoreImage')}</label>
                   <div className="space-y-3">
                     <input
                       type="file"
@@ -1002,14 +1009,14 @@ export default function TemplatesPage() {
                             src={scoreImagePreview} 
                             alt="Score preview" 
                             fill
-                            className="object-cover rounded-lg border border-gray-200"
+                            className="object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                             unoptimized
                           />
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                          className="absolute top-2 right-2 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800"
                           onClick={() => handleScoreImageUpload(null)}
                         >
                           <X className="w-4 h-4" />
@@ -1030,7 +1037,7 @@ export default function TemplatesPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.35 }}
             >
-              <label className="text-sm font-semibold text-gray-700">Preview Image (Thumbnail)</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.previewImage')}</label>
               <div className="space-y-3">
                 <input
                   type="file"
@@ -1045,14 +1052,14 @@ export default function TemplatesPage() {
                         src={previewImagePreview} 
                         alt="Preview image" 
                         fill
-                        className="object-cover rounded-lg border border-gray-200" 
+                        className="object-cover rounded-lg border border-gray-200 dark:border-gray-700" 
                         unoptimized
                       />
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white"
+                      className="absolute top-2 right-2 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800"
                       onClick={() => handlePreviewImageUpload(null)}
                     >
                       <X className="w-4 h-4" />
@@ -1070,17 +1077,20 @@ export default function TemplatesPage() {
             >
               <Button 
                 variant="outline" 
-                className="border-gray-300 hover:border-gray-400" 
+                className="border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 dark:text-gray-100" 
                 onClick={() => setIsCreateOpen(false)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
-              <Button 
+              <LoadingButton 
                 className="gradient-primary text-white shadow-lg hover:shadow-xl" 
                 onClick={submitCreate}
+                isLoading={creatingTemplate}
+                loadingText={t('common.saving')}
+                variant="primary"
               >
-                Create Template
-              </Button>
+                {t('templates.create')}
+              </LoadingButton>
             </motion.div>
           </div>
         </SheetContent>
@@ -1092,8 +1102,8 @@ export default function TemplatesPage() {
           <Sheet open={!!isEditOpen} onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}>
             <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
               <SheetHeader>
-                <SheetTitle className="text-xl font-bold text-gradient">Edit Template</SheetTitle>
-                <SheetDescription>Update template details.</SheetDescription>
+                <SheetTitle className="text-xl font-bold text-gradient">{t('templates.editTitle')}</SheetTitle>
+                <SheetDescription>{t('templates.editDescription')}</SheetDescription>
               </SheetHeader>
               <div className="p-4 space-y-6">
                 {/* Template Name */}
@@ -1103,11 +1113,11 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Template Name</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateName')}</label>
                   <Input 
                     value={draft?.name ?? ""} 
                     onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))} 
-                    placeholder="Enter template name"
+                    placeholder={t('templates.templateNamePlaceholder')}
                     className="rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 dark:bg-gray-900 dark:text-gray-100"
                   />
                 </motion.div>
@@ -1119,13 +1129,13 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.1 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Category</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.category')}</label>
                   <select 
                     value={draft?.category ?? ""} 
                     onChange={(e) => setDraft((d) => (d ? { ...d, category: e.target.value } : d))} 
                     className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select category</option>
+                    <option value="">{t('templates.selectCategory')}</option>
                     <option value="MoU">MoU</option>
                     <option value="Magang">Magang</option>
                     <option value="Pelatihan">Pelatihan</option>
@@ -1143,7 +1153,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.2 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Orientation</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.orientation')}</label>
                   <div className="grid grid-cols-2 gap-3">
                     <Button 
                       variant={draft?.orientation === "Landscape" ? "default" : "outline"} 
@@ -1151,7 +1161,7 @@ export default function TemplatesPage() {
                       className="rounded-lg"
                     >
                       <Layout className="w-4 h-4 mr-2" />
-                      Landscape
+                      {t('templates.landscape')}
                     </Button>
                     <Button 
                       variant={draft?.orientation === "Portrait" ? "default" : "outline"} 
@@ -1159,7 +1169,7 @@ export default function TemplatesPage() {
                       className="rounded-lg"
                     >
                       <Layout className="w-4 h-4 mr-2" />
-                      Portrait
+                      {t('templates.portrait')}
                     </Button>
                   </div>
                 </motion.div>
@@ -1171,7 +1181,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.22 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Status</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.status')}</label>
                   <select 
                     value={(draft?.status !== undefined && draft?.status !== null && draft?.status !== '') 
                       ? draft.status 
@@ -1186,8 +1196,8 @@ export default function TemplatesPage() {
                     }} 
                     className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="draft">Draft</option>
-                    <option value="ready">Ready</option>
+                    <option value="draft">{t('templates.status.draft')}</option>
+                    <option value="ready">{t('templates.status.ready')}</option>
                   </select>
                 </motion.div>
 
@@ -1198,7 +1208,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.25 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Template Mode</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateMode')}</label>
                   <div className="grid grid-cols-2 gap-3">
                     <Button 
                       variant={!isDualTemplate ? "default" : "outline"} 
@@ -1206,7 +1216,7 @@ export default function TemplatesPage() {
                       className="rounded-lg"
                     >
                       <FileText className="w-4 h-4 mr-2" />
-                      Single Side
+                      {t('templates.singleSide')}
                     </Button>
                     <Button 
                       variant={isDualTemplate ? "default" : "outline"} 
@@ -1214,12 +1224,12 @@ export default function TemplatesPage() {
                       className="rounded-lg"
                     >
                       <Layout className="w-4 h-4 mr-2" />
-                      Double Side
+                      {t('templates.doubleSide')}
                     </Button>
                   </div>
                   {isDualTemplate && (
                     <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg">
-                      Dual templates support both certificate and score views. You will need to upload both images.
+                      {t('templates.dualTemplateInfo')}
                     </p>
                   )}
                 </motion.div>
@@ -1234,7 +1244,7 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.3 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Template Image</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.currentTemplateImage')}</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {imagePreview ? (
                           <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
@@ -1261,7 +1271,7 @@ export default function TemplatesPage() {
                             ) : (
                               <div className="w-full h-40 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800">
                                 <Layout className="w-6 h-6 mr-2" />
-                                No template image
+                                {t('templates.noTemplateImage')}
                               </div>
                             )}
                           </>
@@ -1276,7 +1286,7 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.4 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Change Template Image</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.changeTemplateImage')}</label>
                       <div className="space-y-3">
                         <input
                           type="file"
@@ -1292,7 +1302,7 @@ export default function TemplatesPage() {
                             onClick={() => handleImageUpload(null)}
                           >
                             <X className="w-4 h-4 mr-2" />
-                            Remove New Image
+                            {t('templates.removeNewImage')}
                           </Button>
                         )}
                       </div>
@@ -1310,7 +1320,7 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.3 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Certificate Image (Front)</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.currentCertificateImage')}</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {certificateImagePreview ? (
                           <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
@@ -1337,7 +1347,7 @@ export default function TemplatesPage() {
                             ) : (
                               <div className="w-full h-40 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800">
                                 <Layout className="w-6 h-6 mr-2" />
-                                No certificate image
+                                {t('templates.noCertificateImage')}
                               </div>
                             )}
                           </>
@@ -1352,7 +1362,7 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.4 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Change Certificate Image</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.changeCertificateImage')}</label>
                       <div className="space-y-3">
                         <input
                           type="file"
@@ -1368,7 +1378,7 @@ export default function TemplatesPage() {
                             onClick={() => handleCertificateImageUpload(null)}
                           >
                             <X className="w-4 h-4 mr-2" />
-                            Remove New Certificate Image
+                            {t('templates.removeNewCertificateImage')}
                           </Button>
                         )}
                       </div>
@@ -1381,7 +1391,7 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.5 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Score Image (Back)</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.currentScoreImage')}</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {scoreImagePreview ? (
                           <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
@@ -1408,7 +1418,7 @@ export default function TemplatesPage() {
                             ) : (
                               <div className="w-full h-40 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800">
                                 <Layout className="w-6 h-6 mr-2" />
-                                No score image
+                                {t('templates.noScoreImage')}
                               </div>
                             )}
                           </>
@@ -1423,7 +1433,7 @@ export default function TemplatesPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.6 }}
                     >
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Change Score Image</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.changeScoreImage')}</label>
                       <div className="space-y-3">
                         <input
                           type="file"
@@ -1439,7 +1449,7 @@ export default function TemplatesPage() {
                             onClick={() => handleScoreImageUpload(null)}
                           >
                             <X className="w-4 h-4 mr-2" />
-                            Remove New Score Image
+                            {t('templates.removeNewScoreImage')}
                           </Button>
                         )}
                       </div>
@@ -1454,7 +1464,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.5 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Preview Image (Thumbnail)</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.currentPreviewImage')}</label>
                   <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                     {previewImagePreview ? (
                       <div className="relative w-full h-32 bg-gray-50 dark:bg-gray-800">
@@ -1481,7 +1491,7 @@ export default function TemplatesPage() {
                         ) : (
                           <div className="w-full h-32 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800">
                             <Layout className="w-6 h-6 mr-2" />
-                            No preview image
+                            {t('templates.noPreviewImage')}
                           </div>
                         )}
                       </>
@@ -1496,7 +1506,7 @@ export default function TemplatesPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.6 }}
                 >
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Change Preview Image</label>
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.changePreviewImage')}</label>
                   <div className="space-y-3">
                     <input
                       type="file"
@@ -1512,7 +1522,7 @@ export default function TemplatesPage() {
                         onClick={() => handlePreviewImageUpload(null)}
                       >
                         <X className="w-4 h-4 mr-2" />
-                        Remove New Preview
+                        {t('templates.removeNewPreview')}
                       </Button>
                     )}
                   </div>
@@ -1527,18 +1537,21 @@ export default function TemplatesPage() {
                 >
                   <Button 
                     variant="outline" 
-                    className="border-gray-300 hover:border-gray-400 px-6" 
+                    className="border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 dark:text-gray-100 px-6" 
                     onClick={() => setIsEditOpen(null)}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   {(role === "Admin" || role === "Team") && (
-                    <Button 
+                    <LoadingButton 
                       className="gradient-primary text-white shadow-lg hover:shadow-xl px-6" 
                       onClick={submitEdit}
+                      isLoading={editingTemplate}
+                      loadingText={t('common.saving')}
+                      variant="primary"
                     >
-                      Save Changes
-                    </Button>
+                      {t('members.saveChanges')}
+                    </LoadingButton>
                   )}
                 </motion.div>
               </div>
@@ -1611,7 +1624,7 @@ export default function TemplatesPage() {
                     {/* Template Info - Right Side */}
                     <div className="p-4 sm:p-6">
                       <div className="space-y-2">
-                        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Template Name:</div>
+                        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('templates.templateNameLabel')}</div>
                         <div className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">
                           {previewTemplate.name}
                         </div>
@@ -1619,30 +1632,30 @@ export default function TemplatesPage() {
 
                       <div className="mt-4 space-y-1 text-xs sm:text-sm">
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Category:</span>{' '}
+                          <span className="text-gray-500 dark:text-gray-400">{t('templates.categoryLabel')}</span>{' '}
                           <Badge className={`ml-2 bg-gradient-to-r ${getCategoryColor(previewTemplate.category)} text-white text-xs`}>
                             {previewTemplate.category}
                           </Badge>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Orientation:</span>{' '}
+                          <span className="text-gray-500 dark:text-gray-400">{t('templates.orientationLabel')}</span>{' '}
                           <span className="text-gray-900 dark:text-gray-100 font-medium">{previewTemplate.orientation}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Status:</span>{' '}
+                          <span className="text-gray-500 dark:text-gray-400">{t('templates.statusLabel')}</span>{' '}
                           {(previewTemplate.status === "ready" || ((previewTemplate.status === undefined || previewTemplate.status === null || previewTemplate.status === '') && previewTemplate.is_layout_configured)) ? (
                             <Badge className="ml-2 bg-green-500 hover:bg-green-600 text-white text-xs">
-                              ✓ Ready
+                              ✓ {t('templates.status.ready')}
                             </Badge>
                           ) : (
                             <Badge className="ml-2 bg-yellow-500 hover:bg-yellow-600 text-white text-xs">
-                              Draft
+                              {t('templates.status.draft')}
                             </Badge>
                           )}
                         </div>
                         {previewTemplate.created_at && (
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Created:</span>{' '}
+                            <span className="text-gray-500 dark:text-gray-400">{t('templates.createdLabel')}</span>{' '}
                             <span className="text-gray-900 dark:text-gray-100">
                               {new Date(previewTemplate.created_at).toLocaleDateString('en-US', { 
                                 day: 'numeric', 
@@ -1654,15 +1667,15 @@ export default function TemplatesPage() {
                         )}
                         {previewTemplate.is_dual_template && (
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Type:</span>{' '}
-                            <span className="text-gray-900 dark:text-gray-100 font-medium">Double-sided (Certificate + Score)</span>
+                            <span className="text-gray-500 dark:text-gray-400">{t('templates.typeLabel')}</span>{' '}
+                            <span className="text-gray-900 dark:text-gray-100 font-medium">{t('templates.doubleSidedType')}</span>
                           </div>
                         )}
                         {templateUsageMap.has(previewTemplate.id) && (
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Usage:</span>{' '}
+                            <span className="text-gray-500 dark:text-gray-400">{t('templates.usageLabel')}</span>{' '}
                             <span className="text-gray-900 dark:text-gray-100 font-medium">
-                              Used by {templateUsageMap.get(previewTemplate.id)} certificate(s)
+                              {t('templates.usedBy').replace('{count}', (templateUsageMap.get(previewTemplate.id) || 0).toString())}
                             </span>
                           </div>
                         )}
@@ -1679,7 +1692,7 @@ export default function TemplatesPage() {
                             }}
                           >
                             <Settings className="w-4 h-4 mr-2" />
-                            Configure Layout
+                            {t('templates.configureLayout')}
                           </Button>
                         )}
                       </div>

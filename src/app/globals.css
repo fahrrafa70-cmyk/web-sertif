@@ -809,7 +809,6 @@
   
   /* COMPLETE RADIX UI OVERRIDE - Prevent any body/html modifications */
   [data-radix-scroll-area-viewport],
-  [data-radix-dialog-content],
   [data-radix-dropdown-menu-content],
   [data-radix-sheet-content] {
     /* Prevent any layout-affecting properties */
@@ -817,7 +816,7 @@
     transform: none !important;
     transition: opacity 200ms ease-in-out, transform 200ms ease-in-out !important;
   }
-  
+
   /* Override any Radix UI body modifications */
   body[data-scroll-locked],
   body[data-radix-scroll-locked],
@@ -849,16 +848,46 @@
     position: fixed !important;
     left: 50% !important;
     top: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    transform: translate(-50%, -50%) scale(0.96) !important;
     z-index: 51 !important;
     max-width: 90vw !important;
     max-height: 90vh !important;
-    overflow: auto !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
     margin: 0 !important;
-    padding: 0 !important;
+    opacity: 0 !important;
+    transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+    will-change: opacity, transform !important;
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
   }
   
-  /* Ensure modal overlay darkens the background and creates focus */
+  /* Allow padding to be set by component classes */
+  [data-radix-dialog-content]:not(.preview-modal-content) {
+    padding: 0 !important;
+  }
+
+  /* Hide scrollbar on dialog content for webkit browsers */
+  [data-radix-dialog-content]::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  /* Smooth open animation */
+  [data-radix-dialog-content][data-state="open"] {
+    transform: translate(-50%, -50%) scale(1) !important;
+    opacity: 1 !important;
+  }
+
+  /* Smooth close animation */
+  [data-radix-dialog-content][data-state="closed"] {
+    transform: translate(-50%, -50%) scale(0.96) !important;
+    opacity: 0 !important;
+  }
+  
+  /* Ensure modal overlay darkens the background and creates focus - same as members page */
   [data-radix-dialog-overlay] {
     position: fixed !important;
     top: 0 !important;
@@ -866,27 +895,64 @@
     width: 100vw !important;
     height: 100vh !important;
     z-index: 50 !important;
-    background: rgba(0, 0, 0, 0.5) !important;
-    backdrop-filter: blur(4px) !important;
-    transition: all 0.2s ease-in-out !important;
+    opacity: 0 !important;
+    transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+    will-change: opacity !important;
+    pointer-events: auto !important;
+    display: block !important;
   }
-  
-  /* Darken main content when modal is open */
-  [data-radix-dialog-overlay][data-state="open"] {
+
+  /* Light mode overlay - same as members page */
+  [data-radix-dialog-overlay]:not(.dark *) {
+    background: rgba(0, 0, 0, 0.4) !important;
+  }
+
+  /* Dark mode overlay - same as members page */
+  .dark [data-radix-dialog-overlay] {
     background: rgba(0, 0, 0, 0.6) !important;
-    backdrop-filter: blur(6px) !important;
+  }
+
+  /* Darken main content when modal is open - multiple selectors to ensure it works */
+  [data-radix-dialog-overlay][data-state="open"],
+  [data-radix-dialog-overlay]:not([data-state="closed"]) {
+    opacity: 1 !important;
+    display: block !important;
+  }
+
+  /* Overlay closed state */
+  [data-radix-dialog-overlay][data-state="closed"] {
+    opacity: 0 !important;
   }
   
-  /* Additional darkening effect for main content when modal is open */
-  body:has([data-radix-dialog-overlay][data-state="open"]) {
-    filter: brightness(0.7) !important;
-    transition: filter 0.2s ease-in-out !important;
+  /* Force overlay to be visible when dialog is open */
+  [data-radix-dialog-root][data-state="open"] [data-radix-dialog-overlay] {
+    opacity: 1 !important;
+    display: block !important;
   }
   
-  /* Ensure modal content stands out with higher brightness */
+  /* Light mode when open */
+  [data-radix-dialog-root][data-state="open"] [data-radix-dialog-overlay]:not(.dark *) {
+    background: rgba(0, 0, 0, 0.4) !important;
+  }
+  
+  /* Dark mode when open */
+  .dark [data-radix-dialog-root][data-state="open"] [data-radix-dialog-overlay] {
+    background: rgba(0, 0, 0, 0.6) !important;
+  }
+  
+  /* Ensure modal content stands out */
   [data-radix-dialog-content] {
-    filter: brightness(1) !important;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  /* Dark mode modal background - make it more distinct from main background */
+  .dark [data-radix-dialog-content] {
+    background-color: #1f2937 !important; /* gray-800 - lebih terang dari gray-900 */
+  }
+
+  /* Light mode modal background */
+  [data-radix-dialog-content]:not(.dark *) {
+    background-color: #ffffff !important;
   }
   
   /* SPECIFIC PREVIEW MODAL CENTERING - Enhanced contrast and focus */
@@ -894,26 +960,162 @@
     position: fixed !important;
     left: 50% !important;
     top: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    transform: translate(-50%, -50%) scale(0.96) !important;
     z-index: 51 !important;
     max-width: 60vw !important;
     max-height: 80vh !important;
-    overflow: auto !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
     margin: 0 !important;
     padding: 1rem !important;
-    background: rgba(255, 255, 255, 0.98) !important;
-    backdrop-filter: blur(10px) !important;
+    background: #ffffff !important;
     border-radius: 0.75rem !important;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    filter: brightness(1) !important;
+    border: 1px solid rgba(229, 231, 235, 1) !important;
+    opacity: 0 !important;
+    transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+    will-change: opacity, transform !important;
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
+  }
+
+  /* Dark mode preview modal background */
+  .dark .preview-modal-content {
+    background: #1f2937 !important; /* gray-800 - lebih terang dari gray-900 */
+  }
+
+  /* Hide scrollbar on preview modal container for webkit browsers */
+  .preview-modal-content::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  /* Smooth open animation for preview modal */
+  .preview-modal-content[data-state="open"] {
+    transform: translate(-50%, -50%) scale(1) !important;
+    opacity: 1 !important;
+  }
+
+  /* Smooth close animation for preview modal */
+  .preview-modal-content[data-state="closed"] {
+    transform: translate(-50%, -50%) scale(0.96) !important;
+    opacity: 0 !important;
+  }
+
+  /* Smooth scrollbar styling for certificate modal content */
+  .scrollbar-smooth {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .scrollbar-smooth::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-smooth::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-smooth::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.3);
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+  }
+
+  .scrollbar-smooth::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.5);
+  }
+
+  .dark .scrollbar-smooth {
+    scrollbar-color: rgba(75, 85, 99, 0.3) transparent;
+  }
+
+  .dark .scrollbar-smooth::-webkit-scrollbar-thumb {
+    background-color: rgba(75, 85, 99, 0.3);
+  }
+
+  .dark .scrollbar-smooth::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(75, 85, 99, 0.5);
+  }
+
+  /* Force hide scrollbar in preview modal during initial render and animation */
+  .preview-modal-content .scrollbar-smooth,
+  .preview-modal-content[data-state="closed"] .scrollbar-smooth,
+  .preview-modal-content:not([data-state="open"]) .scrollbar-smooth {
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
+  }
+
+  .preview-modal-content .scrollbar-smooth::-webkit-scrollbar,
+  .preview-modal-content[data-state="closed"] .scrollbar-smooth::-webkit-scrollbar,
+  .preview-modal-content:not([data-state="open"]) .scrollbar-smooth::-webkit-scrollbar {
+    display: none !important; /* Chrome, Safari, Opera */
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Only show scrollbar after animation completes (300ms delay) */
+  .preview-modal-content[data-state="open"] .scrollbar-smooth {
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    animation: enable-scrollbar 0.1s ease 0.3s forwards;
+  }
+
+  @keyframes enable-scrollbar {
+    to {
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      scrollbar-width: thin !important;
+      -ms-overflow-style: auto !important;
+    }
+  }
+
+  /* Show webkit scrollbar after animation */
+  .preview-modal-content[data-state="open"] .scrollbar-smooth::-webkit-scrollbar {
+    animation: enable-webkit-scrollbar 0.1s ease 0.3s forwards;
+  }
+
+  @keyframes enable-webkit-scrollbar {
+    to {
+      display: block !important;
+      width: 8px !important;
+      height: 8px !important;
+    }
+  }
+
+  /* Ensure no horizontal scrollbar on modal container */
+  .preview-modal-content {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+  }
+
+  /* Container stays hidden - only inner content scrolls */
+  .preview-modal-content[data-state="open"] {
+    overflow-y: hidden !important;
+  }
+
+  /* Prevent content from causing horizontal overflow */
+  .preview-modal-content > * {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
   }
 
   .dark .preview-modal-content {
-    background: rgba(15, 23, 42, 0.93) !important;
-    border-color: rgba(148, 163, 184, 0.35) !important;
+    background: #0f172a !important;
+    border-color: rgba(148, 163, 184, 0.3) !important;
     box-shadow: 0 35px 60px -20px rgba(2, 6, 23, 0.75) !important;
-    color: rgba(226, 232, 240, 0.96) !important;
+    color: #e2e8f0 !important;
   }
   
   /* Ensure modal content is properly centered on all screen sizes */
@@ -1060,6 +1262,17 @@
 }
 
 @keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeInScale {
   from {
     opacity: 0;
     transform: scale(0.95);

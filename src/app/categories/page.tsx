@@ -31,7 +31,7 @@ export default function CategoriesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('categories.name')}</TableHead>
-                  <TableHead>Related Template</TableHead>
+                  <TableHead>{t('categories.relatedTemplate')}</TableHead>
                   <TableHead className="text-right">{t('categories.actions')}</TableHead>
                 </TableRow>
               </TableHeader>

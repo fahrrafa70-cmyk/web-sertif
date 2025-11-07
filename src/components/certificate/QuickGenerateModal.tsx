@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -102,7 +103,7 @@ function InputScoreStep({ members, scoreFields, scoreDataMap, setScoreDataMap }:
         </div>
       ) : (
         <div className="space-y-2">
-          <Label className="text-base font-semibold">Pilih Member</Label>
+          <Label className="text-base font-semibold">{t('quickGenerate.selectMember')}</Label>
           <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
             <SelectTrigger className="w-full">
               <div className="flex items-center justify-between w-full">
@@ -139,7 +140,7 @@ function InputScoreStep({ members, scoreFields, scoreDataMap, setScoreDataMap }:
               type="text"
               value={currentScoreData[field.id] || ''}
               onChange={(e) => handleFieldChange(field.id, e.target.value)}
-              placeholder={`Masukkan ${formatFieldLabel(field.id)}`}
+              placeholder={t('quickGenerate.enterScore').replace('{field}', formatFieldLabel(field.id))}
               className="w-full"
             />
           </div>
@@ -569,23 +570,20 @@ export function QuickGenerateModal({
           ) : (
             <div></div>
           )}
-          <Button 
+          <LoadingButton 
             onClick={currentStep === 1 && isDualTemplate && dataSource === 'member' ? () => setCurrentStep(2) : handleGenerate}
             disabled={
-              generating || 
               !selectedTemplate || 
               (dataSource === 'member' && selectedMembers.length === 0) || 
               (dataSource === 'excel' && excelData.length === 0) ||
               (currentStep === 2 && !isAllScoreDataComplete())
             }
+            isLoading={generating}
+            loadingText={t('quickGenerate.generating')}
+            variant="primary"
             className="gradient-primary text-white"
           >
-            {generating ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {t('quickGenerate.generating')}
-              </>
-            ) : currentStep === 1 && isDualTemplate && dataSource === 'member' ? (
+            {currentStep === 1 && isDualTemplate && dataSource === 'member' ? (
               <>
                 Selanjutnya
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -602,7 +600,7 @@ export function QuickGenerateModal({
                 }
               </>
             )}
-          </Button>
+          </LoadingButton>
         </div>
       </DialogContent>
     </Dialog>

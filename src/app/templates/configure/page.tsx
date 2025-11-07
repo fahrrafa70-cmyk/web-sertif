@@ -2,6 +2,7 @@
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { plainTextToRichText, applyStyleToRange, richTextToPlainText, getCommonStyleValue, hasMixedStyle } from "@/types/rich-text";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { FontWeightSelect, FontFamilySelect } from "@/components/editor/MixedStyleSelect";
+import { useLanguage } from "@/contexts/language-context";
 
 // Dummy data for preview
 const DUMMY_DATA = {
@@ -32,6 +34,7 @@ interface TextLayer extends TextLayerConfig {
 }
 
 function ConfigureLayoutContent() {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const templateId = searchParams?.get("template");
@@ -76,7 +79,7 @@ function ConfigureLayoutContent() {
   useEffect(() => {
     async function loadTemplate() {
       if (!templateId) {
-        toast.error("No template ID provided");
+        toast.error(t('configure.noTemplateId'));
         router.push("/templates");
         return;
       }
@@ -84,7 +87,7 @@ function ConfigureLayoutContent() {
       try {
         const tpl = await getTemplate(templateId);
         if (!tpl) {
-          toast.error("Template not found");
+          toast.error(t('configure.templateNotFound'));
           router.push("/templates");
           return;
         }
@@ -187,7 +190,7 @@ function ConfigureLayoutContent() {
         setLoading(false);
       } catch (error) {
         console.error("Failed to load template:", error);
-        toast.error("Failed to load template");
+        toast.error(t('configure.failedToLoad'));
         router.push("/templates");
       }
     }
@@ -609,7 +612,7 @@ function ConfigureLayoutContent() {
     });
     
     setSelectedLayerId(newLayer.id);
-    toast.success(`New layer added. ⚠️ Remember to click Save!`);
+    toast.success(t('configure.newLayerAdded'));
   };
 
   // Delete text layer
@@ -620,14 +623,14 @@ function ConfigureLayoutContent() {
     if (configMode === 'certificate') {
       const requiredFields = ['name', 'certificate_no', 'issue_date'];
       if (requiredFields.includes(layerId)) {
-        toast.error("Cannot delete required field");
+        toast.error(t('configure.cannotDeleteRequired'));
         console.log(`❌ Cannot delete required field: ${layerId}`);
         return;
       }
     } else if (configMode === 'score') {
       // Score mode: only issue_date is required
       if (layerId === 'issue_date') {
-        toast.error("Cannot delete required field: issue_date");
+        toast.error(t('configure.cannotDeleteIssueDate'));
         console.log(`❌ Cannot delete required field: ${layerId}`);
         return;
       }
@@ -649,7 +652,7 @@ function ConfigureLayoutContent() {
       console.log(`🔄 Deselected layer: ${layerId}`);
     }
     
-    toast.success(`Text layer "${layerId}" deleted. ⚠️ Remember to click Save to persist!`);
+    toast.success(t('configure.layerDeleted').replace('{id}', layerId));
     console.log(`✨ Deletion complete. REMINDER: Changes not saved yet!`);
   };
 
@@ -668,14 +671,14 @@ function ConfigureLayoutContent() {
       const missingFields = requiredFields.filter(f => !certificateIds.includes(f));
       
       if (missingFields.length > 0) {
-        toast.error(`Missing required fields: ${missingFields.join(', ')}`);
+        toast.error(t('configure.missingRequiredFields').replace('{fields}', missingFields.join(', ')));
         return;
       }
     } else if (configMode === 'score') {
       // Score mode: only issue_date is required
       const scoreIds = scoreTextLayers.map(l => l.id);
       if (!scoreIds.includes('issue_date')) {
-        toast.error('Missing required field: issue_date');
+        toast.error(t('configure.missingIssueDate'));
         return;
       }
     }
@@ -735,7 +738,7 @@ function ConfigureLayoutContent() {
       await saveTemplateLayout(template.id, layoutConfig);
       
       console.log('✅ Save completed successfully!');
-      toast.success("Layout configuration saved successfully!");
+      toast.success(t('configure.saveSuccess'));
       
       // Redirect back to templates page after 1 second
       setTimeout(() => {
@@ -744,7 +747,7 @@ function ConfigureLayoutContent() {
       
     } catch (error) {
       console.error("Failed to save layout:", error);
-      toast.error("Failed to save layout configuration");
+      toast.error(t('configure.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -824,25 +827,17 @@ function ConfigureLayoutContent() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Button
+              <LoadingButton
                 onClick={handleSave}
-                disabled={saving}
+                isLoading={saving}
+                loadingText="Saving..."
+                variant="primary"
                 className="gradient-primary text-white h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
               >
-                {saving ? (
-                  <>
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span className="hidden sm:inline">Saving...</span>
-                    <span className="sm:hidden">Save</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    <span className="hidden sm:inline">Save</span>
-                    <span className="sm:hidden">Save</span>
-                  </>
-                )}
-              </Button>
+                <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Save</span>
+                <span className="sm:hidden">Save</span>
+              </LoadingButton>
             </div>
           </div>
         </div>

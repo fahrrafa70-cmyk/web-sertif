@@ -42,6 +42,7 @@ import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
 import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { toast, Toaster } from "sonner";
+import { LoadingButton } from "@/components/ui/loading-button";
 import {
   getTemplate,
   getTemplateImageUrl,
@@ -158,6 +159,11 @@ function CertificatesContent() {
   const [sendPreviewSrcs, setSendPreviewSrcs] = useState<{ cert: string | null; score: string | null }>({ cert: null, score: null });
   const [sendCert, setSendCert] = useState<Certificate | null>(null);
 
+  // Loading states for export and generate operations
+  const [exportingPDF, setExportingPDF] = useState<string | null>(null);
+  const [exportingPNG, setExportingPNG] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState<string | null>(null);
+
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem("ecert-role") || "";
@@ -177,11 +183,13 @@ function CertificatesContent() {
 
   // Export both certificate and score as a single PDF (main first, score second)
   async function exportToPDF(certificate: Certificate) {
+    if (!certificate.certificate_image_url) {
+      toast.error("Certificate image not available to export");
+      return;
+    }
+
     try {
-      if (!certificate.certificate_image_url) {
-        toast.error("Certificate image not available to export");
-        return;
-      }
+      setExportingPDF(certificate.id);
 
       const mod = (await import("jspdf").catch(() => null)) as null | typeof import("jspdf");
       if (!mod || !("jsPDF" in mod)) {
@@ -251,16 +259,20 @@ function CertificatesContent() {
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PDF");
+    } finally {
+      setExportingPDF(null);
     }
   }
 
   // Export both certificate and score to PNG (two files)
   async function exportToPNG(certificate: Certificate) {
+    if (!certificate.certificate_image_url) {
+      toast.error("Certificate image not available to export");
+      return;
+    }
+
     try {
-      if (!certificate.certificate_image_url) {
-        toast.error("Certificate image not available to export");
-        return;
-      }
+      setExportingPNG(certificate.id);
 
       async function downloadPng(urlRaw: string, name: string) {
         let srcRaw = urlRaw || "";
@@ -295,16 +307,20 @@ function CertificatesContent() {
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PNG");
+    } finally {
+      setExportingPNG(null);
     }
   }
 
   // Generate public certificate link using public_id
   async function generateCertificateLink(certificate: Certificate) {
+    if (!certificate.public_id) {
+      toast.error(t('certificates.generateLink') + ' - ' + t('hero.noPublicLink'));
+      return;
+    }
+
     try {
-      if (!certificate.public_id) {
-        toast.error(t('certificates.generateLink') + ' - ' + t('hero.noPublicLink'));
-        return;
-      }
+      setGeneratingLink(certificate.id);
 
       // Get base URL - prefer environment variable, then use current origin
       let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -357,6 +373,8 @@ function CertificatesContent() {
     } catch (err) {
       console.error('Failed to generate certificate link:', err);
       toast.error(t('hero.linkGenerateFailed'));
+    } finally {
+      setGeneratingLink(null);
     }
   }
 
@@ -1597,19 +1615,23 @@ function CertificatesContent() {
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem 
                                     onClick={() => !isCertificateExpired(certificate) && exportToPDF(certificate)}
-                                    disabled={isCertificateExpired(certificate)}
+                                    disabled={isCertificateExpired(certificate) || exportingPDF === certificate.id}
                                     className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
                                   >
                                     <FileText className="w-4 h-4 mr-2" />
-                                    {t("certificates.exportPdf")}
+                                    {exportingPDF === certificate.id 
+                                      ? (language === 'id' ? 'Mengekspor PDF...' : 'Exporting PDF...')
+                                      : t("certificates.exportPdf")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem 
                                     onClick={() => !isCertificateExpired(certificate) && exportToPNG(certificate)}
-                                    disabled={isCertificateExpired(certificate)}
+                                    disabled={isCertificateExpired(certificate) || exportingPNG === certificate.id}
                                     className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
                                   >
                                     <ImageIcon className="w-4 h-4 mr-2" />
-                                    {t("certificates.downloadPng")}
+                                    {exportingPNG === certificate.id 
+                                      ? (language === 'id' ? 'Mengunduh PNG...' : 'Downloading PNG...')
+                                      : t("certificates.downloadPng")}
                                   </DropdownMenuItem>
                                   {certificate.certificate_image_url && (
                                     <DropdownMenuItem 
@@ -1623,11 +1645,13 @@ function CertificatesContent() {
                                   )}
                                   <DropdownMenuItem 
                                     onClick={() => !isCertificateExpired(certificate) && generateCertificateLink(certificate)}
-                                    disabled={isCertificateExpired(certificate)}
+                                    disabled={isCertificateExpired(certificate) || generatingLink === certificate.id}
                                     className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
                                   >
                                     <Link className="w-4 h-4 mr-2" />
-                                    {t("certificates.generateLink")}
+                                    {generatingLink === certificate.id 
+                                      ? (language === 'id' ? 'Membuat link...' : 'Generating link...')
+                                      : t("certificates.generateLink")}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1759,19 +1783,23 @@ function CertificatesContent() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem 
                                 onClick={() => !isCertificateExpired(certificate) && exportToPDF(certificate)}
-                                disabled={isCertificateExpired(certificate)}
+                                disabled={isCertificateExpired(certificate) || exportingPDF === certificate.id}
                                 className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
                               >
                                 <FileText className="w-4 h-4 mr-2" />
-                                {t("certificates.exportPdf")}
+                                {exportingPDF === certificate.id 
+                                  ? (language === 'id' ? 'Mengekspor PDF...' : 'Exporting PDF...')
+                                  : t("certificates.exportPdf")}
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => !isCertificateExpired(certificate) && exportToPNG(certificate)}
-                                disabled={isCertificateExpired(certificate)}
+                                disabled={isCertificateExpired(certificate) || exportingPNG === certificate.id}
                                 className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
                               >
                                 <ImageIcon className="w-4 h-4 mr-2" />
-                                {t("certificates.downloadPng")}
+                                {exportingPNG === certificate.id 
+                                  ? (language === 'id' ? 'Mengunduh PNG...' : 'Downloading PNG...')
+                                  : t("certificates.downloadPng")}
                               </DropdownMenuItem>
                               {certificate.certificate_image_url && (
                                 <DropdownMenuItem 
@@ -1785,11 +1813,13 @@ function CertificatesContent() {
                               )}
                               <DropdownMenuItem 
                                 onClick={() => !isCertificateExpired(certificate) && generateCertificateLink(certificate)}
-                                disabled={isCertificateExpired(certificate)}
+                                disabled={isCertificateExpired(certificate) || generatingLink === certificate.id}
                                 className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
                               >
                                 <Link className="w-4 h-4 mr-2" />
-                                {t("certificates.generateLink")}
+                                {generatingLink === certificate.id 
+                                  ? (language === 'id' ? 'Membuat link...' : 'Generating link...')
+                                  : t("certificates.generateLink")}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1912,7 +1942,7 @@ function CertificatesContent() {
         open={!!isEditOpen}
         onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}
       >
-        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-[1000px] max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
           {/* Header */}
           <DialogHeader className="px-5 pt-4 pb-3 pr-12 border-b border-gray-200 dark:border-gray-700">
             <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-100">
@@ -2036,13 +2066,6 @@ function CertificatesContent() {
           {/* Footer */}
           <div className="px-4 py-2.5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-2">
             <Button
-              variant="outline"
-              onClick={() => setIsEditOpen(null)}
-              className="h-8 px-3 text-sm"
-            >
-              Cancel
-            </Button>
-            <Button
               className="h-8 px-3 text-sm gradient-primary text-white shadow-sm hover:shadow-md transition-shadow"
               onClick={submitEdit}
             >
@@ -2060,7 +2083,8 @@ function CertificatesContent() {
         }
       >
         <DialogContent 
-          className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6"
+          className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6"
+          style={{ overflowX: 'hidden' }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();
@@ -2073,83 +2097,61 @@ function CertificatesContent() {
               {t("certificates.preview")}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1">
+          <div 
+            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 scrollbar-smooth" 
+            style={{ 
+              scrollbarGutter: 'stable', 
+              overflowY: 'hidden',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}
+          >
             {previewCertificate && (
               <>
                 {/* Certificate Info */}
-                <motion.div
-                  className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
                   <div className="space-y-4 sm:space-y-6">
-                    <motion.div
-                      className="space-y-2 sm:space-y-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.1 }}
-                    >
+                    <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Certificate Number
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.certificate_no}
                       </div>
-                    </motion.div>
+                    </div>
 
-                    <motion.div
-                      className="space-y-2 sm:space-y-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.2 }}
-                    >
+                    <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Recipient Name
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.name}
                       </div>
-                    </motion.div>
+                    </div>
 
                     {previewCertificate.category && (
-                      <motion.div
-                        className="space-y-2 sm:space-y-3"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: 0.3 }}
-                      >
+                      <div className="space-y-2 sm:space-y-3">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Category
                         </label>
                         <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#2563eb] text-white text-sm sm:text-base font-medium">
                           {previewCertificate.category}
                         </div>
-                      </motion.div>
+                      </div>
                     )}
 
                     {previewCertificate.description && (
-                      <motion.div
-                        className="space-y-2 sm:space-y-3"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: 0.4 }}
-                      >
+                      <div className="space-y-2 sm:space-y-3">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           Description
                         </label>
                         <div className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words">
                           {previewCertificate.description}
                         </div>
-                      </motion.div>
+                      </div>
                     )}
 
-                    <motion.div
-                      className="grid grid-cols-2 gap-3 sm:gap-4"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.5 }}
-                    >
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       <div className="space-y-1 sm:space-y-2">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                           {t('hero.issued')}
@@ -2168,16 +2170,11 @@ function CertificatesContent() {
                           </div>
                         </div>
                       )}
-                    </motion.div>
+                    </div>
                   </div>
 
                   {/* Certificate / Score Preview */}
-                  <motion.div
-                    className="space-y-2 sm:space-y-4"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                  >
+                  <div className="space-y-2 sm:space-y-4">
                     <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                       {t('hero.certificate')}
                     </label>
@@ -2605,16 +2602,11 @@ function CertificatesContent() {
                         )}
                       </div>
                     </div>
-                  </motion.div>
-                </motion.div>
+                  </div>
+                </div>
 
                 {/* Action Buttons */}
-                <motion.div
-                  className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.6 }}
-                >
+                <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
                   <div className="flex flex-wrap gap-2">
                     {(canDelete || forceCanDelete) && previewCertificate && (
                       <button
@@ -2654,7 +2646,7 @@ function CertificatesContent() {
                       </Button>
                     )}
                   </div>
-                </motion.div>
+                </div>
               </>
             )}
           </div>
@@ -2786,23 +2778,15 @@ function CertificatesContent() {
               >
                 Cancel
               </Button>
-               <Button 
-                 className="gradient-primary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto" 
+               <LoadingButton 
+                 className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto" 
                  onClick={confirmSendEmail}
-                 disabled={isSendingEmail}
+                 isLoading={isSendingEmail}
+                 loadingText={language === 'id' ? 'Mengirim...' : 'Sending...'}
+                 variant="primary"
                >
-                {isSendingEmail ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Sending...
-                  </>
-                ) : (
-                  'Send Email'
-                )}
-              </Button>
+                {language === 'id' ? 'Kirim Email' : 'Send Email'}
+              </LoadingButton>
             </div>
         </DialogContent>
       </Dialog>

@@ -8,13 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Member, createMember, getMembers, updateMember, deleteMember as deleteMemberService } from "@/lib/supabase/members";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { useDebounce } from "@/hooks/use-debounce";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
+import { confirmToast } from "@/lib/ui/confirm";
 
 export default function MembersPage() {
   const { t, language } = useLanguage();
@@ -304,15 +305,26 @@ export default function MembersPage() {
     // Clear previous errors
     setFormErrors({});
     
-    // Validate
+    // Validate all required fields
     const errors: Record<string, string> = {};
+    
+    // Name is required
     if (!form.name.trim()) {
-      errors.name = t('members.nameRequired');
+      errors.name = language === 'id' ? 'Nama harus diisi' : 'Name is required';
+    }
+    
+    // Email validation if provided
+    if (form.email && form.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(form.email.trim())) {
+        errors.email = language === 'id' ? 'Format email tidak valid' : 'Invalid email format';
+      }
     }
     
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      toast.error(t('members.nameRequired'));
+      const firstError = Object.values(errors)[0];
+      toast.error(firstError);
       return;
     }
     try {
@@ -351,7 +363,15 @@ export default function MembersPage() {
     const member = membersData.find(m => m.id === id);
     if (!member) return;
     
-    const confirmed = confirm(`Are you sure you want to delete data "${member.name}"? This action cannot be undone.`);
+    const deleteMessage = language === 'id' 
+      ? `Apakah Anda yakin ingin menghapus data "${member.name}"? Tindakan ini tidak dapat dibatalkan.`
+      : `Are you sure you want to delete data "${member.name}"? This action cannot be undone.`;
+    
+    const confirmed = await confirmToast(
+      deleteMessage,
+      { confirmText: t("common.delete"), tone: "destructive" }
+    );
+    
     if (!confirmed) return;
     
     try {
@@ -518,7 +538,17 @@ export default function MembersPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
-                  <Input type="email" value={form.email} placeholder="name@example.com" onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <Input 
+                    type="email" 
+                    value={form.email} 
+                    placeholder="name@example.com" 
+                    onChange={(e) => {
+                      setForm({ ...form, email: e.target.value });
+                      if (formErrors.email) setFormErrors({ ...formErrors, email: '' });
+                    }}
+                    className={formErrors.email ? 'border-red-500 focus:border-red-500' : ''}
+                  />
+                  {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
@@ -654,14 +684,16 @@ export default function MembersPage() {
                               <Button variant="outline" size="sm" className="border-gray-300" onClick={() => openEdit(m)}>{t('common.edit')}</Button>
                             )}
                             {canDelete && (
-                              <Button 
+                              <LoadingButton 
                                 size="sm"
-                                className="bg-gradient-to-r from-red-500 to-red-600 text-white" 
+                                className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700" 
                                 onClick={() => deleteMember(m.id)}
-                                disabled={deleting === m.id}
+                                isLoading={deleting === m.id}
+                                loadingText={language === 'id' ? 'Menghapus...' : 'Deleting...'}
+                                variant="destructive"
                               >
-                                {deleting === m.id ? (language === 'id' ? 'Menghapus...' : 'Deleting...') : t('common.delete')}
-                              </Button>
+                                {t('common.delete')}
+                              </LoadingButton>
                             )}
                           </div>
                         </TableCell>
@@ -791,7 +823,16 @@ export default function MembersPage() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
-                      <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+                      <Input 
+                        type="email" 
+                        value={editForm.email} 
+                        onChange={(e) => {
+                          setEditForm({ ...editForm, email: e.target.value });
+                          if (editFormErrors.email) setEditFormErrors({ ...editFormErrors, email: '' });
+                        }}
+                        className={editFormErrors.email ? 'border-red-500 focus:border-red-500' : ''}
+                      />
+                      {editFormErrors.email && <p className="text-xs text-red-500 mt-1">{editFormErrors.email}</p>}
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
@@ -1062,6 +1103,9 @@ export default function MembersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Toast Notifications */}
+      <Toaster position="top-right" richColors />
     </ModernLayout>
   );
 }
