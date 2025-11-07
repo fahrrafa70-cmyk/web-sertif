@@ -627,17 +627,17 @@ export default function TemplatesPage() {
                 >
                   <div
                     onClick={() => openPreview(tpl)}
-                    className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[200px] will-change-transform w-full"
+                    className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[180px] will-change-transform w-full"
                   >
                     {/* Template Thumbnail - Left Side */}
-                    <div className="relative w-[160px] h-[200px] flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
+                    <div className="relative w-[140px] h-full flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
                       {getTemplatePreviewUrl(tpl) && !failedImages.has(tpl.id) ? (
                         <>
                           <Image 
                             src={getTemplatePreviewUrl(tpl)!}
                             alt={tpl.name}
                             fill
-                            sizes="160px"
+                            sizes="140px"
                             className="object-contain group-hover:scale-105 transition-transform duration-200 ease-in-out will-change-transform dark:opacity-90 dark:brightness-95"
                             loading={index < 3 ? "eager" : "lazy"}
                             priority={index < 3}
@@ -673,61 +673,64 @@ export default function TemplatesPage() {
                     </div>
 
                     {/* Template Info - Right Side */}
-                    <div className="flex-1 flex flex-col justify-between min-w-0 p-4 w-full">
+                    <div className="flex-1 flex flex-col justify-between min-w-0 p-3 w-full overflow-hidden">
                       {/* Top Section - Title and Metadata */}
                       <div className="min-w-0 flex-1 w-full flex flex-col">
-                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2 w-full text-left">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-1.5 w-full text-left truncate">
                           {tpl.name}
                         </h3>
                         {/* Category Badge - Moved from thumbnail */}
-                        <div className="mb-2 w-full text-left">
-                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white shadow-sm`}>
+                        <div className="mb-1.5 w-full text-left">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white shadow-sm`}>
                             {tpl.category}
                           </span>
                         </div>
-                        {/* Metadata - Vertical Layout */}
-                        <div className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400 w-full text-left">
-                          <div className="flex items-center gap-1.5">
-                            <Layout className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span className="font-medium">{tpl.orientation}</span>
+                        {/* Metadata - Compact */}
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 w-full text-left">
+                          <div className="flex items-center gap-1">
+                            <Layout className="w-3 h-3 flex-shrink-0" />
+                            <span className="font-medium text-xs">{tpl.orientation}</span>
                           </div>
                           {tpl.created_at && (
-                            <div className="text-gray-500 dark:text-gray-400">
+                            <span className="text-gray-400 dark:text-gray-500">•</span>
+                          )}
+                          {tpl.created_at && (
+                            <span className="text-xs">
                               {new Date(tpl.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </div>
+                            </span>
                           )}
                         </div>
                       </div>
                       
                       {/* Bottom Section - Action Buttons */}
                       {(role === "Admin" || role === "Team") && (
-                        <div className="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100 dark:border-gray-700 w-full">
+                        <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700 w-full">
                           <Button 
                             size="sm"
-                            className="h-8 px-3 text-xs font-medium gradient-primary text-white shadow-sm hover:shadow-md transition-all duration-300 flex-shrink-0" 
+                            className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm hover:shadow-md transition-all duration-300 flex-1 min-w-0" 
                             onClick={(e) => {
                               e.stopPropagation();
                               router.push(`/templates/configure?template=${tpl.id}`);
                             }}
                           >
-                            <Settings className="w-3.5 h-3.5 mr-1.5" />
-                            Configure
+                            <Settings className="w-3 h-3 mr-1" />
+                            <span className="truncate">Configure</span>
                           </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
-                            className="h-8 w-8 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-shrink-0" 
+                            className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-shrink-0" 
                             onClick={(e) => {
                               e.stopPropagation();
                               openEdit(tpl);
                             }}
                           >
-                            <Edit className="w-3.5 h-3.5" />
+                            <Edit className="w-3 h-3" />
                           </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
-                            className={`h-8 w-8 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 ${canDelete && !templateUsageMap.has(tpl.id) ? 'hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' : 'opacity-50 cursor-not-allowed'}`}
+                            className={`h-7 w-7 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 ${canDelete && !templateUsageMap.has(tpl.id) ? 'hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' : 'opacity-50 cursor-not-allowed'}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (canDelete && !templateUsageMap.has(tpl.id)) {
@@ -741,9 +744,9 @@ export default function TemplatesPage() {
                             title={templateUsageMap.has(tpl.id) ? `This template is being used by ${templateUsageMap.get(tpl.id)} certificate(s)` : undefined}
                           >
                             {deletingTemplateId === tpl.id ? (
-                              <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
+                              <div className="w-3 h-3 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
                             ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3 h-3" />
                             )}
                           </Button>
                         </div>
