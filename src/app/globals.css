@@ -122,7 +122,7 @@
 }
 
 .dark {
-  --background: oklch(0.18 0 0); /* Hitam agak ke abu-abu (tidak terlalu hitam) */
+  --background: #111827; /* Navy blue - Tailwind gray-900 untuk konsistensi */
   --foreground: oklch(0.95 0 0);
   --card: oklch(0.22 0 0); /* Sedikit lebih terang dari background */
   --card-foreground: oklch(0.95 0 0);
@@ -159,10 +159,10 @@
   /* Global transition for all elements - synchronized change - INSTANT */
   * {
     @apply border-border outline-ring/50;
-    /* Very fast theme transition - semua elemen berubah serentak dan instant */
+    /* INSTANT theme transition - NO DELAY to prevent flicker */
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
     /* Optimasi rendering untuk perubahan yang lebih smooth */
     will-change: background-color, color, border-color;
   }
@@ -184,7 +184,7 @@
   [class*="text-white"]:not([data-no-transition]) {
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
 
   /* Prevent black border flash - force border colors to use CSS variables - INSTANT */
@@ -194,7 +194,7 @@
     border-color: var(--border) !important;
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
 
   /* Force text colors to transition instantly - ensure synchronized text color change */
@@ -204,7 +204,7 @@
   [class*="text-"]:not([data-no-transition]) {
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
 
   /* Ensure all buttons and inputs transition text and border together - INSTANT */
@@ -214,7 +214,7 @@
   textarea:not([data-no-transition]) {
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
 
   /* Smooth scroll behavior */
@@ -225,13 +225,12 @@
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
-    height: 100% !important;
     background-color: var(--background) !important;
     /* Very fast theme transition - synchronized change - INSTANT */
     color: var(--foreground);
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
     will-change: background-color, color, border-color;
     /* CRITICAL: Prevent iOS Safari from auto-sizing text (Canva-style consistency) */
     -webkit-text-size-adjust: 100%;
@@ -246,7 +245,7 @@
     background-color: var(--background);
     transition-property: background-color, color, border-color !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
     will-change: background-color, color, border-color;
   }
 
@@ -254,7 +253,7 @@
   p, span, div, h1, h2, h3, h4, h5, h6, a, label, button, input, select, textarea {
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
 
   /* Enhanced focus styles */
@@ -345,20 +344,20 @@
     background-color: oklch(0.4 0.01 106.423) !important;
   }
   
-  /* Dark mode scrollbar styling - FORCE DARK BLUE-GRAY COLOR */
-  /* Dark mode background: Tailwind bg-gray-900 = rgb(17, 24, 39) - biru sangat tua mendekati gelap */
+  /* Dark mode scrollbar styling - USE CSS VARIABLE FOR CONSISTENCY */
+  /* Use var(--background) to match the exact background color */
   .dark html ::-webkit-scrollbar,
   .dark body ::-webkit-scrollbar,
   .dark * ::-webkit-scrollbar {
-    background: rgb(17, 24, 39) !important; /* Tailwind gray-900 - biru sangat tua */
-    background-color: rgb(17, 24, 39) !important;
+    background: var(--background) !important;
+    background-color: var(--background) !important;
   }
 
   .dark html ::-webkit-scrollbar-track,
   .dark body ::-webkit-scrollbar-track,
   .dark * ::-webkit-scrollbar-track {
-    background: rgb(17, 24, 39) !important; /* Match website dark background exactly - biru sangat tua */
-    background-color: rgb(17, 24, 39) !important;
+    background: var(--background) !important;
+    background-color: var(--background) !important;
     border: none !important;
     box-shadow: none !important;
   }
@@ -389,8 +388,8 @@
   .dark html ::-webkit-scrollbar-button,
   .dark body ::-webkit-scrollbar-button,
   .dark * ::-webkit-scrollbar-button {
-    background: rgb(17, 24, 39) !important; /* Match website dark background - biru sangat tua */
-    background-color: rgb(17, 24, 39) !important;
+    background: var(--background) !important;
+    background-color: var(--background) !important;
   }
   
   /* Scrollbar corner */
@@ -405,19 +404,19 @@
   .dark html ::-webkit-scrollbar-corner,
   .dark body ::-webkit-scrollbar-corner,
   .dark * ::-webkit-scrollbar-corner {
-    background: rgb(17, 24, 39) !important; /* Match website dark background - biru sangat tua */
-    background-color: rgb(17, 24, 39) !important;
+    background: var(--background) !important;
+    background-color: var(--background) !important;
     border: none !important;
   }
   
-  /* Firefox scrollbar - use explicit RGB for dark mode */
+  /* Firefox scrollbar - use CSS variable for consistency */
   html, body, * {
     scrollbar-width: thin !important;
     scrollbar-color: oklch(0.5 0.01 106.423) var(--background) !important;
   }
   
   .dark html, .dark body, .dark * {
-    scrollbar-color: rgb(75, 85, 99) rgb(17, 24, 39) !important; /* thumb track - biru sangat tua untuk dark mode */
+    scrollbar-color: rgb(75, 85, 99) var(--background) !important;
   }
 
   /* Hide scrollbar utility class */
@@ -441,7 +440,7 @@
     /* NO TRANSITION for header border - instant change to prevent flicker */
     transition-property: background-color, color !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
 
   /* Dark mode: border matches background instantly (invisible border) - NO TRANSITION */
@@ -457,7 +456,7 @@
     /* NO TRANSITION for border - instant change */
     transition-property: background-color, color !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
 
   /* Ensure header children also transit instantly - NO TRANSITION for border */
@@ -466,7 +465,7 @@
     /* NO TRANSITION for border - instant change */
     transition-property: background-color, color !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
   
   /* Also ensure border matches background on mobile - instant change - NO TRANSITION */
@@ -476,7 +475,7 @@
       /* NO TRANSITION for border - instant change */
       transition-property: background-color, color !important;
       transition-timing-function: linear !important;
-      transition-duration: 0.05s !important;
+      transition-duration: 0s !important;
     }
     
     .dark header,
@@ -493,7 +492,7 @@
       /* NO TRANSITION for border - instant change */
       transition-property: background-color, color !important;
       transition-timing-function: linear !important;
-      transition-duration: 0.05s !important;
+      transition-duration: 0s !important;
     }
   }
   
@@ -503,7 +502,7 @@
     background-color: var(--background) !important;
     transition-property: background-color, color, border-color !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
   
   /* Ensure no white gaps anywhere - override any default browser styles */
@@ -511,7 +510,7 @@
     background-color: var(--background) !important;
     transition-property: background-color, color, border-color !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
   
   /* Force all elements with bg-gray-50 and bg-gray-900 to transition instantly */
@@ -523,7 +522,32 @@
   [class*="bg-gray"] {
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
+  }
+  
+  /* CRITICAL FIX: Force bg-gray-900 to use var(--background) in dark mode */
+  /* This ensures no color mismatch between elements */
+  .dark [class*="bg-gray-900"],
+  .dark [class*="dark:bg-gray-900"] {
+    background-color: var(--background) !important;
+  }
+  
+  /* Also force bg-gray-50 to use var(--background) in light mode */
+  [class*="bg-gray-50"]:not(.dark *) {
+    background-color: var(--background) !important;
+  }
+  
+  /* AGGRESSIVE FIX: Force html and body to always use var(--background) */
+  html,
+  html.light,
+  html.dark,
+  body,
+  body.light,
+  body.dark,
+  #__next,
+  [data-nextjs-scroll-focus-boundary] {
+    background: var(--background) !important;
+    background-color: var(--background) !important;
   }
   
   /* Ensure main, div, and section elements with background colors transition instantly */
@@ -532,7 +556,7 @@
   section[class*="bg-"] {
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
   
   /* Force all main and div elements to transition background instantly */
@@ -541,7 +565,7 @@
   div.min-h-screen {
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
-    transition-duration: 0.05s !important;
+    transition-duration: 0s !important;
   }
   
   /* Ensure no white gaps anywhere */
@@ -567,7 +591,7 @@
   .dark .cert-thumbnail-bg img,
   .dark .cert-thumbnail-bg [data-nextjs-image],
   .dark .cert-thumbnail-bg span[style*="position: absolute"] {
-    background-color: rgb(17 24 39) !important; /* gray-900 - dark mode */
+    background-color: var(--background) !important;
   }
   
   .cert-thumbnail-wrapper,
@@ -583,7 +607,7 @@
   .dark .cert-thumbnail-wrapper img,
   .dark .cert-thumbnail-wrapper [data-nextjs-image],
   .dark .cert-thumbnail-wrapper span[style*="position: absolute"] {
-    background-color: rgb(17 24 39) !important; /* gray-900 - dark mode */
+    background-color: var(--background) !important;
   }
   
   /* Force Next.js Image component to use transparent background during loading */
@@ -598,8 +622,6 @@
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%;
-    min-height: 100vh;
     background-color: var(--background) !important;
     /* Prevent FOUC by ensuring responsive behavior from start */
     -webkit-text-size-adjust: 100%;
@@ -613,8 +635,6 @@
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%;
-    min-height: 100vh;
     background-color: var(--background) !important;
     /* Prevent layout shifts on viewport changes */
     -webkit-font-smoothing: antialiased;
@@ -643,16 +663,13 @@
 
   /* ABSOLUTE NO-SHIFT POLICY - Only body scrolls to avoid double scrollbar */
   html {
-    height: 100% !important;
-    overflow-y: hidden !important; /* NO scrollbar on html - prevent double scrollbar */
+    overflow-y: auto !important; /* Allow scroll on html */
     overflow-x: hidden !important;
-    /* Prevent any height changes */
-    min-height: 100vh !important;
-    max-height: 100vh !important;
     /* Override any Radix UI modifications */
     padding-right: 0 !important;
     margin-right: 0 !important;
     background-color: var(--background) !important;
+    height: 100% !important;
   }
 
   /* Responsive font size adjustments */
@@ -674,6 +691,10 @@
     /* Prevent any layout shifts from scrollbar changes */
     width: 100% !important;
     position: relative !important;
+    /* CRITICAL: Prevent body from getting extra height during theme toggle */
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
     /* Override any Radix UI modifications */
     padding-right: 0 !important;
     margin-right: 0 !important;
@@ -916,6 +937,24 @@
       max-height: 90vh !important;
       padding: 0.5rem !important;
     }
+  }
+  
+  /* Date Picker Dark Mode Styling */
+  /* Style for HTML5 date input in dark mode */
+  .dark input[type="date"],
+  .dark input[type="time"],
+  .dark input[type="datetime-local"],
+  .dark input[type="month"],
+  .dark input[type="week"] {
+    color-scheme: dark;
+  }
+  
+  /* Date picker calendar popup styling for dark mode */
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="time"]::-webkit-calendar-picker-indicator,
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
   }
 }
 

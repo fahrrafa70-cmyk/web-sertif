@@ -33,8 +33,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined') {
         const root = window.document.documentElement;
         
+        // CRITICAL FIX: Prevent body from getting extra height during theme change
+        // Force body to maintain its current height without adding space
+        if (document.body) {
+          // Remove any height/min-height that might be added
+          document.body.style.removeProperty('height');
+          document.body.style.removeProperty('min-height');
+          document.body.style.removeProperty('max-height');
+        }
+        
         // Remove inline styles to allow CSS transition
         root.style.removeProperty('background-color');
+        root.style.removeProperty('height');
+        root.style.removeProperty('min-height');
+        root.style.removeProperty('max-height');
+        
         if (document.body) {
           document.body.style.removeProperty('background-color');
         }

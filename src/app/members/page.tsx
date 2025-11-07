@@ -14,6 +14,7 @@ import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { useDebounce } from "@/hooks/use-debounce";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { LoadingButton } from "@/components/ui/loading-button";
 
 export default function MembersPage() {
   const { t, language } = useLanguage();
@@ -40,6 +41,7 @@ export default function MembersPage() {
     city: "",
     notes: "",
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Detail modal state
   const [detailModalOpen, setDetailModalOpen] = useState<boolean>(false);
@@ -60,6 +62,7 @@ export default function MembersPage() {
     city: "",
     notes: "",
   });
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
 
   // Excel import state
   const [importing, setImporting] = useState<boolean>(false);
@@ -254,7 +257,18 @@ export default function MembersPage() {
   async function submitEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editingMember) return;
+    
+    // Clear previous errors
+    setEditFormErrors({});
+    
+    // Validate
+    const errors: Record<string, string> = {};
     if (!editForm.name.trim()) {
+      errors.name = t('members.nameRequired');
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setEditFormErrors(errors);
       toast.error(t('members.nameRequired'));
       return;
     }
@@ -286,7 +300,18 @@ export default function MembersPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    
+    // Clear previous errors
+    setFormErrors({});
+    
+    // Validate
+    const errors: Record<string, string> = {};
     if (!form.name.trim()) {
+      errors.name = t('members.nameRequired');
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       toast.error(t('members.nameRequired'));
       return;
     }
@@ -424,7 +449,7 @@ export default function MembersPage() {
 
   return (
     <ModernLayout>
-        <section className="py-4 sm:py-6 md:py-8">
+        <section className="py-4 sm:py-6 md:py-8 bg-gray-50 dark:bg-gray-900">
           <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
             {/* Header */}
             <div className="mb-4 sm:mb-6">
@@ -479,8 +504,17 @@ export default function MembersPage() {
             {showForm && (role === "Admin" || role === "Team") && (
               <motion.form onSubmit={onSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')}</label>
-                  <Input value={form.name} placeholder={t('members.form.fullNamePlaceholder')} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')} <span className="text-red-500">*</span></label>
+                  <Input 
+                    value={form.name} 
+                    placeholder={t('members.form.fullNamePlaceholder')} 
+                    onChange={(e) => {
+                      setForm({ ...form, name: e.target.value });
+                      if (formErrors.name) setFormErrors({ ...formErrors, name: '' });
+                    }}
+                    className={formErrors.name ? 'border-red-500 focus:border-red-500' : ''}
+                  />
+                  {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
@@ -515,9 +549,15 @@ export default function MembersPage() {
                   <Input value={form.notes} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
                 <div className="flex items-end lg:col-span-3">
-                  <Button type="submit" disabled={adding} className="gradient-primary text-white">
-                    {adding ? (language === 'id' ? 'Menambahkan...' : 'Adding...') : t('common.save')}
-                  </Button>
+                  <LoadingButton 
+                    type="submit" 
+                    isLoading={adding}
+                    loadingText={language === 'id' ? 'Menyimpan...' : 'Saving...'}
+                    variant="primary"
+                    className="gradient-primary text-white"
+                  >
+                    {t('common.save')}
+                  </LoadingButton>
                 </div>
               </motion.form>
             )}
@@ -738,8 +778,16 @@ export default function MembersPage() {
                   </div>
                   <form onSubmit={submitEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')}</label>
-                      <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')} <span className="text-red-500">*</span></label>
+                      <Input 
+                        value={editForm.name} 
+                        onChange={(e) => {
+                          setEditForm({ ...editForm, name: e.target.value });
+                          if (editFormErrors.name) setEditFormErrors({ ...editFormErrors, name: '' });
+                        }}
+                        className={editFormErrors.name ? 'border-red-500 focus:border-red-500' : ''}
+                      />
+                      {editFormErrors.name && <p className="text-xs text-red-500 mt-1">{editFormErrors.name}</p>}
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
@@ -774,9 +822,15 @@ export default function MembersPage() {
                       <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
                     </div>
                     <div className="flex items-end">
-                      <Button type="submit" disabled={editSaving} className="gradient-primary text-white">
-                        {editSaving ? (language === 'id' ? 'Menyimpan...' : 'Saving...') : (language === 'id' ? 'Simpan Perubahan' : 'Save Changes')}
-                      </Button>
+                      <LoadingButton 
+                        type="submit" 
+                        isLoading={editSaving}
+                        loadingText={language === 'id' ? 'Menyimpan...' : 'Saving...'}
+                        variant="primary"
+                        className="gradient-primary text-white"
+                      >
+                        {language === 'id' ? 'Simpan Perubahan' : 'Save Changes'}
+                      </LoadingButton>
                     </div>
                   </form>
                 </div>
