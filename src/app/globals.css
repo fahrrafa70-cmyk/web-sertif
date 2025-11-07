@@ -671,12 +671,9 @@
     overflow-y: auto !important; /* Only body scrolls - single scrollbar */
     overflow-x: hidden !important;
     overscroll-behavior: contain !important; /* Prevent scroll chaining side-effects */
-    height: 100% !important;
     /* Prevent any layout shifts from scrollbar changes */
     width: 100% !important;
     position: relative !important;
-    /* Prevent any height changes */
-    min-height: 100vh !important;
     /* Override any Radix UI modifications */
     padding-right: 0 !important;
     margin-right: 0 !important;
@@ -724,8 +721,6 @@
   main {
     width: 100%;
     position: relative;
-    /* Prevent any height changes */
-    min-height: calc(100vh - 4rem);
   }
   
   /* Smooth transitions for all overlays - only opacity/transform */
@@ -822,8 +817,6 @@
   main {
     width: 100% !important;
     position: relative !important;
-    /* Prevent any height changes */
-    min-height: calc(100vh - 4rem) !important;
     /* Override any potential modifications */
     padding-right: 0 !important;
     margin-right: 0 !important;

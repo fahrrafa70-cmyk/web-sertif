@@ -133,7 +133,6 @@ const ModernSidebar = memo(function ModernSidebar() {
                     className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg whitespace-nowrap z-50 pointer-events-none"
                   >
                     {item.label}
-                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900 dark:border-r-gray-700" />
                   </motion.div>
                 )}
               </div>

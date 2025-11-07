@@ -468,12 +468,12 @@ export default function TemplatesPage() {
     <ModernLayout>
       {/* Main Content Section */}
       <motion.section 
-        className="relative -mt-4 sm:-mt-3 pb-4 sm:pb-6 overflow-hidden min-h-screen bg-gray-50 dark:bg-gray-900"
+        className="relative pb-4 sm:pb-6 bg-gray-50 dark:bg-gray-900"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <div className="w-full max-w-[85rem] ml-0 lg:ml-8 xl:ml-20 mr-8 xl:mr-12 px-4 sm:px-6 relative">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           {/* Header Section - Like Groups page */}
           <div className="mb-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 w-full">

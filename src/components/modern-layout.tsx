@@ -10,7 +10,7 @@ interface ModernLayoutProps {
 
 const ModernLayout = memo(function ModernLayout({ children }: ModernLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 w-full">
+    <div className="bg-gray-50 dark:bg-gray-900 w-full">
       {/* Header - Full Width */}
       <ModernHeader />
 
@@ -18,7 +18,7 @@ const ModernLayout = memo(function ModernLayout({ children }: ModernLayoutProps)
       <ModernSidebar />
 
       {/* Main Content */}
-      <main className="lg:ml-20 pt-14 sm:pt-16 min-h-screen bg-gray-50 dark:bg-gray-900 pb-4 sm:pb-8 w-full">
+      <main className="lg:ml-20 pt-14 sm:pt-16 bg-gray-50 dark:bg-gray-900 w-full">
         {children}
       </main>
     </div>
