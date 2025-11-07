@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Search, Filter, X as XIcon, Download, ChevronDown, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { useModal } from "@/contexts/modal-context";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import ModernHeader from "@/components/modern-header";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/supabase/certificates";
 import Image from "next/image";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
+import { supabaseClient } from "@/lib/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,10 +28,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+
 function SearchResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, language } = useLanguage();
+  const { setIsModalOpen } = useModal();
   
   // Local date formatter to ensure format like "2 Nov 2025"
   const formatDateShort = useCallback((input?: string | null) => {
@@ -53,12 +57,14 @@ function SearchResultsContent() {
   const [hasSearched, setHasSearched] = useState(false); // Track if user has performed initial search
   const debouncedSearchQuery = useDebounce(searchQuery, 500); // Debounce for auto-search after first search
   const isInitialMount = useRef(true); // Track if this is the initial mount
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // DIAGNOSIS 1.2: Store loading timeout
+  // CRITICAL FIX: Use ref to store searchResults to prevent unmount/mount flicker
+  // Only update state if results actually changed (by ID comparison)
+  const searchResultsRef = useRef<Certificate[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewCert, setPreviewCert] = useState<Certificate | null>(null);
-  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [sendFormErrors, setSendFormErrors] = useState<{ email?: string; subject?: string; message?: string }>({});
@@ -92,13 +98,10 @@ function SearchResultsContent() {
           e.preventDefault();
           return;
         }
-        if (imagePreviewOpen) {
-          setImagePreviewOpen(false);
-          e.preventDefault();
-          return;
-        }
         if (previewOpen) {
           setPreviewOpen(false);
+          setPreviewCert(null);
+          setIsModalOpen(false); // Update modal context for header blur
           e.preventDefault();
           return;
         }
@@ -114,14 +117,14 @@ function SearchResultsContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router, previewOpen, imagePreviewOpen, sendModalOpen, showFilters]);
+  }, [router, previewOpen, sendModalOpen, showFilters, setIsModalOpen]);
 
   // Lock scroll when modal is open
   const scrollYRef = useRef(0);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    if (previewOpen || imagePreviewOpen || sendModalOpen) {
+    if (previewOpen || sendModalOpen) {
       // Save current scroll position
       scrollYRef.current = window.scrollY;
       document.body.style.position = 'fixed';
@@ -139,7 +142,7 @@ function SearchResultsContent() {
         window.scrollTo(0, savedScrollY);
       };
     }
-  }, [previewOpen, imagePreviewOpen, sendModalOpen]);
+  }, [previewOpen, sendModalOpen]);
   const [filters, setFilters] = useState<SearchFilters>({
     keyword: initialQuery,
     category: "",
@@ -168,7 +171,19 @@ function SearchResultsContent() {
 
   // Perform search function
   const performSearch = useCallback(async (searchFilters: SearchFilters, markAsSearched = false) => {
-    setSearching(true);
+    // DIAGNOSIS 1.2: Delay loading state to prevent flicker on fast searches
+    // Only show loading if search takes more than 100ms
+    // Clear any existing timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+    
+    // Set timeout to show loading state after 100ms
+    loadingTimeoutRef.current = setTimeout(() => {
+      setSearching(true);
+    }, 100); // Delay 100ms before showing loading state
+    
     setSearchError("");
     
     try {
@@ -227,7 +242,17 @@ function SearchResultsContent() {
           
           // Validate results
           if (Array.isArray(results)) {
-            setSearchResults(results);
+            // CRITICAL FIX: Only update if results actually changed (by ID comparison)
+            // This prevents unnecessary unmount/mount which causes flicker
+            const currentIds = searchResultsRef.current.map(r => r.id).sort().join(',');
+            const newIds = results.map(r => r.id).sort().join(',');
+            
+            if (currentIds !== newIds) {
+              // Results actually changed, update ref and state
+              searchResultsRef.current = results;
+              setSearchResults(results);
+            }
+            // If results are the same, don't update to prevent flicker
             
             if (results.length === 0) {
               const errorMsg = searchFilters.keyword 
@@ -245,6 +270,7 @@ function SearchResultsContent() {
             const errorMsg = t('error.search.failed') || 'Search failed. Please try again.';
             setSearchError(errorMsg);
             toast.error(errorMsg);
+            searchResultsRef.current = [];
             setSearchResults([]);
           }
         } catch (searchError) {
@@ -260,6 +286,11 @@ function SearchResultsContent() {
       setSearchError(t('error.search.failed') || 'Search failed. Please try again.');
       setSearchResults([]);
     } finally {
+      // DIAGNOSIS 1.2: Clear loading timeout and reset loading state
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       setSearching(false);
       // Mark as searched after search completes (for auto-search on edit)
       if (markAsSearched) {
@@ -676,19 +707,60 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
     return { src, shouldOptimize };
   }, []);
 
+  // Helper function to check if certificate is expired
+  const isCertificateExpired = useCallback((certificate: Certificate): boolean => {
+    if (!certificate.expired_date) return false;
+    try {
+      const expiredDate = new Date(certificate.expired_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      expiredDate.setHours(0, 0, 0, 0);
+      const isExpired = expiredDate < today;
+      // Debug log
+      if (isExpired) {
+        console.log('Certificate expired:', certificate.certificate_no, 'expired_date:', certificate.expired_date, 'today:', today.toISOString());
+      }
+      return isExpired;
+    } catch (error) {
+      console.error('Error checking expired date:', error, certificate.expired_date);
+      return false;
+    }
+  }, []);
+
+  // Get expired overlay image URL from Supabase storage - Calculate once at component level
+  const expiredOverlayUrl = useMemo(() => {
+    try {
+      const { data } = supabaseClient.storage
+        .from('templates')
+        .getPublicUrl('expired.png');
+      const url = data?.publicUrl || null;
+      if (url) {
+        console.log('Expired overlay URL:', url);
+      } else {
+        console.warn('Expired overlay URL not found');
+      }
+      return url;
+    } catch (error) {
+      console.error('Error getting expired overlay URL:', error);
+      return null;
+    }
+  }, []);
+
   // Memoized certificate card component for better performance
   const CertificateCard = memo(({ 
     certificate, 
     onPreview,
     language,
     t,
-    index = 0
+    index = 0,
+    expiredOverlayUrl: overlayUrl
   }: { 
     certificate: Certificate; 
     onPreview: (cert: Certificate) => void;
     language: 'en' | 'id';
     t: (key: string) => string;
     index?: number;
+    expiredOverlayUrl: string | null;
   }) => {
     const handleClick = useCallback(() => {
       onPreview(certificate);
@@ -703,31 +775,74 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
       return normalizeImageUrl(certificate.certificate_image_url, certificate.updated_at);
     }, [certificate.certificate_image_url, certificate.updated_at]);
 
+    const isExpired = useMemo(() => isCertificateExpired(certificate), [certificate]);
+
+    // FINAL FIX: Remove ALL JavaScript manipulation - use pure CSS only
+    // CSS class handles background color automatically via dark mode selector
+    // No inline styles, no DOM manipulation, no JavaScript - pure CSS solution
+
     return (
       <div
         onClick={handleClick}
-        className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[180px] will-change-transform"
+        className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[180px] will-change-transform relative"
       >
-        {/* Certificate Thumbnail - Left Side */}
-        <div className="relative w-[170px] flex-shrink-0 bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+        {/* Certificate Thumbnail - Left Side - Fixed background to prevent flicker */}
+        {/* FINAL FIX: Use same approach as template page - Tailwind class directly */}
+        {/* Template page uses bg-gray-100 dark:bg-gray-900 without flicker */}
+        {/* Add CSS class to prevent black background during Next.js Image loading */}
+        <div 
+          className="relative w-[170px] flex-shrink-0 flex items-center justify-center overflow-hidden bg-gray-100 dark:bg-gray-900 cert-thumbnail-bg"
+        >
+          {/* Certificate Image - Always show even if expired */}
           {imageConfig.src ? (
-            <Image
-              src={imageConfig.src}
-              alt={certificate.name}
-              fill
-              sizes="170px"
-              className="object-contain group-hover:scale-105 transition-transform duration-200 ease-in-out will-change-transform"
-              loading={index < 3 ? "eager" : "lazy"}
-              priority={index < 3}
-              unoptimized={!imageConfig.shouldOptimize}
-              placeholder="blur"
-              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+            <div className="relative w-full h-full" style={{ backgroundColor: 'transparent !important', background: 'transparent !important' }}>
+              {/* Certificate Thumbnail Image - Bottom Layer */}
+              <Image
+                key={`cert-image-${certificate.id}-${imageConfig.src}`}
+                src={imageConfig.src}
+                alt={certificate.name}
+                fill
+                sizes="170px"
+                className="object-contain"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  backgroundColor: 'transparent !important',
+                  background: 'transparent !important',
+                }}
+                loading={index < 3 ? "eager" : "lazy"}
+                priority={index < 3}
+                unoptimized={!imageConfig.shouldOptimize}
+                onError={(e) => {
+                  console.error('Certificate image failed to load:', imageConfig.src);
+                  e.currentTarget.style.display = 'none';
+                }}
+                onLoad={() => {
+                  console.log('Certificate image loaded successfully:', imageConfig.src);
+                }}
+              />
+              {/* EXPIRED Overlay - Top Layer (Transparent PNG from bucket storage) - Different approach: use div with background-image and CSS filter */}
+              {isExpired && overlayUrl && (
+                <div 
+                  className="absolute inset-0 pointer-events-none z-10 overflow-hidden flex items-center justify-center"
+                  style={{
+                    backgroundImage: `url(${overlayUrl})`,
+                    backgroundSize: 'contain',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    opacity: 0.85,
+                    mixBlendMode: 'multiply',
+                    filter: 'brightness(1.1) contrast(1.2)',
+                  }}
+                />
+              )}
+            </div>
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500">
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500" style={{ zIndex: 1 }}>
               <div className="text-center">
                 <div className="text-2xl mb-1">📄</div>
                 <div className="text-xs">{t('hero.noPreviewImage')}</div>
@@ -737,7 +852,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         </div>
 
         {/* Content Section - Right Side */}
-        <div className="flex-1 p-4 flex flex-col justify-center gap-1.5">
+        <div className="flex-1 p-4 flex flex-col justify-center gap-1.5 relative z-0">
           {/* Recipient Name - Primary */}
           <div>
             <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-tight">
@@ -777,6 +892,20 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         </div>
       </div>
     );
+  }, (prevProps, nextProps) => {
+    // Only re-render if certificate data actually changed
+    // Return true if props are equal (should NOT re-render), false if different (should re-render)
+    if (prevProps.certificate.id !== nextProps.certificate.id) return false;
+    if (prevProps.certificate.certificate_image_url !== nextProps.certificate.certificate_image_url) return false;
+    if (prevProps.certificate.updated_at !== nextProps.certificate.updated_at) return false;
+    if (prevProps.certificate.expired_date !== nextProps.certificate.expired_date) return false;
+    if (prevProps.certificate.issue_date !== nextProps.certificate.issue_date) return false;
+    if (prevProps.language !== nextProps.language) return false;
+    if (prevProps.expiredOverlayUrl !== nextProps.expiredOverlayUrl) return false;
+    // Don't compare t function, onPreview, or index as they may change but don't affect rendering
+    // The key is that certificate data hasn't changed, so we don't need to re-render
+    // All important props are equal, don't re-render
+    return true;
   });
 
   CertificateCard.displayName = 'CertificateCard';
@@ -785,7 +914,8 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
   const handlePreview = useCallback((cert: Certificate) => {
     setPreviewCert(cert);
     setPreviewOpen(true);
-  }, []);
+    setIsModalOpen(true); // Update modal context for header blur
+  }, [setIsModalOpen]);
 
   // Clear search handler - memoized
   const handleClearSearch = useCallback(() => {
@@ -818,15 +948,41 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
   // Modal handlers - memoized
   const handleClosePreview = useCallback(() => {
     setPreviewOpen(false);
-  }, []);
+    setPreviewCert(null);
+    setIsModalOpen(false); // Update modal context for header blur
+  }, [setIsModalOpen]);
 
-  const handleOpenImagePreview = useCallback((url: string) => {
-    setImagePreviewUrl(url);
-    setImagePreviewOpen(true);
-  }, []);
-
-  const handleCloseImagePreview = useCallback(() => {
-    setImagePreviewOpen(false);
+  const handleOpenImagePreview = useCallback((url: string | null | undefined, updatedAt?: string | null) => {
+    if (!url) return;
+    
+    // Normalize URL untuk memastikan URL lengkap
+    let imageUrl = url;
+    
+    // Jika sudah full URL (http/https) atau data URL, gunakan langsung
+    if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
+      // URL Supabase atau external URL sudah lengkap, gunakan langsung
+      window.open(imageUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    
+    // Normalize local relative path like "generate/file.png" => "/generate/file.png"
+    if (!imageUrl.startsWith('/')) {
+      imageUrl = `/${imageUrl}`;
+    }
+    
+    // Add cache bust for local paths if updated_at is available
+    if (updatedAt) {
+      const cacheBust = `?v=${new Date(updatedAt).getTime()}`;
+      imageUrl = `${imageUrl}${cacheBust}`;
+    }
+    
+    // Convert relative path to absolute URL
+    if (typeof window !== 'undefined') {
+      imageUrl = `${window.location.origin}${imageUrl}`;
+    }
+    
+    // Open image in new tab
+    window.open(imageUrl, '_blank', 'noopener,noreferrer');
   }, []);
 
   // Memoized results count text
@@ -1015,15 +1171,9 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
           </div>
         )}
 
-        {/* Loading State - Memoized skeleton */}
-        {searching && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
-            {loadingSkeletons}
-          </div>
-        )}
-
-        {/* Results Grid */}
-        {!searching && searchResults.length > 0 && searchQuery.trim() && (
+        {/* Results Grid - Simple conditional rendering like template page */}
+        {/* Template page uses simple conditional rendering without opacity/visibility manipulation */}
+        {searchResults.length > 0 && searchQuery.trim() && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
             {searchResults.map((certificate, index) => (
               <CertificateCard
@@ -1033,8 +1183,16 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                 language={language}
                 t={t}
                 index={index}
+                expiredOverlayUrl={expiredOverlayUrl}
               />
             ))}
+          </div>
+        )}
+
+        {/* Loading Skeleton - Only show if no results exist yet */}
+        {searching && searchResults.length === 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
+            {loadingSkeletons}
           </div>
         )}
 
@@ -1065,16 +1223,26 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         {/* Certificate Preview Modal */}
         {previewOpen && previewCert && (
           <>
-            {/* Backdrop - covers entire page including search bar */}
+            {/* Backdrop with blur - covers everything including header */}
             <div 
-              className="fixed inset-0 z-[50] bg-black/70 backdrop-blur-sm transition-opacity duration-200 ease-in-out" 
+              className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm"
               onClick={handleClosePreview}
-              aria-hidden="true"
+              style={{ 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0,
+                zIndex: 9999,
+                position: 'fixed'
+              }}
             />
             {/* Modal Content */}
             <div 
-              className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 pointer-events-none"
+              className="fixed inset-0 flex items-center justify-center p-2 sm:p-4 pointer-events-none"
               onClick={handleClosePreview}
+              style={{
+                zIndex: 10000,
+              }}
             >
               <div 
                 className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-auto pointer-events-auto" 
@@ -1091,143 +1259,152 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
                   <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
                     {previewCert.certificate_image_url ? (
-                      <div
-                        className="relative w-full cursor-zoom-in group"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          if (previewCert.certificate_image_url) {
-                            handleOpenImagePreview(previewCert.certificate_image_url);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            if (previewCert.certificate_image_url) {
-                              handleOpenImagePreview(previewCert.certificate_image_url);
-                            }
-                          }
-                        }}
-                      >
-                        {(() => {
-                          const { src, shouldOptimize } = normalizeImageUrl(previewCert.certificate_image_url, previewCert.updated_at);
-                          return (
-                            <div className="relative w-full aspect-auto">
-                              <Image
-                                src={src}
-                                alt="Certificate"
-                                width={800}
-                                height={600}
-                                className="w-full h-auto rounded-lg border transition-transform duration-200 group-hover:scale-[1.01]"
-                                priority
-                                unoptimized={!shouldOptimize}
-                                placeholder="blur"
-                                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          );
-                        })()}
-                        <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                          {t('hero.viewFullImage')}
-                        </div>
-                      </div>
+                      (() => {
+                        const isExpired = isCertificateExpired(previewCert);
+                        return (
+                          <div
+                            className={`relative w-full ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
+                            role={isExpired ? undefined : "button"}
+                            tabIndex={isExpired ? undefined : 0}
+                            onClick={() => {
+                              if (!isExpired && previewCert.certificate_image_url) {
+                                handleOpenImagePreview(previewCert.certificate_image_url, previewCert.updated_at);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (!isExpired && (e.key === 'Enter' || e.key === ' ')) {
+                                e.preventDefault();
+                                if (previewCert.certificate_image_url) {
+                                  handleOpenImagePreview(previewCert.certificate_image_url, previewCert.updated_at);
+                                }
+                              }
+                            }}
+                          >
+                            {(() => {
+                              const { src, shouldOptimize } = normalizeImageUrl(previewCert.certificate_image_url, previewCert.updated_at);
+                              return (
+                                <div className="relative w-full aspect-auto">
+                                  <Image
+                                    src={src}
+                                    alt="Certificate"
+                                    width={800}
+                                    height={600}
+                                    className={`w-full h-auto rounded-lg border transition-transform duration-200 ${isExpired ? '' : 'group-hover:scale-[1.01]'}`}
+                                    priority
+                                    unoptimized={!shouldOptimize}
+                                    placeholder="blur"
+                                    blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                  {/* Expired Overlay - Same as thumbnail */}
+                                  {isExpired && expiredOverlayUrl && (
+                                    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden flex items-center justify-center">
+                                      <img
+                                        src={expiredOverlayUrl}
+                                        alt="Expired"
+                                        className="max-w-full max-h-full"
+                                        style={{
+                                          objectFit: 'contain',
+                                          opacity: 0.85,
+                                          pointerEvents: 'none',
+                                          width: 'auto',
+                                          height: 'auto',
+                                        }}
+                                        onError={(e) => {
+                                          console.error('Failed to load expired overlay image:', expiredOverlayUrl);
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                        onLoad={() => {
+                                          console.log('Expired overlay image loaded successfully');
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  {/* Debug overlay indicator - Same as thumbnail */}
+                                  {isExpired && !expiredOverlayUrl && (
+                                    <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center bg-red-500/20">
+                                      <div className="text-xs text-red-600 dark:text-red-400 font-bold">EXPIRED</div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            {/* View Full Image tooltip - Only show if not expired */}
+                            {!isExpired && (
+                              <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                {t('hero.viewFullImage')}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
                     ) : (
                       <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
                     )}
                   </div>
                   <div className="p-4 sm:p-6">
                     <div className="space-y-2">
-                      <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('hero.recipient')}</div>
-                      <div className="text-lg sm:text-xl md:text-2xl font-semibold dark:text-gray-100">{previewCert.members?.name || previewCert.name}</div>
+                      <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('hero.noCertificate') || 'No Certificate'}:</div>
+                      <div className="text-sm sm:text-base font-medium text-gray-900 dark:text-gray-100">{previewCert.certificate_no || "—"}</div>
+                      <div className="text-lg sm:text-xl md:text-2xl font-semibold dark:text-gray-100 mt-2">{previewCert.members?.name || previewCert.name}</div>
                       {previewCert.members?.organization && (
                         <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{previewCert.members.organization}</div>
                       )}
                     </div>
                     <div className="mt-4 space-y-1 text-xs sm:text-sm">
                       <div><span className="text-gray-500 dark:text-gray-400">{t('hero.category')}:</span> {previewCert.category || "—"}</div>
-                      <div><span className="text-gray-500 dark:text-gray-400">{t('hero.template')}:</span> {(previewCert as unknown as { templates?: { name?: string } }).templates?.name || "—"}</div>
                       <div><span className="text-gray-500 dark:text-gray-400">{t('hero.issued')}:</span> {formatDateShort(previewCert.issue_date)}</div>
                       {previewCert.expired_date && (
                         <div><span className="text-gray-500 dark:text-gray-400">{t('hero.expires')}:</span> {formatDateShort(previewCert.expired_date)}</div>
                       )}
                     </div>
                     <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="border-gray-300"
-                          >
-                            <Download className="w-4 h-4 mr-1" />
-                            {t('hero.export')}
-                            <ChevronDown className="w-4 h-4 ml-1" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => exportToPDF(previewCert)}>
-                            <FileTextIcon className="w-4 h-4 mr-2" />
-                            {t('hero.exportAsPDF')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => exportToPNG(previewCert)}>
-                            <ImageIcon className="w-4 h-4 mr-2" />
-                            {t('hero.downloadPNG')}
-                          </DropdownMenuItem>
-                          {previewCert.certificate_image_url && (
-                            <DropdownMenuItem onClick={() => openSendEmailModal(previewCert)}>
-                              <Mail className="w-4 h-4 mr-2" />
-                              {t('hero.sendViaEmail')}
+                      {isCertificateExpired(previewCert) ? (
+                        <div className="w-full p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                          <p className="text-sm sm:text-base font-medium text-red-700 dark:text-red-400 text-center">
+                            {language === 'id' ? 'Sertifikat ini telah kadaluarsa' : 'This certificate has expired'}
+                          </p>
+                        </div>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="border-gray-300"
+                            >
+                              <Download className="w-4 h-4 mr-1" />
+                              {t('hero.export')}
+                              <ChevronDown className="w-4 h-4 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => exportToPDF(previewCert)}>
+                              <FileTextIcon className="w-4 h-4 mr-2" />
+                              {t('hero.exportAsPDF')}
                             </DropdownMenuItem>
-                          )}
-                          {previewCert.public_id && (
-                            <DropdownMenuItem onClick={() => generateCertificateLink(previewCert)}>
-                              <LinkIcon className="w-4 h-4 mr-2" />
-                              {t('hero.generateLink')}
+                            <DropdownMenuItem onClick={() => exportToPNG(previewCert)}>
+                              <ImageIcon className="w-4 h-4 mr-2" />
+                              {t('hero.downloadPNG')}
                             </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            {previewCert.certificate_image_url && (
+                              <DropdownMenuItem onClick={() => openSendEmailModal(previewCert)}>
+                                <Mail className="w-4 h-4 mr-2" />
+                                {t('hero.sendViaEmail')}
+                              </DropdownMenuItem>
+                            )}
+                            {previewCert.public_id && (
+                              <DropdownMenuItem onClick={() => generateCertificateLink(previewCert)}>
+                                <LinkIcon className="w-4 h-4 mr-2" />
+                                {t('hero.generateLink')}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            </>
-          )}
-
-        {/* Full Image Preview Modal */}
-        {imagePreviewOpen && (
-          <>
-            {/* Backdrop - covers entire page including search bar */}
-            <div 
-              className="fixed inset-0 z-[50] bg-black/70 backdrop-blur-sm transition-opacity duration-200" 
-              onClick={handleCloseImagePreview}
-              aria-hidden="true"
-            />
-            {/* Modal Content */}
-            <div 
-              className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
-              onClick={handleCloseImagePreview}
-            >
-              <div 
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col pointer-events-auto" 
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700 flex-shrink-0">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">{t('hero.certificate')}</div>
-                  <Button variant="outline" onClick={() => setImagePreviewOpen(false)} size="icon" aria-label="Close">
-                    <XIcon className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-900 overflow-auto flex-1">
-                  {imagePreviewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imagePreviewUrl} alt="Certificate" className="w-full h-auto rounded-lg border" />
-                  ) : (
-                    <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">{t('hero.noPreviewImage')}</div>
-                  )}
                 </div>
               </div>
             </div>
@@ -1236,7 +1413,9 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
 
         {/* Send Email Modal */}
         {sendModalOpen && (
-          <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4" onClick={() => setSendModalOpen(false)}>
+          <>
+            {/* No backdrop - clean preview */}
+            <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen flex items-center justify-center p-4 pointer-events-none z-[110]" onClick={() => setSendModalOpen(false)}>
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
                 <div>
@@ -1362,6 +1541,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
               </div>
             </div>
           </div>
+          </>
         )}
       </div>
     </div>

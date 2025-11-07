@@ -40,7 +40,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
-import { Eye, Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -72,6 +72,40 @@ function CertificatesContent() {
     const year = d.getFullYear();
     return `${day} ${month} ${year}`;
   }, [language]);
+
+  // Helper function to check if certificate is expired
+  const isCertificateExpired = useCallback((certificate: Certificate): boolean => {
+    if (!certificate.expired_date) return false;
+    try {
+      const expiredDate = new Date(certificate.expired_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      expiredDate.setHours(0, 0, 0, 0);
+      return expiredDate < today;
+    } catch (error) {
+      console.error('Error checking expired date:', error, certificate.expired_date);
+      return false;
+    }
+  }, []);
+
+  // Get expired overlay image URL from Supabase storage
+  const getExpiredOverlayUrl = useCallback(() => {
+    try {
+      const { data } = supabaseClient.storage
+        .from('templates')
+        .getPublicUrl('expired.png');
+      const url = data?.publicUrl || null;
+      if (url) {
+        console.log('Expired overlay URL:', url);
+      } else {
+        console.warn('Expired overlay URL not found');
+      }
+      return url;
+    } catch (error) {
+      console.error('Error getting expired overlay URL:', error);
+      return null;
+    }
+  }, []);
   const params = useSearchParams();
   const certQuery = (params?.get("cert") || "").toLowerCase();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
@@ -787,7 +821,7 @@ function CertificatesContent() {
       };
     });
     
-    // Render certificate to PNG DataURL
+    // Render certificate to WebP DataURL
     console.log('🖼️ Rendering certificate image...');
     console.log('📊 Text layers to render:', textLayers.map(l => ({
       id: l.id,
@@ -808,11 +842,11 @@ function CertificatesContent() {
     });
     
     // CRITICAL FIX: Upload to Supabase Storage BEFORE saving to database
-    console.log('📤 Uploading certificate PNG to Supabase Storage...');
+    console.log('📤 Uploading certificate WebP to Supabase Storage...');
     // CRITICAL: Add timestamp to filename to prevent Supabase CDN cache collision
     // Without timestamp, regenerating same cert_no will be served from CDN cache (old version)
     const timestamp = Date.now();
-    const fileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}.png`;
+    const fileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}.webp`;
     const uploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -979,10 +1013,10 @@ function CertificatesContent() {
             // width & height omitted → auto-detect from template
           });
           
-          // CRITICAL FIX: Upload score PNG to Supabase Storage
-          console.log('📤 Uploading score PNG to Supabase Storage...');
+          // CRITICAL FIX: Upload score WebP to Supabase Storage
+          console.log('📤 Uploading score WebP to Supabase Storage...');
           // CRITICAL: Use same timestamp as certificate to keep them paired
-          const scoreFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}_score.png`;
+          const scoreFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}_score.webp`;
           console.log('📁 Score file name:', scoreFileName);
           console.log('🔗 For member:', member.name, 'Certificate ID:', savedCertificate.id);
           
@@ -1007,7 +1041,7 @@ function CertificatesContent() {
           }
           
           const finalScoreImageUrl = scoreUploadResult.url;
-          console.log('✅ Score PNG uploaded to Supabase Storage:', finalScoreImageUrl);
+          console.log('✅ Score WebP uploaded to Supabase Storage:', finalScoreImageUrl);
           
           // Update certificate with score_image_url (Supabase Storage URL)
           console.log('💾 Updating certificate with score URL:', {
@@ -1407,9 +1441,6 @@ function CertificatesContent() {
                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb]">
                       {t("certificates.title")}
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
-                      {t("certificates.subtitle")}
-                    </p>
                   </div>
                   {/* Quick Generate Button */}
                   {(role === "Admin" || role === "Team") && (
@@ -1514,20 +1545,26 @@ function CertificatesContent() {
                         <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
                           <TableHead className="min-w-[180px]">{t("certificates.certificateId")}</TableHead>
                           <TableHead className="min-w-[200px]">{t("certificates.recipient")}</TableHead>
-                          <TableHead className="min-w-[150px]">{t("certificates.category")}</TableHead>
+                          <TableHead className="min-w-[100px]">{t("certificates.category")}</TableHead>
                           <TableHead className="min-w-[140px]">{t("certificates.issuedDate")}</TableHead>
                           <TableHead className="min-w-[140px]">{t("certificates.expiryDate")}</TableHead>
-                          <TableHead className="text-right min-w-[280px]">
+                          <TableHead className="text-center min-w-[280px]">
                             {t("certificates.actions")}
                           </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {currentCertificates.map((certificate) => (
+                        {currentCertificates.map((certificate) => {
+                          const isExpired = isCertificateExpired(certificate);
+                          return (
                           <TableRow 
                             key={certificate.id}
-                            onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
-                            className={certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0" : "border-b border-gray-100 dark:border-gray-700 last:border-0"}
+                            onClick={() => openPreview(certificate)}
+                            className={`cursor-pointer transition-colors ${
+                              isExpired 
+                                ? 'bg-red-500/30 dark:bg-red-600/30 border-b-2 border-red-400 dark:border-red-500 hover:bg-red-500/40 dark:hover:bg-red-600/40' 
+                                : 'bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-700/50'
+                            } last:border-0`}
                           >
                             <TableCell className="font-medium text-gray-900 dark:text-gray-100">
                               {certificate.certificate_no}
@@ -1544,21 +1581,13 @@ function CertificatesContent() {
                             </TableCell>
                             <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                               <div className="flex justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-gray-300"
-                                onClick={() => openPreview(certificate)}
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                {t("common.preview")}
-                              </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="border-gray-300"
+                                    className={`border-gray-300 ${isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    disabled={isCertificateExpired(certificate)}
                                   >
                                     <Download className="w-4 h-4 mr-1" />
                                     {t("certificates.export")}
@@ -1566,21 +1595,37 @@ function CertificatesContent() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
+                                  <DropdownMenuItem 
+                                    onClick={() => !isCertificateExpired(certificate) && exportToPDF(certificate)}
+                                    disabled={isCertificateExpired(certificate)}
+                                    className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
+                                  >
                                     <FileText className="w-4 h-4 mr-2" />
                                     {t("certificates.exportPdf")}
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
+                                  <DropdownMenuItem 
+                                    onClick={() => !isCertificateExpired(certificate) && exportToPNG(certificate)}
+                                    disabled={isCertificateExpired(certificate)}
+                                    className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
+                                  >
                                     <ImageIcon className="w-4 h-4 mr-2" />
                                     {t("certificates.downloadPng")}
                                   </DropdownMenuItem>
                                   {certificate.certificate_image_url && (
-                                    <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
+                                    <DropdownMenuItem 
+                                      onClick={() => !isCertificateExpired(certificate) && openSendEmailModal(certificate)}
+                                      disabled={isCertificateExpired(certificate)}
+                                      className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
+                                    >
                                       <FileText className="w-4 h-4 mr-2" />
                                       {t("certificates.sendEmail")}
                                     </DropdownMenuItem>
                                   )}
-                                  <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
+                                  <DropdownMenuItem 
+                                    onClick={() => !isCertificateExpired(certificate) && generateCertificateLink(certificate)}
+                                    disabled={isCertificateExpired(certificate)}
+                                    className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
+                                  >
                                     <Link className="w-4 h-4 mr-2" />
                                     {t("certificates.generateLink")}
                                   </DropdownMenuItem>
@@ -1620,7 +1665,8 @@ function CertificatesContent() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                          );
+                        })}
                     </TableBody>
                   </Table>
                 </div>
@@ -1628,11 +1674,17 @@ function CertificatesContent() {
 
                 {/* Mobile Card View */}
                 <div className="md:hidden space-y-3">
-                  {currentCertificates.map((certificate) => (
+                  {currentCertificates.map((certificate) => {
+                    const isExpired = isCertificateExpired(certificate);
+                    return (
                     <div
                       key={certificate.id}
-                      onClick={() => certificate.member_id && openMemberDetail(certificate.member_id)}
-                      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4 shadow-sm ${certificate.member_id ? "cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors" : ""}`}
+                      onClick={() => openPreview(certificate)}
+                      className={`rounded-lg border p-3 sm:p-4 shadow-sm cursor-pointer transition-colors ${
+                        isExpired 
+                          ? 'bg-red-500/30 dark:bg-red-600/30 border-2 border-red-400 dark:border-red-500 hover:bg-red-500/40 dark:hover:bg-red-600/40' 
+                          : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-700/50'
+                      }`}
                     >
                       {/* Certificate Details - Grid 2 Columns */}
                       <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 mb-3">
@@ -1692,43 +1744,50 @@ function CertificatesContent() {
                       {/* Action Buttons - Grid 2 Columns Mobile, 4 Columns Desktop */}
                       <div className="pt-3 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8"
-                            onClick={() => openPreview(certificate)}
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            {t("common.preview")}
-                          </Button>
-                          
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8 w-full"
+                                className={`border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8 w-full ${isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={isCertificateExpired(certificate)}
                               >
                                 <Download className="w-3 h-3 mr-1" />
                                 {t("certificates.export")}
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => exportToPDF(certificate)}>
+                              <DropdownMenuItem 
+                                onClick={() => !isCertificateExpired(certificate) && exportToPDF(certificate)}
+                                disabled={isCertificateExpired(certificate)}
+                                className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
+                              >
                                 <FileText className="w-4 h-4 mr-2" />
                                 {t("certificates.exportPdf")}
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => exportToPNG(certificate)}>
+                              <DropdownMenuItem 
+                                onClick={() => !isCertificateExpired(certificate) && exportToPNG(certificate)}
+                                disabled={isCertificateExpired(certificate)}
+                                className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
+                              >
                                 <ImageIcon className="w-4 h-4 mr-2" />
                                 {t("certificates.downloadPng")}
                               </DropdownMenuItem>
                               {certificate.certificate_image_url && (
-                                <DropdownMenuItem onClick={() => openSendEmailModal(certificate)}>
+                                <DropdownMenuItem 
+                                  onClick={() => !isCertificateExpired(certificate) && openSendEmailModal(certificate)}
+                                  disabled={isCertificateExpired(certificate)}
+                                  className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
+                                >
                                   <FileText className="w-4 h-4 mr-2" />
                                   {t("certificates.sendEmail")}
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => generateCertificateLink(certificate)}>
+                              <DropdownMenuItem 
+                                onClick={() => !isCertificateExpired(certificate) && generateCertificateLink(certificate)}
+                                disabled={isCertificateExpired(certificate)}
+                                className={isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}
+                              >
                                 <Link className="w-4 h-4 mr-2" />
                                 {t("certificates.generateLink")}
                               </DropdownMenuItem>
@@ -1770,7 +1829,8 @@ function CertificatesContent() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               </motion.div>
             )}
@@ -2148,20 +2208,54 @@ function CertificatesContent() {
                             // Use Next.js Image for all cases. For remote/data URLs, disable optimization.
                             const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
+                            const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
+                            const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
                             return (
-                              <Image
-                                src={src}
-                                alt={previewMode === 'score' ? "Score" : "Certificate"}
-                                fill
-                                sizes="100vw"
-                                className="object-contain absolute inset-0"
-                                style={{ objectFit: 'contain' }}
-                                onError={() => {
-                                  console.warn('Preview image failed to load', src);
-                                }}
-                                priority
-                                unoptimized={isRemote || isData}
-                              />
+                              <>
+                                <Image
+                                  src={src}
+                                  alt={previewMode === 'score' ? "Score" : "Certificate"}
+                                  fill
+                                  sizes="100vw"
+                                  className="object-contain absolute inset-0"
+                                  style={{ objectFit: 'contain' }}
+                                  onError={() => {
+                                    console.warn('Preview image failed to load', src);
+                                  }}
+                                  priority
+                                  unoptimized={isRemote || isData}
+                                />
+                                {/* Expired Overlay - Same as /search */}
+                                {isExpired && expiredOverlayUrl && (
+                                  <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden flex items-center justify-center">
+                                    <img
+                                      src={expiredOverlayUrl}
+                                      alt="Expired"
+                                      className="max-w-full max-h-full"
+                                      style={{
+                                        objectFit: 'contain',
+                                        opacity: 0.85,
+                                        pointerEvents: 'none',
+                                        width: 'auto',
+                                        height: 'auto',
+                                      }}
+                                      onError={(e) => {
+                                        console.error('Failed to load expired overlay image:', expiredOverlayUrl);
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                      onLoad={() => {
+                                        console.log('Expired overlay image loaded successfully');
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                {/* Debug overlay indicator - Same as /search */}
+                                {isExpired && !expiredOverlayUrl && (
+                                  <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center bg-red-500/20">
+                                    <div className="text-xs text-red-600 dark:text-red-400 font-bold">EXPIRED</div>
+                                  </div>
+                                )}
+                              </>
                             );
                           })()
                         ) : (

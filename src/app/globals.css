@@ -262,6 +262,54 @@
     @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
+  /* Hide scrollbar when content doesn't exceed viewport height */
+  /* Use higher specificity to override body overflow-y: auto !important */
+  body.hide-scrollbar {
+    overflow-y: auto !important;
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
+  }
+  
+  body.hide-scrollbar::-webkit-scrollbar {
+    display: none !important; /* Chrome, Safari, Opera */
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+  
+  body.hide-scrollbar::-webkit-scrollbar-track {
+    display: none !important;
+    background: transparent !important;
+  }
+  
+  body.hide-scrollbar::-webkit-scrollbar-thumb {
+    display: none !important;
+    background: transparent !important;
+  }
+  
+  /* Show scrollbar when content exceeds viewport height */
+  body.show-scrollbar {
+    overflow-y: auto !important;
+    scrollbar-width: thin !important; /* Firefox */
+  }
+  
+  body.show-scrollbar::-webkit-scrollbar {
+    display: block !important; /* Chrome, Safari, Opera */
+    width: 8px !important;
+    height: 8px !important;
+  }
+  
+  body.show-scrollbar::-webkit-scrollbar-track {
+    display: block !important;
+    background: var(--background) !important;
+  }
+  
+  body.show-scrollbar::-webkit-scrollbar-thumb {
+    display: block !important;
+    background: oklch(0.5 0.01 106.423) !important;
+    border-radius: 4px !important;
+  }
+  
   /* Custom scrollbar - match background color - AGGRESSIVE OVERRIDE */
   html ::-webkit-scrollbar,
   body ::-webkit-scrollbar,
@@ -502,6 +550,48 @@
   }
 
   /* Prevent horizontal scroll on all screen sizes */
+
+  /* FINAL FIX: Prevent black background during Next.js Image loading */
+  /* Next.js Image component may use default black background during loading */
+  /* Force background color to match theme during image load */
+  .cert-thumbnail-bg,
+  .cert-thumbnail-bg > *,
+  .cert-thumbnail-bg img,
+  .cert-thumbnail-bg [data-nextjs-image],
+  .cert-thumbnail-bg span[style*="position: absolute"] {
+    background-color: rgb(243 244 246) !important; /* gray-100 - light mode */
+  }
+  
+  .dark .cert-thumbnail-bg,
+  .dark .cert-thumbnail-bg > *,
+  .dark .cert-thumbnail-bg img,
+  .dark .cert-thumbnail-bg [data-nextjs-image],
+  .dark .cert-thumbnail-bg span[style*="position: absolute"] {
+    background-color: rgb(17 24 39) !important; /* gray-900 - dark mode */
+  }
+  
+  .cert-thumbnail-wrapper,
+  .cert-thumbnail-wrapper > *,
+  .cert-thumbnail-wrapper img,
+  .cert-thumbnail-wrapper [data-nextjs-image],
+  .cert-thumbnail-wrapper span[style*="position: absolute"] {
+    background-color: rgb(243 244 246) !important; /* gray-100 - light mode */
+  }
+  
+  .dark .cert-thumbnail-wrapper,
+  .dark .cert-thumbnail-wrapper > *,
+  .dark .cert-thumbnail-wrapper img,
+  .dark .cert-thumbnail-wrapper [data-nextjs-image],
+  .dark .cert-thumbnail-wrapper span[style*="position: absolute"] {
+    background-color: rgb(17 24 39) !important; /* gray-900 - dark mode */
+  }
+  
+  /* Force Next.js Image component to use transparent background during loading */
+  /* This prevents default black background from showing through */
+  img[data-nextjs-image],
+  span[data-nextjs-image] {
+    background-color: transparent !important;
+  }
   html {
     max-width: 100%;
     overflow-x: hidden;
@@ -592,6 +682,15 @@
     margin-right: 0 !important;
     /* Prevent any style mutations */
     transition: none !important;
+    /* Default: hide scrollbar - will be shown by ScrollbarVisibility component if needed */
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
+  }
+  
+  body::-webkit-scrollbar {
+    display: none !important; /* Chrome, Safari, Opera */
+    width: 0 !important;
+    height: 0 !important;
   }
 
   /* Responsive body padding for different screen sizes */

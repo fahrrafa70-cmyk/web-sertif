@@ -2,9 +2,11 @@
 
 import { useState, memo, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { useModal } from "@/contexts/modal-context";
 import { LanguageSwitcher } from "./language-switcher";
 import { ThemeSwitcher } from "./theme-switcher";
 import UserAvatar from "./user-avatar";
@@ -12,7 +14,12 @@ import MobileSidebar from "./mobile-sidebar";
 
 const ModernHeader = memo(function ModernHeader() {
   const { setOpenLogin, isAuthenticated } = useAuth();
+  const { isModalOpen } = useModal();
+  const pathname = usePathname();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  
+  // Only blur header on /search page when modal is open
+  const shouldBlur = pathname === "/search" && isModalOpen;
   
   const handleMobileSidebarToggle = useCallback(() => {
     setIsMobileSidebarOpen(true);
@@ -24,8 +31,31 @@ const ModernHeader = memo(function ModernHeader() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b h-14 sm:h-16 w-full">
-        <div className="h-full w-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2">
+      <header 
+        className={`fixed top-0 left-0 right-0 z-50 bg-gray-50 dark:bg-gray-900 border-b h-14 sm:h-16 w-full transition-all duration-300 ${
+          shouldBlur ? 'bg-gray-50/70 dark:bg-gray-900/70' : ''
+        }`}
+        style={{
+          transition: 'filter 300ms ease-in-out, background-color 300ms ease-in-out',
+          ...(shouldBlur ? {
+            filter: 'blur(4px)',
+            WebkitFilter: 'blur(4px)',
+          } : {
+            filter: 'none',
+            WebkitFilter: 'none',
+          })
+        }}
+      >
+        {/* Dark overlay when modal is open - matches backdrop darkening */}
+        {shouldBlur && (
+          <div 
+            className="absolute inset-0 bg-black/20 dark:bg-black/40 pointer-events-none transition-opacity duration-300"
+            style={{
+              zIndex: 0,
+            }}
+          />
+        )}
+        <div className="h-full w-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2 relative z-10">
           {/* Mobile Menu Button */}
           <button
             onClick={handleMobileSidebarToggle}

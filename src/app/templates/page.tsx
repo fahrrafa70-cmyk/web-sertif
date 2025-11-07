@@ -7,14 +7,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Search, Eye, Edit, Trash2, Palette, Layout, X, Settings } from "lucide-react";
-import { staggerContainer } from "@/components/page-transition";
+import { FileText, Plus, Search, Edit, Trash2, Layout, X, Settings, Filter } from "lucide-react";
 import { useTemplates } from "@/hooks/use-templates";
 import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl } from "@/lib/supabase/templates";
+import { getCertificatesByTemplate } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
 import Image from "next/image";
@@ -27,6 +27,7 @@ export default function TemplatesPage() {
   const debouncedQuery = useDebounce(query, 300);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
 
   // Use templates hook for Supabase integration
   const { templates, loading, error, create, update, delete: deleteTemplate, refresh } = useTemplates();
@@ -55,6 +56,32 @@ export default function TemplatesPage() {
     return list;
   }, [templates, debouncedQuery, categoryFilter]);
 
+  // Check template usage when templates are loaded
+  useEffect(() => {
+    if (templates.length === 0) return;
+    
+    const checkTemplateUsage = async () => {
+      const usageMap = new Map<string, number>();
+      
+      // Check usage for each template in parallel
+      const checks = templates.map(async (template) => {
+        try {
+          const certificates = await getCertificatesByTemplate(template.id);
+          if (certificates && certificates.length > 0) {
+            usageMap.set(template.id, certificates.length);
+          }
+        } catch (error) {
+          console.error(`Error checking usage for template ${template.id}:`, error);
+        }
+      });
+      
+      await Promise.all(checks);
+      setTemplateUsageMap(usageMap);
+    };
+    
+    checkTemplateUsage();
+  }, [templates]);
+
   // Sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState<null | string>(null);
@@ -64,6 +91,7 @@ export default function TemplatesPage() {
   const [previewImageFile, setPreviewImageFile] = useState<File | null>(null);
   const [previewImagePreview, setPreviewImagePreview] = useState<string | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [templateUsageMap, setTemplateUsageMap] = useState<Map<string, number>>(new Map()); // Map<templateId, certificateCount>
   
   // Dual template mode state
   const [isDualTemplate, setIsDualTemplate] = useState(false);
@@ -167,7 +195,17 @@ export default function TemplatesPage() {
   }
 
   function openEdit(item: Template) {
-    setDraft({ ...item });
+    // CRITICAL: Only use is_layout_configured as fallback if status is truly undefined/null
+    // If status exists (even if empty string), use it directly
+    // This ensures that once status is set, it won't be overridden by is_layout_configured
+    const initialStatus = (item.status !== undefined && item.status !== null && item.status !== '')
+      ? item.status 
+      : (item.is_layout_configured ? "ready" : "draft");
+    setDraft({ 
+      ...item, 
+      status: initialStatus // Explicitly set status to ensure it's always present
+    });
+    console.log('📝 Opening edit for template:', item.name, 'with status:', initialStatus, 'from item.status:', item.status, 'is_layout_configured:', item.is_layout_configured);
     setImageFile(null);
     setImagePreview(null);
     setPreviewImageFile(null);
@@ -204,13 +242,25 @@ export default function TemplatesPage() {
     }
 
     try {
+      // Get status from draft - CRITICAL: Always use draft.status if it exists (even if empty string)
+      // This ensures the user's selection is always sent to the API
+      // Only use fallback if draft.status is truly undefined or null
+      const statusValue = (draft.status !== undefined && draft.status !== null && draft.status !== '')
+        ? draft.status 
+        : (draft.is_layout_configured ? "ready" : "draft");
+      
+      console.log('📝 Submitting edit with status:', statusValue, 'from draft.status:', draft.status, 'is_layout_configured:', draft.is_layout_configured, 'full draft:', draft);
+      
       const templateData: UpdateTemplateData = {
         name: draft.name,
         category: draft.category,
         orientation: draft.orientation,
         is_dual_template: isDualTemplate,
-        preview_image_file: previewImageFile || undefined
+        preview_image_file: previewImageFile || undefined,
+        status: statusValue // CRITICAL: Always include status to ensure it's updated in database
       };
+      
+      console.log('📤 Template data to update (including status):', JSON.stringify(templateData, null, 2));
 
       // Add appropriate image files based on mode
       if (isDualTemplate) {
@@ -220,7 +270,35 @@ export default function TemplatesPage() {
         templateData.image_file = imageFile || undefined;
       }
 
-      await update(isEditOpen, templateData);
+      const updatedTemplate = await update(isEditOpen, templateData);
+      console.log('✅ Template updated, returned data:', updatedTemplate, 'with status:', updatedTemplate?.status);
+      
+      // Update draft with the latest data including status before closing
+      if (updatedTemplate && draft) {
+        setDraft({
+          ...draft,
+          ...updatedTemplate,
+          status: updatedTemplate.status || draft.status || (updatedTemplate.is_layout_configured ? "ready" : "draft")
+        });
+        console.log('✅ Draft updated with latest data, status:', updatedTemplate.status);
+      }
+      
+      // Force refresh templates to ensure we have the latest data including status
+      // Clear cache first, then small delay to ensure database is updated before refresh
+      if (typeof window !== 'undefined') {
+        try {
+          const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
+          dataCache.delete(CACHE_KEYS.TEMPLATES);
+          console.log('✅ Cache cleared before refresh');
+        } catch (e) {
+          console.warn('⚠️ Could not clear cache:', e);
+        }
+      }
+      // Small delay to ensure database is updated before refresh
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // IMPORTANT: Use bypassCache=true to force fresh data from database
+      await refresh(true);
+      
       setIsEditOpen(null);
       setDraft(null);
       setImageFile(null);
@@ -233,8 +311,6 @@ export default function TemplatesPage() {
       setScoreImageFile(null);
       setScoreImagePreview(null);
       toast.success("Template updated successfully!");
-      // Refresh templates to show the updated template immediately
-      refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update template");
     }
@@ -249,6 +325,19 @@ export default function TemplatesPage() {
     // Find template name for better confirmation message
     const template = templates.find(t => t.id === id);
     const templateName = template?.name || 'this template';
+    
+    // Check if template is being used by any certificates
+    try {
+      const certificates = await getCertificatesByTemplate(id);
+      if (certificates && certificates.length > 0) {
+        toast.error(`Cannot delete "${templateName}" because it is being used by ${certificates.length} certificate(s). Please delete the certificates first.`);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking template usage:', error);
+      // Continue with deletion if check fails (don't block deletion)
+      toast.warning("Could not verify if template is in use. Proceeding with deletion...");
+    }
     
     const ok = await confirmToast(`Are you sure you want to delete "${templateName}"? This action cannot be undone and will also delete the associated image file.`, { confirmText: "Delete", tone: "destructive" });
   if (ok) {
@@ -377,78 +466,94 @@ export default function TemplatesPage() {
 
   return (
     <ModernLayout>
-      {/* Hero Section */}
+      {/* Main Content Section */}
       <motion.section 
-        className="relative py-6 sm:py-8 md:py-12 overflow-hidden min-h-screen"
+        className="relative -mt-4 sm:-mt-3 pb-4 sm:pb-6 overflow-hidden min-h-screen bg-gray-50 dark:bg-gray-900"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 relative">
-            <motion.div
-              variants={staggerContainer}
-              initial="hidden"
-              animate="visible"
-              className="text-center mb-16"
-            >
-              <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="mb-8"
-              >
-                <div className="inline-flex items-center justify-center w-20 h-20 gradient-primary rounded-2xl mb-6 shadow-lg">
-                  <FileText className="w-10 h-10 text-white" />
+        <div className="w-full max-w-[85rem] ml-0 lg:ml-8 xl:ml-20 mr-8 xl:mr-12 px-4 sm:px-6 relative">
+          {/* Header Section - Like Groups page */}
+          <div className="mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 w-full">
+              <div className="min-w-0 flex-shrink flex items-center gap-3">
+                <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-lg shadow-md">
+                  <Layout className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gradient mb-3 sm:mb-4">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400 break-words">
                   {t('templates.title')}
                 </h1>
-                <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-4">
-                  {t('templates.subtitle')}
-                </p>
-              </motion.div>
+              </div>
+              <div className="flex items-center gap-2">
+                {(role === "Admin" || role === "Team") && (
+                  <Button 
+                    onClick={openCreate} 
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
 
-              {/* Enhanced Search and Create */}
-              <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto mb-6 sm:mb-8"
-              >
-                <div className="relative flex-1 w-full">
-                  <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+          {/* Main Content Card - Like Groups page - Centered */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6 sm:p-8 lg:p-10 max-w-full">
+            {/* Search Bar - Inside Card */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <Input 
-                    placeholder={t('templates.search')} 
-                    className="pl-10 sm:pl-12 h-10 sm:h-12 rounded-lg sm:rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 text-sm sm:text-base" 
+                    placeholder="Cari template..." 
+                    className="pl-10 h-10 rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 text-sm bg-white dark:bg-gray-800" 
                     value={query} 
                     onChange={(e) => setQuery(e.target.value)} 
                   />
                 </div>
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full sm:w-56 h-10 sm:h-12 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                <Button
+                  type="button"
+                  variant={categoryFilter ? "default" : "outline"}
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="h-10 w-10 p-0 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0"
+                  aria-label="Toggle filters"
                 >
-                  <option value="">{t('templates.allCategories')}</option>
-                  <option value="MoU">MoU</option>
-                  <option value="Magang">Magang</option>
-                  <option value="Pelatihan">Pelatihan</option>
-                  <option value="Kunjungan Industri">Kunjungan Industri</option>
-                  <option value="Sertifikat">Sertifikat</option>
-                  <option value="Surat">Surat</option>
-                  <option value="Lainnya">Lainnya</option>
-                </select>
-                {(role === "Admin" || role === "Team") && (
-                  <Button 
-                    onClick={openCreate} 
-                    className="h-10 sm:h-12 px-4 sm:px-6 md:px-8 gradient-primary text-white rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 w-full sm:w-auto text-sm sm:text-base"
-                  >
-                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                    {t('templates.create')}
-                  </Button>
-                )}
-              </motion.div>
-            </motion.div>
+                  <Filter className="w-4 h-4" />
+                  {categoryFilter && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full" />
+                  )}
+                </Button>
+              </div>
+
+              {/* Filter Panel */}
+              {showFilters && (
+                <div className="mt-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Category
+                      </label>
+                      <select
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        <option value="">All Categories</option>
+                        <option value="MoU">MoU</option>
+                        <option value="Magang">Magang</option>
+                        <option value="Pelatihan">Pelatihan</option>
+                        <option value="Kunjungan Industri">Kunjungan Industri</option>
+                        <option value="Sertifikat">Sertifikat</option>
+                        <option value="Surat">Surat</option>
+                        <option value="Lainnya">Lainnya</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Loading State */}
             {loading && (
@@ -494,176 +599,192 @@ export default function TemplatesPage() {
               </motion.div>
             )}
 
-            {/* Templates Grid */}
-            {!loading && !error && (
+            {/* Results Count */}
+            {!loading && !error && filtered.length > 0 && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Found {filtered.length} template{filtered.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
+
+            {/* Templates Grid - 3 Columns like /search */}
+            {!loading && !error && filtered.length > 0 && (
             <motion.div 
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-2.5 sm:gap-x-3 gap-y-3 sm:gap-y-4 max-w-full"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
             >
-                {filtered.map((tpl) => (
+              {filtered.map((tpl, index) => (
                 <motion.div
                   key={tpl.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  whileHover={{ scale: 1.02, y: -5 }}
+                  whileHover={{ scale: 1.01, y: -2 }}
+                  className="max-w-full"
                 >
-                  <Card className="h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group overflow-hidden">
-                    {/* Template Preview (uniform 16:9 frame so cards have equal height) */}
-                    <div className="relative aspect-video bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-b border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div
+                    onClick={() => openPreview(tpl)}
+                    className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[200px] will-change-transform w-full"
+                  >
+                    {/* Template Thumbnail - Left Side */}
+                    <div className="relative w-[160px] h-[200px] flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
                       {getTemplatePreviewUrl(tpl) && !failedImages.has(tpl.id) ? (
-                        <div className="absolute inset-0 dark:bg-gray-800">
+                        <>
                           <Image 
                             src={getTemplatePreviewUrl(tpl)!}
                             alt={tpl.name}
                             fill
-                            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                            className="object-contain dark:opacity-90 dark:brightness-95"
-                            loading={filtered.indexOf(tpl) < 6 ? "eager" : "lazy"}
-                            fetchPriority={filtered.indexOf(tpl) < 6 ? "high" : "auto"}
-                            decoding="async"
+                            sizes="160px"
+                            className="object-contain group-hover:scale-105 transition-transform duration-200 ease-in-out will-change-transform dark:opacity-90 dark:brightness-95"
+                            loading={index < 3 ? "eager" : "lazy"}
+                            priority={index < 3}
                             unoptimized
-                            onError={() => {
-                              // Mark image as failed and show fallback
+                            onError={(e) => {
+                              console.error('Image failed to load:', getTemplatePreviewUrl(tpl));
                               setFailedImages(prev => new Set(prev).add(tpl.id));
                             }}
                           />
-                        </div>
-                      ) : (
-                        <>
-                          <div className={`absolute inset-0 bg-gradient-to-br ${getCategoryColor(tpl.category)} opacity-10`}></div>
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-center">
-                              <Layout className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                              <div className="text-sm font-medium text-gray-600 dark:text-gray-300">{tpl.orientation}</div>
-                            </div>
-                          </div>
                         </>
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="text-center">
+                            <Layout className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                            <div className="text-xs font-medium text-gray-600 dark:text-gray-300">{tpl.orientation}</div>
+                          </div>
+                        </div>
                       )}
-                      {/* Category Badge */}
-                      <div className={`absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white text-xs font-medium shadow-lg`}>
-                        {tpl.category}
-                      </div>
-                      {/* Layout Status Badge */}
-                      <div className="absolute top-3 left-3">
-                        {tpl.is_layout_configured ? (
-                          <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white shadow-md">
+                      {/* Status Badge - Top Left */}
+                      <div className="absolute top-2 left-2 z-10">
+                        {/* CRITICAL: Only use is_layout_configured as fallback if status is truly undefined/null/empty */}
+                        {/* If status exists (even if empty string), use it directly */}
+                        {(tpl.status === "ready" || ((tpl.status === undefined || tpl.status === null || tpl.status === '') && tpl.is_layout_configured)) ? (
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white text-xs shadow-sm px-1.5 py-0.5">
                             ✓ Ready
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white shadow-md">
-                            ⚠ Not Configured
+                          <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs shadow-sm px-1.5 py-0.5">
+                            Draft
                           </Badge>
                         )}
                       </div>
                     </div>
 
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {tpl.name}
-                      </CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-1">
-                          <Layout className="w-4 h-4" />
-                          {tpl.orientation}
+                    {/* Template Info - Right Side */}
+                    <div className="flex-1 flex flex-col justify-between min-w-0 p-4 w-full">
+                      {/* Top Section - Title and Metadata */}
+                      <div className="min-w-0 flex-1 w-full flex flex-col">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2 w-full text-left">
+                          {tpl.name}
+                        </h3>
+                        {/* Category Badge - Moved from thumbnail */}
+                        <div className="mb-2 w-full text-left">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white shadow-sm`}>
+                            {tpl.category}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Palette className="w-4 h-4" />
-                          {tpl.category}
+                        {/* Metadata - Vertical Layout */}
+                        <div className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400 w-full text-left">
+                          <div className="flex items-center gap-1.5">
+                            <Layout className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="font-medium">{tpl.orientation}</span>
+                          </div>
+                          {tpl.created_at && (
+                            <div className="text-gray-500 dark:text-gray-400">
+                              {new Date(tpl.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </CardHeader>
-
-                    <CardContent className="pt-0">
-                      <div className="space-y-2">
-                        <Button 
-                          variant="outline" 
-                          className="w-full border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200" 
-                          onClick={() => openPreview(tpl)}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          {t('templates.preview')}
-                        </Button>
-                        
-                        {(role === "Admin" || role === "Team") && (
+                      
+                      {/* Bottom Section - Action Buttons */}
+                      {(role === "Admin" || role === "Team") && (
+                        <div className="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100 dark:border-gray-700 w-full">
                           <Button 
-                            className="w-full gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300" 
-                            onClick={() => {
-                              if (role === "Admin" || role === "Team") {
-                                router.push(`/templates/configure?template=${tpl.id}`);
-                              }
+                            size="sm"
+                            className="h-8 px-3 text-xs font-medium gradient-primary text-white shadow-sm hover:shadow-md transition-all duration-300 flex-shrink-0" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/templates/configure?template=${tpl.id}`);
                             }}
                           >
-                            <Settings className="w-4 h-4 mr-2" />
-                            Configure Layout
+                            <Settings className="w-3.5 h-3.5 mr-1.5" />
+                            Configure
                           </Button>
-                        )}
-
-                        {(role === "Admin" || role === "Team") && (
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="flex-1 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20" 
-                              onClick={() => openEdit(tpl)}
-                            >
-                              <Edit className="w-4 h-4 mr-1" />
-                              {t('common.edit')}
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className={`flex-1 border-gray-200 dark:border-gray-700 ${canDelete ? 'hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' : 'opacity-50 cursor-not-allowed'}`}
-                              onClick={() => canDelete && requestDelete(tpl.id)}
-                              disabled={!canDelete || deletingTemplateId === tpl.id}
-                            >
-                              {deletingTemplateId === tpl.id ? (
-                                <>
-                                  <div className="w-4 h-4 mr-1 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
-                                  {t('templates.deleting')}
-                                </>
-                              ) : (
-                                <>
-                                  <Trash2 className="w-4 h-4 mr-1" />
-                                  {t('common.delete')}
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="h-8 w-8 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-shrink-0" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(tpl);
+                            }}
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className={`h-8 w-8 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 ${canDelete && !templateUsageMap.has(tpl.id) ? 'hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' : 'opacity-50 cursor-not-allowed'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canDelete && !templateUsageMap.has(tpl.id)) {
+                                requestDelete(tpl.id);
+                              } else if (templateUsageMap.has(tpl.id)) {
+                                const count = templateUsageMap.get(tpl.id) || 0;
+                                toast.error(`Cannot delete "${tpl.name}" because it is being used by ${count} certificate(s). Please delete the certificates first.`);
+                              }
+                            }}
+                            disabled={!canDelete || deletingTemplateId === tpl.id || templateUsageMap.has(tpl.id)}
+                            title={templateUsageMap.has(tpl.id) ? `This template is being used by ${templateUsageMap.get(tpl.id)} certificate(s)` : undefined}
+                          >
+                            {deletingTemplateId === tpl.id ? (
+                              <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </motion.div>
-                ))}
-              </motion.div>
-            )}
+              ))}
+            </motion.div>
+          )}
 
             {/* Empty State */}
             {!loading && !error && filtered.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-center py-16"
+                className="p-12 sm:p-16"
               >
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FileText className="w-12 h-12 text-gray-400" />
+                <div className="text-center max-w-md mx-auto">
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-6">
+                    <FileText className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    Belum ada template
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Buat template sertifikat pertama Anda untuk memulai
+                  </p>
+                  {(role === "Admin" || role === "Team") && (
+                    <Button 
+                      onClick={openCreate} 
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                    >
+                      <Plus className="w-5 h-5 mr-2" />
+                      {t('templates.createNew')}
+                    </Button>
+                  )}
                 </div>
-                <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('templates.noTemplates')}</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">{t('templates.subtitle')}</p>
-                {(role === "Admin" || role === "Team") && (
-                  <Button 
-                    onClick={openCreate} 
-                    className="gradient-primary text-white shadow-lg hover:shadow-xl"
-                  >
-                    <Plus className="w-5 h-5 mr-2" />
-                    {t('templates.createNew')}
-                  </Button>
-                )}
               </motion.div>
             )}
+          </div>
         </div>
       </motion.section>
 
@@ -755,7 +876,7 @@ export default function TemplatesPage() {
                   className="rounded-lg"
                 >
                   <FileText className="w-4 h-4 mr-2" />
-                  Single Template
+                  Single Side
                 </Button>
                 <Button 
                   variant={isDualTemplate ? "default" : "outline"} 
@@ -763,7 +884,7 @@ export default function TemplatesPage() {
                   className="rounded-lg"
                 >
                   <Layout className="w-4 h-4 mr-2" />
-                  Dual Template
+                  Double Side
                 </Button>
               </div>
               {isDualTemplate && (
@@ -1040,6 +1161,33 @@ export default function TemplatesPage() {
                   </div>
                 </motion.div>
 
+                {/* Status */}
+                <motion.div 
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.22 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Status</label>
+                  <select 
+                    value={(draft?.status !== undefined && draft?.status !== null && draft?.status !== '') 
+                      ? draft.status 
+                      : (draft?.is_layout_configured ? "ready" : "draft")} 
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      setDraft((d) => {
+                        const updated = d ? { ...d, status: newStatus } : null;
+                        console.log('📝 Status changed to:', newStatus, 'updated draft:', updated);
+                        return updated;
+                      });
+                    }} 
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="ready">Ready</option>
+                  </select>
+                </motion.div>
+
                 {/* Dual Template Mode Selector */}
                 <motion.div 
                   className="space-y-3"
@@ -1055,7 +1203,7 @@ export default function TemplatesPage() {
                       className="rounded-lg"
                     >
                       <FileText className="w-4 h-4 mr-2" />
-                      Single Template
+                      Single Side
                     </Button>
                     <Button 
                       variant={isDualTemplate ? "default" : "outline"} 
@@ -1063,11 +1211,11 @@ export default function TemplatesPage() {
                       className="rounded-lg"
                     >
                       <Layout className="w-4 h-4 mr-2" />
-                      Dual Template
+                      Double Side
                     </Button>
                   </div>
                   {isDualTemplate && (
-                    <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+                    <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg">
                       Dual templates support both certificate and score views. You will need to upload both images.
                     </p>
                   )}
@@ -1086,29 +1234,29 @@ export default function TemplatesPage() {
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Template Image</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {imagePreview ? (
-                          <div className="relative w-full h-40">
+                          <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                             <Image
                               src={imagePreview}
                               alt="New template image"
                               fill
-                              className="object-contain bg-gray-50"
+                              className="object-contain"
                               unoptimized
                             />
                           </div>
                         ) : (
                           <>
                             {draft && getTemplatePreviewUrl(draft as Template) ? (
-                              <div className="relative w-full h-40">
+                              <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                                 <Image
                                   src={getTemplatePreviewUrl(draft as Template)!}
                                   alt="Current template"
                                   fill
-                                  className="object-contain bg-gray-50"
+                                  className="object-contain"
                                   unoptimized
                                 />
                               </div>
                             ) : (
-                              <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                              <div className="w-full h-40 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800">
                                 <Layout className="w-6 h-6 mr-2" />
                                 No template image
                               </div>
@@ -1131,7 +1279,7 @@ export default function TemplatesPage() {
                           type="file"
                           accept=".png,.jpg,.jpeg"
                           onChange={(e) => handleImageUpload(e.target.files?.[0] || null)}
-                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
+                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 dark:file:bg-indigo-900/30 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/50 cursor-pointer"
                         />
                         {imagePreview && (
                           <Button
@@ -1162,29 +1310,29 @@ export default function TemplatesPage() {
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Certificate Image (Front)</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {certificateImagePreview ? (
-                          <div className="relative w-full h-40">
+                          <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                             <Image
                               src={certificateImagePreview}
                               alt="New certificate image"
                               fill
-                              className="object-contain bg-gray-50"
+                              className="object-contain"
                               unoptimized
                             />
                           </div>
                         ) : (
                           <>
                             {draft && (draft as Template).certificate_image_url ? (
-                              <div className="relative w-full h-40">
+                              <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                                 <Image
                                   src={`${(draft as Template).certificate_image_url}?v=${Date.now()}`}
                                   alt="Current certificate"
                                   fill
-                                  className="object-contain bg-gray-50"
+                                  className="object-contain"
                                   unoptimized
                                 />
                               </div>
                             ) : (
-                              <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                              <div className="w-full h-40 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800">
                                 <Layout className="w-6 h-6 mr-2" />
                                 No certificate image
                               </div>
@@ -1207,7 +1355,7 @@ export default function TemplatesPage() {
                           type="file"
                           accept=".png,.jpg,.jpeg"
                           onChange={(e) => handleCertificateImageUpload(e.target.files?.[0] || null)}
-                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
+                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 cursor-pointer"
                         />
                         {certificateImagePreview && (
                           <Button
@@ -1233,29 +1381,29 @@ export default function TemplatesPage() {
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Score Image (Back)</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                         {scoreImagePreview ? (
-                          <div className="relative w-full h-40">
+                          <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                             <Image
                               src={scoreImagePreview}
                               alt="New score image"
                               fill
-                              className="object-contain bg-gray-50"
+                              className="object-contain"
                               unoptimized
                             />
                           </div>
                         ) : (
                           <>
                             {draft && (draft as Template).score_image_url ? (
-                              <div className="relative w-full h-40">
+                              <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                                 <Image
                                   src={`${(draft as Template).score_image_url}?v=${Date.now()}`}
                                   alt="Current score"
                                   fill
-                                  className="object-contain bg-gray-50"
+                                  className="object-contain"
                                   unoptimized
                                 />
                               </div>
                             ) : (
-                              <div className="w-full h-40 flex items-center justify-center text-gray-400 bg-gray-50">
+                              <div className="w-full h-40 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800">
                                 <Layout className="w-6 h-6 mr-2" />
                                 No score image
                               </div>
@@ -1278,7 +1426,7 @@ export default function TemplatesPage() {
                           type="file"
                           accept=".png,.jpg,.jpeg"
                           onChange={(e) => handleScoreImageUpload(e.target.files?.[0] || null)}
-                          className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 dark:file:bg-green-900/30 file:text-green-700 dark:file:text-green-300 hover:file:bg-green-100 dark:hover:file:bg-green-900/50 cursor-pointer"
                         />
                         {scoreImagePreview && (
                           <Button
@@ -1306,29 +1454,29 @@ export default function TemplatesPage() {
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Preview Image (Thumbnail)</label>
                   <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                     {previewImagePreview ? (
-                      <div className="relative w-full h-32">
+                      <div className="relative w-full h-32 bg-gray-50 dark:bg-gray-800">
                         <Image
                           src={previewImagePreview}
                           alt="New preview image"
                           fill
-                          className="object-contain bg-gray-50"
+                          className="object-contain"
                           unoptimized
                         />
                       </div>
                     ) : (
                       <>
                         {draft && (draft as Template).preview_image_path ? (
-                          <div className="relative w-full h-32">
+                          <div className="relative w-full h-32 bg-gray-50 dark:bg-gray-800">
                             <Image
                               src={`${(draft as Template).preview_image_path}?v=${Date.now()}`}
                               alt="Current preview"
                               fill
-                              className="object-contain bg-gray-50"
+                              className="object-contain"
                               unoptimized
                             />
                           </div>
                         ) : (
-                          <div className="w-full h-32 flex items-center justify-center text-gray-400 bg-gray-50">
+                          <div className="w-full h-32 flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800">
                             <Layout className="w-6 h-6 mr-2" />
                             No preview image
                           </div>
@@ -1351,7 +1499,7 @@ export default function TemplatesPage() {
                       type="file"
                       accept=".png,.jpg,.jpeg"
                       onChange={(e) => handlePreviewImageUpload(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                      className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 dark:file:bg-purple-900/30 file:text-purple-700 dark:file:text-purple-300 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/50 cursor-pointer"
                     />
                     {previewImagePreview && (
                       <Button
@@ -1394,59 +1542,137 @@ export default function TemplatesPage() {
             </SheetContent>
           </Sheet>
 
-          {/* Template Preview Sheet */}
-          <Sheet open={!!previewTemplate} onOpenChange={(o) => setPreviewTemplate(o ? previewTemplate : null)}>
-            <SheetContent side="right" className="w-full sm:max-w-2xl">
-              <SheetHeader>
-                <SheetTitle className="text-xl font-bold text-gradient">{t('templates.preview')}</SheetTitle>
-                <SheetDescription>Preview the selected template.</SheetDescription>
-              </SheetHeader>
-              <div className="p-4 space-y-6">
-                <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
-                  {previewTemplate && getTemplatePreviewUrl(previewTemplate) ? (
-                    <div className="relative w-full aspect-video bg-gray-50 dark:bg-gray-800">
-                      <Image
-                        src={getTemplatePreviewUrl(previewTemplate)!}
-                        alt={previewTemplate.name}
-                        fill
-                        className="object-contain dark:opacity-90 dark:brightness-95"
-                        unoptimized
-                      />
+          {/* Template Preview Modal */}
+          <Dialog open={!!previewTemplate} onOpenChange={(o) => setPreviewTemplate(o ? previewTemplate : null)}>
+            <DialogContent 
+              className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-0"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setPreviewTemplate(null);
+                }
+              }}
+            >
+              <DialogHeader className="space-y-1 sm:space-y-1.5 flex-shrink-0 pb-2 sm:pb-4 px-4 sm:px-6 pt-4 sm:pt-6 border-b border-gray-200 dark:border-gray-700">
+                <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {t('templates.preview') || 'Template Preview'}
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="flex-1 overflow-y-auto">
+                {previewTemplate && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                    {/* Preview Image - Left Side */}
+                    <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
+                      {getTemplatePreviewUrl(previewTemplate) ? (
+                        <div className="relative w-full aspect-auto bg-gray-100 dark:bg-gray-900 rounded-lg">
+                          <Image
+                            src={getTemplatePreviewUrl(previewTemplate)!}
+                            alt={previewTemplate.name}
+                            width={800}
+                            height={600}
+                            className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 transition-transform duration-200"
+                            style={{
+                              backgroundColor: 'transparent',
+                            }}
+                            priority
+                            unoptimized
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
+                          <div className="text-center">
+                            <Layout className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                            <p className="text-sm">No preview image</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="w-full aspect-video flex items-center justify-center text-gray-400 bg-gray-50">
-                      <Layout className="w-6 h-6 mr-2" />
-                      No preview image
-                    </div>
-                  )}
-                </div>
 
-                <div className="flex justify-end gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="border-gray-300 hover:border-gray-400" 
-                    onClick={() => setPreviewTemplate(null)}
-                    size="icon"
-                    aria-label="Close"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                  {(role === "Admin" || role === "Team") && previewTemplate && (
-                    <Button 
-                      className="gradient-primary text-white shadow-lg hover:shadow-xl" 
-                      onClick={() => {
-                        router.push(`/templates/configure?template=${previewTemplate.id}`);
-                        setPreviewTemplate(null);
-                      }}
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Configure Layout
-                    </Button>
-                  )}
-                </div>
+                    {/* Template Info - Right Side */}
+                    <div className="p-4 sm:p-6">
+                      <div className="space-y-2">
+                        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Template Name:</div>
+                        <div className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                          {previewTemplate.name}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 space-y-1 text-xs sm:text-sm">
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Category:</span>{' '}
+                          <Badge className={`ml-2 bg-gradient-to-r ${getCategoryColor(previewTemplate.category)} text-white text-xs`}>
+                            {previewTemplate.category}
+                          </Badge>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Orientation:</span>{' '}
+                          <span className="text-gray-900 dark:text-gray-100 font-medium">{previewTemplate.orientation}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Status:</span>{' '}
+                          {(previewTemplate.status === "ready" || ((previewTemplate.status === undefined || previewTemplate.status === null || previewTemplate.status === '') && previewTemplate.is_layout_configured)) ? (
+                            <Badge className="ml-2 bg-green-500 hover:bg-green-600 text-white text-xs">
+                              ✓ Ready
+                            </Badge>
+                          ) : (
+                            <Badge className="ml-2 bg-yellow-500 hover:bg-yellow-600 text-white text-xs">
+                              Draft
+                            </Badge>
+                          )}
+                        </div>
+                        {previewTemplate.created_at && (
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">Created:</span>{' '}
+                            <span className="text-gray-900 dark:text-gray-100">
+                              {new Date(previewTemplate.created_at).toLocaleDateString('en-US', { 
+                                day: 'numeric', 
+                                month: 'short', 
+                                year: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        )}
+                        {previewTemplate.is_dual_template && (
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">Type:</span>{' '}
+                            <span className="text-gray-900 dark:text-gray-100 font-medium">Double-sided (Certificate + Score)</span>
+                          </div>
+                        )}
+                        {templateUsageMap.has(previewTemplate.id) && (
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">Usage:</span>{' '}
+                            <span className="text-gray-900 dark:text-gray-100 font-medium">
+                              Used by {templateUsageMap.get(previewTemplate.id)} certificate(s)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">
+                        {(role === "Admin" || role === "Team") && previewTemplate && (
+                          <Button 
+                            className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300" 
+                            onClick={() => {
+                              router.push(`/templates/configure?template=${previewTemplate.id}`);
+                              setPreviewTemplate(null);
+                            }}
+                          >
+                            <Settings className="w-4 h-4 mr-2" />
+                            Configure Layout
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </SheetContent>
-          </Sheet>
+            </DialogContent>
+          </Dialog>
 
     {/* Toast Notifications */}
     <Toaster position="top-right" richColors />

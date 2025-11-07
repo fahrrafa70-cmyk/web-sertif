@@ -48,7 +48,7 @@ const ModernSidebar = memo(function ModernSidebar() {
     },
     {
       icon: <Users className="w-5 h-5" />,
-      label: "Members",
+      label: "Data",
       href: "/members",
       roles: ["admin", "team"],
     },

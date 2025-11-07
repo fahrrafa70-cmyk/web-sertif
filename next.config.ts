@@ -23,6 +23,12 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  // Remove console.log in production (keep error and warn)
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'], // Keep errors and warnings for debugging
+    } : false,
+  },
   // Optimize bundle size
   experimental: {
     optimizePackageImports: [

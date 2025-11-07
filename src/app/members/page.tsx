@@ -146,9 +146,9 @@ export default function MembersPage() {
           await loadMembers();
           
           if (successCount > 0) {
-            toast.success(`Successfully imported ${successCount} member(s)${errorCount > 0 ? `, ${errorCount} failed` : ""}`);
+            toast.success(`Successfully imported ${successCount} data${errorCount > 0 ? `, ${errorCount} failed` : ""}`);
           } else {
-            toast.error(`Failed to import members. ${errorCount} error(s)`);
+            toast.error(`Failed to import data. ${errorCount} error(s)`);
           }
         } catch (error) {
           console.error("Error processing Excel:", error);
@@ -326,7 +326,7 @@ export default function MembersPage() {
     const member = membersData.find(m => m.id === id);
     if (!member) return;
     
-    const confirmed = confirm(`Are you sure you want to delete member "${member.name}"? This action cannot be undone.`);
+    const confirmed = confirm(`Are you sure you want to delete data "${member.name}"? This action cannot be undone.`);
     if (!confirmed) return;
     
     try {
@@ -338,7 +338,7 @@ export default function MembersPage() {
       setMembersData(prev => prev.filter(m => m.id !== id));
       toast.success(t('members.deleteSuccess'));
     } catch (error) {
-      console.error("Failed to delete member:", error);
+      console.error("Failed to delete data:", error);
       toast.error(error instanceof Error ? error.message : t('members.deleteFailed'));
     } finally {
       setDeleting(null);
@@ -431,7 +431,6 @@ export default function MembersPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 w-full">
                 <div className="min-w-0 flex-shrink">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] break-words">{t('members.title')}</h1>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base break-words">{t('members.subtitle')}</p>
                 </div>
               {(role === "Admin" || role === "Team") && (
                 <div className="flex gap-2">
@@ -441,7 +440,7 @@ export default function MembersPage() {
                     className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
                   >
                     <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    {importing ? t('members.excel.importing') : t('members.excel.importExcel')}
+                    {importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}
                   </Button>
                   <input
                     ref={excelInputRef}
@@ -451,7 +450,7 @@ export default function MembersPage() {
                     className="hidden"
                   />
                   <Button onClick={() => setShowForm((s) => !s)} className="gradient-primary text-white">
-                    {showForm ? t('common.close') : t('members.addMember')}
+                    {showForm ? t('common.close') : language === 'id' ? 'Tambah Data' : 'Add Data'}
                   </Button>
                 </div>
               )}
@@ -461,7 +460,7 @@ export default function MembersPage() {
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
-                  placeholder="Search members by name, email, organization..."
+                  placeholder="Search data by name, email, organization..."
                   className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm placeholder:text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -517,7 +516,7 @@ export default function MembersPage() {
                 </div>
                 <div className="flex items-end lg:col-span-3">
                   <Button type="submit" disabled={adding} className="gradient-primary text-white">
-                    {adding ? t('members.adding') : t('common.save')}
+                    {adding ? (language === 'id' ? 'Menambahkan...' : 'Adding...') : t('common.save')}
                   </Button>
                 </div>
               </motion.form>
@@ -567,7 +566,7 @@ export default function MembersPage() {
               </motion.div>
             )}
 
-            {/* Members Table */}
+            {/* Data Table */}
             {!loading && !error && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }} 
@@ -621,7 +620,7 @@ export default function MembersPage() {
                                 onClick={() => deleteMember(m.id)}
                                 disabled={deleting === m.id}
                               >
-                                {deleting === m.id ? t('members.deleting') : t('common.delete')}
+                                {deleting === m.id ? (language === 'id' ? 'Menghapus...' : 'Deleting...') : t('common.delete')}
                               </Button>
                             )}
                           </div>
@@ -655,7 +654,7 @@ export default function MembersPage() {
                                     onClick={() => setShowForm(true)}
                                     className="text-blue-600 hover:text-blue-700 font-medium"
                                   >
-                                    {t('members.addMember')}
+                                    {language === 'id' ? 'Tambah Data' : 'Add Data'}
                                   </button>
                                 )}
                               </>
@@ -674,7 +673,7 @@ export default function MembersPage() {
             {!loading && !error && filteredMembers.length > 0 && (
               <div className="flex flex-row justify-between items-center gap-2 mt-4 px-2">
                 <div className="text-sm text-gray-500 flex-shrink-0">
-                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredMembers.length)} of {filteredMembers.length} members
+                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredMembers.length)} of {filteredMembers.length} data
                   {searchQuery && <span className="ml-1 text-gray-400 hidden sm:inline">(filtered from {membersData.length})</span>}
                 </div>
                 {/* Mobile: Compact pagination with chevron only */}
@@ -732,7 +731,7 @@ export default function MembersPage() {
               <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
                 <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('members.editMember')}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === 'id' ? 'Edit Data' : 'Edit Data'}</h3>
                     <Button variant="outline" onClick={() => setEditOpen(false)} size="icon" aria-label="Close">
                       <X className="w-4 h-4" />
                     </Button>
@@ -776,7 +775,7 @@ export default function MembersPage() {
                     </div>
                     <div className="flex items-end">
                       <Button type="submit" disabled={editSaving} className="gradient-primary text-white">
-                        {editSaving ? t('members.saving') : t('members.saveChanges')}
+                        {editSaving ? (language === 'id' ? 'Menyimpan...' : 'Saving...') : (language === 'id' ? 'Simpan Perubahan' : 'Save Changes')}
                       </Button>
                     </div>
                   </form>
