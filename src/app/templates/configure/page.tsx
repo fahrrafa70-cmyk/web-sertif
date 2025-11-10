@@ -163,6 +163,12 @@ function ConfigureLayoutContent() {
               
               setCertificateTextLayers(migratedLayers);
               console.log('✅ Normalized certificate layers to template dimensions:', dimensions);
+              
+              // Load photo layers for certificate mode
+              if (layout.certificate.photoLayers && layout.certificate.photoLayers.length > 0) {
+                setCertificatePhotoLayers(layout.certificate.photoLayers);
+                console.log('📸 Loaded', layout.certificate.photoLayers.length, 'certificate photo layers');
+              }
             }
           };
           
@@ -212,6 +218,12 @@ function ConfigureLayoutContent() {
               
               setCertificateTextLayers(migratedLayers);
               console.log('✅ Normalized certificate layers (cached image)');
+              
+              // Load photo layers for certificate mode (cached)
+              if (layout.certificate.photoLayers && layout.certificate.photoLayers.length > 0) {
+                setCertificatePhotoLayers(layout.certificate.photoLayers);
+                console.log('📸 Loaded', layout.certificate.photoLayers.length, 'certificate photo layers (cached)');
+              }
             }
           }
         }
@@ -253,6 +265,12 @@ function ConfigureLayoutContent() {
               
               setScoreTextLayers(normalizedLayers);
               console.log('✅ Normalized score layers to template dimensions:', dimensions);
+              
+              // Load photo layers for score mode
+              if (layout.score.photoLayers && layout.score.photoLayers.length > 0) {
+                setScorePhotoLayers(layout.score.photoLayers);
+                console.log('📸 Loaded', layout.score.photoLayers.length, 'score photo layers');
+              }
             }
           };
           
@@ -293,6 +311,12 @@ function ConfigureLayoutContent() {
               
               setScoreTextLayers(normalizedLayers);
               console.log('✅ Normalized score layers (cached image)');
+              
+              // Load photo layers for score mode (cached)
+              if (layout.score.photoLayers && layout.score.photoLayers.length > 0) {
+                setScorePhotoLayers(layout.score.photoLayers);
+                console.log('📸 Loaded', layout.score.photoLayers.length, 'score photo layers (cached)');
+              }
             }
           }
         }
@@ -691,6 +715,58 @@ function ConfigureLayoutContent() {
       const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
       setter(prev => prev.map(l => 
         l.id === layerId ? { ...l, ...updates } : l
+      ));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle photo layer drag
+  const handlePhotoLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedPhotoLayerId(layerId);
+    
+    const layer = photoLayers.find(l => l.id === layerId);
+    if (!layer || !canvasRef.current) return;
+
+    // Get actual container dimensions and calculate scale
+    const containerRect = canvasRef.current.getBoundingClientRect();
+    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+    
+    // Use canvasScale for mouse coordinate conversion
+    const actualScale = canvasScale;
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLayerX = layer.x;
+    const startLayerY = layer.y;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      // Convert mouse delta to template coordinates using actual scale
+      const deltaX = (moveEvent.clientX - startX) / actualScale;
+      const deltaY = (moveEvent.clientY - startY) / actualScale;
+      
+      const newX = Math.max(0, Math.min(templateWidth, startLayerX + deltaX));
+      const newY = Math.max(0, Math.min(templateHeight, startLayerY + deltaY));
+
+      const setter = configMode === 'certificate' ? setCertificatePhotoLayers : setScorePhotoLayers;
+      setter(prev => prev.map(l => 
+        l.id === layerId 
+          ? { 
+              ...l, 
+              x: Math.round(newX), 
+              y: Math.round(newY),
+              xPercent: newX / templateWidth,
+              yPercent: newY / templateHeight
+            }
+          : l
       ));
     };
 
@@ -1474,6 +1550,92 @@ function ConfigureLayoutContent() {
                     </div>
                   );
                 })}
+
+                {/* Photo Layers - Rendered with z-index sorting */}
+                {photoLayers
+                  .sort((a, b) => a.zIndex - b.zIndex)
+                  .map(layer => {
+                    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                    
+                    // Calculate position (percentage-based)
+                    const leftPercent = layer.xPercent * 100;
+                    const topPercent = layer.yPercent * 100;
+                    
+                    // Calculate size (percentage-based)
+                    const widthPercent = layer.widthPercent * 100;
+                    const heightPercent = layer.heightPercent * 100;
+                    
+                    const isSelected = selectedPhotoLayerId === layer.id;
+                    
+                    // Mask styles
+                    const getMaskStyle = () => {
+                      if (!layer.mask || layer.mask.type === 'none') return {};
+                      if (layer.mask.type === 'circle') return { borderRadius: '50%' };
+                      if (layer.mask.type === 'ellipse') return { borderRadius: '50%' };
+                      if (layer.mask.type === 'roundedRect') {
+                        return { borderRadius: layer.mask.borderRadius ? `${layer.mask.borderRadius}px` : '8px' };
+                      }
+                      return {};
+                    };
+                    
+                    return (
+                      <div
+                        key={layer.id}
+                        className="absolute"
+                        style={{
+                          left: `${leftPercent}%`,
+                          top: `${topPercent}%`,
+                          width: `${widthPercent}%`,
+                          height: `${heightPercent}%`,
+                          transform: `rotate(${layer.rotation}deg)`,
+                          opacity: layer.opacity,
+                          zIndex: layer.zIndex,
+                          cursor: isSelected ? 'move' : 'pointer'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPhotoLayerId(layer.id);
+                        }}
+                        onMouseDown={(e) => {
+                          if (!isSelected) {
+                            e.stopPropagation();
+                            setSelectedPhotoLayerId(layer.id);
+                          } else {
+                            handlePhotoLayerMouseDown(layer.id, e);
+                          }
+                        }}
+                      >
+                        <img
+                          src={layer.src}
+                          alt={layer.id}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: layer.fitMode,
+                            ...getMaskStyle(),
+                            userSelect: 'none',
+                            pointerEvents: 'none'
+                          }}
+                          draggable={false}
+                        />
+                        
+                        {/* Selection ring (purple for photos) */}
+                        {isSelected && (
+                          <div 
+                            style={{
+                              position: 'absolute',
+                              inset: -2,
+                              border: '2px solid #a855f7',
+                              borderRadius: layer.mask?.type === 'circle' || layer.mask?.type === 'ellipse' ? '50%' : 
+                                          layer.mask?.type === 'roundedRect' ? '8px' : '0',
+                              pointerEvents: 'none'
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1719,30 +1881,40 @@ function ConfigureLayoutContent() {
                       {/* Position */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-xs">X Position (%)</Label>
+                          <Label className="text-xs">X Position (px)</Label>
                           <Input
                             type="number"
                             min="0"
-                            max="100"
+                            max={templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}
                             step="1"
-                            value={Math.round(selectedPhoto.xPercent * 100)}
-                            onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
-                              xPercent: Number(e.target.value) / 100 
-                            })}
+                            value={Math.round(selectedPhoto.xPercent * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH))}
+                            onChange={(e) => {
+                              const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                              const xPx = Number(e.target.value);
+                              updatePhotoLayer(selectedPhoto.id, { 
+                                x: xPx,
+                                xPercent: xPx / templateWidth
+                              });
+                            }}
                             className="h-8 text-xs"
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Y Position (%)</Label>
+                          <Label className="text-xs">Y Position (px)</Label>
                           <Input
                             type="number"
                             min="0"
-                            max="100"
+                            max={templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}
                             step="1"
-                            value={Math.round(selectedPhoto.yPercent * 100)}
-                            onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
-                              yPercent: Number(e.target.value) / 100 
-                            })}
+                            value={Math.round(selectedPhoto.yPercent * (templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT))}
+                            onChange={(e) => {
+                              const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                              const yPx = Number(e.target.value);
+                              updatePhotoLayer(selectedPhoto.id, { 
+                                y: yPx,
+                                yPercent: yPx / templateHeight
+                              });
+                            }}
                             className="h-8 text-xs"
                           />
                         </div>
@@ -1751,46 +1923,68 @@ function ConfigureLayoutContent() {
                       {/* Size */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-xs">Width (%)</Label>
+                          <Label className="text-xs">Width (px)</Label>
                           <Input
                             type="number"
                             min="1"
-                            max="100"
+                            max={templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}
                             step="1"
-                            value={Math.round(selectedPhoto.widthPercent * 100)}
+                            value={Math.round(selectedPhoto.widthPercent * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH))}
                             onChange={(e) => {
-                              const newWidth = Number(e.target.value) / 100;
+                              const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                              const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                              const widthPx = Number(e.target.value);
+                              const newWidthPercent = widthPx / templateWidth;
+                              
                               if (selectedPhoto.maintainAspectRatio && selectedPhoto.originalWidth && selectedPhoto.originalHeight) {
                                 const aspectRatio = selectedPhoto.originalHeight / selectedPhoto.originalWidth;
+                                const heightPx = widthPx * aspectRatio;
+                                const newHeightPercent = heightPx / templateHeight;
                                 updatePhotoLayer(selectedPhoto.id, { 
-                                  widthPercent: newWidth,
-                                  heightPercent: newWidth * aspectRatio
+                                  width: widthPx,
+                                  widthPercent: newWidthPercent,
+                                  height: heightPx,
+                                  heightPercent: newHeightPercent
                                 });
                               } else {
-                                updatePhotoLayer(selectedPhoto.id, { widthPercent: newWidth });
+                                updatePhotoLayer(selectedPhoto.id, { 
+                                  width: widthPx,
+                                  widthPercent: newWidthPercent 
+                                });
                               }
                             }}
                             className="h-8 text-xs"
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Height (%)</Label>
+                          <Label className="text-xs">Height (px)</Label>
                           <Input
                             type="number"
                             min="1"
-                            max="100"
+                            max={templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}
                             step="1"
-                            value={Math.round(selectedPhoto.heightPercent * 100)}
+                            value={Math.round(selectedPhoto.heightPercent * (templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT))}
                             onChange={(e) => {
-                              const newHeight = Number(e.target.value) / 100;
+                              const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                              const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                              const heightPx = Number(e.target.value);
+                              const newHeightPercent = heightPx / templateHeight;
+                              
                               if (selectedPhoto.maintainAspectRatio && selectedPhoto.originalWidth && selectedPhoto.originalHeight) {
                                 const aspectRatio = selectedPhoto.originalWidth / selectedPhoto.originalHeight;
+                                const widthPx = heightPx * aspectRatio;
+                                const newWidthPercent = widthPx / templateWidth;
                                 updatePhotoLayer(selectedPhoto.id, { 
-                                  heightPercent: newHeight,
-                                  widthPercent: newHeight * aspectRatio
+                                  height: heightPx,
+                                  heightPercent: newHeightPercent,
+                                  width: widthPx,
+                                  widthPercent: newWidthPercent
                                 });
                               } else {
-                                updatePhotoLayer(selectedPhoto.id, { heightPercent: newHeight });
+                                updatePhotoLayer(selectedPhoto.id, { 
+                                  height: heightPx,
+                                  heightPercent: newHeightPercent 
+                                });
                               }
                             }}
                             className="h-8 text-xs"
