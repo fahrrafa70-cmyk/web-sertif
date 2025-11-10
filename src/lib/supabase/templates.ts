@@ -152,19 +152,25 @@ export async function uploadTemplateImage(file: File): Promise<string> {
 
 // Helper function to get template image URL with cache busting
 export function getTemplateImageUrl(template: Template): string | null {
-  if (!template.image_path) {
+  // ✅ CRITICAL: Prioritize certificate_image_url (new dual template system)
+  // If certificate_image_url exists, use it instead of image_path (legacy)
+  // This ensures generate uses the same image as configure layout
+  const imagePath = template.certificate_image_url || template.image_path;
+  
+  if (!imagePath) {
     return null;
   }
   
   // Add cache busting parameter to ensure fresh images
   // Use template ID and timestamp for better cache busting
   const cacheBuster = `?v=${template.id}&t=${Date.now()}`;
-  return `${template.image_path}${cacheBuster}`;
+  return `${imagePath}${cacheBuster}`;
 }
 
 // Helper function to get template image URL without cache busting (for previews)
 export function getTemplateImageUrlStatic(template: Template): string | null {
-  return template.image_path || null;
+  // ✅ CRITICAL: Prioritize certificate_image_url (new dual template system)
+  return template.certificate_image_url || template.image_path || null;
 }
 
 // Helper function: get preview image URL (preferred), fallback to template image
