@@ -25,57 +25,25 @@ export interface RenderTextLayer {
   hasInlineFormatting?: boolean; // Whether layer uses rich text
 }
 
-/**
- * Photo Layer for Rendering
- * Supports crop, mask, fitMode like Canva/Picsart
- */
-export interface RenderPhotoLayer {
+export interface RenderImageLayer {
   id: string;
-  type: 'photo' | 'logo' | 'signature' | 'decoration';
-  src: string;
-  
-  // Position (percentage-based, fallback to absolute)
-  x?: number;
-  y?: number;
+  imageUrl: string;
+  x: number;
+  y: number;
   xPercent?: number;
   yPercent?: number;
-  
-  // Size (percentage-based, fallback to absolute)
-  width?: number;
-  height?: number;
+  width: number;
+  height: number;
   widthPercent?: number;
   heightPercent?: number;
-  
-  // Layer order
-  zIndex: number;
-  
-  // Fit mode
-  fitMode: 'contain' | 'cover' | 'fill' | 'none';
-  
-  // Crop (optional)
-  crop?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  
-  // Mask (optional)
-  mask?: {
-    type: 'none' | 'circle' | 'ellipse' | 'roundedRect' | 'polygon';
-    borderRadius?: number;
-    points?: { x: number; y: number }[];
-  };
-  
-  // Visual effects
-  opacity: number;
-  rotation: number;
+  opacity?: number; // 0-1
+  rotation?: number; // degrees
 }
 
 export interface RenderCertificateParams {
   templateImageUrl: string;
   textLayers: RenderTextLayer[];
-  photoLayers?: RenderPhotoLayer[]; // Optional: Photo/image layers
+  imageLayers?: RenderImageLayer[]; // Optional image layers
   width?: number;  // Optional: If not provided, use template's natural width
   height?: number; // Optional: If not provided, use template's natural height
 }
@@ -101,7 +69,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 export async function renderCertificateToDataURL(
   params: RenderCertificateParams
 ): Promise<string> {
-  const { templateImageUrl, textLayers, photoLayers, width, height } = params;
+  const { templateImageUrl, textLayers, width, height } = params;
 
   // CRITICAL: Wait for fonts to load before rendering
   // Font rendering differences between CSS and Canvas can cause positioning issues
@@ -174,155 +142,183 @@ export async function renderCertificateToDataURL(
     throw new Error('Failed to get canvas context');
   }
 
-  // DPI-Aware Canvas Setup
-  // Get device pixel ratio for high-DPI displays
-  const dpr = window.devicePixelRatio || 1;
-  console.log('📱 Device Pixel Ratio:', dpr);
-  
-  // Note: For certificate generation, we render at native resolution
-  // DPR scaling is primarily for preview/display, not export
-  // Export always uses template's native resolution for best quality
-  
   // Draw template background
   ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
-  
-  // ===== LAYER RENDERING SYSTEM =====
-  // Professional layer-based rendering like Canva/Picsart
-  // Layers are rendered in order of zIndex (lowest to highest)
-  // Default zIndex: photo layers = 50, text layers = 100
-  
-  // Calculate scaleFactor once (used by both photo and text layers)
-  const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH;
-  console.log(`📐 Scale Factor: ${scaleFactor} (finalWidth ${finalWidth} / STANDARD_CANVAS_WIDTH ${STANDARD_CANVAS_WIDTH})`);
-  
-  // Prepare all layers with zIndex for sorting
-  interface LayerToRender {
-    type: 'photo' | 'text';
-    zIndex: number;
-    data: RenderPhotoLayer | RenderTextLayer;
-  }
-  
-  const layersToRender: LayerToRender[] = [];
-  
-  // Add photo layers
-  if (photoLayers && photoLayers.length > 0) {
-    console.log(`📸 PHOTO LAYERS TO RENDER: ${photoLayers.length}`);
-    photoLayers.forEach(layer => {
-      layersToRender.push({
-        type: 'photo',
-        zIndex: layer.zIndex,
-        data: layer
-      });
-    });
-  }
-  
-  // Add text layers (default zIndex = 100 to appear above photos)
-  console.log(`📝 TEXT LAYERS TO RENDER: ${textLayers.length}`);
-  textLayers.forEach(layer => {
-    layersToRender.push({
-      type: 'text',
-      zIndex: 100, // Text layers default to top
-      data: layer
-    });
-  });
-  
-  // Sort layers by zIndex (ascending)
-  layersToRender.sort((a, b) => a.zIndex - b.zIndex);
-  
-  console.log('🎨 RENDERING ORDER:', layersToRender.map(l => ({
-    type: l.type,
-    zIndex: l.zIndex,
-    id: l.type === 'photo' ? (l.data as RenderPhotoLayer).id : (l.data as RenderTextLayer).id
-  })));
-  
-  // Render all layers in order
-  for (const layerWrapper of layersToRender) {
-    if (layerWrapper.type === 'photo') {
-      // ===== RENDER PHOTO LAYER =====
-      const photoLayer = layerWrapper.data as RenderPhotoLayer;
-      console.log(`📸 Rendering photo layer: ${photoLayer.id}`);
-      try {
-        await renderPhotoLayer(ctx, photoLayer, finalWidth, finalHeight, scaleFactor);
-        console.log(`✅ Photo layer rendered: ${photoLayer.id}`);
-      } catch (error) {
-        console.error(`❌ Failed to render photo layer ${photoLayer.id}:`, error);
-      }
-    } else {
-      // ===== RENDER TEXT LAYER =====
-      const layer = layerWrapper.data as RenderTextLayer;
-      
-      // Skip empty text
-      if (!layer.text) {
-        console.warn(`⚠️ SKIPPING text layer "${layer.id}" because text is empty`);
-        continue;
-      }
-      
-      // Calculate position (percentage-first)
-      const x = layer.xPercent !== undefined && layer.xPercent !== null
-        ? Math.round(layer.xPercent * finalWidth)    // Percentage (NEW system) ✅
-        : Math.round((layer.x || 0) * scaleFactor);  // Absolute (OLD system, legacy)
-      const y = layer.yPercent !== undefined && layer.yPercent !== null
-        ? Math.round(layer.yPercent * finalHeight)   // Percentage (NEW system) ✅
-        : Math.round((layer.y || 0) * scaleFactor);  // Absolute (OLD system, legacy)
-      
-      // Scale maxWidth based on template resolution
-      const baseMaxWidth = layer.maxWidth || 300;
-      const scaledMaxWidth = Math.round(baseMaxWidth * scaleFactor);
-      
-      // Determine alignment
-      const isCertificateLayer = layer.id === 'certificate_no' || layer.id === 'issue_date';
-      const align = isCertificateLayer 
-        ? 'left'  // certificate_no/issue_date always left
-        : (layer.textAlign || 'center'); // Other layers: use setting or default center
-      
-      // Scale fontSize based on template resolution
-      const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
-      const baseFontSize = Math.max(1, layer.fontSize || 16);
-      const scaledFontSize = Math.round(baseFontSize * scaleFactor);
-      const fontFamily = layer.fontFamily || 'Arial';
-      ctx.font = `${fontWeight} ${scaledFontSize}px ${fontFamily}`;
-      
-      // Debug logging for critical layers
-      if (layer.id === 'name' || layer.id === 'certificate_no' || layer.id === 'issue_date') {
-        console.log(`🔍 [${layer.id}] RENDER DATA:`, {
-          layerId: layer.id,
-          xPercent: layer.xPercent,
-          yPercent: layer.yPercent,
-          x, y,
-          fontSize: layer.fontSize,
-          scaleFactor,
-          scaledFontSize,
-          scaledMaxWidth,
-          textAlign: align
-        });
-      }
 
-      // Set color and baseline
-      ctx.fillStyle = layer.color || '#000000';
-      ctx.textBaseline = 'top';
-      
-      // Render text (rich text or regular)
-      if (layer.richText && layer.hasInlineFormatting) {
-        drawRichText(
-          ctx,
-          layer.richText,
-          x, y,
-          scaledMaxWidth,
-          scaledFontSize,
-          layer.lineHeight || 1.2,
-          align
-        );
-      } else {
-        drawWrappedText(
-          ctx, 
-          layer.text, 
-          x, y,
-          scaledMaxWidth, 
-          scaledFontSize, 
-          layer.lineHeight || 1.2,
-          align,
-          layer.id
-        );
+  // Draw text layers
+  console.log(`TOTAL TEXT LAYERS TO RENDER: ${textLayers.length}`, 
+    textLayers.map(l => ({ id: l.id, hasText: !!l.text, textLength: l.text?.length || 0, textPreview: l.text?.substring(0, 20) }))
+  );
+  
+  for (const layer of textLayers) {
+    // CRITICAL: Log ALL layers, including those with empty text, to debug why certificate_no/issue_date might not render
+    if (layer.id === 'certificate_no' || layer.id === 'issue_date' || !layer.text) {
+      console.log(`🔍 LAYER CHECK [${layer.id}]:`, {
+        id: layer.id,
+        hasText: !!layer.text,
+        textLength: layer.text?.length || 0,
+        textValue: layer.text || '(empty)',
+        willSkip: !layer.text,
+        xPercent: layer.xPercent,
+        yPercent: layer.yPercent,
+        fontSize: layer.fontSize
+      });
+    }
+    
+    if (!layer.text) {
+      console.warn(`⚠️ SKIPPING layer "${layer.id}" because text is empty`);
+      continue; // Skip empty text
+    }
+
+    // ✅ SCALING SYSTEM (Nov 10, 2025): Scale to Template Size
+    // 
+    // COORDINATE SYSTEM:
+    // - Configure page stores values in STANDARD_CANVAS_WIDTH (1500px) reference
+    // - Templates have different actual sizes (1080px, 2000px, etc.)
+    // - We MUST scale to match template's actual size
+    // 
+    // SCALING FORMULA:
+    //   scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH
+    //   
+    //   Example: Template 1080px, fontSize stored as 48px (in 1500px reference)
+    //   scaleFactor = 1080 / 1500 = 0.72
+    //   scaledFontSize = 48 * 0.72 = 35px ✅ Correct for 1080px template!
+    // 
+    // WHY SCALE:
+    // - fontSize 48px is calibrated for 1500px canvas
+    // - Template is 1080px (smaller)
+    // - Without scaling: Text would be TOO BIG
+    // - With scaling: Text proportional to template size ✅
+    // 
+    const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH;
+    
+    const x = layer.xPercent !== undefined && layer.xPercent !== null
+      ? Math.round(layer.xPercent * finalWidth)    // Percentage (NEW system) ✅
+      : Math.round((layer.x || 0) * scaleFactor);  // Absolute (OLD system, legacy)
+    const y = layer.yPercent !== undefined && layer.yPercent !== null
+      ? Math.round(layer.yPercent * finalHeight)   // Percentage (NEW system) ✅
+      : Math.round((layer.y || 0) * scaleFactor);  // Absolute (OLD system, legacy)
+    
+    // ✅ SCALE maxWidth based on template size
+    const scaledMaxWidth = Math.round((layer.maxWidth || 300) * scaleFactor);
+    
+    // CRITICAL: certificate_no and issue_date always use left alignment
+    const isCertificateLayer = layer.id === 'certificate_no' || layer.id === 'issue_date';
+    
+    // Use alignment from layer settings, default to center
+    const align = isCertificateLayer 
+      ? 'left'  // certificate_no/issue_date always left
+      : (layer.textAlign || 'center'); // Other layers (including score): use setting or default center
+    
+    // ✅ SCALE fontSize based on template size
+    const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
+    const baseFontSize = Math.max(1, layer.fontSize || 16);
+    const scaledFontSize = Math.round(baseFontSize * scaleFactor);
+    const fontFamily = layer.fontFamily || 'Arial';
+    ctx.font = `${fontWeight} ${scaledFontSize}px ${fontFamily}`;
+
+    // Set color
+    ctx.fillStyle = layer.color || '#000000';
+
+    // CRITICAL: Set text baseline to 'top' to match preview behavior
+    // Preview uses CSS with top positioning, so we need to match that
+    // We'll handle vertical centering manually in drawWrappedText
+    ctx.textBaseline = 'top';
+    
+    // CRITICAL: Log layer ID to verify it's passed correctly
+    if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+      console.log(`🔍 VERIFY: Calling drawWrappedText with layerId: "${layer.id}"`);
+    }
+    
+    // Check if layer has rich text formatting
+    if (layer.richText && layer.hasInlineFormatting) {
+      // Render with rich text (inline formatting)
+      drawRichText(
+        ctx,
+        layer.richText,
+        x,
+        y,
+        scaledMaxWidth,
+        scaledFontSize,
+        layer.lineHeight || 1.2,
+        align
+      );
+    } else {
+      // Regular text rendering
+      drawWrappedText(
+        ctx, 
+        layer.text, 
+        x, 
+        y, 
+        scaledMaxWidth, 
+        scaledFontSize, 
+        layer.lineHeight || 1.2,
+        align,
+        layer.id // Pass layer ID for debugging
+      );
+    }
+  }
+
+  // Draw image layers (signatures, logos, stamps)
+  if (params.imageLayers && params.imageLayers.length > 0) {
+    console.log(`🖼️ Rendering ${params.imageLayers.length} image layer(s)`);
+    
+    for (const imageLayer of params.imageLayers) {
+      try {
+        // Load image
+        const layerImg = await loadImage(imageLayer.imageUrl);
+        
+        // Calculate position (percentage-first, fallback to absolute)
+        const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH;
+        const imgX = imageLayer.xPercent !== undefined
+          ? Math.round(imageLayer.xPercent * finalWidth)
+          : Math.round(imageLayer.x * scaleFactor);
+        const imgY = imageLayer.yPercent !== undefined
+          ? Math.round(imageLayer.yPercent * finalHeight)
+          : Math.round(imageLayer.y * scaleFactor);
+        
+        // Calculate size (percentage-first, fallback to absolute)
+        const imgWidth = imageLayer.widthPercent !== undefined
+          ? Math.round(imageLayer.widthPercent * finalWidth)
+          : Math.round(imageLayer.width * scaleFactor);
+        const imgHeight = imageLayer.heightPercent !== undefined
+          ? Math.round(imageLayer.heightPercent * finalHeight)
+          : Math.round(imageLayer.height * scaleFactor);
+        
+        // Save context state
+        ctx.save();
+        
+        // Apply opacity
+        if (imageLayer.opacity !== undefined) {
+          ctx.globalAlpha = imageLayer.opacity;
+        }
+        
+        // Apply rotation
+        if (imageLayer.rotation && imageLayer.rotation !== 0) {
+          // Move to center of image
+          const centerX = imgX + imgWidth / 2;
+          const centerY = imgY + imgHeight / 2;
+          
+          ctx.translate(centerX, centerY);
+          ctx.rotate((imageLayer.rotation * Math.PI) / 180);
+          ctx.translate(-centerX, -centerY);
+        }
+        
+        // Draw image
+        ctx.drawImage(layerImg, imgX, imgY, imgWidth, imgHeight);
+        
+        // Restore context state
+        ctx.restore();
+        
+        console.log(`✅ Rendered image layer: ${imageLayer.id}`, {
+          position: `${imgX}, ${imgY}`,
+          size: `${imgWidth}x${imgHeight}`,
+          opacity: imageLayer.opacity || 1,
+          rotation: imageLayer.rotation || 0
+        });
+      } catch (error) {
+        console.error(`❌ Failed to render image layer ${imageLayer.id}:`, error);
+        // Continue rendering other layers even if one fails
       }
     }
   }
@@ -846,232 +842,6 @@ function extractSpansForRange(richText: RichText, start: number, end: number): R
   }
   
   return result;
-}
-
-/**
- * Calculate fitted dimensions based on fitMode (like Canva)
- * @param sourceWidth Original image width
- * @param sourceHeight Original image height
- * @param targetWidth Target box width
- * @param targetHeight Target box height
- * @param fitMode How to fit image
- * @returns Dimensions and offsets for drawing
- */
-function calculateFitDimensions(
-  sourceWidth: number,
-  sourceHeight: number,
-  targetWidth: number,
-  targetHeight: number,
-  fitMode: 'contain' | 'cover' | 'fill' | 'none'
-): { width: number; height: number; offsetX: number; offsetY: number } {
-  if (fitMode === 'fill') {
-    // Stretch to fill (may distort)
-    return { width: targetWidth, height: targetHeight, offsetX: 0, offsetY: 0 };
-  }
-  
-  if (fitMode === 'none') {
-    // Original size, centered
-    return {
-      width: sourceWidth,
-      height: sourceHeight,
-      offsetX: (targetWidth - sourceWidth) / 2,
-      offsetY: (targetHeight - sourceHeight) / 2
-    };
-  }
-  
-  const sourceAspect = sourceWidth / sourceHeight;
-  const targetAspect = targetWidth / targetHeight;
-  
-  if (fitMode === 'contain') {
-    // Fit inside, maintain aspect (letterbox/pillarbox)
-    if (sourceAspect > targetAspect) {
-      // Source wider than target
-      const scaledHeight = targetWidth / sourceAspect;
-      return {
-        width: targetWidth,
-        height: scaledHeight,
-        offsetX: 0,
-        offsetY: (targetHeight - scaledHeight) / 2
-      };
-    } else {
-      // Source taller than target
-      const scaledWidth = targetHeight * sourceAspect;
-      return {
-        width: scaledWidth,
-        height: targetHeight,
-        offsetX: (targetWidth - scaledWidth) / 2,
-        offsetY: 0
-      };
-    }
-  }
-  
-  // fitMode === 'cover'
-  // Fill box, maintain aspect (crop edges)
-  if (sourceAspect > targetAspect) {
-    // Source wider - crop sides
-    const scaledWidth = targetHeight * sourceAspect;
-    return {
-      width: scaledWidth,
-      height: targetHeight,
-      offsetX: (targetWidth - scaledWidth) / 2,
-      offsetY: 0
-    };
-  } else {
-    // Source taller - crop top/bottom
-    const scaledHeight = targetWidth / sourceAspect;
-    return {
-      width: targetWidth,
-      height: scaledHeight,
-      offsetX: 0,
-      offsetY: (targetHeight - scaledHeight) / 2
-    };
-  }
-}
-
-/**
- * Apply mask to canvas context (circle, ellipse, roundedRect, polygon)
- */
-function applyMask(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  mask: RenderPhotoLayer['mask']
-): void {
-  if (!mask || mask.type === 'none') return;
-  
-  ctx.save();
-  ctx.beginPath();
-  
-  switch (mask.type) {
-    case 'circle': {
-      const radius = Math.min(width, height) / 2;
-      const centerX = x + width / 2;
-      const centerY = y + height / 2;
-      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-      break;
-    }
-    
-    case 'ellipse': {
-      const centerX = x + width / 2;
-      const centerY = y + height / 2;
-      ctx.ellipse(centerX, centerY, width / 2, height / 2, 0, 0, Math.PI * 2);
-      break;
-    }
-    
-    case 'roundedRect': {
-      const radius = mask.borderRadius || 10;
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + width - radius, y);
-      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-      ctx.lineTo(x + width, y + height - radius);
-      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-      ctx.lineTo(x + radius, y + height);
-      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
-      break;
-    }
-    
-    case 'polygon': {
-      if (mask.points && mask.points.length >= 3) {
-        const firstPoint = mask.points[0];
-        ctx.moveTo(x + firstPoint.x * width, y + firstPoint.y * height);
-        for (let i = 1; i < mask.points.length; i++) {
-          const point = mask.points[i];
-          ctx.lineTo(x + point.x * width, y + point.y * height);
-        }
-        ctx.closePath();
-      }
-      break;
-    }
-  }
-  
-  ctx.clip();
-}
-
-/**
- * Render photo layer with crop, mask, fitMode support
- * Professional rendering like Canva/Picsart
- */
-async function renderPhotoLayer(
-  ctx: CanvasRenderingContext2D,
-  layer: RenderPhotoLayer,
-  canvasWidth: number,
-  canvasHeight: number,
-  scaleFactor: number
-): Promise<void> {
-  // Load image
-  const img = await loadImage(layer.src);
-  
-  // Calculate position (percentage-first)
-  const x = layer.xPercent !== undefined && layer.xPercent !== null
-    ? Math.round(layer.xPercent * canvasWidth)
-    : Math.round((layer.x || 0) * scaleFactor);
-  const y = layer.yPercent !== undefined && layer.yPercent !== null
-    ? Math.round(layer.yPercent * canvasHeight)
-    : Math.round((layer.y || 0) * scaleFactor);
-  
-  // Calculate size (percentage-first)
-  const width = layer.widthPercent !== undefined && layer.widthPercent !== null
-    ? Math.round(layer.widthPercent * canvasWidth)
-    : Math.round((layer.width || img.naturalWidth) * scaleFactor);
-  const height = layer.heightPercent !== undefined && layer.heightPercent !== null
-    ? Math.round(layer.heightPercent * canvasHeight)
-    : Math.round((layer.height || img.naturalHeight) * scaleFactor);
-  
-  // Save context state
-  ctx.save();
-  
-  // Apply opacity
-  ctx.globalAlpha = layer.opacity;
-  
-  // Apply rotation
-  if (layer.rotation !== 0) {
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    ctx.translate(centerX, centerY);
-    ctx.rotate((layer.rotation * Math.PI) / 180);
-    ctx.translate(-centerX, -centerY);
-  }
-  
-  // Apply mask (clip region)
-  if (layer.mask && layer.mask.type !== 'none') {
-    applyMask(ctx, x, y, width, height, layer.mask);
-  }
-  
-  // Calculate crop region
-  const crop = layer.crop || { x: 0, y: 0, width: 1, height: 1 };
-  const sourceX = crop.x * img.naturalWidth;
-  const sourceY = crop.y * img.naturalHeight;
-  const sourceWidth = crop.width * img.naturalWidth;
-  const sourceHeight = crop.height * img.naturalHeight;
-  
-  // Calculate fit dimensions
-  const fit = calculateFitDimensions(
-    sourceWidth,
-    sourceHeight,
-    width,
-    height,
-    layer.fitMode
-  );
-  
-  // Draw image with crop and fit
-  ctx.drawImage(
-    img,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    x + fit.offsetX,
-    y + fit.offsetY,
-    fit.width,
-    fit.height
-  );
-  
-  // Restore context state
-  ctx.restore();
 }
 
 /**

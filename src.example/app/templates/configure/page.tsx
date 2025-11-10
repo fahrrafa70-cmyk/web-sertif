@@ -2,23 +2,20 @@
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon, Crop, Circle, Square } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
-import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
-import type { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
+import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { plainTextToRichText, applyStyleToRange, richTextToPlainText, getCommonStyleValue, hasMixedStyle } from "@/types/rich-text";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { FontWeightSelect, FontFamilySelect } from "@/components/editor/MixedStyleSelect";
-import { useLanguage } from "@/contexts/language-context";
 
 // Dummy data for preview
 const DUMMY_DATA = {
@@ -35,7 +32,6 @@ interface TextLayer extends TextLayerConfig {
 }
 
 function ConfigureLayoutContent() {
-  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const templateId = searchParams?.get("template");
@@ -63,15 +59,6 @@ function ConfigureLayoutContent() {
   // Current text layers based on mode (read-only computed value)
   const textLayers = configMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
   
-  // Photo layers state - separate for certificate and score
-  const [certificatePhotoLayers, setCertificatePhotoLayers] = useState<PhotoLayerConfig[]>([]);
-  const [scorePhotoLayers, setScorePhotoLayers] = useState<PhotoLayerConfig[]>([]);
-  const [selectedPhotoLayerId, setSelectedPhotoLayerId] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  
-  // Current photo layers based on mode (read-only computed value)
-  const photoLayers = configMode === 'certificate' ? certificatePhotoLayers : scorePhotoLayers;
-  
   // Preview text state (for testing display only, not saved)
   const [previewTexts, setPreviewTexts] = useState<Record<string, string>>({});
   
@@ -85,14 +72,11 @@ function ConfigureLayoutContent() {
   // Preview modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
-  // Store raw layout data in ref for use in image onload callbacks
-  const existingLayoutRef = useRef<Awaited<ReturnType<typeof getTemplateLayout>> | null>(null);
-  
   // Load template and existing layout
   useEffect(() => {
     async function loadTemplate() {
       if (!templateId) {
-        toast.error(t('configure.noTemplateId'));
+        toast.error("No template ID provided");
         router.push("/templates");
         return;
       }
@@ -100,7 +84,7 @@ function ConfigureLayoutContent() {
       try {
         const tpl = await getTemplate(templateId);
         if (!tpl) {
-          toast.error(t('configure.templateNotFound'));
+          toast.error("Template not found");
           router.push("/templates");
           return;
         }
@@ -111,199 +95,75 @@ function ConfigureLayoutContent() {
         const imgUrl = await getTemplateImageUrl(tpl);
         setTemplateImageUrl(imgUrl);
         
-        // Load existing layout and store in ref for use in image onload callbacks
-        const existingLayout = await getTemplateLayout(templateId);
-        existingLayoutRef.current = existingLayout;
-        
         // Load CERTIFICATE image dimensions for dynamic aspect ratio
         if (tpl.certificate_image_url) {
           const certImg = new window.Image();
           certImg.onload = () => {
-            const dimensions = { width: certImg.naturalWidth, height: certImg.naturalHeight };
-            setCertificateImageDimensions(dimensions);
+            setCertificateImageDimensions({ width: certImg.naturalWidth, height: certImg.naturalHeight });
             console.log('📐 Certificate dimensions:', certImg.naturalWidth, 'x', certImg.naturalHeight);
-            
-            // CRITICAL: Normalize coordinates when dimensions are loaded
-            // This ensures coordinates are correct even if template image was replaced with different size
-            const layout = existingLayoutRef.current;
-            if (layout && layout.certificate) {
-              const normalizedLayers = (layout.certificate.textLayers as TextLayer[]).map(layer => {
-                // Use xPercent/yPercent if available (resolution-independent), otherwise calculate from x/y
-                const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
-                  ? layer.xPercent
-                  : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
-                const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
-                  ? layer.yPercent
-                  : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
-                
-                // Recalculate x/y based on actual template dimensions
-                const x = Math.round(xPercent * dimensions.width);
-                const y = Math.round(yPercent * dimensions.height);
-                
-                return {
-                  ...layer,
-                  x,
-                  y,
-                  xPercent,
-                  yPercent,
-                  maxWidth: layer.maxWidth || 300,
-                  lineHeight: layer.lineHeight || 1.2,
-                };
-              });
-              
-              // Remove textAlign for certificate_no and issue_date
-              const migratedLayers = normalizedLayers.map(layer => {
-                if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
-                  const { textAlign, ...rest } = layer;
-                  void textAlign;
-                  return rest;
-                }
-                return layer;
-              });
-              
-              setCertificateTextLayers(migratedLayers);
-              console.log('✅ Normalized certificate layers to template dimensions:', dimensions);
-            }
           };
-          
-          // Set src and check if already cached
           certImg.src = tpl.certificate_image_url;
-          
-          // Handle case where image is already cached (onload may not fire)
-          // Check after setting src, as cached images will have complete=true immediately
-          if (certImg.complete) {
-            // Image already loaded from cache, trigger callback manually
-            const dimensions = { width: certImg.naturalWidth, height: certImg.naturalHeight };
-            setCertificateImageDimensions(dimensions);
-            console.log('📐 Certificate dimensions (cached):', certImg.naturalWidth, 'x', certImg.naturalHeight);
-            
-            const layout = existingLayoutRef.current;
-            if (layout && layout.certificate) {
-              const normalizedLayers = (layout.certificate.textLayers as TextLayer[]).map(layer => {
-                const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
-                  ? layer.xPercent
-                  : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
-                const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
-                  ? layer.yPercent
-                  : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
-                
-                const x = Math.round(xPercent * dimensions.width);
-                const y = Math.round(yPercent * dimensions.height);
-                
-                return {
-                  ...layer,
-                  x,
-                  y,
-                  xPercent,
-                  yPercent,
-                  maxWidth: layer.maxWidth || 300,
-                  lineHeight: layer.lineHeight || 1.2,
-                };
-              });
-              
-              const migratedLayers = normalizedLayers.map(layer => {
-                if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
-                  const { textAlign, ...rest } = layer;
-                  void textAlign;
-                  return rest;
-                }
-                return layer;
-              });
-              
-              setCertificateTextLayers(migratedLayers);
-              console.log('✅ Normalized certificate layers (cached image)');
-            }
-          }
         }
         
         // Load SCORE image dimensions if dual template
         if (tpl.is_dual_template && tpl.score_image_url) {
           const scoreImg = new window.Image();
           scoreImg.onload = () => {
-            const dimensions = { width: scoreImg.naturalWidth, height: scoreImg.naturalHeight };
-            setScoreImageDimensions(dimensions);
+            setScoreImageDimensions({ width: scoreImg.naturalWidth, height: scoreImg.naturalHeight });
             console.log('📊 Score dimensions:', scoreImg.naturalWidth, 'x', scoreImg.naturalHeight);
-            
-            // CRITICAL: Normalize coordinates when dimensions are loaded
-            const layout = existingLayoutRef.current;
-            if (layout && layout.score) {
-              const normalizedLayers = (layout.score.textLayers as TextLayer[]).map(layer => {
-                // Use xPercent/yPercent if available (resolution-independent), otherwise calculate from x/y
-                const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
-                  ? layer.xPercent
-                  : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
-                const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
-                  ? layer.yPercent
-                  : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
-                
-                // Recalculate x/y based on actual template dimensions
-                const x = Math.round(xPercent * dimensions.width);
-                const y = Math.round(yPercent * dimensions.height);
-                
-                return {
-                  ...layer,
-                  x,
-                  y,
-                  xPercent,
-                  yPercent,
-                  maxWidth: layer.maxWidth || 300,
-                  lineHeight: layer.lineHeight || 1.2,
-                };
-              });
-              
-              setScoreTextLayers(normalizedLayers);
-              console.log('✅ Normalized score layers to template dimensions:', dimensions);
-            }
           };
-          
-          // Set src and check if already cached
           scoreImg.src = tpl.score_image_url;
-          
-          // Handle case where image is already cached (onload may not fire)
-          // Check after setting src, as cached images will have complete=true immediately
-          if (scoreImg.complete) {
-            // Image already loaded from cache, trigger callback manually
-            const dimensions = { width: scoreImg.naturalWidth, height: scoreImg.naturalHeight };
-            setScoreImageDimensions(dimensions);
-            console.log('📊 Score dimensions (cached):', scoreImg.naturalWidth, 'x', scoreImg.naturalHeight);
-            
-            const layout = existingLayoutRef.current;
-            if (layout && layout.score) {
-              const normalizedLayers = (layout.score.textLayers as TextLayer[]).map(layer => {
-                const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
-                  ? layer.xPercent
-                  : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
-                const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
-                  ? layer.yPercent
-                  : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
-                
-                const x = Math.round(xPercent * dimensions.width);
-                const y = Math.round(yPercent * dimensions.height);
-                
-                return {
-                  ...layer,
-                  x,
-                  y,
-                  xPercent,
-                  yPercent,
-                  maxWidth: layer.maxWidth || 300,
-                  lineHeight: layer.lineHeight || 1.2,
-                };
-              });
-              
-              setScoreTextLayers(normalizedLayers);
-              console.log('✅ Normalized score layers (cached image)');
-            }
-          }
         }
         
-        // Initialize default layers if no existing layout
-        if (!existingLayout || !existingLayout.certificate) {
+        // Load existing layout if available
+        const existingLayout = await getTemplateLayout(templateId);
+        
+        // Load certificate layers
+        if (existingLayout && existingLayout.certificate) {
+          console.log('📦 Loading existing certificate layout configuration');
+          
+          // Migrate old data: ensure all layers have maxWidth and lineHeight
+          // Remove textAlign for certificate_no and issue_date (they always use left alignment)
+          const migratedLayers = (existingLayout.certificate.textLayers as TextLayer[]).map(layer => {
+            const migrated = {
+              ...layer,
+              maxWidth: layer.maxWidth || 300, // Default maxWidth if missing
+              lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
+            };
+            // Remove textAlign property for certificate_no and issue_date
+            if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+              const { textAlign, ...rest } = migrated;
+              void textAlign;
+              return rest;
+            }
+            return migrated;
+          });
+          
+          setCertificateTextLayers(migratedLayers);
+          console.log('✅ Migrated certificate layers with default maxWidth and lineHeight');
+        } else {
+          // Initialize with default certificate text layers
           console.log('🆕 Initializing default certificate text layers');
           initializeDefaultCertificateLayers();
         }
         
-        if (tpl.is_dual_template && (!existingLayout || !existingLayout.score)) {
+        // Load score layers (if template is dual)
+        if (existingLayout && existingLayout.score && tpl.is_dual_template) {
+          console.log('📊 Loading existing score layout configuration');
+          
+          // Migrate score layers: ensure all layers have maxWidth and lineHeight
+          // CRITICAL: Preserve textAlign from database - don't override with fallback
+          const migratedScoreLayers = (existingLayout.score.textLayers as TextLayer[]).map(layer => ({
+            ...layer,
+            maxWidth: layer.maxWidth || 300,
+            lineHeight: layer.lineHeight || 1.2,
+            // Keep textAlign as-is from database (don't add fallback)
+          }));
+          
+          setScoreTextLayers(migratedScoreLayers);
+          console.log('✅ Migrated score layers:', migratedScoreLayers.length);
+        } else if (tpl.is_dual_template) {
+          // Initialize score layers with required issue_date field
           console.log('🆕 Initializing score layers with required issue_date field');
           const defaultScoreLayers: TextLayerConfig[] = [
             {
@@ -316,6 +176,7 @@ function ConfigureLayoutContent() {
               color: '#000000',
               fontWeight: 'normal',
               fontFamily: 'Arial',
+              // No textAlign for issue_date - always uses left alignment
               maxWidth: 300,
               lineHeight: 1.3,
             },
@@ -326,108 +187,13 @@ function ConfigureLayoutContent() {
         setLoading(false);
       } catch (error) {
         console.error("Failed to load template:", error);
-        toast.error(t('configure.failedToLoad'));
+        toast.error("Failed to load template");
         router.push("/templates");
       }
     }
 
     loadTemplate();
   }, [templateId, router]);
-
-  // CRITICAL: Normalize coordinates when template dimensions change
-  // This handles the case when template image is replaced with different size
-  // Use refs to track last normalized dimensions to avoid infinite loops
-  const lastCertDimensionsRef = useRef<{ width: number; height: number } | null>(null);
-  const lastScoreDimensionsRef = useRef<{ width: number; height: number } | null>(null);
-  
-  useEffect(() => {
-    if (!certificateImageDimensions) return;
-    
-    // Check if dimensions actually changed
-    const lastDims = lastCertDimensionsRef.current;
-    if (lastDims && 
-        lastDims.width === certificateImageDimensions.width && 
-        lastDims.height === certificateImageDimensions.height) {
-      return; // No change, skip normalization
-    }
-    
-    lastCertDimensionsRef.current = certificateImageDimensions;
-    
-    // Normalize certificate layers based on new dimensions
-    setCertificateTextLayers(prevLayers => {
-      if (prevLayers.length === 0) return prevLayers;
-      
-      const normalizedLayers = prevLayers.map(layer => {
-        // Always use xPercent/yPercent as source of truth (resolution-independent)
-        const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
-          ? layer.xPercent
-          : (layer.x || 0) / (certificateImageDimensions.width || STANDARD_CANVAS_WIDTH);
-        const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
-          ? layer.yPercent
-          : (layer.y || 0) / (certificateImageDimensions.height || STANDARD_CANVAS_HEIGHT);
-        
-        // Recalculate x/y based on actual template dimensions
-        const x = Math.round(xPercent * certificateImageDimensions.width);
-        const y = Math.round(yPercent * certificateImageDimensions.height);
-        
-        return {
-          ...layer,
-          x,
-          y,
-          xPercent,
-          yPercent,
-        };
-      });
-      
-      console.log('🔄 Normalized certificate coordinates to template dimensions:', certificateImageDimensions);
-      return normalizedLayers;
-    });
-  }, [certificateImageDimensions?.width, certificateImageDimensions?.height]); // Only depend on width/height
-
-  // CRITICAL: Normalize score coordinates when score dimensions change
-  useEffect(() => {
-    if (!scoreImageDimensions) return;
-    
-    // Check if dimensions actually changed
-    const lastDims = lastScoreDimensionsRef.current;
-    if (lastDims && 
-        lastDims.width === scoreImageDimensions.width && 
-        lastDims.height === scoreImageDimensions.height) {
-      return; // No change, skip normalization
-    }
-    
-    lastScoreDimensionsRef.current = scoreImageDimensions;
-    
-    // Normalize score layers based on new dimensions
-    setScoreTextLayers(prevLayers => {
-      if (prevLayers.length === 0) return prevLayers;
-      
-      const normalizedLayers = prevLayers.map(layer => {
-        // Always use xPercent/yPercent as source of truth (resolution-independent)
-        const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
-          ? layer.xPercent
-          : (layer.x || 0) / (scoreImageDimensions.width || STANDARD_CANVAS_WIDTH);
-        const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
-          ? layer.yPercent
-          : (layer.y || 0) / (scoreImageDimensions.height || STANDARD_CANVAS_HEIGHT);
-        
-        // Recalculate x/y based on actual template dimensions
-        const x = Math.round(xPercent * scoreImageDimensions.width);
-        const y = Math.round(yPercent * scoreImageDimensions.height);
-        
-        return {
-          ...layer,
-          x,
-          y,
-          xPercent,
-          yPercent,
-        };
-      });
-      
-      console.log('🔄 Normalized score coordinates to template dimensions:', scoreImageDimensions);
-      return normalizedLayers;
-    });
-  }, [scoreImageDimensions?.width, scoreImageDimensions?.height]); // Only depend on width/height
 
   // Initialize default certificate text layers
   const initializeDefaultCertificateLayers = () => {
@@ -538,19 +304,6 @@ function ConfigureLayoutContent() {
           }
           
           setCanvasScale(scale);
-          
-          // DEBUG: Log scaling information for font size debugging
-          console.log('📏 Canvas Scale Calculation:', {
-            containerWidth,
-            containerHeight,
-            templateWidth,
-            templateHeight,
-            scaleX,
-            scaleY,
-            scale,
-            fontSizeExample: `Font 100px → Preview: ${(100 * scale).toFixed(2)}px`,
-            note: 'Preview font size = storedFontSize * scale'
-          });
         });
       });
     };
@@ -596,24 +349,18 @@ function ConfigureLayoutContent() {
     const layer = textLayers.find(l => l.id === layerId);
     if (!layer || !canvasRef.current) return;
 
-    // Get actual container dimensions and calculate scale
-    const containerRect = canvasRef.current.getBoundingClientRect();
-    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
-    
-    // ✅ CRITICAL: Use canvasScale (already calculated) for mouse coordinate conversion
-    // canvasScale = containerWidth / templateNaturalWidth
-    const actualScale = canvasScale;
-    
     const startX = e.clientX;
     const startY = e.clientY;
     const startLayerX = layer.x;
     const startLayerY = layer.y;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      // Convert mouse delta to template coordinates using actual scale
-      const deltaX = (moveEvent.clientX - startX) / actualScale;
-      const deltaY = (moveEvent.clientY - startY) / actualScale;
+      const deltaX = (moveEvent.clientX - startX) / canvasScale;
+      const deltaY = (moveEvent.clientY - startY) / canvasScale;
+      
+      // Use template natural dimensions (dynamic, not hardcoded!)
+      const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+      const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
       
       const newX = Math.max(0, Math.min(templateWidth, startLayerX + deltaX));
       const newY = Math.max(0, Math.min(templateHeight, startLayerY + deltaY));
@@ -657,14 +404,8 @@ function ConfigureLayoutContent() {
     const startHeight = layer.fontSize * (layer.lineHeight || 1.2);
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      // Get actual container dimensions and calculate scale
-      const containerRect = canvasRef.current!.getBoundingClientRect();
-      const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-      const actualScale = containerRect.width / templateWidth;
-      
-      // Convert mouse delta to template coordinates using actual scale
-      const deltaX = (moveEvent.clientX - startX) / actualScale;
-      const deltaY = (moveEvent.clientY - startY) / actualScale;
+      const deltaX = (moveEvent.clientX - startX) / canvasScale;
+      const deltaY = (moveEvent.clientY - startY) / canvasScale;
       
       const updates: Partial<TextLayer> = {};
       
@@ -814,11 +555,10 @@ function ConfigureLayoutContent() {
           newX = currentVisualCenterX - (textWidth / 2);
         }
         
-        // Clamp and update x and xPercent using template's actual dimensions
-        const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-        newX = Math.max(0, Math.min(templateWidth, Math.round(newX)));
+        // Clamp and update x and xPercent
+        newX = Math.max(0, Math.min(STANDARD_CANVAS_WIDTH, Math.round(newX)));
         updates.x = newX;
-        updates.xPercent = newX / templateWidth;
+        updates.xPercent = newX / STANDARD_CANVAS_WIDTH;
       }
       
       return prev.map(l => 
@@ -869,7 +609,7 @@ function ConfigureLayoutContent() {
     });
     
     setSelectedLayerId(newLayer.id);
-    toast.success(t('configure.newLayerAdded'));
+    toast.success(`New layer added. ⚠️ Remember to click Save!`);
   };
 
   // Delete text layer
@@ -880,14 +620,14 @@ function ConfigureLayoutContent() {
     if (configMode === 'certificate') {
       const requiredFields = ['name', 'certificate_no', 'issue_date'];
       if (requiredFields.includes(layerId)) {
-        toast.error(t('configure.cannotDeleteRequired'));
+        toast.error("Cannot delete required field");
         console.log(`❌ Cannot delete required field: ${layerId}`);
         return;
       }
     } else if (configMode === 'score') {
       // Score mode: only issue_date is required
       if (layerId === 'issue_date') {
-        toast.error(t('configure.cannotDeleteIssueDate'));
+        toast.error("Cannot delete required field: issue_date");
         console.log(`❌ Cannot delete required field: ${layerId}`);
         return;
       }
@@ -909,127 +649,8 @@ function ConfigureLayoutContent() {
       console.log(`🔄 Deselected layer: ${layerId}`);
     }
     
-    toast.success(t('configure.layerDeleted').replace('{id}', layerId));
+    toast.success(`Text layer "${layerId}" deleted. ⚠️ Remember to click Save to persist!`);
     console.log(`✨ Deletion complete. REMINDER: Changes not saved yet!`);
-  };
-
-  // ===== PHOTO LAYER MANAGEMENT FUNCTIONS =====
-  
-  // Photo layer setter based on mode
-  const setPhotoLayers = configMode === 'certificate' ? setCertificatePhotoLayers : setScorePhotoLayers;
-  
-  // Handle photo upload
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !template) return;
-    
-    try {
-      setUploadingPhoto(true);
-      
-      // Validate file
-      console.log(`📸 Uploading photo: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
-      
-      const dimensions = await validateImageFile(file);
-      console.log(`📐 Image dimensions: ${dimensions.width}×${dimensions.height}`);
-      
-      // Upload to Supabase Storage
-      const { url, path } = await uploadTemplatePhoto(file, template.id);
-      console.log(`✅ Photo uploaded: ${url}`);
-      
-      // Create photo layer config
-      const timestamp = Date.now();
-      const newPhotoLayer: PhotoLayerConfig = {
-        id: `photo_${timestamp}`,
-        type: 'photo',
-        src: url,
-        storagePath: path,
-        
-        // Position: Center of template
-        x: 0,
-        y: 0,
-        xPercent: 0.5, // 50% from left (centered)
-        yPercent: 0.3, // 30% from top
-        
-        // Size: 20% of template width, maintain aspect ratio
-        width: 0,
-        height: 0,
-        widthPercent: 0.2,
-        heightPercent: 0.2 * (dimensions.height / dimensions.width),
-        
-        // Layer order: Below text layers (default text zIndex is 100)
-        zIndex: 50,
-        
-        // Default settings
-        fitMode: 'cover',
-        opacity: 1,
-        rotation: 0,
-        maintainAspectRatio: true,
-        
-        // Store original dimensions
-        originalWidth: dimensions.width,
-        originalHeight: dimensions.height
-      };
-      
-      // Add to state
-      setPhotoLayers(prev => [...prev, newPhotoLayer]);
-      
-      // Auto-select the new layer
-      setSelectedPhotoLayerId(newPhotoLayer.id);
-      
-      toast.success(`Photo uploaded! ${t('configure.rememberToSave') || 'Remember to save.'}`);
-      console.log(`✨ Photo layer added: ${newPhotoLayer.id}`);
-      
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to upload photo');
-    } finally {
-      setUploadingPhoto(false);
-      // Reset file input
-      event.target.value = '';
-    }
-  };
-  
-  // Update photo layer properties
-  const updatePhotoLayer = (layerId: string, updates: Partial<PhotoLayerConfig>) => {
-    console.log(`🔄 Updating photo layer ${layerId}:`, updates);
-    
-    setPhotoLayers(prev => 
-      prev.map(layer => 
-        layer.id === layerId 
-          ? { ...layer, ...updates }
-          : layer
-      )
-    );
-  };
-  
-  // Delete photo layer
-  const deletePhotoLayer = async (layerId: string) => {
-    const layer = photoLayers.find(l => l.id === layerId);
-    if (!layer) return;
-    
-    console.log(`🗑️ Deleting photo layer: ${layerId}`);
-    
-    try {
-      // Delete from storage if has storagePath
-      if (layer.storagePath) {
-        await deleteTemplatePhoto(layer.storagePath);
-        console.log(`✅ Deleted from storage: ${layer.storagePath}`);
-      }
-      
-      // Remove from state
-      setPhotoLayers(prev => prev.filter(l => l.id !== layerId));
-      
-      // Deselect if was selected
-      if (selectedPhotoLayerId === layerId) {
-        setSelectedPhotoLayerId(null);
-      }
-      
-      toast.success(`Photo layer deleted. ${t('configure.rememberToSave') || 'Remember to save.'}`);
-      
-    } catch (error) {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete photo from storage');
-    }
   };
 
   // Save layout configuration
@@ -1047,14 +668,14 @@ function ConfigureLayoutContent() {
       const missingFields = requiredFields.filter(f => !certificateIds.includes(f));
       
       if (missingFields.length > 0) {
-        toast.error(t('configure.missingRequiredFields').replace('{fields}', missingFields.join(', ')));
+        toast.error(`Missing required fields: ${missingFields.join(', ')}`);
         return;
       }
     } else if (configMode === 'score') {
       // Score mode: only issue_date is required
       const scoreIds = scoreTextLayers.map(l => l.id);
       if (!scoreIds.includes('issue_date')) {
-        toast.error(t('configure.missingIssueDate'));
+        toast.error('Missing required field: issue_date');
         return;
       }
     }
@@ -1075,9 +696,7 @@ function ConfigureLayoutContent() {
               return restWithoutTextAlign;
             }
             return rest;
-          }),
-          // Add photo layers
-          photoLayers: certificatePhotoLayers.length > 0 ? certificatePhotoLayers : undefined
+          })
         },
         canvas: {
           width: STANDARD_CANVAS_WIDTH,
@@ -1102,9 +721,7 @@ function ConfigureLayoutContent() {
             }
             // Other score layers keep all properties including textAlign
             return rest;
-          }),
-          // Add photo layers for score mode
-          photoLayers: scorePhotoLayers.length > 0 ? scorePhotoLayers : undefined
+          })
         };
       }
 
@@ -1118,7 +735,7 @@ function ConfigureLayoutContent() {
       await saveTemplateLayout(template.id, layoutConfig);
       
       console.log('✅ Save completed successfully!');
-      toast.success(t('configure.saveSuccess'));
+      toast.success("Layout configuration saved successfully!");
       
       // Redirect back to templates page after 1 second
       setTimeout(() => {
@@ -1127,7 +744,7 @@ function ConfigureLayoutContent() {
       
     } catch (error) {
       console.error("Failed to save layout:", error);
-      toast.error(t('configure.saveFailed'));
+      toast.error("Failed to save layout configuration");
     } finally {
       setSaving(false);
     }
@@ -1207,17 +824,25 @@ function ConfigureLayoutContent() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <LoadingButton
+              <Button
                 onClick={handleSave}
-                isLoading={saving}
-                loadingText="Saving..."
-                variant="primary"
+                disabled={saving}
                 className="gradient-primary text-white h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
               >
-                <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Save</span>
-                <span className="sm:hidden">Save</span>
-              </LoadingButton>
+                {saving ? (
+                  <>
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span className="hidden sm:inline">Saving...</span>
+                    <span className="sm:hidden">Save</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Save</span>
+                    <span className="sm:hidden">Save</span>
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -1230,32 +855,21 @@ function ConfigureLayoutContent() {
           {/* Compact Canvas for Editing */}
           <div className="lg:col-span-3 order-1 lg:order-1">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6">
-              {/* Wrapper for scaling - maintains aspect ratio */}
               <div 
                 ref={canvasRef}
-                className="relative w-full overflow-visible"
+                className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden w-full"
                 style={{ 
                   aspectRatio: templateImageDimensions 
                     ? `${templateImageDimensions.width}/${templateImageDimensions.height}`
                     : `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
+                  cursor: 'default',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none'
                 }}
+                onClick={() => setSelectedLayerId(null)}
               >
-                {/* Inner canvas at natural size, scaled down by transform */}
-                <div
-                  className="absolute top-0 left-0 border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden"
-                  style={{
-                    width: `${templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}px`,
-                    height: `${templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}px`,
-                    transform: `scale(${canvasScale})`,
-                    transformOrigin: 'top left',
-                    cursor: 'default',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    MozUserSelect: 'none',
-                    msUserSelect: 'none'
-                  }}
-                  onClick={() => setSelectedLayerId(null)}
-                >
                 {/* Template Background - Use different image based on mode */}
                 {templateImageUrl && (
                   <div className="absolute inset-0" style={{ userSelect: 'none', pointerEvents: 'none' }}>
@@ -1286,22 +900,19 @@ function ConfigureLayoutContent() {
                   const renderText = () => {
                     if (layer.richText && layer.hasInlineFormatting) {
                       // Render with inline formatting
-                      return layer.richText.map((span, idx) => {
-                        const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
-                        return (
-                          <span
-                            key={idx}
-                            style={{
-                              fontWeight: span.fontWeight || layer.fontWeight,
-                              fontFamily: span.fontFamily || layer.fontFamily,
-                              fontSize: span.fontSize ? `${span.fontSize * templateScale}px` : undefined,
-                              color: span.color || layer.color
-                            }}
-                          >
-                            {span.text}
-                          </span>
-                        );
-                      });
+                      return layer.richText.map((span, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            fontWeight: span.fontWeight || layer.fontWeight,
+                            fontFamily: span.fontFamily || layer.fontFamily,
+                            fontSize: span.fontSize ? `${span.fontSize * canvasScale}px` : undefined,
+                            color: span.color || layer.color
+                          }}
+                        >
+                          {span.text}
+                        </span>
+                      ));
                     }
                     return plainText;
                   };
@@ -1322,26 +933,29 @@ function ConfigureLayoutContent() {
                     return 'translate(0%, -50%)';
                   };
                   
-                  // ✅ DYNAMIC POSITIONING: Use template's actual dimensions
-                  // This ensures preview matches generation exactly, even when template image is replaced
-                  const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-                  const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                  // ✅ DYNAMIC POSITIONING (Nov 5, 2025): No Manual Offset Needed!
+                  // 
+                  // REMOVED: Legacy mobileYOffset logic (certificate_no: +0.16%, issue_date: +0.50%)
+                  // 
+                  // OLD SYSTEM (REMOVED):
+                  //   - Manual offset per layer (hardcoded adjustments)
+                  //   - Different positioning between preview and generation
+                  //   - Required tweaking for each template
+                  // 
+                  // NEW SYSTEM (DYNAMIC):
+                  //   - Pure percentage positioning (resolution-independent)
+                  //   - Preview = Generation (exact visual match)
+                  //   - Works with ANY template size without adjustment
+                  //   - Fully WYSIWYG ✅
                   
-                  // Use percentage-based positioning (resolution-independent)
-                  // xPercent and yPercent are already stored in layer, use them directly
-                  const leftPercent = layer.xPercent !== undefined && layer.xPercent !== null
-                    ? layer.xPercent * 100
-                    : (layer.x / templateWidth) * 100;
-                  const topPercent = layer.yPercent !== undefined && layer.yPercent !== null
-                    ? layer.yPercent * 100
-                    : (layer.y / templateHeight) * 100;
+                  const topPercent = (layer.y / STANDARD_CANVAS_HEIGHT) * 100;
                   
                   return (
                     <div
                       key={layer.id}
                       className="absolute"
                       style={{
-                        left: `${leftPercent}%`,
+                        left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
                         top: `${topPercent}%`,
                         transform: getTransform(),
                         zIndex: isSelected ? 10 : 1
@@ -1353,11 +967,10 @@ function ConfigureLayoutContent() {
                           isSelected ? 'bg-blue-50/30' : ''
                         } ${layer.isDragging ? 'opacity-70' : ''}`}
                         style={{
-                          // ✅ CRITICAL: Scale font size to match generation output
-                          // Generation uses: fontSize * (templateWidth / STANDARD_CANVAS_WIDTH)
-                          // Preview must use the same scaling to match 1:1
-                          // Template 6250px: font 30 * (6250/1500) = 125px
-                          fontSize: `${layer.fontSize * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px`,
+                          // CRITICAL: Match PNG generation rounding behavior
+                          // certificate-render.ts uses: Math.round(baseFontSize * scaleFactor)
+                          // We must do the same to ensure exact visual match
+                          fontSize: `${Math.round(layer.fontSize * canvasScale)}px`,
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
@@ -1365,10 +978,12 @@ function ConfigureLayoutContent() {
                           textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                           // certificate_no and issue_date should never wrap - always stay on one line
                           whiteSpace: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'nowrap' : (layer.maxWidth ? 'normal' : 'nowrap'),
-                          // ✅ Scale maxWidth to match generation output
-                          width: layer.maxWidth ? `${layer.maxWidth * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px` : 'auto',
-                          maxWidth: layer.maxWidth ? `${layer.maxWidth * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px` : 'none',
-                          minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px`,
+                          // ✅ ENABLED: Width control for certificate_no and issue_date (Nov 5, 2025)
+                          // Now respects maxWidth setting while maintaining single-line behavior
+                          // CRITICAL: Round dimensions to match PNG generation
+                          width: layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'auto',
+                          maxWidth: layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'none',
+                          minHeight: `${Math.round((layer.fontSize * (layer.lineHeight || 1.2)) * canvasScale)}px`,
                           lineHeight: layer.lineHeight || 1.2,
                           // certificate_no and issue_date: truncate with ellipsis if text overflows
                           textOverflow: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'ellipsis' : 'clip',
@@ -1379,10 +994,9 @@ function ConfigureLayoutContent() {
                           // Remove all padding to match PNG generation (text starts from border edge)
                           padding: '0px',
                           // Show border only when selected for visual feedback
-                          border: isSelected ? '5px dashed #3b82f6' : '5px dashed transparent',
+                          border: isSelected ? '2px dashed #3b82f6' : '2px dashed transparent',
                           borderRadius: '4px',
-                          boxSizing: 'border-box',
-                          boxShadow: isSelected ? '0 0 0 1px rgba(59, 130, 246, 0.2)' : 'none'
+                          boxSizing: 'border-box'
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1474,7 +1088,6 @@ function ConfigureLayoutContent() {
                     </div>
                   );
                 })}
-                </div>
               </div>
             </div>
           </div>
@@ -1599,292 +1212,6 @@ function ConfigureLayoutContent() {
                 </div>
               </div>
 
-              {/* Photo Layers Section */}
-              <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
-                <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
-                  <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Photo Layers ({photoLayers.length})
-                  </h2>
-                  <label htmlFor="photo-upload">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={uploadingPhoto}
-                      className="h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm cursor-pointer"
-                      asChild
-                    >
-                      <span>
-                        <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">{uploadingPhoto ? 'Uploading...' : 'Upload'}</span>
-                      </span>
-                    </Button>
-                  </label>
-                  <input
-                    id="photo-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                </div>
-
-                {/* Photo Layers List */}
-                <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
-                  {photoLayers.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400 dark:text-gray-600 text-xs sm:text-sm">
-                      <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>No photos yet</p>
-                      <p className="text-[10px] sm:text-xs mt-1">Upload images to add to template</p>
-                    </div>
-                  ) : (
-                    photoLayers.map(layer => {
-                      const isSelected = selectedPhotoLayerId === layer.id;
-                      
-                      return (
-                        <div
-                          key={layer.id}
-                          className={`flex items-center justify-between p-2 sm:p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            isSelected 
-                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-500/10' 
-                              : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
-                          }`}
-                          onClick={() => setSelectedPhotoLayerId(layer.id)}
-                        >
-                          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
-                            <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-800">
-                              <img 
-                                src={layer.src} 
-                                alt={layer.id}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
-                                {layer.id}
-                              </div>
-                              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
-                                {layer.fitMode} • z:{layer.zIndex}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deletePhotoLayer(layer.id);
-                            }}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 h-7 w-7 sm:h-8 sm:w-auto sm:px-2 p-0 flex-shrink-0"
-                          >
-                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </Button>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              {/* Photo Layer Properties */}
-              {selectedPhotoLayerId && photoLayers.find(l => l.id === selectedPhotoLayerId) && (() => {
-                const selectedPhoto = photoLayers.find(l => l.id === selectedPhotoLayerId)!;
-                
-                return (
-                  <div className="border-t border-gray-200 dark:border-gray-800 pt-3 sm:pt-4">
-                    <h3 className="text-[10px] sm:text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2 sm:mb-3 uppercase tracking-wide truncate">
-                      {selectedPhoto.id} Settings
-                    </h3>
-                    <div className="space-y-3">
-                      {/* Fit Mode */}
-                      <div>
-                        <Label className="text-xs">Fit Mode</Label>
-                        <Select
-                          value={selectedPhoto.fitMode}
-                          onValueChange={(value) => updatePhotoLayer(selectedPhoto.id, { 
-                            fitMode: value as 'contain' | 'cover' | 'fill' | 'none' 
-                          })}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="contain">Contain (fit inside)</SelectItem>
-                            <SelectItem value="cover">Cover (fill box)</SelectItem>
-                            <SelectItem value="fill">Fill (stretch)</SelectItem>
-                            <SelectItem value="none">None (original)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Position */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">X Position (%)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={Math.round(selectedPhoto.xPercent * 100)}
-                            onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
-                              xPercent: Number(e.target.value) / 100 
-                            })}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Y Position (%)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={Math.round(selectedPhoto.yPercent * 100)}
-                            onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
-                              yPercent: Number(e.target.value) / 100 
-                            })}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Size */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Width (%)</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="100"
-                            step="1"
-                            value={Math.round(selectedPhoto.widthPercent * 100)}
-                            onChange={(e) => {
-                              const newWidth = Number(e.target.value) / 100;
-                              if (selectedPhoto.maintainAspectRatio && selectedPhoto.originalWidth && selectedPhoto.originalHeight) {
-                                const aspectRatio = selectedPhoto.originalHeight / selectedPhoto.originalWidth;
-                                updatePhotoLayer(selectedPhoto.id, { 
-                                  widthPercent: newWidth,
-                                  heightPercent: newWidth * aspectRatio
-                                });
-                              } else {
-                                updatePhotoLayer(selectedPhoto.id, { widthPercent: newWidth });
-                              }
-                            }}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Height (%)</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="100"
-                            step="1"
-                            value={Math.round(selectedPhoto.heightPercent * 100)}
-                            onChange={(e) => {
-                              const newHeight = Number(e.target.value) / 100;
-                              if (selectedPhoto.maintainAspectRatio && selectedPhoto.originalWidth && selectedPhoto.originalHeight) {
-                                const aspectRatio = selectedPhoto.originalWidth / selectedPhoto.originalHeight;
-                                updatePhotoLayer(selectedPhoto.id, { 
-                                  heightPercent: newHeight,
-                                  widthPercent: newHeight * aspectRatio
-                                });
-                              } else {
-                                updatePhotoLayer(selectedPhoto.id, { heightPercent: newHeight });
-                              }
-                            }}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Opacity */}
-                      <div>
-                        <Label className="text-xs">Opacity ({Math.round(selectedPhoto.opacity * 100)}%)</Label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={selectedPhoto.opacity * 100}
-                          onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
-                            opacity: Number(e.target.value) / 100 
-                          })}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-                        />
-                      </div>
-
-                      {/* Rotation */}
-                      <div>
-                        <Label className="text-xs">Rotation ({selectedPhoto.rotation}°)</Label>
-                        <input
-                          type="range"
-                          min="-180"
-                          max="180"
-                          value={selectedPhoto.rotation}
-                          onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
-                            rotation: Number(e.target.value) 
-                          })}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-                        />
-                      </div>
-
-                      {/* Z-Index */}
-                      <div>
-                        <Label className="text-xs">Layer Order (Z-Index)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="200"
-                          value={selectedPhoto.zIndex}
-                          onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
-                            zIndex: Number(e.target.value) 
-                          })}
-                          className="h-8 text-xs"
-                        />
-                        <p className="text-[10px] text-gray-500 mt-1">Higher values appear on top. Text layers default to 100.</p>
-                      </div>
-
-                      {/* Mask Selector */}
-                      <div>
-                        <Label className="text-xs">Mask Shape</Label>
-                        <Select
-                          value={selectedPhoto.mask?.type || 'none'}
-                          onValueChange={(value) => {
-                            if (value === 'none') {
-                              updatePhotoLayer(selectedPhoto.id, { mask: undefined });
-                            } else {
-                              updatePhotoLayer(selectedPhoto.id, { 
-                                mask: { type: value as 'circle' | 'ellipse' | 'roundedRect' | 'polygon' }
-                              });
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">
-                              <div className="flex items-center gap-2">
-                                <Square className="w-3 h-3" />
-                                No Mask
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="circle">
-                              <div className="flex items-center gap-2">
-                                <Circle className="w-3 h-3" />
-                                Circle
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="ellipse">Ellipse</SelectItem>
-                            <SelectItem value="roundedRect">Rounded Rectangle</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
               {/* Layer Properties */}
               {selectedLayer && (
                 <div className="border-t border-gray-200 dark:border-gray-800 pt-3 sm:pt-4">
@@ -1948,15 +1275,10 @@ function ConfigureLayoutContent() {
                         <Input
                           type="number"
                           value={selectedLayer.x}
-                          onChange={(e) => {
-                            const newX = parseInt(e.target.value) || 0;
-                            // Use template's actual dimensions for percentage calculation
-                            const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-                            updateLayer(selectedLayer.id, { 
-                              x: newX,
-                              xPercent: newX / templateWidth
-                            });
-                          }}
+                          onChange={(e) => updateLayer(selectedLayer.id, { 
+                            x: parseInt(e.target.value) || 0,
+                            xPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_WIDTH
+                          })}
                           className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
@@ -1965,15 +1287,10 @@ function ConfigureLayoutContent() {
                         <Input
                           type="number"
                           value={selectedLayer.y}
-                          onChange={(e) => {
-                            const newY = parseInt(e.target.value) || 0;
-                            // Use template's actual dimensions for percentage calculation
-                            const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
-                            updateLayer(selectedLayer.id, { 
-                              y: newY,
-                              yPercent: newY / templateHeight
-                            });
-                          }}
+                          onChange={(e) => updateLayer(selectedLayer.id, { 
+                            y: parseInt(e.target.value) || 0,
+                            yPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_HEIGHT
+                          })}
                           className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
@@ -1981,9 +1298,7 @@ function ConfigureLayoutContent() {
 
                     {/* Font Size */}
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Size (px)</Label>
-                      </div>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Size</Label>
                       <Input
                         type="number"
                         value={selectedLayer.fontSize}
@@ -2007,7 +1322,6 @@ function ConfigureLayoutContent() {
                           });
                         }}
                         className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
-                        title={`Font size ini akan sama dengan hasil generate. Preview menggunakan font size yang sama seperti generate.`}
                       />
                     </div>
 
@@ -2324,30 +1638,13 @@ function ConfigureLayoutContent() {
                   return 'translate(0%, -50%)';
                 };
                 
-                // Use template's actual dimensions for positioning
-                const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-                const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
-                
-                // Use percentage-based positioning (resolution-independent)
-                const leftPercent = layer.xPercent !== undefined && layer.xPercent !== null
-                  ? layer.xPercent * 100
-                  : (layer.x / templateWidth) * 100;
-                const topPercent = layer.yPercent !== undefined && layer.yPercent !== null
-                  ? layer.yPercent * 100
-                  : (layer.y / templateHeight) * 100;
-                
-                // ✅ CRITICAL: Scale font size to match generation output
-                // Generation uses: fontSize * (templateWidth / STANDARD_CANVAS_WIDTH)
-                // Preview modal must use the same scaling
-                const templateScale = templateWidth / STANDARD_CANVAS_WIDTH;
-                
                 return (
                   <div
                     key={layer.id}
                     className="absolute"
                     style={{
-                      left: `${leftPercent}%`,
-                      top: `${topPercent}%`,
+                      left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
+                      top: `${(layer.y / STANDARD_CANVAS_HEIGHT) * 100}%`,
                       transform: getTransform(),
                       zIndex: 1
                     }}
@@ -2355,17 +1652,14 @@ function ConfigureLayoutContent() {
                     <div
                       className="relative"
                       style={{
-                        // ✅ CRITICAL: Use same scaling as generation
-                        // Template 6250px: font 30 * (6250/1500) = 125px
-                        // This ensures preview modal matches generation exactly
-                        fontSize: `${layer.fontSize * templateScale}px`,
+                        fontSize: `${layer.fontSize}px`,
                         color: layer.color,
                         fontWeight: layer.fontWeight,
                         fontFamily: layer.fontFamily,
                         textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                         whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
-                        width: layer.maxWidth ? `${layer.maxWidth * templateScale}px` : 'auto',
-                        minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * templateScale}px`,
+                        width: layer.maxWidth ? `${layer.maxWidth}px` : 'auto',
+                        minHeight: `${layer.fontSize * (layer.lineHeight || 1.2)}px`,
                         lineHeight: layer.lineHeight || 1.2,
                         wordWrap: 'break-word',
                         overflowWrap: 'break-word',
