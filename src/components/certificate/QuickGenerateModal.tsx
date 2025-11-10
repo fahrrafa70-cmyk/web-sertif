@@ -65,6 +65,7 @@ interface InputScoreStepProps {
 }
 
 function InputScoreStep({ members, scoreFields, scoreDataMap, setScoreDataMap }: InputScoreStepProps) {
+  const { t } = useLanguage();
   const [selectedMemberId, setSelectedMemberId] = useState(members[0]?.id || '');
   
   // Get current member's score data

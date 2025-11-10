@@ -341,14 +341,7 @@ function CertificatesContent() {
       // Copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">{t('hero.linkCopied')}</span>
-            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
-          </div>,
-          { duration: 5000 }
-        );
+        toast.success(t('hero.linkCopied'));
       } else {
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
@@ -359,14 +352,7 @@ function CertificatesContent() {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">{t('hero.linkCopied')}</span>
-            <span className="text-xs break-all text-gray-600 dark:text-gray-400">{certificateLink}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-500">{t('hero.linkShareable')}</span>
-          </div>,
-          { duration: 5000 }
-        );
+        toast.success(t('hero.linkCopied'));
       }
       
       console.log('Generated public certificate link:', certificateLink);

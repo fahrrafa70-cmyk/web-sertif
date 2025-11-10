@@ -75,6 +75,9 @@ function ConfigureLayoutContent() {
   // Preview modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
+  // Store raw layout data in ref for use in image onload callbacks
+  const existingLayoutRef = useRef<Awaited<ReturnType<typeof getTemplateLayout>> | null>(null);
+  
   // Load template and existing layout
   useEffect(() => {
     async function loadTemplate() {
@@ -98,75 +101,199 @@ function ConfigureLayoutContent() {
         const imgUrl = await getTemplateImageUrl(tpl);
         setTemplateImageUrl(imgUrl);
         
+        // Load existing layout and store in ref for use in image onload callbacks
+        const existingLayout = await getTemplateLayout(templateId);
+        existingLayoutRef.current = existingLayout;
+        
         // Load CERTIFICATE image dimensions for dynamic aspect ratio
         if (tpl.certificate_image_url) {
           const certImg = new window.Image();
           certImg.onload = () => {
-            setCertificateImageDimensions({ width: certImg.naturalWidth, height: certImg.naturalHeight });
+            const dimensions = { width: certImg.naturalWidth, height: certImg.naturalHeight };
+            setCertificateImageDimensions(dimensions);
             console.log('📐 Certificate dimensions:', certImg.naturalWidth, 'x', certImg.naturalHeight);
+            
+            // CRITICAL: Normalize coordinates when dimensions are loaded
+            // This ensures coordinates are correct even if template image was replaced with different size
+            const layout = existingLayoutRef.current;
+            if (layout && layout.certificate) {
+              const normalizedLayers = (layout.certificate.textLayers as TextLayer[]).map(layer => {
+                // Use xPercent/yPercent if available (resolution-independent), otherwise calculate from x/y
+                const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
+                  ? layer.xPercent
+                  : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
+                const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
+                  ? layer.yPercent
+                  : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
+                
+                // Recalculate x/y based on actual template dimensions
+                const x = Math.round(xPercent * dimensions.width);
+                const y = Math.round(yPercent * dimensions.height);
+                
+                return {
+                  ...layer,
+                  x,
+                  y,
+                  xPercent,
+                  yPercent,
+                  maxWidth: layer.maxWidth || 300,
+                  lineHeight: layer.lineHeight || 1.2,
+                };
+              });
+              
+              // Remove textAlign for certificate_no and issue_date
+              const migratedLayers = normalizedLayers.map(layer => {
+                if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                  const { textAlign, ...rest } = layer;
+                  void textAlign;
+                  return rest;
+                }
+                return layer;
+              });
+              
+              setCertificateTextLayers(migratedLayers);
+              console.log('✅ Normalized certificate layers to template dimensions:', dimensions);
+            }
           };
+          
+          // Set src and check if already cached
           certImg.src = tpl.certificate_image_url;
+          
+          // Handle case where image is already cached (onload may not fire)
+          // Check after setting src, as cached images will have complete=true immediately
+          if (certImg.complete) {
+            // Image already loaded from cache, trigger callback manually
+            const dimensions = { width: certImg.naturalWidth, height: certImg.naturalHeight };
+            setCertificateImageDimensions(dimensions);
+            console.log('📐 Certificate dimensions (cached):', certImg.naturalWidth, 'x', certImg.naturalHeight);
+            
+            const layout = existingLayoutRef.current;
+            if (layout && layout.certificate) {
+              const normalizedLayers = (layout.certificate.textLayers as TextLayer[]).map(layer => {
+                const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
+                  ? layer.xPercent
+                  : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
+                const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
+                  ? layer.yPercent
+                  : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
+                
+                const x = Math.round(xPercent * dimensions.width);
+                const y = Math.round(yPercent * dimensions.height);
+                
+                return {
+                  ...layer,
+                  x,
+                  y,
+                  xPercent,
+                  yPercent,
+                  maxWidth: layer.maxWidth || 300,
+                  lineHeight: layer.lineHeight || 1.2,
+                };
+              });
+              
+              const migratedLayers = normalizedLayers.map(layer => {
+                if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                  const { textAlign, ...rest } = layer;
+                  void textAlign;
+                  return rest;
+                }
+                return layer;
+              });
+              
+              setCertificateTextLayers(migratedLayers);
+              console.log('✅ Normalized certificate layers (cached image)');
+            }
+          }
         }
         
         // Load SCORE image dimensions if dual template
         if (tpl.is_dual_template && tpl.score_image_url) {
           const scoreImg = new window.Image();
           scoreImg.onload = () => {
-            setScoreImageDimensions({ width: scoreImg.naturalWidth, height: scoreImg.naturalHeight });
+            const dimensions = { width: scoreImg.naturalWidth, height: scoreImg.naturalHeight };
+            setScoreImageDimensions(dimensions);
             console.log('📊 Score dimensions:', scoreImg.naturalWidth, 'x', scoreImg.naturalHeight);
+            
+            // CRITICAL: Normalize coordinates when dimensions are loaded
+            const layout = existingLayoutRef.current;
+            if (layout && layout.score) {
+              const normalizedLayers = (layout.score.textLayers as TextLayer[]).map(layer => {
+                // Use xPercent/yPercent if available (resolution-independent), otherwise calculate from x/y
+                const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
+                  ? layer.xPercent
+                  : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
+                const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
+                  ? layer.yPercent
+                  : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
+                
+                // Recalculate x/y based on actual template dimensions
+                const x = Math.round(xPercent * dimensions.width);
+                const y = Math.round(yPercent * dimensions.height);
+                
+                return {
+                  ...layer,
+                  x,
+                  y,
+                  xPercent,
+                  yPercent,
+                  maxWidth: layer.maxWidth || 300,
+                  lineHeight: layer.lineHeight || 1.2,
+                };
+              });
+              
+              setScoreTextLayers(normalizedLayers);
+              console.log('✅ Normalized score layers to template dimensions:', dimensions);
+            }
           };
+          
+          // Set src and check if already cached
           scoreImg.src = tpl.score_image_url;
+          
+          // Handle case where image is already cached (onload may not fire)
+          // Check after setting src, as cached images will have complete=true immediately
+          if (scoreImg.complete) {
+            // Image already loaded from cache, trigger callback manually
+            const dimensions = { width: scoreImg.naturalWidth, height: scoreImg.naturalHeight };
+            setScoreImageDimensions(dimensions);
+            console.log('📊 Score dimensions (cached):', scoreImg.naturalWidth, 'x', scoreImg.naturalHeight);
+            
+            const layout = existingLayoutRef.current;
+            if (layout && layout.score) {
+              const normalizedLayers = (layout.score.textLayers as TextLayer[]).map(layer => {
+                const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
+                  ? layer.xPercent
+                  : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
+                const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
+                  ? layer.yPercent
+                  : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
+                
+                const x = Math.round(xPercent * dimensions.width);
+                const y = Math.round(yPercent * dimensions.height);
+                
+                return {
+                  ...layer,
+                  x,
+                  y,
+                  xPercent,
+                  yPercent,
+                  maxWidth: layer.maxWidth || 300,
+                  lineHeight: layer.lineHeight || 1.2,
+                };
+              });
+              
+              setScoreTextLayers(normalizedLayers);
+              console.log('✅ Normalized score layers (cached image)');
+            }
+          }
         }
         
-        // Load existing layout if available
-        const existingLayout = await getTemplateLayout(templateId);
-        
-        // Load certificate layers
-        if (existingLayout && existingLayout.certificate) {
-          console.log('📦 Loading existing certificate layout configuration');
-          
-          // Migrate old data: ensure all layers have maxWidth and lineHeight
-          // Remove textAlign for certificate_no and issue_date (they always use left alignment)
-          const migratedLayers = (existingLayout.certificate.textLayers as TextLayer[]).map(layer => {
-            const migrated = {
-              ...layer,
-              maxWidth: layer.maxWidth || 300, // Default maxWidth if missing
-              lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
-            };
-            // Remove textAlign property for certificate_no and issue_date
-            if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
-              const { textAlign, ...rest } = migrated;
-              void textAlign;
-              return rest;
-            }
-            return migrated;
-          });
-          
-          setCertificateTextLayers(migratedLayers);
-          console.log('✅ Migrated certificate layers with default maxWidth and lineHeight');
-        } else {
-          // Initialize with default certificate text layers
+        // Initialize default layers if no existing layout
+        if (!existingLayout || !existingLayout.certificate) {
           console.log('🆕 Initializing default certificate text layers');
           initializeDefaultCertificateLayers();
         }
         
-        // Load score layers (if template is dual)
-        if (existingLayout && existingLayout.score && tpl.is_dual_template) {
-          console.log('📊 Loading existing score layout configuration');
-          
-          // Migrate score layers: ensure all layers have maxWidth and lineHeight
-          // CRITICAL: Preserve textAlign from database - don't override with fallback
-          const migratedScoreLayers = (existingLayout.score.textLayers as TextLayer[]).map(layer => ({
-            ...layer,
-            maxWidth: layer.maxWidth || 300,
-            lineHeight: layer.lineHeight || 1.2,
-            // Keep textAlign as-is from database (don't add fallback)
-          }));
-          
-          setScoreTextLayers(migratedScoreLayers);
-          console.log('✅ Migrated score layers:', migratedScoreLayers.length);
-        } else if (tpl.is_dual_template) {
-          // Initialize score layers with required issue_date field
+        if (tpl.is_dual_template && (!existingLayout || !existingLayout.score)) {
           console.log('🆕 Initializing score layers with required issue_date field');
           const defaultScoreLayers: TextLayerConfig[] = [
             {
@@ -179,7 +306,6 @@ function ConfigureLayoutContent() {
               color: '#000000',
               fontWeight: 'normal',
               fontFamily: 'Arial',
-              // No textAlign for issue_date - always uses left alignment
               maxWidth: 300,
               lineHeight: 1.3,
             },
@@ -197,6 +323,101 @@ function ConfigureLayoutContent() {
 
     loadTemplate();
   }, [templateId, router]);
+
+  // CRITICAL: Normalize coordinates when template dimensions change
+  // This handles the case when template image is replaced with different size
+  // Use refs to track last normalized dimensions to avoid infinite loops
+  const lastCertDimensionsRef = useRef<{ width: number; height: number } | null>(null);
+  const lastScoreDimensionsRef = useRef<{ width: number; height: number } | null>(null);
+  
+  useEffect(() => {
+    if (!certificateImageDimensions) return;
+    
+    // Check if dimensions actually changed
+    const lastDims = lastCertDimensionsRef.current;
+    if (lastDims && 
+        lastDims.width === certificateImageDimensions.width && 
+        lastDims.height === certificateImageDimensions.height) {
+      return; // No change, skip normalization
+    }
+    
+    lastCertDimensionsRef.current = certificateImageDimensions;
+    
+    // Normalize certificate layers based on new dimensions
+    setCertificateTextLayers(prevLayers => {
+      if (prevLayers.length === 0) return prevLayers;
+      
+      const normalizedLayers = prevLayers.map(layer => {
+        // Always use xPercent/yPercent as source of truth (resolution-independent)
+        const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
+          ? layer.xPercent
+          : (layer.x || 0) / (certificateImageDimensions.width || STANDARD_CANVAS_WIDTH);
+        const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
+          ? layer.yPercent
+          : (layer.y || 0) / (certificateImageDimensions.height || STANDARD_CANVAS_HEIGHT);
+        
+        // Recalculate x/y based on actual template dimensions
+        const x = Math.round(xPercent * certificateImageDimensions.width);
+        const y = Math.round(yPercent * certificateImageDimensions.height);
+        
+        return {
+          ...layer,
+          x,
+          y,
+          xPercent,
+          yPercent,
+        };
+      });
+      
+      console.log('🔄 Normalized certificate coordinates to template dimensions:', certificateImageDimensions);
+      return normalizedLayers;
+    });
+  }, [certificateImageDimensions?.width, certificateImageDimensions?.height]); // Only depend on width/height
+
+  // CRITICAL: Normalize score coordinates when score dimensions change
+  useEffect(() => {
+    if (!scoreImageDimensions) return;
+    
+    // Check if dimensions actually changed
+    const lastDims = lastScoreDimensionsRef.current;
+    if (lastDims && 
+        lastDims.width === scoreImageDimensions.width && 
+        lastDims.height === scoreImageDimensions.height) {
+      return; // No change, skip normalization
+    }
+    
+    lastScoreDimensionsRef.current = scoreImageDimensions;
+    
+    // Normalize score layers based on new dimensions
+    setScoreTextLayers(prevLayers => {
+      if (prevLayers.length === 0) return prevLayers;
+      
+      const normalizedLayers = prevLayers.map(layer => {
+        // Always use xPercent/yPercent as source of truth (resolution-independent)
+        const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
+          ? layer.xPercent
+          : (layer.x || 0) / (scoreImageDimensions.width || STANDARD_CANVAS_WIDTH);
+        const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
+          ? layer.yPercent
+          : (layer.y || 0) / (scoreImageDimensions.height || STANDARD_CANVAS_HEIGHT);
+        
+        // Recalculate x/y based on actual template dimensions
+        const x = Math.round(xPercent * scoreImageDimensions.width);
+        const y = Math.round(yPercent * scoreImageDimensions.height);
+        
+        return {
+          ...layer,
+          x,
+          y,
+          xPercent,
+          yPercent,
+        };
+      });
+      
+      console.log('🔄 Normalized score coordinates to template dimensions:', scoreImageDimensions);
+      return normalizedLayers;
+    });
+  }, [scoreImageDimensions?.width, scoreImageDimensions?.height]); // Only depend on width/height
 
   // Initialize default certificate text layers
   const initializeDefaultCertificateLayers = () => {
@@ -307,6 +528,19 @@ function ConfigureLayoutContent() {
           }
           
           setCanvasScale(scale);
+          
+          // DEBUG: Log scaling information for font size debugging
+          console.log('📏 Canvas Scale Calculation:', {
+            containerWidth,
+            containerHeight,
+            templateWidth,
+            templateHeight,
+            scaleX,
+            scaleY,
+            scale,
+            fontSizeExample: `Font 100px → Preview: ${(100 * scale).toFixed(2)}px`,
+            note: 'Preview font size = storedFontSize * scale'
+          });
         });
       });
     };
@@ -352,18 +586,24 @@ function ConfigureLayoutContent() {
     const layer = textLayers.find(l => l.id === layerId);
     if (!layer || !canvasRef.current) return;
 
+    // Get actual container dimensions and calculate scale
+    const containerRect = canvasRef.current.getBoundingClientRect();
+    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+    
+    // ✅ CRITICAL: Use canvasScale (already calculated) for mouse coordinate conversion
+    // canvasScale = containerWidth / templateNaturalWidth
+    const actualScale = canvasScale;
+    
     const startX = e.clientX;
     const startY = e.clientY;
     const startLayerX = layer.x;
     const startLayerY = layer.y;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = (moveEvent.clientX - startX) / canvasScale;
-      const deltaY = (moveEvent.clientY - startY) / canvasScale;
-      
-      // Use template natural dimensions (dynamic, not hardcoded!)
-      const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-      const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+      // Convert mouse delta to template coordinates using actual scale
+      const deltaX = (moveEvent.clientX - startX) / actualScale;
+      const deltaY = (moveEvent.clientY - startY) / actualScale;
       
       const newX = Math.max(0, Math.min(templateWidth, startLayerX + deltaX));
       const newY = Math.max(0, Math.min(templateHeight, startLayerY + deltaY));
@@ -407,8 +647,14 @@ function ConfigureLayoutContent() {
     const startHeight = layer.fontSize * (layer.lineHeight || 1.2);
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = (moveEvent.clientX - startX) / canvasScale;
-      const deltaY = (moveEvent.clientY - startY) / canvasScale;
+      // Get actual container dimensions and calculate scale
+      const containerRect = canvasRef.current!.getBoundingClientRect();
+      const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+      const actualScale = containerRect.width / templateWidth;
+      
+      // Convert mouse delta to template coordinates using actual scale
+      const deltaX = (moveEvent.clientX - startX) / actualScale;
+      const deltaY = (moveEvent.clientY - startY) / actualScale;
       
       const updates: Partial<TextLayer> = {};
       
@@ -558,10 +804,11 @@ function ConfigureLayoutContent() {
           newX = currentVisualCenterX - (textWidth / 2);
         }
         
-        // Clamp and update x and xPercent
-        newX = Math.max(0, Math.min(STANDARD_CANVAS_WIDTH, Math.round(newX)));
+        // Clamp and update x and xPercent using template's actual dimensions
+        const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+        newX = Math.max(0, Math.min(templateWidth, Math.round(newX)));
         updates.x = newX;
-        updates.xPercent = newX / STANDARD_CANVAS_WIDTH;
+        updates.xPercent = newX / templateWidth;
       }
       
       return prev.map(l => 
@@ -850,21 +1097,32 @@ function ConfigureLayoutContent() {
           {/* Compact Canvas for Editing */}
           <div className="lg:col-span-3 order-1 lg:order-1">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6">
+              {/* Wrapper for scaling - maintains aspect ratio */}
               <div 
                 ref={canvasRef}
-                className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden w-full"
+                className="relative w-full overflow-visible"
                 style={{ 
                   aspectRatio: templateImageDimensions 
                     ? `${templateImageDimensions.width}/${templateImageDimensions.height}`
                     : `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
-                  cursor: 'default',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  MozUserSelect: 'none',
-                  msUserSelect: 'none'
                 }}
-                onClick={() => setSelectedLayerId(null)}
               >
+                {/* Inner canvas at natural size, scaled down by transform */}
+                <div
+                  className="absolute top-0 left-0 border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden"
+                  style={{
+                    width: `${templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}px`,
+                    height: `${templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}px`,
+                    transform: `scale(${canvasScale})`,
+                    transformOrigin: 'top left',
+                    cursor: 'default',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none'
+                  }}
+                  onClick={() => setSelectedLayerId(null)}
+                >
                 {/* Template Background - Use different image based on mode */}
                 {templateImageUrl && (
                   <div className="absolute inset-0" style={{ userSelect: 'none', pointerEvents: 'none' }}>
@@ -895,19 +1153,22 @@ function ConfigureLayoutContent() {
                   const renderText = () => {
                     if (layer.richText && layer.hasInlineFormatting) {
                       // Render with inline formatting
-                      return layer.richText.map((span, idx) => (
-                        <span
-                          key={idx}
-                          style={{
-                            fontWeight: span.fontWeight || layer.fontWeight,
-                            fontFamily: span.fontFamily || layer.fontFamily,
-                            fontSize: span.fontSize ? `${span.fontSize * canvasScale}px` : undefined,
-                            color: span.color || layer.color
-                          }}
-                        >
-                          {span.text}
-                        </span>
-                      ));
+                      return layer.richText.map((span, idx) => {
+                        const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
+                        return (
+                          <span
+                            key={idx}
+                            style={{
+                              fontWeight: span.fontWeight || layer.fontWeight,
+                              fontFamily: span.fontFamily || layer.fontFamily,
+                              fontSize: span.fontSize ? `${span.fontSize * templateScale}px` : undefined,
+                              color: span.color || layer.color
+                            }}
+                          >
+                            {span.text}
+                          </span>
+                        );
+                      });
                     }
                     return plainText;
                   };
@@ -928,29 +1189,26 @@ function ConfigureLayoutContent() {
                     return 'translate(0%, -50%)';
                   };
                   
-                  // ✅ DYNAMIC POSITIONING (Nov 5, 2025): No Manual Offset Needed!
-                  // 
-                  // REMOVED: Legacy mobileYOffset logic (certificate_no: +0.16%, issue_date: +0.50%)
-                  // 
-                  // OLD SYSTEM (REMOVED):
-                  //   - Manual offset per layer (hardcoded adjustments)
-                  //   - Different positioning between preview and generation
-                  //   - Required tweaking for each template
-                  // 
-                  // NEW SYSTEM (DYNAMIC):
-                  //   - Pure percentage positioning (resolution-independent)
-                  //   - Preview = Generation (exact visual match)
-                  //   - Works with ANY template size without adjustment
-                  //   - Fully WYSIWYG ✅
+                  // ✅ DYNAMIC POSITIONING: Use template's actual dimensions
+                  // This ensures preview matches generation exactly, even when template image is replaced
+                  const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                  const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
                   
-                  const topPercent = (layer.y / STANDARD_CANVAS_HEIGHT) * 100;
+                  // Use percentage-based positioning (resolution-independent)
+                  // xPercent and yPercent are already stored in layer, use them directly
+                  const leftPercent = layer.xPercent !== undefined && layer.xPercent !== null
+                    ? layer.xPercent * 100
+                    : (layer.x / templateWidth) * 100;
+                  const topPercent = layer.yPercent !== undefined && layer.yPercent !== null
+                    ? layer.yPercent * 100
+                    : (layer.y / templateHeight) * 100;
                   
                   return (
                     <div
                       key={layer.id}
                       className="absolute"
                       style={{
-                        left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
+                        left: `${leftPercent}%`,
                         top: `${topPercent}%`,
                         transform: getTransform(),
                         zIndex: isSelected ? 10 : 1
@@ -962,10 +1220,11 @@ function ConfigureLayoutContent() {
                           isSelected ? 'bg-blue-50/30' : ''
                         } ${layer.isDragging ? 'opacity-70' : ''}`}
                         style={{
-                          // CRITICAL: Match PNG generation rounding behavior
-                          // certificate-render.ts uses: Math.round(baseFontSize * scaleFactor)
-                          // We must do the same to ensure exact visual match
-                          fontSize: `${Math.round(layer.fontSize * canvasScale)}px`,
+                          // ✅ CRITICAL: Scale font size to match generation output
+                          // Generation uses: fontSize * (templateWidth / STANDARD_CANVAS_WIDTH)
+                          // Preview must use the same scaling to match 1:1
+                          // Template 6250px: font 30 * (6250/1500) = 125px
+                          fontSize: `${layer.fontSize * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px`,
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
@@ -973,12 +1232,10 @@ function ConfigureLayoutContent() {
                           textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                           // certificate_no and issue_date should never wrap - always stay on one line
                           whiteSpace: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'nowrap' : (layer.maxWidth ? 'normal' : 'nowrap'),
-                          // ✅ ENABLED: Width control for certificate_no and issue_date (Nov 5, 2025)
-                          // Now respects maxWidth setting while maintaining single-line behavior
-                          // CRITICAL: Round dimensions to match PNG generation
-                          width: layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'auto',
-                          maxWidth: layer.maxWidth ? `${Math.round(Math.max(layer.maxWidth * canvasScale, 20))}px` : 'none',
-                          minHeight: `${Math.round((layer.fontSize * (layer.lineHeight || 1.2)) * canvasScale)}px`,
+                          // ✅ Scale maxWidth to match generation output
+                          width: layer.maxWidth ? `${layer.maxWidth * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px` : 'auto',
+                          maxWidth: layer.maxWidth ? `${layer.maxWidth * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px` : 'none',
+                          minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px`,
                           lineHeight: layer.lineHeight || 1.2,
                           // certificate_no and issue_date: truncate with ellipsis if text overflows
                           textOverflow: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'ellipsis' : 'clip',
@@ -1083,6 +1340,7 @@ function ConfigureLayoutContent() {
                     </div>
                   );
                 })}
+                </div>
               </div>
             </div>
           </div>
@@ -1270,10 +1528,15 @@ function ConfigureLayoutContent() {
                         <Input
                           type="number"
                           value={selectedLayer.x}
-                          onChange={(e) => updateLayer(selectedLayer.id, { 
-                            x: parseInt(e.target.value) || 0,
-                            xPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_WIDTH
-                          })}
+                          onChange={(e) => {
+                            const newX = parseInt(e.target.value) || 0;
+                            // Use template's actual dimensions for percentage calculation
+                            const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                            updateLayer(selectedLayer.id, { 
+                              x: newX,
+                              xPercent: newX / templateWidth
+                            });
+                          }}
                           className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
@@ -1282,10 +1545,15 @@ function ConfigureLayoutContent() {
                         <Input
                           type="number"
                           value={selectedLayer.y}
-                          onChange={(e) => updateLayer(selectedLayer.id, { 
-                            y: parseInt(e.target.value) || 0,
-                            yPercent: (parseInt(e.target.value) || 0) / STANDARD_CANVAS_HEIGHT
-                          })}
+                          onChange={(e) => {
+                            const newY = parseInt(e.target.value) || 0;
+                            // Use template's actual dimensions for percentage calculation
+                            const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                            updateLayer(selectedLayer.id, { 
+                              y: newY,
+                              yPercent: newY / templateHeight
+                            });
+                          }}
                           className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         />
                       </div>
@@ -1293,7 +1561,9 @@ function ConfigureLayoutContent() {
 
                     {/* Font Size */}
                     <div>
-                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Size</Label>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Size (px)</Label>
+                      </div>
                       <Input
                         type="number"
                         value={selectedLayer.fontSize}
@@ -1317,7 +1587,13 @@ function ConfigureLayoutContent() {
                           });
                         }}
                         className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                        title={`Font size ini akan sama dengan hasil generate. Preview menggunakan font size yang sama seperti generate.`}
                       />
+                      {templateImageDimensions && canvasScale < 1 && (
+                        <p className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                          💡 Font size di preview di-scale untuk menampilkan proporsi yang sama dengan hasil generate. Font size yang Anda set ({selectedLayer.fontSize}px) akan sama dengan hasil generate.
+                        </p>
+                      )}
                     </div>
 
                     {/* Font Family & Weight - Side by Side */}
@@ -1633,13 +1909,30 @@ function ConfigureLayoutContent() {
                   return 'translate(0%, -50%)';
                 };
                 
+                // Use template's actual dimensions for positioning
+                const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                
+                // Use percentage-based positioning (resolution-independent)
+                const leftPercent = layer.xPercent !== undefined && layer.xPercent !== null
+                  ? layer.xPercent * 100
+                  : (layer.x / templateWidth) * 100;
+                const topPercent = layer.yPercent !== undefined && layer.yPercent !== null
+                  ? layer.yPercent * 100
+                  : (layer.y / templateHeight) * 100;
+                
+                // ✅ CRITICAL: Scale font size to match generation output
+                // Generation uses: fontSize * (templateWidth / STANDARD_CANVAS_WIDTH)
+                // Preview modal must use the same scaling
+                const templateScale = templateWidth / STANDARD_CANVAS_WIDTH;
+                
                 return (
                   <div
                     key={layer.id}
                     className="absolute"
                     style={{
-                      left: `${(layer.x / STANDARD_CANVAS_WIDTH) * 100}%`,
-                      top: `${(layer.y / STANDARD_CANVAS_HEIGHT) * 100}%`,
+                      left: `${leftPercent}%`,
+                      top: `${topPercent}%`,
                       transform: getTransform(),
                       zIndex: 1
                     }}
@@ -1647,14 +1940,17 @@ function ConfigureLayoutContent() {
                     <div
                       className="relative"
                       style={{
-                        fontSize: `${layer.fontSize}px`,
+                        // ✅ CRITICAL: Use same scaling as generation
+                        // Template 6250px: font 30 * (6250/1500) = 125px
+                        // This ensures preview modal matches generation exactly
+                        fontSize: `${layer.fontSize * templateScale}px`,
                         color: layer.color,
                         fontWeight: layer.fontWeight,
                         fontFamily: layer.fontFamily,
                         textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                         whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
-                        width: layer.maxWidth ? `${layer.maxWidth}px` : 'auto',
-                        minHeight: `${layer.fontSize * (layer.lineHeight || 1.2)}px`,
+                        width: layer.maxWidth ? `${layer.maxWidth * templateScale}px` : 'auto',
+                        minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * templateScale}px`,
                         lineHeight: layer.lineHeight || 1.2,
                         wordWrap: 'break-word',
                         overflowWrap: 'break-word',

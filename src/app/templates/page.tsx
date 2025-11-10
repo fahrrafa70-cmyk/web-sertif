@@ -485,23 +485,23 @@ export default function TemplatesPage() {
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           {/* Header Section - Like Groups page */}
           <div className="mb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 w-full">
-              <div className="min-w-0 flex-shrink flex items-center gap-3">
-                <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-lg shadow-md">
+            <div className="flex flex-row items-center justify-between gap-2 sm:gap-3 w-full">
+              <div className="min-w-0 flex-1 flex items-center gap-2 sm:gap-3">
+                <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-lg shadow-md flex-shrink-0">
                   <Layout className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400 break-words">
+                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400 truncate">
                   {t('templates.title')}
                 </h1>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {(role === "Admin" || role === "Team") && (
                   <Button 
                     onClick={openCreate} 
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0"
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t('templates.create')}
+                    <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{t('templates.create')}</span>
                   </Button>
                 )}
               </div>

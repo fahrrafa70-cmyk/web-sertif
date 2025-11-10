@@ -170,8 +170,12 @@ export async function renderCertificateToDataURL(
     //   scaleFactor = 1.0 (no scaling!)
     //   fontSize = 32 * 1.0 = 32px ✅ Exact match!
     // 
-    // Backward compatibility: Keep scaleFactor for OLD absolute x/y values
-    const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH; // Only for legacy absolute positioning
+    // ✅ CRITICAL: Auto-scale factor based on template size
+    // If template was configured at 1688px but actual template is 6250px,
+    // we need to scale fontSize and maxWidth proportionally
+    // scaleFactor = actualTemplateWidth / STANDARD_CANVAS_WIDTH
+    // This ensures font size scales with template resolution changes
+    const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH;
     
     const x = layer.xPercent !== undefined && layer.xPercent !== null
       ? Math.round(layer.xPercent * finalWidth)    // Percentage (NEW system) ✅
@@ -180,8 +184,11 @@ export async function renderCertificateToDataURL(
       ? Math.round(layer.yPercent * finalHeight)   // Percentage (NEW system) ✅
       : Math.round((layer.y || 0) * scaleFactor);  // Absolute (OLD system, legacy)
     
-    // ✅ NO SCALING for maxWidth (stored in template's natural coordinate system)
-    const scaledMaxWidth = layer.maxWidth || 300; // Direct value, no scaling!
+    // ✅ CRITICAL: Scale maxWidth based on template resolution
+    // If template changed from 1688px to 6250px, scale maxWidth accordingly
+    // Example: maxWidth 300 at 1688px → 300 * (6250/1500) = 1250 at 6250px
+    const baseMaxWidth = layer.maxWidth || 300;
+    const scaledMaxWidth = Math.round(baseMaxWidth * scaleFactor);
     
     // CRITICAL: certificate_no and issue_date always use left alignment
     const isCertificateLayer = layer.id === 'certificate_no' || layer.id === 'issue_date';
@@ -191,10 +198,12 @@ export async function renderCertificateToDataURL(
       ? 'left'  // certificate_no/issue_date always left
       : (layer.textAlign || 'center'); // Other layers (including score): use setting or default center
     
-    // ✅ NO SCALING for fontSize (stored in template's natural coordinate system)
+    // ✅ CRITICAL: Scale fontSize based on template resolution
+    // If template changed from 1688px to 6250px, scale fontSize accordingly
+    // Example: fontSize 30 at 1688px → 30 * (6250/1500) = 125 at 6250px
     const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
     const baseFontSize = Math.max(1, layer.fontSize || 16);
-    const scaledFontSize = baseFontSize; // Direct value, no scaling!
+    const scaledFontSize = Math.round(baseFontSize * scaleFactor);
     const fontFamily = layer.fontFamily || 'Arial';
     ctx.font = `${fontWeight} ${scaledFontSize}px ${fontFamily}`;
     
