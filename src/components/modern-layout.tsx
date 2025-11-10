@@ -18,7 +18,7 @@ const ModernLayout = memo(function ModernLayout({ children }: ModernLayoutProps)
       <ModernSidebar />
 
       {/* Main Content */}
-      <main className="lg:ml-20 pt-14 sm:pt-16 w-full" style={{ backgroundColor: 'var(--background)' }}>
+      <main className="lg:ml-20 w-full" style={{ backgroundColor: 'var(--background)', paddingTop: 'var(--header-height-mobile)' }}>
         {children}
       </main>
     </div>

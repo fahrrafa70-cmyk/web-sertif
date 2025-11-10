@@ -664,25 +664,27 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
 
   // Landing stats removed from minimal landing
 
+  // Optimized animation variants with GPU-accelerated properties
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.2,
-        delayChildren: 0.3
+        staggerChildren: 0.15,
+        delayChildren: 0.1,
+        ease: [0.4, 0, 0.2, 1] as const
       }
     }
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
+    hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.6,
-        ease: "easeOut" as const
+        duration: 0.4,
+        ease: [0.4, 0, 0.2, 1] as const
       }
     }
   };
@@ -695,6 +697,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
           variants={containerVariants}
           initial="hidden"
           animate="visible"
+          style={{ willChange: 'opacity' }}
           className="max-w-5xl mx-auto"
         >
           {/* Enhanced Main Title */}
@@ -1149,7 +1152,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.recipientEmail')}</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.recipientEmail')}</label>
               <Input
                 type="email"
                 value={sendForm.email}
@@ -1175,7 +1178,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.subject')}</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.subject')}</label>
               <Input
                 value={sendForm.subject}
                 onChange={(e) => {
@@ -1200,7 +1203,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('hero.message')}</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.message')}</label>
               <textarea
                 value={sendForm.message}
                 onChange={(e) => {

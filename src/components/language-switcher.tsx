@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, memo, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,7 +16,7 @@ interface LanguageSwitcherProps {
   className?: string;
 }
 
-export function LanguageSwitcher({ variant = 'default', className }: LanguageSwitcherProps) {
+export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'default', className }: LanguageSwitcherProps) {
   const { language, setLanguage, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -135,4 +135,4 @@ export function LanguageSwitcher({ variant = 'default', className }: LanguageSwi
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+});

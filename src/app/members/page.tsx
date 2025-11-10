@@ -810,8 +810,8 @@ export default function MembersPage() {
 
             {/* Add Data Modal */}
             {addModalOpen && (
-              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setAddModalOpen(false)}>
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
+              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in-0 duration-200" onClick={() => setAddModalOpen(false)}>
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === 'id' ? 'Tambah Data' : 'Add Data'}</h3>
                     <Button variant="outline" onClick={() => setAddModalOpen(false)} size="icon" aria-label="Close">
@@ -910,8 +910,8 @@ export default function MembersPage() {
 
             {/* Edit Data Modal */}
             {editOpen && (
-              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
+              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in-0 duration-200" onClick={() => setEditOpen(false)}>
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === 'id' ? 'Edit Data' : 'Edit Data'}</h3>
                     <Button variant="outline" onClick={() => setEditOpen(false)} size="icon" aria-label="Close">
@@ -1007,7 +1007,7 @@ export default function MembersPage() {
             {/* Member Detail Modal */}
             {detailModalOpen && detailMember && (
               <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
+                <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 sm:p-6">
                   {/* Header - Fixed */}
                   <DialogHeader className="px-4 sm:px-0 pt-4 sm:pt-0 pb-4 flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
                     <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -1144,7 +1144,7 @@ export default function MembersPage() {
 
       {/* Excel Import Info Modal */}
       <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
-        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl text-gray-900 dark:text-gray-100">
               <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />

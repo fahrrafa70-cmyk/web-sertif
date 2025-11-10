@@ -1933,11 +1933,11 @@ function CertificatesContent() {
         open={!!isEditOpen}
         onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}
       >
-        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300 data-[state=open]:bg-white data-[state=open]:dark:bg-gray-800">
+        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 data-[state=open]:bg-white data-[state=open]:dark:bg-gray-800">
           {/* Header */}
           <DialogHeader className="px-5 pt-4 pb-3 pr-12 border-b border-gray-200 dark:border-gray-700">
             <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              Edit Certificate
+              {t('certificates.editCertificate')}
             </DialogTitle>
           </DialogHeader>
           
@@ -1947,7 +1947,7 @@ function CertificatesContent() {
               {/* Certificate Number */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Certificate Number
+                  {t('certificates.certificateId')}
                 </label>
                 <Input
                   value={draft?.certificate_no ?? ""}
@@ -1964,7 +1964,7 @@ function CertificatesContent() {
               {/* Recipient */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Recipient
+                  {t('certificates.recipient')}
                 </label>
                 <Input
                   value={draft?.name ?? ""}
@@ -1980,7 +1980,7 @@ function CertificatesContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                    Category
+                    {t('certificates.category')}
                   </label>
                   <select
                     value={draft?.category ?? ""}
@@ -1989,7 +1989,7 @@ function CertificatesContent() {
                     }
                     className="h-8 w-full px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   >
-                    <option value="">Select...</option>
+                    <option value="">{t('certificates.selectCategoryOption')}</option>
                     <option value="MoU">MoU</option>
                     <option value="Magang">Magang</option>
                     <option value="Pelatihan">Pelatihan</option>
@@ -2002,7 +2002,7 @@ function CertificatesContent() {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                    Issued Date
+                    {t('certificates.issuedDate')}
                   </label>
                   <Input
                     type="date"
@@ -2020,7 +2020,7 @@ function CertificatesContent() {
               {/* Expiry Date */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Expiry Date
+                  {t('certificates.expiryDate')}
                 </label>
                 <Input
                   type="date"
@@ -2037,7 +2037,7 @@ function CertificatesContent() {
               {/* Description */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Description
+                  {t('certificates.description')}
                 </label>
                 <textarea
                   value={draft?.description ?? ""}
@@ -2048,7 +2048,7 @@ function CertificatesContent() {
                   }
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
                   rows={2}
-                  placeholder="Optional description..."
+                  placeholder={t('certificates.descriptionPlaceholder')}
                 />
               </div>
             </div>
@@ -2060,7 +2060,7 @@ function CertificatesContent() {
               className="h-8 px-3 text-sm gradient-primary text-white shadow-sm hover:shadow-md transition-shadow"
               onClick={submitEdit}
             >
-              Save Changes
+              {t('certificates.saveChanges')}
             </Button>
           </div>
         </DialogContent>
@@ -2074,8 +2074,7 @@ function CertificatesContent() {
         }
       >
         <DialogContent 
-          className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300"
-          style={{ overflowX: 'hidden' }}
+          className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();
@@ -2174,13 +2173,13 @@ function CertificatesContent() {
                       <div className="flex gap-2 mb-2">
                         <button
                           onClick={() => setPreviewMode('certificate')}
-                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
                           Certificate
                         </button>
                         <button
                           onClick={() => setPreviewMode('score')}
-                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
                           Score
                         </button>
@@ -2659,11 +2658,11 @@ function CertificatesContent() {
           }}
         >
           <DialogHeader className="flex-shrink-0 pb-2 sm:pb-4">
-            <DialogTitle className="text-xl sm:text-2xl font-bold">Send Certificate via Email</DialogTitle>
+            <DialogTitle className="text-xl sm:text-2xl font-bold">{t('hero.sendEmailTitle')}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 pr-1 -mr-1">
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Recipient Email</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.recipientEmail')}</label>
               <Input
                 value={sendForm.email}
                 onChange={(e) => {
@@ -2685,14 +2684,14 @@ function CertificatesContent() {
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Subject</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.subject')}</label>
               <Input
                 value={sendForm.subject}
                 onChange={(e) => {
                   setSendForm((f) => ({ ...f, subject: e.target.value }));
                   if (sendFormErrors.subject) setSendFormErrors((e) => ({ ...e, subject: undefined }));
                 }}
-                placeholder="Subject"
+                placeholder={t('hero.emailSubjectPlaceholder')}
                 disabled={isSendingEmail}
                 className={sendFormErrors.subject ? 'border-red-500' : ''}
                 onKeyDown={(e) => {
@@ -2707,7 +2706,7 @@ function CertificatesContent() {
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Message</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.message')}</label>
               <textarea
                 value={sendForm.message}
                 onChange={(e) => {
@@ -2715,8 +2714,8 @@ function CertificatesContent() {
                   if (sendFormErrors.message) setSendFormErrors((e) => ({ ...e, message: undefined }));
                 }}
                 rows={4}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300'}`}
-                placeholder="Message"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                placeholder={t('hero.emailMessagePlaceholder')}
                 disabled={isSendingEmail}
                 onKeyDown={(e) => {
                   // Allow Shift+Enter for new line in textarea
@@ -2732,7 +2731,7 @@ function CertificatesContent() {
             </div>
             {(sendPreviewSrcs.cert || sendPreviewSrcs.score) && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-600">Attachment Preview</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.attachmentPreview')}</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="relative w-full h-48 sm:h-64">
                     {sendPreviewSrcs.cert && (
@@ -2767,16 +2766,16 @@ function CertificatesContent() {
                 onClick={() => setSendModalOpen(false)}
                 disabled={isSendingEmail}
               >
-                Cancel
+                {t('hero.cancel')}
               </Button>
                <LoadingButton 
                  className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto" 
                  onClick={confirmSendEmail}
                  isLoading={isSendingEmail}
-                 loadingText={language === 'id' ? 'Mengirim...' : 'Sending...'}
+                 loadingText={t('hero.sending')}
                  variant="primary"
                >
-                {language === 'id' ? 'Kirim Email' : 'Send Email'}
+                {t('hero.sendEmail')}
               </LoadingButton>
             </div>
         </DialogContent>
@@ -2910,7 +2909,7 @@ function CertificatesContent() {
           {/* Desktop: Dialog */}
           <div className="hidden md:block">
           <Dialog open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
-            <DialogContent className="hidden md:flex max-w-3xl w-full max-h-[90vh] overflow-hidden flex-col p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <DialogContent className="hidden md:flex max-w-3xl w-full max-h-[90vh] overflow-hidden flex-col p-6">
               <DialogHeader className="flex-shrink-0 pb-4">
                 <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   Member Information

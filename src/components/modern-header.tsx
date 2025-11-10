@@ -32,9 +32,10 @@ const ModernHeader = memo(function ModernHeader() {
   return (
     <>
       <header 
-        className={`fixed top-0 left-0 right-0 z-50 border-b h-20 sm:h-16 w-full transition-all duration-300`}
+        className={`fixed top-0 left-0 right-0 z-50 border-b w-full transition-all duration-300`}
         style={{
           backgroundColor: 'var(--background)',
+          height: 'var(--header-height-mobile, 72px)',
           transition: 'filter 300ms ease-in-out, background-color 300ms ease-in-out',
           ...(shouldBlur ? {
             filter: 'blur(4px)',
@@ -54,7 +55,7 @@ const ModernHeader = memo(function ModernHeader() {
             }}
           />
         )}
-        <div className="h-full w-full px-2 sm:px-3 md:px-4 py-3 sm:py-0 flex items-center justify-between gap-1 sm:gap-2 relative z-10">
+        <div className="h-full w-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2 relative z-10">
           {/* Mobile Menu Button */}
           <button
             onClick={handleMobileSidebarToggle}
@@ -66,11 +67,11 @@ const ModernHeader = memo(function ModernHeader() {
 
           {/* Logo - Responsive positioning */}
           <div className="flex-1 lg:flex-initial flex items-center justify-center lg:justify-start min-w-0 overflow-hidden">
-            <Link href="/" className="flex items-center space-x-1.5 sm:space-x-2 md:space-x-3 group max-w-full">
+            <Link href="/" className="flex items-center space-x-2 sm:space-x-2 md:space-x-3 group max-w-full">
               {/* Icon with gradient background */}
               <div className="relative flex-shrink-0">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 gradient-primary rounded-lg sm:rounded-xl md:rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
-                  <span className="text-white font-bold text-lg sm:text-xl md:text-2xl tracking-tight">E</span>
+                <div className="w-10 h-10 sm:w-10 sm:h-10 md:w-12 md:h-12 gradient-primary rounded-xl sm:rounded-xl md:rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+                  <span className="text-white font-bold text-xl sm:text-xl md:text-2xl tracking-tight">E</span>
                 </div>
                 {/* Subtle glow effect on hover */}
                 <div className="absolute inset-0 gradient-primary rounded-lg sm:rounded-xl md:rounded-2xl blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 -z-10"></div>
@@ -78,7 +79,7 @@ const ModernHeader = memo(function ModernHeader() {
               
               {/* Text - Simple and clean */}
               <div className="flex flex-col min-w-0 overflow-hidden">
-                <span className="text-sm sm:text-base md:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors truncate">
+                <span className="text-base sm:text-base md:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors truncate">
                   E-Certificate
                 </span>
                 <span className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-gray-400 dark:text-gray-500 tracking-wider uppercase hidden sm:block truncate">
