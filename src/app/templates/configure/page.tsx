@@ -1246,9 +1246,10 @@ function ConfigureLayoutContent() {
                           // Remove all padding to match PNG generation (text starts from border edge)
                           padding: '0px',
                           // Show border only when selected for visual feedback
-                          border: isSelected ? '2px dashed #3b82f6' : '2px dashed transparent',
+                          border: isSelected ? '5px dashed #3b82f6' : '5px dashed transparent',
                           borderRadius: '4px',
-                          boxSizing: 'border-box'
+                          boxSizing: 'border-box',
+                          boxShadow: isSelected ? '0 0 0 1px rgba(59, 130, 246, 0.2)' : 'none'
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
