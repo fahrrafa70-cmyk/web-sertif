@@ -1832,7 +1832,7 @@ function ConfigureLayoutContent() {
 
       {/* Full Preview Modal */}
       <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+        <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
               Template Preview

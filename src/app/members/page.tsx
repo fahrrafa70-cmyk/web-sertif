@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { useDebounce } from "@/hooks/use-debounce";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X, Users } from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { confirmToast } from "@/lib/ui/confirm";
 
@@ -28,7 +28,7 @@ export default function MembersPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [initialized, setInitialized] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage] = useState<number>(8);
+  const [itemsPerPage] = useState<number>(10);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [form, setForm] = useState({
@@ -469,40 +469,46 @@ export default function MembersPage() {
 
   return (
     <ModernLayout>
-        <section className="py-4 sm:py-6 md:py-8 bg-gray-50 dark:bg-gray-900">
-          <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+        <section className="relative -mt-2 pb-6 sm:-mt-3 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+          <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-4 relative">
             {/* Header */}
-            <div className="mb-4 sm:mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 w-full">
-                <div className="min-w-0 flex-shrink">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] break-words">{t('members.title')}</h1>
+            <div className="mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 w-full">
+                {/* Title */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
+                    <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">{t('members.title')}</h1>
                 </div>
-              {(role === "Admin" || role === "Team") && (
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={() => setShowExcelInfoModal(true)} 
-                    disabled={importing}
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    {importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}
-                  </Button>
-                  <input
-                    ref={excelInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleExcelImport}
-                    className="hidden"
-                  />
-                  <Button onClick={() => setShowForm((s) => !s)} className="gradient-primary text-white">
-                    {showForm ? t('common.close') : language === 'id' ? 'Tambah Data' : 'Add Data'}
-                  </Button>
-                </div>
-              )}
+                
+                {/* Action Buttons */}
+                {(role === "Admin" || role === "Team") && (
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button 
+                      onClick={() => setShowExcelInfoModal(true)} 
+                      disabled={importing}
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-1 sm:flex-none"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      {importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}
+                    </Button>
+                    <input
+                      ref={excelInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleExcelImport}
+                      className="hidden"
+                    />
+                    <Button onClick={() => setShowForm((s) => !s)} className="gradient-primary text-white flex-1 sm:flex-none">
+                      {showForm ? t('common.close') : language === 'id' ? 'Tambah Data' : 'Add Data'}
+                    </Button>
+                  </div>
+                )}
               </div>
               
               {/* Search Bar */}
-              <div className="relative max-w-md">
+              <div className="relative max-w-md mt-6">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   placeholder="Search data by name, email, organization..."
@@ -643,7 +649,7 @@ export default function MembersPage() {
               whileInView={{ opacity: 1, y: 0 }} 
               viewport={{ once: true }} 
               transition={{ duration: 0.4 }} 
-              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden"
             >
               <div className="overflow-x-auto">
                 <Table>
@@ -881,7 +887,7 @@ export default function MembersPage() {
             {/* Member Detail Modal */}
             {detailModalOpen && detailMember && (
               <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 sm:p-6">
+                <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
                   {/* Header - Fixed */}
                   <DialogHeader className="px-4 sm:px-0 pt-4 sm:pt-0 pb-4 flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
                     <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -1018,7 +1024,7 @@ export default function MembersPage() {
 
       {/* Excel Import Info Modal */}
       <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
-        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl text-gray-900 dark:text-gray-100">
               <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />

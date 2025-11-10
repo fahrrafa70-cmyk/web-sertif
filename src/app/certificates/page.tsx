@@ -40,7 +40,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
-import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Award } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
@@ -1435,17 +1435,22 @@ function CertificatesContent() {
 
   return (
     <ModernLayout>
-      <section className="py-4 sm:py-6 md:py-8 bg-gray-50 dark:bg-gray-900">
-        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+      <section className="relative -mt-2 pb-6 sm:-mt-3 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+        <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-4 relative">
             {/* Header */}
-            <div className="mb-4 sm:mb-6">
-              <div className="flex flex-col gap-4 mb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                  <div>
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb]">
+            <div className="mb-3">
+              <div className="flex flex-col gap-3 mb-4">
+                {/* Title and Button Row - Horizontal on desktop, vertical on mobile */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
+                      <Award className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    </div>
+                    <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
                       {t("certificates.title")}
                     </h1>
                   </div>
+                  
                   {/* Quick Generate Button */}
                   {(role === "Admin" || role === "Team") && (
                     <Button
@@ -1457,6 +1462,8 @@ function CertificatesContent() {
                     </Button>
                   )}
                 </div>
+                
+                {/* Filters Row */}
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <Input
                     placeholder={t("certificates.search")}
@@ -1542,7 +1549,7 @@ function CertificatesContent() {
                 transition={{ duration: 0.4 }}
               >
                 {/* Desktop Table View */}
-                <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -1690,7 +1697,7 @@ function CertificatesContent() {
                     <div
                       key={certificate.id}
                       onClick={() => openPreview(certificate)}
-                      className={`rounded-lg border p-3 sm:p-4 shadow-sm cursor-pointer transition-colors ${
+                      className={`rounded-lg border p-3 sm:p-4 shadow-md dark:shadow-lg cursor-pointer transition-colors ${
                         isExpired 
                           ? 'bg-red-500/30 dark:bg-red-600/30 border-2 border-red-400 dark:border-red-500 hover:bg-red-500/40 dark:hover:bg-red-600/40' 
                           : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-700/50'
@@ -1928,7 +1935,7 @@ function CertificatesContent() {
         open={!!isEditOpen}
         onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}
       >
-        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-[1000px] max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300 data-[state=open]:bg-white data-[state=open]:dark:bg-gray-800">
           {/* Header */}
           <DialogHeader className="px-5 pt-4 pb-3 pr-12 border-b border-gray-200 dark:border-gray-700">
             <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-100">
@@ -2069,7 +2076,7 @@ function CertificatesContent() {
         }
       >
         <DialogContent 
-          className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6"
+          className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300"
           style={{ overflowX: 'hidden' }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -2905,7 +2912,7 @@ function CertificatesContent() {
           {/* Desktop: Dialog */}
           <div className="hidden md:block">
           <Dialog open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
-            <DialogContent className="hidden md:flex max-w-3xl w-full max-h-[90vh] overflow-hidden flex-col p-6">
+            <DialogContent className="hidden md:flex max-w-3xl w-full max-h-[90vh] overflow-hidden flex-col p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
               <DialogHeader className="flex-shrink-0 pb-4">
                 <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   Member Information

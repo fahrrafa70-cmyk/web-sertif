@@ -42,7 +42,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/40 dark:bg-black/60",
+        "fixed inset-0 z-50 bg-black/20 dark:bg-black/40 animate-in fade-in-0 duration-200",
         className
       )}
       style={{
@@ -52,9 +52,6 @@ function DialogOverlay({
         width: '100vw',
         height: '100vh',
         zIndex: 50,
-        opacity: 0,
-        transition: 'opacity 300ms cubic-bezier(0.16, 1, 0.3, 1)',
-        willChange: 'opacity',
         pointerEvents: 'auto',
       }}
       {...props}

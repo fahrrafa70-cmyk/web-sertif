@@ -477,39 +477,40 @@ export default function TemplatesPage() {
     <ModernLayout>
       {/* Main Content Section */}
       <motion.section 
-        className="relative pb-4 sm:pb-6 bg-gray-50 dark:bg-gray-900"
+        className="relative -mt-2 pb-6 sm:-mt-3 sm:pb-8 bg-gray-50 dark:bg-gray-900"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-4 relative">
           {/* Header Section - Like Groups page */}
-          <div className="mb-4">
-            <div className="flex flex-row items-center justify-between gap-2 sm:gap-3 w-full">
-              <div className="min-w-0 flex-1 flex items-center gap-2 sm:gap-3">
-                <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-lg shadow-md flex-shrink-0">
+          <div className="mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 w-full">
+              {/* Title */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
                   <Layout className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400 truncate">
+                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
                   {t('templates.title')}
                 </h1>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {(role === "Admin" || role === "Team") && (
-                  <Button 
-                    onClick={openCreate} 
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-shrink-0 text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10"
-                  >
-                    <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                    <span className="whitespace-nowrap">{t('templates.create')}</span>
-                  </Button>
-                )}
-              </div>
+              
+              {/* Create Button */}
+              {(role === "Admin" || role === "Team") && (
+                <Button 
+                  onClick={openCreate} 
+                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full sm:w-auto"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  <span>{t('templates.create')}</span>
+                </Button>
+              )}
             </div>
           </div>
 
           {/* Main Content Card - Like Groups page - Centered */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6 sm:p-8 lg:p-10 max-w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg p-4 sm:p-6 max-w-full">
             {/* Search Bar - Inside Card */}
             <div className="mb-4">
               <div className="flex items-center gap-2">
@@ -620,7 +621,7 @@ export default function TemplatesPage() {
             {/* Templates Grid - 3 Columns like /search */}
             {!loading && !error && filtered.length > 0 && (
             <motion.div 
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-2.5 sm:gap-x-3 gap-y-3 sm:gap-y-4 max-w-full"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-full"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
@@ -636,17 +637,17 @@ export default function TemplatesPage() {
                 >
                   <div
                     onClick={() => openPreview(tpl)}
-                    className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[180px] will-change-transform w-full"
+                    className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[200px] will-change-transform w-full"
                   >
                     {/* Template Thumbnail - Left Side */}
-                    <div className="relative w-[140px] h-full flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
+                    <div className="relative w-[160px] h-full flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
                       {getTemplatePreviewUrl(tpl) && !failedImages.has(tpl.id) ? (
                         <>
                           <Image 
                             src={getTemplatePreviewUrl(tpl)!}
                             alt={tpl.name}
                             fill
-                            sizes="140px"
+                            sizes="160px"
                             className="object-contain group-hover:scale-105 transition-transform duration-200 ease-in-out will-change-transform dark:opacity-90 dark:brightness-95"
                             loading={index < 3 ? "eager" : "lazy"}
                             priority={index < 3}
@@ -682,15 +683,15 @@ export default function TemplatesPage() {
                     </div>
 
                     {/* Template Info - Right Side */}
-                    <div className="flex-1 flex flex-col justify-between min-w-0 p-3 w-full overflow-hidden">
+                    <div className="flex-1 flex flex-col justify-between min-w-0 p-4 w-full overflow-hidden">
                       {/* Top Section - Title and Metadata */}
                       <div className="min-w-0 flex-1 w-full flex flex-col">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-1.5 w-full text-left truncate">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2 w-full text-left truncate">
                           {tpl.name}
                         </h3>
                         {/* Category Badge - Moved from thumbnail */}
-                        <div className="mb-1.5 w-full text-left">
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white shadow-sm`}>
+                        <div className="mb-2 w-full text-left">
+                          <span className={`inline-block px-2 py-1 rounded text-xs font-medium bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white shadow-sm`}>
                             {tpl.category}
                           </span>
                         </div>
@@ -1561,7 +1562,7 @@ export default function TemplatesPage() {
           {/* Template Preview Modal */}
           <Dialog open={!!previewTemplate} onOpenChange={(o) => setPreviewTemplate(o ? previewTemplate : null)}>
             <DialogContent 
-              className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-0"
+              className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-0 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300"
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   e.preventDefault();
