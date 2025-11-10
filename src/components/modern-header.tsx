@@ -32,7 +32,7 @@ const ModernHeader = memo(function ModernHeader() {
   return (
     <>
       <header 
-        className={`fixed top-0 left-0 right-0 z-50 border-b h-14 sm:h-16 w-full transition-all duration-300`}
+        className={`fixed top-0 left-0 right-0 z-50 border-b h-20 sm:h-16 w-full transition-all duration-300`}
         style={{
           backgroundColor: 'var(--background)',
           transition: 'filter 300ms ease-in-out, background-color 300ms ease-in-out',
@@ -54,7 +54,7 @@ const ModernHeader = memo(function ModernHeader() {
             }}
           />
         )}
-        <div className="h-full w-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2 relative z-10">
+        <div className="h-full w-full px-2 sm:px-3 md:px-4 py-3 sm:py-0 flex items-center justify-between gap-1 sm:gap-2 relative z-10">
           {/* Mobile Menu Button */}
           <button
             onClick={handleMobileSidebarToggle}

@@ -620,8 +620,7 @@ function CertificatesContent() {
               
               generated++;
               // Update the same toast instead of creating new ones
-              toast.dismiss(currentToast);
-              currentToast = toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`);
+              toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
             } catch (error) {
               console.error('Failed to generate certificate for member:', member.name, error);
             }
@@ -694,8 +693,7 @@ function CertificatesContent() {
             
             generated++;
             // Update the same toast instead of creating new ones
-            toast.dismiss(currentToast);
-            currentToast = toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`);
+            toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
           } catch (error) {
             console.error('Failed to generate certificate for row:', row, error);
           }
