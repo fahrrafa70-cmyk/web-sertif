@@ -108,7 +108,7 @@ const translations: Translations = {
     'templates.cannotDeleteInUse': 'Cannot delete "{name}" because it is being used by {count} certificate(s). Please delete the certificates first.',
     'templates.cannotVerifyUsage': 'Could not verify if template is in use. Proceeding with deletion...',
     'templates.fillTemplateName': 'Please fill in Template Name',
-    'templates.selectCategory': 'Please select a Category',
+    'templates.selectCategoryValidation': 'Please select a Category',
     'templates.uploadCertificateImage': 'Please upload Certificate Image (Front)',
     'templates.uploadScoreImage': 'Please upload Score Image (Back)',
     'templates.uploadTemplateImage': 'Please upload Template Image',
@@ -454,7 +454,7 @@ const translations: Translations = {
     'quickGenerate.successSingle': 'Certificate generated successfully!',
     'quickGenerate.successMultiple': 'Successfully generated',
     'quickGenerate.certificatesGenerated': 'certificate(s)!',
-    'quickGenerate.selectMember': 'Select Member',
+    'quickGenerate.selectMemberLabel': 'Select Member',
     'quickGenerate.enterScore': 'Enter {field}',
     
     // Categories
@@ -619,7 +619,7 @@ const translations: Translations = {
     'templates.cannotDeleteInUse': 'Tidak dapat menghapus "{name}" karena sedang digunakan oleh {count} sertifikat. Silakan hapus sertifikat terlebih dahulu.',
     'templates.cannotVerifyUsage': 'Tidak dapat memverifikasi apakah template sedang digunakan. Melanjutkan penghapusan...',
     'templates.fillTemplateName': 'Silakan isi Nama Template',
-    'templates.selectCategory': 'Silakan pilih Kategori',
+    'templates.selectCategoryValidation': 'Silakan pilih Kategori',
     'templates.uploadCertificateImage': 'Silakan unggah Gambar Sertifikat (Depan)',
     'templates.uploadScoreImage': 'Silakan unggah Gambar Nilai (Belakang)',
     'templates.uploadTemplateImage': 'Silakan unggah Gambar Template',
@@ -966,7 +966,7 @@ const translations: Translations = {
     'quickGenerate.successSingle': 'Sertifikat berhasil dibuat!',
     'quickGenerate.successMultiple': 'Berhasil membuat',
     'quickGenerate.certificatesGenerated': 'sertifikat!',
-    'quickGenerate.selectMember': 'Pilih Member',
+    'quickGenerate.selectMemberLabel': 'Pilih Member',
     'quickGenerate.enterScore': 'Masukkan {field}',
     
     // Categories

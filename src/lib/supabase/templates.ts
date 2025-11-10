@@ -724,7 +724,18 @@ export async function getTemplateLayout(
       return null;
     }
     
-    return template.layout_config as unknown as TemplateLayoutConfig;
+    // Explicit type casting to preserve all fields including photoLayers
+    const layout = template.layout_config as unknown as TemplateLayoutConfig;
+    
+    // Ensure photoLayers arrays exist (convert undefined to empty array)
+    if (layout.certificate) {
+      layout.certificate.photoLayers = layout.certificate.photoLayers || [];
+    }
+    if (layout.score) {
+      layout.score.photoLayers = layout.score.photoLayers || [];
+    }
+    
+    return layout;
   } catch (error) {
     console.error('Failed to get template layout:', error);
     return null;

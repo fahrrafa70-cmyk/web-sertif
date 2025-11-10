@@ -6,7 +6,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon, Crop, Circle, Square } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon, Crop } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
@@ -1032,14 +1032,15 @@ function ConfigureLayoutContent() {
         widthPercent: 0.2,
         heightPercent: 0.2 * (dimensions.height / dimensions.width),
         
-        // Layer order: Below text layers (default text zIndex is 100)
-        zIndex: 50,
+        // Layer order: Default to 'back' (behind text layers)
+        // Text layers have zIndex = 100, so: 0 = back, 101 = front
+        zIndex: 0,
         
         // Default settings
-        fitMode: 'cover',
+        fitMode: 'fill', // Hardcoded to fill - photo will stretch to fill border
         opacity: 1,
         rotation: 0,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false, // Disabled to allow fill to work properly
         
         // Store original dimensions
         originalWidth: dimensions.width,
@@ -1152,8 +1153,8 @@ function ConfigureLayoutContent() {
             }
             return rest;
           }),
-          // Add photo layers
-          photoLayers: certificatePhotoLayers.length > 0 ? certificatePhotoLayers : undefined
+          // Add photo layers (always save, even if empty)
+          photoLayers: certificatePhotoLayers
         },
         canvas: {
           width: STANDARD_CANVAS_WIDTH,
@@ -1179,8 +1180,8 @@ function ConfigureLayoutContent() {
             // Other score layers keep all properties including textAlign
             return rest;
           }),
-          // Add photo layers for score mode
-          photoLayers: scorePhotoLayers.length > 0 ? scorePhotoLayers : undefined
+          // Add photo layers for score mode (always save, even if empty)
+          photoLayers: scorePhotoLayers
         };
       }
 
@@ -1330,7 +1331,10 @@ function ConfigureLayoutContent() {
                     MozUserSelect: 'none',
                     msUserSelect: 'none'
                   }}
-                  onClick={() => setSelectedLayerId(null)}
+                  onClick={() => {
+                    setSelectedLayerId(null);
+                    setSelectedPhotoLayerId(null);
+                  }}
                 >
                 {/* Template Background - Use different image based on mode */}
                 {templateImageUrl && (
@@ -1463,11 +1467,13 @@ function ConfigureLayoutContent() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedLayerId(layer.id);
+                          setSelectedPhotoLayerId(null);
                         }}
                         onMouseDown={(e) => {
                           if (!isSelected) {
                             e.stopPropagation();
                             setSelectedLayerId(layer.id);
+                            setSelectedPhotoLayerId(null);
                           } else {
                             handleLayerMouseDown(layer.id, e);
                           }
@@ -1596,11 +1602,13 @@ function ConfigureLayoutContent() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedPhotoLayerId(layer.id);
+                          setSelectedLayerId(null);
                         }}
                         onMouseDown={(e) => {
                           if (!isSelected) {
                             e.stopPropagation();
                             setSelectedPhotoLayerId(layer.id);
+                            setSelectedLayerId(null);
                           } else {
                             handlePhotoLayerMouseDown(layer.id, e);
                           }
@@ -1705,7 +1713,10 @@ function ConfigureLayoutContent() {
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' 
                             : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                         }`}
-                        onClick={() => setSelectedLayerId(layer.id)}
+                        onClick={() => {
+                          setSelectedLayerId(layer.id);
+                          setSelectedPhotoLayerId(null);
+                        }}
                       >
                         <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
                           <Type className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-300 flex-shrink-0" />
@@ -1810,7 +1821,10 @@ function ConfigureLayoutContent() {
                               ? 'border-purple-500 bg-purple-50 dark:bg-purple-500/10' 
                               : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                           }`}
-                          onClick={() => setSelectedPhotoLayerId(layer.id)}
+                          onClick={() => {
+                            setSelectedPhotoLayerId(layer.id);
+                            setSelectedLayerId(null);
+                          }}
                         >
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
                             <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-800">
@@ -1823,9 +1837,6 @@ function ConfigureLayoutContent() {
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
                                 {layer.id}
-                              </div>
-                              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
-                                {layer.fitMode} • z:{layer.zIndex}
                               </div>
                             </div>
                           </div>
@@ -1857,23 +1868,21 @@ function ConfigureLayoutContent() {
                       {selectedPhoto.id} Settings
                     </h3>
                     <div className="space-y-3">
-                      {/* Fit Mode */}
+                      {/* Layer Order */}
                       <div>
-                        <Label className="text-xs">Fit Mode</Label>
+                        <Label className="text-xs">Layer Order</Label>
                         <Select
-                          value={selectedPhoto.fitMode}
+                          value={selectedPhoto.zIndex >= 100 ? 'front' : 'back'}
                           onValueChange={(value) => updatePhotoLayer(selectedPhoto.id, { 
-                            fitMode: value as 'contain' | 'cover' | 'fill' | 'none' 
+                            zIndex: value === 'front' ? 101 : 0
                           })}
                         >
                           <SelectTrigger className="h-8 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="contain">Contain (fit inside)</SelectItem>
-                            <SelectItem value="cover">Cover (fill box)</SelectItem>
-                            <SelectItem value="fill">Fill (stretch)</SelectItem>
-                            <SelectItem value="none">None (original)</SelectItem>
+                            <SelectItem value="front">Front (above text)</SelectItem>
+                            <SelectItem value="back">Back (behind text)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2022,58 +2031,6 @@ function ConfigureLayoutContent() {
                         />
                       </div>
 
-                      {/* Z-Index */}
-                      <div>
-                        <Label className="text-xs">Layer Order (Z-Index)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="200"
-                          value={selectedPhoto.zIndex}
-                          onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
-                            zIndex: Number(e.target.value) 
-                          })}
-                          className="h-8 text-xs"
-                        />
-                        <p className="text-[10px] text-gray-500 mt-1">Higher values appear on top. Text layers default to 100.</p>
-                      </div>
-
-                      {/* Mask Selector */}
-                      <div>
-                        <Label className="text-xs">Mask Shape</Label>
-                        <Select
-                          value={selectedPhoto.mask?.type || 'none'}
-                          onValueChange={(value) => {
-                            if (value === 'none') {
-                              updatePhotoLayer(selectedPhoto.id, { mask: undefined });
-                            } else {
-                              updatePhotoLayer(selectedPhoto.id, { 
-                                mask: { type: value as 'circle' | 'ellipse' | 'roundedRect' | 'polygon' }
-                              });
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">
-                              <div className="flex items-center gap-2">
-                                <Square className="w-3 h-3" />
-                                No Mask
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="circle">
-                              <div className="flex items-center gap-2">
-                                <Circle className="w-3 h-3" />
-                                Circle
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="ellipse">Ellipse</SelectItem>
-                            <SelectItem value="roundedRect">Rounded Rectangle</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
                   </div>
                 );

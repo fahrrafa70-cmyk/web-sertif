@@ -39,7 +39,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
-import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
+import { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
 import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -49,7 +49,7 @@ import {
   Template,
   getTemplateLayout,
 } from "@/lib/supabase/templates";
-import { getTemplateDefaults, TemplateDefaults, TextLayerDefault } from '@/lib/storage/template-defaults';
+import { getTemplateDefaults, TemplateDefaults, TextLayerDefault, PhotoLayerDefault } from '@/lib/storage/template-defaults';
 import Image from "next/image";
 import { confirmToast } from "@/lib/ui/confirm";
 import { Suspense } from "react";
@@ -559,14 +559,51 @@ function CertificatesContent() {
           lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
         }));
         
+        // CRITICAL FIX: Handle both nested and flat photoLayers structure for backward compatibility
+        // New structure: layoutConfig.certificate.photoLayers (nested)
+        // Old structure: layoutConfig.photoLayers (flat - current database structure)
+        const photoLayersRaw = layoutConfig.certificate.photoLayers || (layoutConfig as unknown as { photoLayers?: PhotoLayerConfig[] }).photoLayers;
+        const photoLayersFromConfig: PhotoLayerDefault[] = (photoLayersRaw || []).map((layer: PhotoLayerConfig) => ({
+          id: layer.id,
+          type: layer.type,
+          src: layer.src,
+          x: layer.x,
+          y: layer.y,
+          xPercent: layer.xPercent,
+          yPercent: layer.yPercent,
+          width: layer.width,
+          height: layer.height,
+          widthPercent: layer.widthPercent,
+          heightPercent: layer.heightPercent,
+          zIndex: layer.zIndex,
+          fitMode: layer.fitMode,
+          crop: layer.crop,
+          mask: layer.mask,
+          opacity: layer.opacity,
+          rotation: layer.rotation,
+          maintainAspectRatio: layer.maintainAspectRatio,
+          originalWidth: layer.originalWidth,
+          originalHeight: layer.originalHeight,
+          storagePath: layer.storagePath,
+        }));
+        
         defaults = {
           templateId: params.template.id,
           templateName: params.template.name,
           textLayers: migratedLayers,
           overlayImages: layoutConfig.certificate.overlayImages,
+          photoLayers: photoLayersFromConfig, // Use extracted photo layers
           savedAt: layoutConfig.lastSavedAt
         };
         console.log('✅ Migrated certificate layers with dual coordinates');
+        if (photoLayersFromConfig && photoLayersFromConfig.length > 0) {
+          console.log('📸 Loaded', photoLayersFromConfig.length, 'photo layers for generation');
+          console.log('📸 Photo layers data:', JSON.stringify(photoLayersFromConfig, null, 2));
+        } else {
+          console.warn('⚠️ No photo layers found in layout config');
+          console.warn('⚠️ Layout structure:', Object.keys(layoutConfig));
+          console.warn('⚠️ Certificate keys:', Object.keys(layoutConfig.certificate || {}));
+        }
       } else {
         // FALLBACK: Try localStorage (OLD METHOD - deprecated)
         console.warn('⚠️ No database layout found, trying localStorage fallback...');
@@ -836,12 +873,36 @@ function CertificatesContent() {
       maxWidth: l.maxWidth
     })));
     
+    // Prepare photo layers (convert PhotoLayerDefault → RenderPhotoLayer)
+    const photoLayersForRender = defaults.photoLayers?.map(layer => ({
+      id: layer.id,
+      type: layer.type,
+      src: layer.src,
+      x: layer.x,
+      y: layer.y,
+      xPercent: layer.xPercent,
+      yPercent: layer.yPercent,
+      width: layer.width,
+      height: layer.height,
+      widthPercent: layer.widthPercent,
+      heightPercent: layer.heightPercent,
+      zIndex: layer.zIndex,
+      fitMode: layer.fitMode,
+      opacity: layer.opacity,
+      rotation: layer.rotation,
+      crop: layer.crop,
+      mask: layer.mask
+    })) || [];
+    
+    console.log('📸 Photo layers for rendering:', photoLayersForRender.length);
+    
     // DYNAMIC CANVAS SIZE: Let renderer use template's natural dimensions
     // No width/height specified → uses template.naturalWidth × template.naturalHeight
     // Result: Output matches template resolution exactly (no scaling/distortion)
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,
+      photoLayers: photoLayersForRender, // Add photo layers to rendering
       // width & height omitted → auto-detect from template
     });
     
@@ -949,6 +1010,28 @@ function CertificatesContent() {
           }));
           console.log('✅ Migrated score layers with dual coordinates');
           
+          // Load score photo layers from layout config
+          const scorePhotoLayersRaw = scoreLayoutConfig.photoLayers || [];
+          const scorePhotoLayersForRender = scorePhotoLayersRaw.map(layer => ({
+            id: layer.id,
+            type: layer.type,
+            src: layer.src,
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+            width: layer.width,
+            height: layer.height,
+            widthPercent: layer.widthPercent,
+            heightPercent: layer.heightPercent,
+            zIndex: layer.zIndex,
+            fitMode: layer.fitMode,
+            opacity: layer.opacity,
+            rotation: layer.rotation,
+            crop: layer.crop,
+            mask: layer.mask
+          }));
+          
           // Prepare score text layers with scoreData
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
@@ -1014,6 +1097,7 @@ function CertificatesContent() {
           const scoreImageDataUrl = await renderCertificateToDataURL({
             templateImageUrl: template.score_image_url,
             textLayers: scoreTextLayers,
+            photoLayers: scorePhotoLayersForRender,
             // width & height omitted → auto-detect from template
           });
           

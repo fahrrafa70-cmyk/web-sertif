@@ -102,6 +102,15 @@ export async function renderCertificateToDataURL(
   params: RenderCertificateParams
 ): Promise<string> {
   const { templateImageUrl, textLayers, photoLayers, width, height } = params;
+  
+  // DEBUG: Log what we received
+  console.log('🎨 renderCertificateToDataURL called with params:', {
+    templateImageUrl: templateImageUrl?.substring(0, 50) + '...',
+    textLayersCount: textLayers?.length || 0,
+    photoLayersCount: photoLayers?.length || 0,
+    photoLayersReceived: photoLayers,
+    hasPhotoLayers: !!photoLayers && photoLayers.length > 0
+  });
 
   // CRITICAL: Wait for fonts to load before rendering
   // Font rendering differences between CSS and Canvas can cause positioning issues
@@ -207,13 +216,26 @@ export async function renderCertificateToDataURL(
   // Add photo layers
   if (photoLayers && photoLayers.length > 0) {
     console.log(`📸 PHOTO LAYERS TO RENDER: ${photoLayers.length}`);
-    photoLayers.forEach(layer => {
+    console.log(`📸 Photo layers array:`, photoLayers);
+    photoLayers.forEach((layer, index) => {
+      console.log(`📸 Adding photo layer ${index}:`, {
+        id: layer.id,
+        type: layer.type,
+        src: layer.src?.substring(0, 50) + '...',
+        zIndex: layer.zIndex,
+        xPercent: layer.xPercent,
+        yPercent: layer.yPercent,
+        widthPercent: layer.widthPercent,
+        heightPercent: layer.heightPercent
+      });
       layersToRender.push({
         type: 'photo',
         zIndex: layer.zIndex,
         data: layer
       });
     });
+  } else {
+    console.warn('⚠️ NO PHOTO LAYERS RECEIVED! photoLayers:', photoLayers);
   }
   
   // Add text layers (default zIndex = 100 to appear above photos)
