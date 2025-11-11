@@ -6,7 +6,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon, Crop } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
@@ -621,7 +621,6 @@ function ConfigureLayoutContent() {
     if (!layer || !canvasRef.current) return;
 
     // Get actual container dimensions and calculate scale
-    const containerRect = canvasRef.current.getBoundingClientRect();
     const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
     const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
     
@@ -682,9 +681,8 @@ function ConfigureLayoutContent() {
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       // Get actual container dimensions and calculate scale
-      const containerRect = canvasRef.current!.getBoundingClientRect();
       const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-      const actualScale = containerRect.width / templateWidth;
+      const actualScale = canvasScale;
       
       // Convert mouse delta to template coordinates using actual scale
       const deltaX = (moveEvent.clientX - startX) / actualScale;
@@ -2398,32 +2396,32 @@ function ConfigureLayoutContent() {
 
       {/* Full Preview Modal */}
       <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+        <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-              Template Preview
+              {t('configure.templatePreview')}
             </DialogTitle>
           </DialogHeader>
           
           {/* Template Information */}
           <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Nama Template</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('configure.templateName')}</p>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.name}</p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Kategori</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('configure.category')}</p>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.category || '-'}</p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Format</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('configure.format')}</p>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.orientation || '-'}</p>
             </div>
           </div>
 
           {/* Preview Canvas */}
           <div className="mt-3 sm:mt-4">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">Preview Template</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">{t('configure.previewTemplate')}</h3>
             <div 
               className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden mx-auto"
               style={{ 

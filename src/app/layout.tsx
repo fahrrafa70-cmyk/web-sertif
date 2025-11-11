@@ -16,7 +16,7 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap", // Prevent FOUT (Flash of Unstyled Text)
-  preload: true, // Preload critical fonts
+  preload: true, // Preload critical fonts 
   adjustFontFallback: true, // Better font fallback
 });
 

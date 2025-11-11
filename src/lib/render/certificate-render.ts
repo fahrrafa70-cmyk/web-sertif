@@ -349,8 +349,10 @@ export async function renderCertificateToDataURL(
     }
   }
 
-  // Convert to WebP DataURL (better compression than PNG)
-  return canvas.toDataURL('image/webp', 0.9);
+  // Convert to WebP DataURL with high quality for HD templates
+  // Quality 0.98 ensures minimal compression artifacts for 6250px+ templates
+  // Trade-off: Larger file size (~2-3MB) but much better visual quality
+  return canvas.toDataURL('image/webp', 0.98);
 }
 
 /**

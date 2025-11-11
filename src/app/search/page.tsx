@@ -243,7 +243,7 @@ function SearchResultsContent() {
           // Validate results
           if (Array.isArray(results)) {
             // CRITICAL FIX: Only update if results actually changed (by ID comparison)
-            // This prevents unnecessary unmount/mount which causes flicker
+            // This prevents unnecessary unmount/mount which causes flicker 
             const currentIds = searchResultsRef.current.map(r => r.id).sort().join(',');
             const newIds = results.map(r => r.id).sort().join(',');
             
@@ -1010,14 +1010,14 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 w-full overflow-x-hidden">
+    <div className="bg-gray-50 dark:bg-gray-900 w-full overflow-x-hidden">
       {/* Header - Full Width */}
       <ModernHeader />
 
       {/* Main Content Area - Search bar is now part of the page content, not fixed header */}
       <div className="w-full px-4 sm:px-6 pt-4 sm:pt-6 pb-4 sm:pb-5 relative z-[10]">
         {/* Search Bar - Part of page content */}
-        <div className="mb-4 sm:mb-6">
+        <div className="mb-8 sm:mb-10">
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Back Button */}
             <Button
@@ -1164,7 +1164,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
 
         {/* Results Count */}
         {resultsCountText && (
-          <div className="mb-1">
+          <div className="mb-4 sm:mb-5">
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               {resultsCountText}
             </p>
@@ -1225,7 +1225,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
           <>
             {/* Backdrop with blur - covers everything including header */}
             <div 
-              className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-200"
               onClick={handleClosePreview}
               style={{ 
                 top: 0, 
@@ -1238,14 +1238,14 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
             />
             {/* Modal Content */}
             <div 
-              className="fixed inset-0 flex items-center justify-center p-2 sm:p-4 pointer-events-none"
+              className="fixed inset-0 flex items-center justify-center p-2 sm:p-4 pointer-events-none animate-in fade-in-0 duration-200"
               onClick={handleClosePreview}
               style={{
                 zIndex: 10000,
               }}
             >
               <div 
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-auto pointer-events-auto" 
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-auto pointer-events-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" 
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b dark:border-gray-700">
@@ -1415,8 +1415,8 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         {sendModalOpen && (
           <>
             {/* No backdrop - clean preview */}
-            <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen flex items-center justify-center p-4 pointer-events-none z-[110]" onClick={() => setSendModalOpen(false)}>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen flex items-center justify-center p-4 pointer-events-none z-[110] animate-in fade-in-0 duration-200" onClick={() => setSendModalOpen(false)}>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden pointer-events-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
                 <div>
                   <div className="text-lg font-semibold dark:text-gray-100">{t('hero.sendEmailTitle')}</div>

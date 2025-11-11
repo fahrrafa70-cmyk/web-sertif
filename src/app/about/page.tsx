@@ -97,7 +97,7 @@ export default function AboutPage() {
         </section>
 
         {/* About Content */}
-        <section className="py-12 sm:py-16 md:py-20 bg-gray-50 dark:bg-gray-900 w-full">
+        <section className="py-8 sm:py-12 md:py-16 bg-gray-50 dark:bg-gray-900 w-full">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-16 items-center">
               <motion.div
@@ -157,7 +157,7 @@ export default function AboutPage() {
         </section>
 
         {/* Features Section */}
-        <section className="py-12 sm:py-16 md:py-20 bg-gray-50 dark:bg-gray-900 w-full">
+        <section className="py-8 sm:py-12 md:py-16 bg-gray-50 dark:bg-gray-900 w-full">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 30 }}

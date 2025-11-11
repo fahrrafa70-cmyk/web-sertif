@@ -145,6 +145,11 @@ const translations: Translations = {
     'configure.position': 'Position',
     'configure.x': 'X',
     'configure.y': 'Y',
+    'configure.templatePreview': 'Template Preview',
+    'configure.templateName': 'Template Name',
+    'configure.category': 'Category',
+    'configure.format': 'Format',
+    'configure.previewTemplate': 'Preview Template',
     
     // Certificates
     'certificates.title': 'Certificates',
@@ -198,6 +203,10 @@ const translations: Translations = {
     'certificates.viewCertificates': 'View Certificates',
     'certificates.saveSuccessWithScore': 'Certificate and Score saved successfully! Would you like to view all certificates?',
     'certificates.saveSuccess': 'Certificate saved successfully! Would you like to view all certificates?',
+    'certificates.editCertificate': 'Edit Certificate',
+    'certificates.saveChanges': 'Save Changes',
+    'certificates.selectCategoryOption': 'Select...',
+    'certificates.descriptionPlaceholder': 'Optional description...',
     
     // Common
     'common.save': 'Save',
@@ -294,6 +303,7 @@ const translations: Translations = {
     'hero.emailDefaultCategory': 'Category',
     'hero.emailDefaultDescription': 'Description',
     'hero.emailDefaultNA': 'N/A',
+    'hero.attachmentPreview': 'Attachment Preview',
     
     // About Section
     'about.title': 'About',
@@ -454,7 +464,7 @@ const translations: Translations = {
     'quickGenerate.successSingle': 'Certificate generated successfully!',
     'quickGenerate.successMultiple': 'Successfully generated',
     'quickGenerate.certificatesGenerated': 'certificate(s)!',
-    'quickGenerate.selectMemberLabel': 'Select Member',
+    'quickGenerate.selectMemberForScore': 'Select Member',
     'quickGenerate.enterScore': 'Enter {field}',
     
     // Categories
@@ -656,6 +666,11 @@ const translations: Translations = {
     'configure.position': 'Posisi',
     'configure.x': 'X',
     'configure.y': 'Y',
+    'configure.templatePreview': 'Pratinjau Template',
+    'configure.templateName': 'Nama Template',
+    'configure.category': 'Kategori',
+    'configure.format': 'Format',
+    'configure.previewTemplate': 'Pratinjau Template',
     
     // Certificates
     'certificates.title': 'Sertifikat',
@@ -709,6 +724,10 @@ const translations: Translations = {
     'certificates.viewCertificates': 'Lihat Sertifikat',
     'certificates.saveSuccessWithScore': 'Sertifikat dan Nilai berhasil disimpan! Apakah Anda ingin melihat semua sertifikat?',
     'certificates.saveSuccess': 'Sertifikat berhasil disimpan! Apakah Anda ingin melihat semua sertifikat?',
+    'certificates.editCertificate': 'Edit Sertifikat',
+    'certificates.saveChanges': 'Simpan Perubahan',
+    'certificates.selectCategoryOption': 'Pilih...',
+    'certificates.descriptionPlaceholder': 'Deskripsi opsional...',
     
     // Common
     'common.save': 'Simpan',
@@ -805,6 +824,7 @@ const translations: Translations = {
     'hero.emailDefaultCategory': 'Kategori',
     'hero.emailDefaultDescription': 'Deskripsi',
     'hero.emailDefaultNA': 'Tidak Ada',
+    'hero.attachmentPreview': 'Pratinjau Lampiran',
     
     // About Section
     'about.title': 'Tentang E-Certificate',
@@ -966,7 +986,7 @@ const translations: Translations = {
     'quickGenerate.successSingle': 'Sertifikat berhasil dibuat!',
     'quickGenerate.successMultiple': 'Berhasil membuat',
     'quickGenerate.certificatesGenerated': 'sertifikat!',
-    'quickGenerate.selectMemberLabel': 'Pilih Member',
+    'quickGenerate.selectMemberForScore': 'Pilih Member',
     'quickGenerate.enterScore': 'Masukkan {field}',
     
     // Categories

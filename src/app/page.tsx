@@ -9,7 +9,7 @@ export default function Home() {
   const [viewportH, setViewportH] = useState<number>(0);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Optimized resize handler with useCallback to prevent unnecessary re-renders
+  // Optimized resize handler with useCallback to prevent unnecessary re-renders 
   const measure = useCallback(() => {
     try {
       const el = document.querySelector('header');
@@ -42,8 +42,8 @@ export default function Home() {
       // Remove global body top padding applied in globals.css for fixed header
       document.body.style.setProperty('padding-top', '0', 'important');
       return () => {
-        document.documentElement.style.setProperty('overflow-y', prevHtmlOverflow || 'scroll', 'important');
-        document.body.style.setProperty('overflow-y', prevBodyOverflow || 'scroll', 'important');
+        document.documentElement.style.setProperty('overflow-y', prevHtmlOverflow || 'hidden', 'important');
+        document.body.style.setProperty('overflow-y', prevBodyOverflow || 'auto', 'important');
         document.body.style.setProperty('padding-top', prevBodyPaddingTop || '4rem', 'important');
       };
     } catch {}

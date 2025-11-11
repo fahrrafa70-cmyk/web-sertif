@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/theme-context';
 import { Moon, Sun } from 'lucide-react';
@@ -9,7 +10,7 @@ interface ThemeSwitcherProps {
   className?: string;
 }
 
-export function ThemeSwitcher({ variant = 'default', className }: ThemeSwitcherProps) {
+export const ThemeSwitcher = memo(function ThemeSwitcher({ variant = 'default', className }: ThemeSwitcherProps) {
   const { theme, toggleTheme } = useTheme();
 
   if (variant === 'icon-only') {
@@ -68,5 +69,5 @@ export function ThemeSwitcher({ variant = 'default', className }: ThemeSwitcherP
       )}
     </Button>
   );
-}
+});
 
