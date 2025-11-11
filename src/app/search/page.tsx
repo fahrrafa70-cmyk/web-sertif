@@ -27,6 +27,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 
 function SearchResultsContent() {
@@ -61,8 +67,13 @@ function SearchResultsContent() {
   // CRITICAL FIX: Use ref to store searchResults to prevent unmount/mount flicker
   // Only update state if results actually changed (by ID comparison)
   const searchResultsRef = useRef<Certificate[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  
+  // Temporary filter values for modal
+  const [tempCategory, setTempCategory] = useState("");
+  const [tempStartDate, setTempStartDate] = useState("");
+  const [tempEndDate, setTempEndDate] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewCert, setPreviewCert] = useState<Certificate | null>(null);
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -105,8 +116,8 @@ function SearchResultsContent() {
           e.preventDefault();
           return;
         }
-        if (showFilters) {
-          setShowFilters(false);
+        if (filterModalOpen) {
+          setFilterModalOpen(false);
           e.preventDefault();
           return;
         }
@@ -117,7 +128,7 @@ function SearchResultsContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router, previewOpen, sendModalOpen, showFilters, setIsModalOpen]);
+  }, [router, previewOpen, sendModalOpen, filterModalOpen, setIsModalOpen]);
 
   // Lock scroll when modal is open
   const scrollYRef = useRef(0);
@@ -419,6 +430,41 @@ function SearchResultsContent() {
       performSearch(clearedFilters, true); // Keep hasSearched true when clearing filters
     }
   }, [searchQuery, performSearch]);
+
+  // Filter modal handlers
+  const openFilterModal = useCallback(() => {
+    setTempCategory(filters.category || "");
+    setTempStartDate(filters.startDate || "");
+    setTempEndDate(filters.endDate || "");
+    setFilterModalOpen(true);
+  }, [filters]);
+
+  const applyFilters = useCallback(() => {
+    const newFilters: SearchFilters = {
+      keyword: searchQuery,
+      category: tempCategory,
+      startDate: tempStartDate,
+      endDate: tempEndDate,
+    };
+    setFilters(newFilters);
+    if (searchQuery.trim()) {
+      performSearch(newFilters, true);
+    }
+    setFilterModalOpen(false);
+  }, [searchQuery, tempCategory, tempStartDate, tempEndDate, performSearch]);
+
+  const cancelFilters = useCallback(() => {
+    setTempCategory(filters.category || "");
+    setTempStartDate(filters.startDate || "");
+    setTempEndDate(filters.endDate || "");
+    setFilterModalOpen(false);
+  }, [filters]);
+
+  const clearTempFilters = useCallback(() => {
+    setTempCategory("");
+    setTempStartDate("");
+    setTempEndDate("");
+  }, []);
 
   // Check if filters are active - memoized
   const hasActiveFilters = useMemo(() => {
@@ -925,19 +971,6 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
     setHasSearched(false);
   }, []);
 
-  // Filter change handlers - memoized
-  const handleCategoryChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFilters(prev => ({ ...prev, category: e.target.value }));
-  }, []);
-
-  const handleStartDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilters(prev => ({ ...prev, startDate: e.target.value }));
-  }, []);
-
-  const handleEndDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilters(prev => ({ ...prev, endDate: e.target.value }));
-  }, []);
-
   // Empty state back to home handler
   const handleBackToHome = useCallback(() => {
     setSearchQuery('');
@@ -1071,95 +1104,22 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
               )}
             </div>
 
-            {/* Filter Button - Matching home page styling */}
+            {/* Filter Icon Button */}
             <Button
               type="button"
-              variant={hasActiveFilters ? "default" : "outline"}
-              onClick={() => setShowFilters(!showFilters)}
-              className="h-9 sm:h-10 px-3 sm:px-4 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0 relative self-center"
-              aria-label="Toggle filters"
+              onClick={openFilterModal}
+              variant="outline"
+              size="icon"
+              className={`flex-shrink-0 h-9 sm:h-10 w-9 sm:w-10 ${
+                hasActiveFilters
+                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700'
+              }`}
+              aria-label="Filter"
             >
-              <Filter className="w-4 h-4" />
-              <span className="ml-2 hidden sm:inline text-sm">Filter</span>
-              {hasActiveFilters && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full" />
-              )}
+              <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="mt-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-4 px-0">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Category Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('search.category') || 'Category'}
-                  </label>
-                  <select
-                    value={filters.category || ''}
-                    onChange={handleCategoryChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">{t('search.allCategories') || 'All Categories'}</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Start Date Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('search.startDate') || 'Start Date'}
-                  </label>
-                    <Input
-                      type="date"
-                      value={filters.startDate || ''}
-                      onChange={handleStartDateChange}
-                      className="w-full"
-                    />
-                </div>
-
-                {/* End Date Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('search.endDate') || 'End Date'}
-                  </label>
-                    <Input
-                      type="date"
-                      value={filters.endDate || ''}
-                      onChange={handleEndDateChange}
-                      className="w-full"
-                    />
-                </div>
-              </div>
-
-              {/* Apply Filters Button */}
-              <div className="flex justify-end gap-2 mt-4">
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    onClick={clearFilters}
-                    className="text-sm"
-                  >
-                    {t('search.clearFilters') || 'Clear Filters'}
-                  </Button>
-                )}
-                <Button
-                  onClick={() => {
-                    handleSearch();
-                    setShowFilters(false);
-                  }}
-                  className="text-sm"
-                >
-                  {t('search.applyFilters') || 'Apply Filters'}
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Results Count */}
@@ -1543,6 +1503,84 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
           </div>
           </>
         )}
+
+            {/* Filter Modal */}
+            <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
+              <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-5 w-5 text-blue-500" />
+                      <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
+                    </div>
+                    <button
+                      onClick={cancelFilters}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+                    >
+                      <XIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  {/* Category Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+                    <select
+                      value={tempCategory}
+                      onChange={(e) => setTempCategory(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">All</option>
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Start Date Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
+                    <input
+                      type="date"
+                      value={tempStartDate}
+                      onChange={(e) => setTempStartDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* End Date Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
+                    <input
+                      type="date"
+                      value={tempEndDate}
+                      onChange={(e) => setTempEndDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={cancelFilters}
+                    variant="outline"
+                    className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={applyFilters}
+                    className="flex-1 gradient-primary text-white"
+                  >
+                    Apply
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
       </div>
     </div>
   );

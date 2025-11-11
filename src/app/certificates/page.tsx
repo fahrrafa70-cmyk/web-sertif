@@ -40,7 +40,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
-import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Award } from "lucide-react";
+import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Award, Filter, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
@@ -114,6 +114,11 @@ function CertificatesContent() {
   const debouncedSearchInput = useDebounce(searchInput, 300);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  
+  // Filter modal state
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [tempCategoryFilter, setTempCategoryFilter] = useState("");
+  const [tempDateFilter, setTempDateFilter] = useState("");
   
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
@@ -1214,6 +1219,30 @@ function CertificatesContent() {
     setCurrentPage(1);
   }, [itemsPerPage]);
 
+  // Filter modal handlers
+  const openFilterModal = () => {
+    setTempCategoryFilter(categoryFilter);
+    setTempDateFilter(dateFilter);
+    setFilterModalOpen(true);
+  };
+
+  const applyFilters = () => {
+    setCategoryFilter(tempCategoryFilter);
+    setDateFilter(tempDateFilter);
+    setFilterModalOpen(false);
+  };
+
+  const cancelFilters = () => {
+    setTempCategoryFilter(categoryFilter);
+    setTempDateFilter(dateFilter);
+    setFilterModalOpen(false);
+  };
+
+  const clearFilters = () => {
+    setTempCategoryFilter("");
+    setTempDateFilter("");
+  };
+
   const [isEditOpen, setIsEditOpen] = useState<null | string>(null);
   const [draft, setDraft] = useState<Certificate | null>(null);
   const [previewCertificate, setPreviewCertificate] =
@@ -1515,8 +1544,8 @@ function CertificatesContent() {
 
   return (
     <ModernLayout>
-      <section className="relative -mt-2 pb-6 sm:-mt-3 sm:pb-8 bg-gray-50 dark:bg-gray-900">
-        <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-4 relative">
+      <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+        <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
             {/* Header */}
             <div className="mb-3">
               <div className="flex flex-col gap-3 mb-4">
@@ -1543,35 +1572,26 @@ function CertificatesContent() {
                   )}
                 </div>
                 
-                {/* Filters Row */}
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                {/* Search and Filter Row */}
+                <div className="flex gap-2">
                   <Input
                     placeholder={t("certificates.search")}
-                    className="w-full sm:w-64 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                    className="flex-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                   />
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full sm:w-48 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                  <Button
+                    onClick={openFilterModal}
+                    variant="outline"
+                    size="icon"
+                    className={`flex-shrink-0 h-10 w-10 ${
+                      categoryFilter || dateFilter
+                        ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    }`}
                   >
-                    <option value="">{t('templates.allCategories')}</option>
-                    <option value="MoU">MoU</option>
-                    <option value="Magang">Magang</option>
-                    <option value="Pelatihan">Pelatihan</option>
-                    <option value="Kunjungan Industri">Kunjungan Industri</option>
-                    <option value="Sertifikat">Sertifikat</option>
-                    <option value="Surat">Surat</option>
-                    <option value="Lainnya">Lainnya</option>
-                  </select>
-                  <Input
-                    placeholder={t("certificates.filterByDate")}
-                    className="w-full sm:w-40 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                  />
+                    <Filter className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -3119,6 +3139,73 @@ function CertificatesContent() {
         members={members}
         onGenerate={handleQuickGenerate}
       />
+
+      {/* Filter Modal */}
+      <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-blue-500" />
+                <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
+              </div>
+              <button
+                onClick={cancelFilters}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Category Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+              <select
+                value={tempCategoryFilter}
+                onChange={(e) => setTempCategoryFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All</option>
+                <option value="MoU">MoU</option>
+                <option value="Internship">Internship</option>
+                <option value="Training">Training</option>
+                <option value="Seminar">Seminar</option>
+                <option value="Visit">Visit</option>
+              </select>
+            </div>
+
+            {/* Date Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Issue Date</label>
+              <input
+                type="date"
+                value={tempDateFilter}
+                onChange={(e) => setTempDateFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-4">
+            <Button
+              onClick={cancelFilters}
+              variant="outline"
+              className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={applyFilters}
+              className="flex-1 gradient-primary text-white"
+            >
+              Apply
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Toast Notifications */}
       <Toaster position="top-right" richColors />

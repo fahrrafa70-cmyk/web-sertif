@@ -1514,26 +1514,45 @@ function ConfigureLayoutContent() {
       {/* Main Content - Padding top sama dengan tinggi header untuk mengisi gap */}
       <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 pt-14 sm:pt-16">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 sm:gap-4">
           {/* Compact Canvas for Editing */}
-          <div className="lg:col-span-3 order-1 lg:order-1">
+          <div className="lg:col-span-4 order-1 lg:order-1">
             <div 
               className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6"
               style={{
-                // For portrait: limit wrapper width to fit preview nicely
-                maxWidth: templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                // Always limit wrapper width for portrait templates (even during loading)
+                maxWidth: !templateImageDimensions || (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width)
                   ? '650px' 
                   : 'none',
-                margin: templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                margin: !templateImageDimensions || (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width)
                   ? '0 auto' 
                   : '0',
               }}
             >
-              {/* Wrapper for scaling - maintains aspect ratio */}
-              <div 
-                ref={canvasRef}
-                className="relative overflow-visible mx-auto"
-                style={{ 
+              {/* Loading skeleton - shown only when dimensions are not yet loaded */}
+              {!templateImageDimensions && (
+                <div className="animate-pulse">
+                  <div 
+                    className="bg-gray-200 dark:bg-gray-800 rounded-lg mx-auto" 
+                    style={{ 
+                      aspectRatio: '3/4', 
+                      maxHeight: '800px',
+                      width: 'auto'
+                    }}
+                  >
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-gray-400 dark:text-gray-600">Loading preview...</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Wrapper for scaling - maintains aspect ratio - only show when dimensions are loaded */}
+              {templateImageDimensions && (
+                <div 
+                  ref={canvasRef}
+                  className="relative overflow-visible mx-auto transition-opacity duration-300 ease-in-out"
+                  style={{ 
                   aspectRatio: templateImageDimensions 
                     ? `${templateImageDimensions.width}/${templateImageDimensions.height}`
                     : `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
@@ -1875,11 +1894,12 @@ function ConfigureLayoutContent() {
                   })}
                 </div>
               </div>
+              )}
             </div>
           </div>
 
           {/* Configuration Panel */}
-          <div className="lg:col-span-1 order-2 lg:order-2">
+          <div className="lg:col-span-2 order-2 lg:order-2">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 lg:sticky lg:top-24 max-h-[calc(100vh-10rem)] sm:max-h-[calc(100vh-8rem)] overflow-y-auto">
               {/* Mode Switcher - Only for dual templates */}
               {template.is_dual_template && (

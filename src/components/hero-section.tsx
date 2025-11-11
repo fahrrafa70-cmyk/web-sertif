@@ -17,6 +17,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
  
 
 export default function HeroSection() {
@@ -31,7 +37,7 @@ export default function HeroSection() {
   // New states for advanced search
   const [searchResults, setSearchResults] = useState<Certificate[]>([]);
   const [showResults, setShowResults] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [filters, setFilters] = useState<SearchFilters>({
     keyword: "",
@@ -39,6 +45,11 @@ export default function HeroSection() {
     startDate: "",
     endDate: "",
   });
+  
+  // Temporary filter values for modal
+  const [tempCategory, setTempCategory] = useState("");
+  const [tempStartDate, setTempStartDate] = useState("");
+  const [tempEndDate, setTempEndDate] = useState("");
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -635,6 +646,41 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
 
   // Remove auto-search on typing - only search when button clicked
 
+  // Filter modal handlers
+  const openFilterModal = useCallback(() => {
+    setTempCategory(filters.category || "");
+    setTempStartDate(filters.startDate || "");
+    setTempEndDate(filters.endDate || "");
+    setFilterModalOpen(true);
+  }, [filters]);
+
+  const applyFilters = useCallback(() => {
+    const newFilters: SearchFilters = {
+      keyword: certificateId.trim(),
+      category: tempCategory,
+      startDate: tempStartDate,
+      endDate: tempEndDate,
+    };
+    setFilters(newFilters);
+    if (certificateId.trim()) {
+      performSearch(newFilters, true);
+    }
+    setFilterModalOpen(false);
+  }, [certificateId, tempCategory, tempStartDate, tempEndDate, performSearch]);
+
+  const cancelFilters = useCallback(() => {
+    setTempCategory(filters.category || "");
+    setTempStartDate(filters.startDate || "");
+    setTempEndDate(filters.endDate || "");
+    setFilterModalOpen(false);
+  }, [filters]);
+
+  const clearTempFilters = useCallback(() => {
+    setTempCategory("");
+    setTempStartDate("");
+    setTempEndDate("");
+  }, []);
+
   // Clear all filters
   const clearFilters = useCallback(() => {
     setFilters({
@@ -755,105 +801,26 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                   </LoadingButton>
                 </div>
                 
-                {/* Filter Toggle Button */}
+                {/* Filter Icon Button */}
                 <Button
                   type="button"
+                  onClick={openFilterModal}
                   variant="outline"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="h-9 sm:h-10 md:h-12 px-3 sm:px-4 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 sm:flex-shrink-0"
+                  size="icon"
+                  className={`flex-shrink-0 h-9 sm:h-10 md:h-12 w-9 sm:w-10 md:w-12 ${
+                    filters.category || filters.startDate || filters.endDate
+                      ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                      : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
                 >
-                  <Filter className="w-4 h-4" />
-                  <span className="ml-2 hidden sm:inline text-sm">Filter</span>
+                  <Filter className="w-4 h-4 md:w-5 md:h-5" />
                 </Button>
               </div>
               
             </div>
 
-            {/* Filters Panel - Mobile optimized with better spacing */}
-            {showFilters && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mb-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg relative z-0 space-y-4"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Category Filter */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">
-                      {t('search.category')}
-                    </label>
-                    <select
-                      value={filters.category}
-                      onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] dark:bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27white%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e')] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-10 text-gray-900 dark:text-gray-100"
-                    >
-                      <option value="">{t('search.allCategories')}</option>
-                      {categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Date Range */}
-                  <div className="space-y-2 sm:col-span-2">
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">
-                      {t('search.dateRange')}
-                    </label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <input
-                          type="date"
-                          value={filters.startDate}
-                          onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                          className="w-full h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer text-gray-900 dark:text-gray-100"
-                          placeholder={t('search.startDate')}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <input
-                          type="date"
-                          value={filters.endDate}
-                          onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                          className="w-full h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer text-gray-900 dark:text-gray-100"
-                          placeholder={t('search.endDate')}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Clear Filters Button */}
-                {(filters.category || filters.startDate || filters.endDate) && (
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearFilters}
-                      className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      {t('search.clearFilters')}
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Error Message - Below filter panel */}
-                {searchError && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-3 text-sm text-red-600 dark:text-red-400"
-                  >
-                    {searchError}
-                  </motion.p>
-                )}
-              </motion.div>
-            )}
-
             {/* Error Message - Show below search bar if no filters */}
-            {searchError && !showFilters && !(filters.category || filters.startDate || filters.endDate) && (
+            {searchError && !(filters.category || filters.startDate || filters.endDate) && (
               <motion.p
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -864,7 +831,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
             )}
 
             {/* Active Filters Indicator */}
-            {(filters.category || filters.startDate || filters.endDate) && !showFilters && (
+            {(filters.category || filters.startDate || filters.endDate) && (
               <>
                 <div className="mt-4 mb-3 flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-gray-600 dark:text-gray-400">
                   <span className="font-medium flex-shrink-0">{t('search.filteredBy')}:</span>
@@ -1251,6 +1218,84 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         </div>
       </div>
     )}
+    
+    {/* Filter Modal */}
+    <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+        <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-blue-500" />
+              <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
+            </div>
+            <button
+              onClick={cancelFilters}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          {/* Category Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+            <select
+              value={tempCategory}
+              onChange={(e) => setTempCategory(e.target.value)}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Start Date Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
+            <input
+              type="date"
+              value={tempStartDate}
+              onChange={(e) => setTempStartDate(e.target.value)}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          {/* End Date Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
+            <input
+              type="date"
+              value={tempEndDate}
+              onChange={(e) => setTempEndDate(e.target.value)}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-4">
+          <Button
+            onClick={cancelFilters}
+            variant="outline"
+            className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={applyFilters}
+            className="flex-1 gradient-primary text-white"
+          >
+            Apply
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
     
     {/* Toast Notifications */}
     <Toaster position="top-right" richColors />

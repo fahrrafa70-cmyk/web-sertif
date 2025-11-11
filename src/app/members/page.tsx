@@ -536,8 +536,8 @@ export default function MembersPage() {
 
   return (
     <ModernLayout>
-        <section className="relative -mt-2 pb-6 sm:-mt-3 sm:pb-8 bg-gray-50 dark:bg-gray-900">
-          <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-4 relative">
+        <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+          <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
             {/* Header */}
             <div className="mb-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 w-full">
