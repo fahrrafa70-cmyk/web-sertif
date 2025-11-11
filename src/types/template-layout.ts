@@ -20,6 +20,7 @@ export interface TextLayerConfig {
   useDefaultText?: boolean; // Whether to use defaultText instead of dynamic data
   maxWidth?: number; // Maximum width for text wrapping (in pixels)
   lineHeight?: number; // Line height multiplier (default 1.2)
+  visible?: boolean; // Whether this layer is visible in preview and generation (default: true)
   // Rich text support (inline formatting)
   richText?: RichText; // Array of text spans with individual styles
   hasInlineFormatting?: boolean; // Whether this layer uses rich text formatting
@@ -170,12 +171,18 @@ export interface LayoutValidationResult {
 
 /**
  * Required text layer IDs for certificate mode
+ * Note: Score mode uses the same required fields for consistency
  */
 export const REQUIRED_CERTIFICATE_FIELDS = [
   'name',
   'certificate_no',
   'issue_date'
 ] as const;
+
+/**
+ * Required text layer IDs for score mode (same as certificate mode)
+ */
+export const REQUIRED_SCORE_FIELDS = REQUIRED_CERTIFICATE_FIELDS;
 
 /**
  * Optional text layer IDs for certificate mode

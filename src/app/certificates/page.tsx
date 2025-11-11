@@ -115,11 +115,9 @@ function CertificatesContent() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   
-  // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   
-  // Detect mobile and adjust items per page (5 for mobile, 10 for desktop)
   useEffect(() => {
     const checkMobile = () => {
       const isMobile = window.innerWidth < 768; // md breakpoint

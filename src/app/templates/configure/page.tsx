@@ -6,7 +6,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon, Eye, EyeOff } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
@@ -114,19 +114,30 @@ function ConfigureLayoutContent() {
         // Load existing layout and store in ref for use in image onload callbacks
         const existingLayout = await getTemplateLayout(templateId);
         existingLayoutRef.current = existingLayout;
+        console.log('📋 Existing layout loaded:', existingLayout);
         
         // Load CERTIFICATE image dimensions for dynamic aspect ratio
-        if (tpl.certificate_image_url) {
+        const certificateImageUrl = (tpl.certificate_image_url || tpl.image_path) as string;
+        if (certificateImageUrl) {
+          console.log('🖼️ Loading certificate image:', certificateImageUrl);
           const certImg = new window.Image();
+          certImg.crossOrigin = 'anonymous'; // Enable CORS
+          
+          certImg.onerror = (error) => {
+            console.error('❌ Failed to load certificate image:', error);
+            console.error('Image URL:', certificateImageUrl);
+          };
+          
           certImg.onload = () => {
             const dimensions = { width: certImg.naturalWidth, height: certImg.naturalHeight };
             setCertificateImageDimensions(dimensions);
             console.log('📐 Certificate dimensions:', certImg.naturalWidth, 'x', certImg.naturalHeight);
+            console.log('📊 Existing layout:', existingLayoutRef.current);
             
             // CRITICAL: Normalize coordinates when dimensions are loaded
             // This ensures coordinates are correct even if template image was replaced with different size
             const layout = existingLayoutRef.current;
-            if (layout && layout.certificate) {
+            if (layout && layout.certificate && layout.certificate.textLayers && layout.certificate.textLayers.length > 0) {
               const normalizedLayers = (layout.certificate.textLayers as TextLayer[]).map(layer => {
                 // Use xPercent/yPercent if available (resolution-independent), otherwise calculate from x/y
                 const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
@@ -169,11 +180,71 @@ function ConfigureLayoutContent() {
                 setCertificatePhotoLayers(layout.certificate.photoLayers);
                 console.log('📸 Loaded', layout.certificate.photoLayers.length, 'certificate photo layers');
               }
+            } else {
+              // No existing layout - initialize default layers with actual dimensions
+              console.log('🆕 Initializing default certificate text layers with actual dimensions');
+              console.log('   Layout check:', {
+                hasLayout: !!layout,
+                hasCertificate: layout?.certificate,
+                hasTextLayers: layout?.certificate?.textLayers,
+                textLayersLength: layout?.certificate?.textLayers?.length
+              });
+              const defaultLayers: TextLayerConfig[] = [
+                {
+                  id: 'name',
+                  x: Math.round(dimensions.width * 0.5),
+                  y: Math.round(dimensions.height * 0.5),
+                  xPercent: 0.5,
+                  yPercent: 0.5,
+                  fontSize: 48,
+                  color: '#000000',
+                  fontWeight: 'bold',
+                  fontFamily: 'Arial',
+                  textAlign: 'center',
+                  maxWidth: Math.round(dimensions.width * 0.4),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'certificate_no',
+                  x: Math.round(dimensions.width * 0.1),
+                  y: Math.round(dimensions.height * 0.1),
+                  xPercent: 0.1,
+                  yPercent: 0.1,
+                  fontSize: 16,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.3),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'issue_date',
+                  x: Math.round(dimensions.width * 0.7),
+                  y: Math.round(dimensions.height * 0.85),
+                  xPercent: 0.7,
+                  yPercent: 0.85,
+                  fontSize: 14,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.3),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+              ];
+              console.log('✅ Created default layers:', defaultLayers.map(l => ({ id: l.id, x: l.x, y: l.y })));
+              setCertificateTextLayers(defaultLayers);
+              if (defaultLayers.length > 0) {
+                setSelectedLayerId(defaultLayers[0].id);
+              }
+              console.log('✅ Default certificate layers set successfully');
             }
           };
           
           // Set src and check if already cached
-          certImg.src = tpl.certificate_image_url;
+          certImg.src = certificateImageUrl;
           
           // Handle case where image is already cached (onload may not fire)
           // Check after setting src, as cached images will have complete=true immediately
@@ -184,7 +255,7 @@ function ConfigureLayoutContent() {
             console.log('📐 Certificate dimensions (cached):', certImg.naturalWidth, 'x', certImg.naturalHeight);
             
             const layout = existingLayoutRef.current;
-            if (layout && layout.certificate) {
+            if (layout && layout.certificate && layout.certificate.textLayers && layout.certificate.textLayers.length > 0) {
               const normalizedLayers = (layout.certificate.textLayers as TextLayer[]).map(layer => {
                 const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
                   ? layer.xPercent
@@ -224,6 +295,58 @@ function ConfigureLayoutContent() {
                 setCertificatePhotoLayers(layout.certificate.photoLayers);
                 console.log('📸 Loaded', layout.certificate.photoLayers.length, 'certificate photo layers (cached)');
               }
+            } else {
+              // No existing layout - initialize default layers with actual dimensions (cached)
+              console.log('🆕 Initializing default certificate text layers with actual dimensions (cached)');
+              const defaultLayers: TextLayerConfig[] = [
+                {
+                  id: 'name',
+                  x: Math.round(dimensions.width * 0.5),
+                  y: Math.round(dimensions.height * 0.5),
+                  xPercent: 0.5,
+                  yPercent: 0.5,
+                  fontSize: 48,
+                  color: '#000000',
+                  fontWeight: 'bold',
+                  fontFamily: 'Arial',
+                  textAlign: 'center',
+                  maxWidth: Math.round(dimensions.width * 0.4),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'certificate_no',
+                  x: Math.round(dimensions.width * 0.1),
+                  y: Math.round(dimensions.height * 0.1),
+                  xPercent: 0.1,
+                  yPercent: 0.1,
+                  fontSize: 16,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.3),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'issue_date',
+                  x: Math.round(dimensions.width * 0.7),
+                  y: Math.round(dimensions.height * 0.85),
+                  xPercent: 0.7,
+                  yPercent: 0.85,
+                  fontSize: 14,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.3),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+              ];
+              setCertificateTextLayers(defaultLayers);
+              if (defaultLayers.length > 0) {
+                setSelectedLayerId(defaultLayers[0].id);
+              }
             }
           }
         }
@@ -238,7 +361,7 @@ function ConfigureLayoutContent() {
             
             // CRITICAL: Normalize coordinates when dimensions are loaded
             const layout = existingLayoutRef.current;
-            if (layout && layout.score) {
+            if (layout && layout.score && layout.score.textLayers && layout.score.textLayers.length > 0) {
               const normalizedLayers = (layout.score.textLayers as TextLayer[]).map(layer => {
                 // Use xPercent/yPercent if available (resolution-independent), otherwise calculate from x/y
                 const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
@@ -271,6 +394,55 @@ function ConfigureLayoutContent() {
                 setScorePhotoLayers(layout.score.photoLayers);
                 console.log('📸 Loaded', layout.score.photoLayers.length, 'score photo layers');
               }
+            } else {
+              // No existing layout - initialize default score layers with actual dimensions
+              console.log('🆕 Initializing default score text layers with actual dimensions');
+              const defaultScoreLayers: TextLayerConfig[] = [
+                {
+                  id: 'name',
+                  x: Math.round(dimensions.width * 0.5),
+                  y: Math.round(dimensions.height * 0.5),
+                  xPercent: 0.5,
+                  yPercent: 0.5,
+                  fontSize: 48,
+                  color: '#000000',
+                  fontWeight: 'bold',
+                  fontFamily: 'Arial',
+                  textAlign: 'center',
+                  maxWidth: Math.round(dimensions.width * 0.4),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'certificate_no',
+                  x: Math.round(dimensions.width * 0.1),
+                  y: Math.round(dimensions.height * 0.1),
+                  xPercent: 0.1,
+                  yPercent: 0.1,
+                  fontSize: 16,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.3),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'issue_date',
+                  x: Math.round(dimensions.width * 0.7),
+                  y: Math.round(dimensions.height * 0.85),
+                  xPercent: 0.7,
+                  yPercent: 0.85,
+                  fontSize: 14,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.3),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+              ];
+              setScoreTextLayers(defaultScoreLayers);
             }
           };
           
@@ -286,7 +458,7 @@ function ConfigureLayoutContent() {
             console.log('📊 Score dimensions (cached):', scoreImg.naturalWidth, 'x', scoreImg.naturalHeight);
             
             const layout = existingLayoutRef.current;
-            if (layout && layout.score) {
+            if (layout && layout.score && layout.score.textLayers && layout.score.textLayers.length > 0) {
               const normalizedLayers = (layout.score.textLayers as TextLayer[]).map(layer => {
                 const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
                   ? layer.xPercent
@@ -317,34 +489,57 @@ function ConfigureLayoutContent() {
                 setScorePhotoLayers(layout.score.photoLayers);
                 console.log('📸 Loaded', layout.score.photoLayers.length, 'score photo layers (cached)');
               }
+            } else {
+              // No existing layout - initialize default score layers with actual dimensions (cached)
+              console.log('🆕 Initializing default score text layers with actual dimensions (cached)');
+              const defaultScoreLayers: TextLayerConfig[] = [
+                {
+                  id: 'name',
+                  x: Math.round(dimensions.width * 0.5),
+                  y: Math.round(dimensions.height * 0.5),
+                  xPercent: 0.5,
+                  yPercent: 0.5,
+                  fontSize: 48,
+                  color: '#000000',
+                  fontWeight: 'bold',
+                  fontFamily: 'Arial',
+                  textAlign: 'center',
+                  maxWidth: Math.round(dimensions.width * 0.4),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'certificate_no',
+                  x: Math.round(dimensions.width * 0.1),
+                  y: Math.round(dimensions.height * 0.1),
+                  xPercent: 0.1,
+                  yPercent: 0.1,
+                  fontSize: 16,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.3),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'issue_date',
+                  x: Math.round(dimensions.width * 0.7),
+                  y: Math.round(dimensions.height * 0.85),
+                  xPercent: 0.7,
+                  yPercent: 0.85,
+                  fontSize: 14,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.3),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+              ];
+              setScoreTextLayers(defaultScoreLayers);
             }
           }
-        }
-        
-        // Initialize default layers if no existing layout
-        if (!existingLayout || !existingLayout.certificate) {
-          console.log('🆕 Initializing default certificate text layers');
-          initializeDefaultCertificateLayers();
-        }
-        
-        if (tpl.is_dual_template && (!existingLayout || !existingLayout.score)) {
-          console.log('🆕 Initializing score layers with required issue_date field');
-          const defaultScoreLayers: TextLayerConfig[] = [
-            {
-              id: 'issue_date',
-              x: 600,
-              y: 500,
-              xPercent: 600 / STANDARD_CANVAS_WIDTH,
-              yPercent: 500 / STANDARD_CANVAS_HEIGHT,
-              fontSize: 13,
-              color: '#000000',
-              fontWeight: 'normal',
-              fontFamily: 'Arial',
-              maxWidth: 300,
-              lineHeight: 1.3,
-            },
-          ];
-          setScoreTextLayers(defaultScoreLayers);
         }
         
         setLoading(false);
@@ -933,6 +1128,7 @@ function ConfigureLayoutContent() {
       textAlign: configMode === 'score' ? 'center' : 'left',
       maxWidth: 300,
       lineHeight: 1.2,
+      // Custom layers don't need visible property (always visible, can be deleted instead)
     };
     
     const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
@@ -985,6 +1181,20 @@ function ConfigureLayoutContent() {
     
     toast.success(t('configure.layerDeleted').replace('{id}', layerId));
     console.log(`✨ Deletion complete. REMINDER: Changes not saved yet!`);
+  };
+
+  // Toggle text layer visibility
+  const toggleLayerVisibility = (layerId: string) => {
+    const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+    setter(prev => prev.map(layer => 
+      layer.id === layerId 
+        ? { ...layer, visible: layer.visible === false ? true : false }
+        : layer
+    ));
+    
+    const layer = textLayers.find(l => l.id === layerId);
+    const newVisibility = layer?.visible === false ? true : false;
+    toast.success(newVisibility ? `Layer "${layerId}" is now visible` : `Layer "${layerId}" is now hidden`);
   };
 
   // ===== PHOTO LAYER MANAGEMENT FUNCTIONS =====
@@ -1115,9 +1325,10 @@ function ConfigureLayoutContent() {
     console.log(`📊 Certificate layers to save (${certificateTextLayers.length}):`, certificateTextLayers.map(l => l.id));
     console.log(`📊 Score layers to save (${scoreTextLayers.length}):`, scoreTextLayers.map(l => l.id));
     
-    // Validate required fields
+    // Validate required fields - same for both certificate and score modes
+    const requiredFields = ['name', 'certificate_no', 'issue_date'];
+    
     if (configMode === 'certificate') {
-      const requiredFields = ['name', 'certificate_no', 'issue_date'];
       const certificateIds = certificateTextLayers.map(l => l.id);
       const missingFields = requiredFields.filter(f => !certificateIds.includes(f));
       
@@ -1126,10 +1337,12 @@ function ConfigureLayoutContent() {
         return;
       }
     } else if (configMode === 'score') {
-      // Score mode: only issue_date is required
+      // Score mode: same required fields as certificate mode
       const scoreIds = scoreTextLayers.map(l => l.id);
-      if (!scoreIds.includes('issue_date')) {
-        toast.error(t('configure.missingIssueDate'));
+      const missingFields = requiredFields.filter(f => !scoreIds.includes(f));
+      
+      if (missingFields.length > 0) {
+        toast.error(t('configure.missingRequiredFields').replace('{fields}', missingFields.join(', ')));
         return;
       }
     }
@@ -1354,7 +1567,7 @@ function ConfigureLayoutContent() {
                 )}
                 
                 {/* Text Layers */}
-                {textLayers.map(layer => {
+                {textLayers.filter(layer => layer.visible !== false).map(layer => {
                   const plainText = previewTexts[layer.id] || 
                                     layer.defaultText || 
                                     DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
@@ -1698,9 +1911,8 @@ function ConfigureLayoutContent() {
                 </div>
                 <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
                   {textLayers.map(layer => {
-                    // Required fields
-                    const isRequired = (configMode === 'certificate' && ['name', 'certificate_no', 'issue_date'].includes(layer.id)) ||
-                                       (configMode === 'score' && layer.id === 'issue_date');
+                    // Required fields - same for both certificate and score modes
+                    const isRequired = ['name', 'certificate_no', 'issue_date'].includes(layer.id);
                     const isSelected = selectedLayerId === layer.id;
                     
                     return (
@@ -1744,26 +1956,52 @@ function ConfigureLayoutContent() {
                               {layer.fontSize}px • {layer.fontFamily}
                             </div>
                           </div>
-                          {/* Show "Required" badge only in certificate mode for required fields */}
+                          {/* Show "Required" badge for required fields (same for all modes) */}
                           {isRequired && (
                             <span className="text-[10px] sm:text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-1.5 sm:px-2 py-0.5 rounded flex-shrink-0">
                               Required
                             </span>
                           )}
                         </div>
-                        {!isRequired && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteLayer(layer.id);
-                            }}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 h-7 w-7 sm:h-8 sm:w-auto sm:px-2 p-0 flex-shrink-0"
-                          >
-                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {/* Visibility Toggle Button - only for default/required fields */}
+                          {isRequired && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleLayerVisibility(layer.id);
+                              }}
+                              className={`h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0 ${
+                                layer.visible === false 
+                                  ? 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400' 
+                                  : 'text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
+                              }`}
+                              title={layer.visible === false ? 'Show layer' : 'Hide layer'}
+                            >
+                              {layer.visible === false ? (
+                                <EyeOff className="w-3 h-3 sm:w-4 sm:h-4" />
+                              ) : (
+                                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                              )}
+                            </Button>
+                          )}
+                          {/* Delete Button - only for non-required fields */}
+                          {!isRequired && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteLayer(layer.id);
+                              }}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0"
+                            >
+                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -2453,7 +2691,7 @@ function ConfigureLayoutContent() {
               )}
               
               {/* Text Layers */}
-              {textLayers.map(layer => {
+              {textLayers.filter(layer => layer.visible !== false).map(layer => {
                 // Priority: preview text > default text > dummy data > layer id
                 const text = previewTexts[layer.id] || 
                              layer.defaultText || 
