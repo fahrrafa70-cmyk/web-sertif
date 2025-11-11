@@ -1517,15 +1517,33 @@ function ConfigureLayoutContent() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Compact Canvas for Editing */}
           <div className="lg:col-span-3 order-1 lg:order-1">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6">
+            <div 
+              className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6"
+              style={{
+                // For portrait: limit wrapper width to fit preview nicely
+                maxWidth: templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                  ? '650px' 
+                  : 'none',
+                margin: templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                  ? '0 auto' 
+                  : '0',
+              }}
+            >
               {/* Wrapper for scaling - maintains aspect ratio */}
               <div 
                 ref={canvasRef}
-                className="relative w-full overflow-visible"
+                className="relative overflow-visible mx-auto"
                 style={{ 
                   aspectRatio: templateImageDimensions 
                     ? `${templateImageDimensions.width}/${templateImageDimensions.height}`
                     : `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
+                  // For portrait: limit height and let width adjust, for landscape: limit width
+                  maxHeight: templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                    ? '800px'  // Portrait: larger max height
+                    : 'none',
+                  width: templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                    ? 'auto'   // Portrait: width auto-adjusts based on height and aspect ratio
+                    : '100%',  // Landscape: full width
                 }}
               >
                 {/* Inner canvas at natural size, scaled down by transform */}
