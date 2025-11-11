@@ -67,7 +67,7 @@ export default function FAQPage() {
         </section>
 
         {/* FAQ Content */}
-        <section className="py-12 sm:py-16 md:py-20 bg-gray-50 dark:bg-gray-900 w-full">
+        <section className="py-12 sm:py-16 md:py-20 bg-gray-50 dark:bg-gray-900 w-full min-h-screen">
           <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="space-y-3 sm:space-y-4 md:space-y-6">
               {faqs.map((faq, index) => (

@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { useDebounce } from "@/hooks/use-debounce";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X, Users } from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { confirmToast } from "@/lib/ui/confirm";
 
@@ -24,11 +24,11 @@ export default function MembersPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState<boolean>(false);
-  const [showForm, setShowForm] = useState<boolean>(false);
+  const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [initialized, setInitialized] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage] = useState<number>(8);
+  const [itemsPerPage] = useState<number>(10);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [form, setForm] = useState({
@@ -239,6 +239,20 @@ export default function MembersPage() {
     }
   }, [detailModalOpen]);
 
+  // Handle keyboard events for add modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (addModalOpen && e.key === "Escape") {
+        setAddModalOpen(false);
+      }
+    };
+
+    if (addModalOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [addModalOpen]);
+
   function openEdit(member: Member) {
     setEditingMember(member);
     setEditForm({
@@ -264,13 +278,45 @@ export default function MembersPage() {
     
     // Validate
     const errors: Record<string, string> = {};
+    
+    // Name is required
     if (!editForm.name.trim()) {
-      errors.name = t('members.nameRequired');
+      errors.name = language === 'id' ? 'Nama harus diisi' : 'Name is required';
+    } else if (editForm.name.trim().length < 3) {
+      errors.name = language === 'id' ? 'Nama minimal 3 karakter' : 'Name must be at least 3 characters';
+    }
+    
+    // Email validation
+    if (editForm.email && editForm.email.trim()) {
+      if (!editForm.email.includes('@')) {
+        errors.email = language === 'id' ? 'Email harus mengandung @' : 'Email must contain @';
+      } else {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(editForm.email.trim())) {
+          errors.email = language === 'id' ? 'Format email tidak valid (contoh: nama@domain.com)' : 'Invalid email format (example: name@domain.com)';
+        }
+      }
+    }
+    
+    // Phone validation if provided
+    if (editForm.phone && editForm.phone.trim()) {
+      const phoneRegex = /^[0-9+\-\s()]+$/;
+      if (!phoneRegex.test(editForm.phone.trim())) {
+        errors.phone = language === 'id' ? 'Nomor telepon hanya boleh berisi angka, +, -, (, ), dan spasi' : 'Phone number can only contain numbers, +, -, (, ), and spaces';
+      } else if (editForm.phone.replace(/[^0-9]/g, '').length < 8) {
+        errors.phone = language === 'id' ? 'Nomor telepon minimal 8 digit' : 'Phone number must be at least 8 digits';
+      }
+    }
+    
+    // Organization validation if provided
+    if (editForm.organization && editForm.organization.trim() && editForm.organization.trim().length < 2) {
+      errors.organization = language === 'id' ? 'Organisasi minimal 2 karakter' : 'Organization must be at least 2 characters';
     }
     
     if (Object.keys(errors).length > 0) {
       setEditFormErrors(errors);
-      toast.error(t('members.nameRequired'));
+      const firstError = Object.values(errors)[0];
+      toast.error(firstError);
       return;
     }
     try {
@@ -311,14 +357,35 @@ export default function MembersPage() {
     // Name is required
     if (!form.name.trim()) {
       errors.name = language === 'id' ? 'Nama harus diisi' : 'Name is required';
+    } else if (form.name.trim().length < 3) {
+      errors.name = language === 'id' ? 'Nama minimal 3 karakter' : 'Name must be at least 3 characters';
     }
     
-    // Email validation if provided
+    // Email validation
     if (form.email && form.email.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(form.email.trim())) {
-        errors.email = language === 'id' ? 'Format email tidak valid' : 'Invalid email format';
+      if (!form.email.includes('@')) {
+        errors.email = language === 'id' ? 'Email harus mengandung @' : 'Email must contain @';
+      } else {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(form.email.trim())) {
+          errors.email = language === 'id' ? 'Format email tidak valid (contoh: nama@domain.com)' : 'Invalid email format (example: name@domain.com)';
+        }
       }
+    }
+    
+    // Phone validation if provided
+    if (form.phone && form.phone.trim()) {
+      const phoneRegex = /^[0-9+\-\s()]+$/;
+      if (!phoneRegex.test(form.phone.trim())) {
+        errors.phone = language === 'id' ? 'Nomor telepon hanya boleh berisi angka, +, -, (, ), dan spasi' : 'Phone number can only contain numbers, +, -, (, ), and spaces';
+      } else if (form.phone.replace(/[^0-9]/g, '').length < 8) {
+        errors.phone = language === 'id' ? 'Nomor telepon minimal 8 digit' : 'Phone number must be at least 8 digits';
+      }
+    }
+    
+    // Organization validation if provided
+    if (form.organization && form.organization.trim() && form.organization.trim().length < 2) {
+      errors.organization = language === 'id' ? 'Organisasi minimal 2 karakter' : 'Organization must be at least 2 characters';
     }
     
     if (Object.keys(errors).length > 0) {
@@ -341,7 +408,7 @@ export default function MembersPage() {
         notes: form.notes || undefined,
       });
       toast.success(t('members.addSuccess'));
-      setShowForm(false);
+      setAddModalOpen(false);
       setForm({ name: "", email: "", organization: "", phone: "", job: "", date_of_birth: "", address: "", city: "", notes: "" });
       // optimistic update
       setMembersData((prev) => [added, ...prev]);
@@ -469,40 +536,49 @@ export default function MembersPage() {
 
   return (
     <ModernLayout>
-        <section className="py-4 sm:py-6 md:py-8 bg-gray-50 dark:bg-gray-900">
-          <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+        <section className="relative -mt-2 pb-6 sm:-mt-3 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+          <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-4 relative">
             {/* Header */}
-            <div className="mb-4 sm:mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 w-full">
-                <div className="min-w-0 flex-shrink">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] break-words">{t('members.title')}</h1>
+            <div className="mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 w-full">
+                {/* Title */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
+                    <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">{t('members.title')}</h1>
                 </div>
-              {(role === "Admin" || role === "Team") && (
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={() => setShowExcelInfoModal(true)} 
-                    disabled={importing}
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    {importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}
-                  </Button>
-                  <input
-                    ref={excelInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleExcelImport}
-                    className="hidden"
-                  />
-                  <Button onClick={() => setShowForm((s) => !s)} className="gradient-primary text-white">
-                    {showForm ? t('common.close') : language === 'id' ? 'Tambah Data' : 'Add Data'}
-                  </Button>
-                </div>
-              )}
+                
+                {/* Action Buttons */}
+                {(role === "Admin" || role === "Team") && (
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button 
+                      onClick={() => setShowExcelInfoModal(true)} 
+                      disabled={importing}
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-1 sm:flex-none"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      {importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}
+                    </Button>
+                    <input
+                      ref={excelInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleExcelImport}
+                      className="hidden"
+                    />
+                    <Button onClick={() => {
+                      setAddModalOpen(true);
+                      setFormErrors({});
+                    }} className="gradient-primary text-white flex-1 sm:flex-none">
+                      {language === 'id' ? 'Tambah Data' : 'Add Data'}
+                    </Button>
+                  </div>
+                )}
               </div>
               
               {/* Search Bar */}
-              <div className="relative max-w-md">
+              <div className="relative max-w-md mt-6">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   placeholder="Search data by name, email, organization..."
@@ -521,76 +597,6 @@ export default function MembersPage() {
               </div>
             </div>
 
-            {showForm && (role === "Admin" || role === "Team") && (
-              <motion.form onSubmit={onSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')} <span className="text-red-500">*</span></label>
-                  <Input 
-                    value={form.name} 
-                    placeholder={t('members.form.fullNamePlaceholder')} 
-                    onChange={(e) => {
-                      setForm({ ...form, name: e.target.value });
-                      if (formErrors.name) setFormErrors({ ...formErrors, name: '' });
-                    }}
-                    className={formErrors.name ? 'border-red-500 focus:border-red-500' : ''}
-                  />
-                  {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
-                  <Input 
-                    type="email" 
-                    value={form.email} 
-                    placeholder="name@example.com" 
-                    onChange={(e) => {
-                      setForm({ ...form, email: e.target.value });
-                      if (formErrors.email) setFormErrors({ ...formErrors, email: '' });
-                    }}
-                    className={formErrors.email ? 'border-red-500 focus:border-red-500' : ''}
-                  />
-                  {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
-                  <Input value={form.organization} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.phone')}</label>
-                  <Input value={form.phone} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.job')}</label>
-                  <Input value={form.job} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, job: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.dob')}</label>
-                  <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.address')}</label>
-                  <Input value={form.address} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.city')}</label>
-                  <Input value={form.city} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-                </div>
-                <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.notes')}</label>
-                  <Input value={form.notes} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-                </div>
-                <div className="flex items-end lg:col-span-3">
-                  <LoadingButton 
-                    type="submit" 
-                    isLoading={adding}
-                    loadingText={language === 'id' ? 'Menyimpan...' : 'Saving...'}
-                    variant="primary"
-                    className="gradient-primary text-white"
-                  >
-                    {t('common.save')}
-                  </LoadingButton>
-                </div>
-              </motion.form>
-            )}
 
             {/* Loading State */}
             {loading && (
@@ -643,7 +649,7 @@ export default function MembersPage() {
               whileInView={{ opacity: 1, y: 0 }} 
               viewport={{ once: true }} 
               transition={{ duration: 0.4 }} 
-              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden"
             >
               <div className="overflow-x-auto">
                 <Table>
@@ -723,7 +729,10 @@ export default function MembersPage() {
                                 <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.noMembersMessage')}</p>
                                 {(role === "Admin" || role === "Team") && (
                                   <button
-                                    onClick={() => setShowForm(true)}
+                                    onClick={() => {
+                                      setAddModalOpen(true);
+                                      setFormErrors({});
+                                    }}
                                     className="text-blue-600 hover:text-blue-700 font-medium"
                                   >
                                     {language === 'id' ? 'Tambah Data' : 'Add Data'}
@@ -799,9 +808,110 @@ export default function MembersPage() {
               </div>
             )}
 
+            {/* Add Data Modal */}
+            {addModalOpen && (
+              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in-0 duration-200" onClick={() => setAddModalOpen(false)}>
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === 'id' ? 'Tambah Data' : 'Add Data'}</h3>
+                    <Button variant="outline" onClick={() => setAddModalOpen(false)} size="icon" aria-label="Close">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')} <span className="text-red-500">*</span></label>
+                      <Input 
+                        value={form.name} 
+                        placeholder={t('members.form.fullNamePlaceholder')} 
+                        onChange={(e) => {
+                          setForm({ ...form, name: e.target.value });
+                          if (formErrors.name) setFormErrors({ ...formErrors, name: '' });
+                        }}
+                        className={formErrors.name ? 'border-red-500 focus:border-red-500' : ''}
+                      />
+                      {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
+                      <Input 
+                        type="email" 
+                        value={form.email} 
+                        placeholder="name@example.com" 
+                        onChange={(e) => {
+                          setForm({ ...form, email: e.target.value });
+                          if (formErrors.email) setFormErrors({ ...formErrors, email: '' });
+                        }}
+                        className={formErrors.email ? 'border-red-500 focus:border-red-500' : ''}
+                      />
+                      {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
+                      <Input 
+                        value={form.organization} 
+                        placeholder={t('members.form.optional')} 
+                        onChange={(e) => {
+                          setForm({ ...form, organization: e.target.value });
+                          if (formErrors.organization) setFormErrors({ ...formErrors, organization: '' });
+                        }}
+                        className={formErrors.organization ? 'border-red-500 focus:border-red-500' : ''}
+                      />
+                      {formErrors.organization && <p className="text-xs text-red-500 mt-1">{formErrors.organization}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.phone')}</label>
+                      <Input 
+                        value={form.phone} 
+                        placeholder={t('members.form.optional')} 
+                        onChange={(e) => {
+                          setForm({ ...form, phone: e.target.value });
+                          if (formErrors.phone) setFormErrors({ ...formErrors, phone: '' });
+                        }}
+                        className={formErrors.phone ? 'border-red-500 focus:border-red-500' : ''}
+                      />
+                      {formErrors.phone && <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.job')}</label>
+                      <Input value={form.job} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, job: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.dob')}</label>
+                      <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.address')}</label>
+                      <Input value={form.address} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.city')}</label>
+                      <Input value={form.city} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.notes')}</label>
+                      <Input value={form.notes} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                    </div>
+                    <div className="flex items-end lg:col-span-3">
+                      <LoadingButton 
+                        type="submit" 
+                        isLoading={adding}
+                        loadingText={language === 'id' ? 'Menyimpan...' : 'Saving...'}
+                        variant="primary"
+                        className="gradient-primary text-white"
+                      >
+                        {t('common.save')}
+                      </LoadingButton>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Edit Data Modal */}
             {editOpen && (
-              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditOpen(false)}>
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4" onClick={(e) => e.stopPropagation()}>
+              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in-0 duration-200" onClick={() => setEditOpen(false)}>
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === 'id' ? 'Edit Data' : 'Edit Data'}</h3>
                     <Button variant="outline" onClick={() => setEditOpen(false)} size="icon" aria-label="Close">
@@ -836,11 +946,27 @@ export default function MembersPage() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
-                      <Input value={editForm.organization} onChange={(e) => setEditForm({ ...editForm, organization: e.target.value })} />
+                      <Input 
+                        value={editForm.organization} 
+                        onChange={(e) => {
+                          setEditForm({ ...editForm, organization: e.target.value });
+                          if (editFormErrors.organization) setEditFormErrors({ ...editFormErrors, organization: '' });
+                        }}
+                        className={editFormErrors.organization ? 'border-red-500 focus:border-red-500' : ''}
+                      />
+                      {editFormErrors.organization && <p className="text-xs text-red-500 mt-1">{editFormErrors.organization}</p>}
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.phone')}</label>
-                      <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+                      <Input 
+                        value={editForm.phone} 
+                        onChange={(e) => {
+                          setEditForm({ ...editForm, phone: e.target.value });
+                          if (editFormErrors.phone) setEditFormErrors({ ...editFormErrors, phone: '' });
+                        }}
+                        className={editFormErrors.phone ? 'border-red-500 focus:border-red-500' : ''}
+                      />
+                      {editFormErrors.phone && <p className="text-xs text-red-500 mt-1">{editFormErrors.phone}</p>}
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.job')}</label>

@@ -25,6 +25,74 @@ export interface TextLayerConfig {
   hasInlineFormatting?: boolean; // Whether this layer uses rich text formatting
 }
 
+/**
+ * Photo/Image Layer Configuration
+ * Professional layer system like Canva/Picsart
+ * All positions and sizes use PERCENTAGE for resolution independence
+ */
+export interface PhotoLayerConfig {
+  id: string;
+  type: 'photo' | 'logo' | 'signature' | 'decoration';
+  
+  // Source
+  src: string; // Supabase Storage URL
+  
+  // Position (percentage-based 0-1)
+  x: number; // Absolute pixel (fallback)
+  y: number;
+  xPercent: number; // Primary: 0-1 (percentage of canvas width)
+  yPercent: number; // Primary: 0-1 (percentage of canvas height)
+  
+  // Size (percentage-based 0-1)
+  width: number; // Absolute pixel (fallback)
+  height: number;
+  widthPercent: number; // Primary: 0-1 (percentage of canvas width)
+  heightPercent: number; // Primary: 0-1 (percentage of canvas height)
+  
+  // Layer order
+  zIndex: number; // Higher = on top (text layers typically 100+)
+  
+  // Fit mode (how image fits in bounding box)
+  fitMode: 'contain' | 'cover' | 'fill' | 'none';
+  // - contain: fit inside, maintain aspect (letterbox/pillarbox)
+  // - cover: fill box, maintain aspect (crop edges)
+  // - fill: stretch to fill (may distort)
+  // - none: original size
+  
+  // Crop (region of source image to display, 0-1)
+  crop?: {
+    x: number; // Left offset (0-1)
+    y: number; // Top offset (0-1)
+    width: number; // Width (0-1)
+    height: number; // Height (0-1)
+  };
+  
+  // Mask (shape to clip image)
+  mask?: {
+    type: 'none' | 'circle' | 'ellipse' | 'roundedRect' | 'polygon';
+    borderRadius?: number; // For roundedRect (pixels)
+    points?: { x: number; y: number }[]; // For polygon (percentage)
+  };
+  
+  // Visual effects
+  opacity: number; // 0-1
+  rotation: number; // Degrees (-180 to +180)
+  
+  // Aspect ratio lock (for resize)
+  maintainAspectRatio: boolean;
+  
+  // Original dimensions (for reference)
+  originalWidth?: number;
+  originalHeight?: number;
+  
+  // Storage path (for deletion)
+  storagePath?: string; // Supabase Storage path
+}
+
+/**
+ * Legacy support - will be migrated to PhotoLayerConfig
+ * @deprecated Use PhotoLayerConfig instead
+ */
 export interface OverlayImageConfig {
   id: string;
   url: string;
@@ -56,12 +124,14 @@ export interface FontSetting {
 
 export interface CertificateModeConfig {
   textLayers: TextLayerConfig[];
-  overlayImages?: OverlayImageConfig[];
+  photoLayers?: PhotoLayerConfig[]; // New: Professional photo layer system
+  overlayImages?: OverlayImageConfig[]; // Legacy support
 }
 
 export interface ScoreModeConfig {
   textLayers: TextLayerConfig[];
-  overlayImages?: OverlayImageConfig[];
+  photoLayers?: PhotoLayerConfig[]; // New: Professional photo layer system
+  overlayImages?: OverlayImageConfig[]; // Legacy support
   fontSettings?: ScoreFontSettings;
 }
 

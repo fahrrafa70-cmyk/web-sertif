@@ -42,7 +42,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/40 dark:bg-black/60",
+        "fixed inset-0 z-50 bg-black/20 dark:bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-300 ease-out",
         className
       )}
       style={{
@@ -52,9 +52,6 @@ function DialogOverlay({
         width: '100vw',
         height: '100vh',
         zIndex: 50,
-        opacity: 0,
-        transition: 'opacity 300ms cubic-bezier(0.16, 1, 0.3, 1)',
-        willChange: 'opacity',
         pointerEvents: 'auto',
       }}
       {...props}
@@ -73,19 +70,21 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-white dark:bg-gray-800 fixed z-50 grid w-full max-w-lg gap-4 border border-gray-200 dark:border-gray-700 p-6 shadow-lg sm:rounded-lg",
+          "bg-white dark:bg-gray-800 fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg gap-4 border border-gray-200 dark:border-gray-700 p-6 shadow-lg sm:rounded-lg",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]",
+          "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+          "duration-300 ease-out",
           className
         )}
         style={{
-          position: 'fixed',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%) scale(0.96)',
-          zIndex: 51,
-          maxWidth: '90vw',
-          maxHeight: '90vh',
-          overflow: 'hidden',
-          willChange: 'opacity, transform',
+          transform: 'translate(-50%, -50%)',
+        }}
+        onOpenAutoFocus={(e) => {
+          // Prevent auto-focus on first focusable element when modal opens
+          e.preventDefault();
         }}
         {...props}
       >

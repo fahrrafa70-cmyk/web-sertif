@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -14,9 +14,11 @@ import { Template } from "@/lib/supabase/templates";
 import { Member } from "@/lib/supabase/members";
 import { DateFormat, DATE_FORMATS } from "@/types/certificate-generator";
 import { TextLayerConfig } from "@/types/template-layout";
-import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
+import { ExcelUploadStep } from "./ExcelUploadStep";
+import { ColumnMappingStep } from "./ColumnMappingStep";
+import { autoMapColumns, validateMapping, mergeExcelData } from "@/lib/utils/excel-mapping";
 
 interface QuickGenerateModalProps {
   open: boolean;
@@ -43,6 +45,9 @@ export interface QuickGenerateParams {
   };
   // For Dual Template Score Data
   scoreDataMap?: Record<string, Record<string, string>>; // member_id -> { field_id -> value }
+  // For Excel with column mapping
+  excelMainMapping?: Record<string, string>; // layerId -> excelColumn
+  excelScoreMapping?: Record<string, string>; // layerId -> excelColumn (for dual template)
 }
 
 // Helper function to format layer ID to readable label
@@ -163,12 +168,21 @@ export function QuickGenerateModal({
   const [dataSource, setDataSource] = useState<'excel' | 'member'>('member');
   const [dateFormat, setDateFormat] = useState<DateFormat>('dd-mm-yyyy');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]); // Multiple members
-  const [excelData, setExcelData] = useState<Array<Record<string, unknown>>>([]);
   const [generating, setGenerating] = useState(false);
   
-  // Multi-step flow for dual template
-  const [currentStep, setCurrentStep] = useState<1 | 2>(1); // Step 1: select, Step 2: input scores
+  // Multi-step flow
+  const [currentStep, setCurrentStep] = useState(1); // Progressive steps
   const [scoreDataMap, setScoreDataMap] = useState<Record<string, Record<string, string>>>({});
+  
+  // Excel state for progressive upload and mapping
+  const [excelMainData, setExcelMainData] = useState<Array<Record<string, unknown>>>([]);
+  const [excelScoreData, setExcelScoreData] = useState<Array<Record<string, unknown>>>([]);
+  const [excelMainMapping, setExcelMainMapping] = useState<Record<string, string>>({});
+  const [excelScoreMapping, setExcelScoreMapping] = useState<Record<string, string>>({});
+  
+  // Refs to prevent auto-mapping from running multiple times
+  const mainMappedRef = useRef(false);
+  const scoreMappedRef = useRef(false);
   
   // Certificate data for member source - Initialize with default values
   const [issueDate, setIssueDate] = useState(() => {
@@ -194,6 +208,13 @@ export function QuickGenerateModal({
       // Reset to step 1 when opening
       setCurrentStep(1);
       setScoreDataMap({});
+      setExcelMainData([]);
+      setExcelScoreData([]);
+      setExcelMainMapping({});
+      setExcelScoreMapping({});
+      // Reset refs
+      mainMappedRef.current = false;
+      scoreMappedRef.current = false;
     }
   }, [open, templates, members]);
   
@@ -221,24 +242,9 @@ export function QuickGenerateModal({
     });
   }, [selectedTemplate]);
   
-  const isDualTemplate = !!(selectedTemplate?.score_image_url && getScoreTextLayers().length > 0);
-  
-  // Debug: Log dual template detection
-  React.useEffect(() => {
-    if (selectedTemplate) {
-      const scoreLayers = getScoreTextLayers();
-      console.log('🔍 Dual Template Detection:', {
-        templateName: selectedTemplate.name,
-        hasScoreImage: !!selectedTemplate.score_image_url,
-        scoreImageUrl: selectedTemplate.score_image_url,
-        scoreLayersCount: scoreLayers.length,
-        scoreLayers: scoreLayers.map(l => l.id),
-        isDualTemplate,
-        currentStep,
-        dataSource
-      });
-    }
-  }, [selectedTemplate, currentStep, dataSource, getScoreTextLayers, isDualTemplate]);
+  const isDualTemplate = React.useMemo(() => {
+    return !!(selectedTemplate?.score_image_url && getScoreTextLayers().length > 0);
+  }, [selectedTemplate, getScoreTextLayers]);
   
   // Check if all members have completed score data (for step 2 validation)
   const isAllScoreDataComplete = () => {
@@ -262,25 +268,57 @@ export function QuickGenerateModal({
     }
   }, [issueDate]);
   
-  const excelInputRef = useRef<HTMLInputElement>(null);
-
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as Array<Record<string, unknown>>;
-      
-      setExcelData(data);
-      toast.success(`${t('quickGenerate.loadedRows')} ${data.length} ${t('quickGenerate.rowsFromExcel')}`);
-    } catch (error) {
-      console.error('Excel parse error:', error);
-      toast.error(t('quickGenerate.parseExcelError'));
+  // Get text layers from template that need mapping
+  const getMainTextLayers = React.useCallback((): TextLayerConfig[] => {
+    if (!selectedTemplate?.layout_config) return [];
+    const config = selectedTemplate.layout_config as Record<string, unknown>;
+    
+    // Option 1: config.certificate.textLayers (new template structure)
+    if (config.certificate && typeof config.certificate === 'object') {
+      const certConfig = config.certificate as Record<string, unknown>;
+      if (Array.isArray(certConfig.textLayers) && certConfig.textLayers.length > 0) {
+        return certConfig.textLayers as TextLayerConfig[];
+      }
     }
-  };
+    
+    // Option 2: config.main.textLayers (dual template with separate main config)
+    if (config.main && typeof config.main === 'object') {
+      const mainConfig = config.main as Record<string, unknown>;
+      if (Array.isArray(mainConfig.textLayers) && mainConfig.textLayers.length > 0) {
+        return mainConfig.textLayers as TextLayerConfig[];
+      }
+    }
+    
+    // Option 3: config.textLayers (single template or dual template with shared config)
+    if (Array.isArray(config.textLayers) && config.textLayers.length > 0) {
+      return config.textLayers as TextLayerConfig[];
+    }
+    
+    return [];
+  }, [selectedTemplate]);
+  
+  // Auto-map when Excel data is uploaded (only once per upload)
+  useEffect(() => {
+    if (excelMainData.length > 0 && !mainMappedRef.current) {
+      const mainColumns = Object.keys(excelMainData[0] || {});
+      const mainLayers = getMainTextLayers();
+      // Override useDefaultText to false for Excel mode to allow mapping
+      const layersForMapping = mainLayers.map(layer => ({ ...layer, useDefaultText: false }));
+      const autoMapping = autoMapColumns(mainColumns, layersForMapping);
+      setExcelMainMapping(autoMapping);
+      mainMappedRef.current = true;
+    }
+  }, [excelMainData, getMainTextLayers]);
+  
+  useEffect(() => {
+    if (excelScoreData.length > 0 && isDualTemplate && !scoreMappedRef.current) {
+      const scoreColumns = Object.keys(excelScoreData[0] || {});
+      const scoreLayers = getScoreTextLayers();
+      const autoMapping = autoMapColumns(scoreColumns, scoreLayers);
+      setExcelScoreMapping(autoMapping);
+      scoreMappedRef.current = true;
+    }
+  }, [excelScoreData, isDualTemplate, getScoreTextLayers]);
 
   const handleGenerate = async () => {
     if (!selectedTemplate) {
@@ -293,8 +331,13 @@ export function QuickGenerateModal({
       return;
     }
 
-    if (dataSource === 'excel' && excelData.length === 0) {
+    if (dataSource === 'excel' && excelMainData.length === 0) {
       toast.error(t('quickGenerate.uploadExcelError'));
+      return;
+    }
+    
+    if (dataSource === 'excel' && isDualTemplate && excelScoreData.length === 0) {
+      toast.error('Harap upload Excel data nilai untuk dual template');
       return;
     }
 
@@ -323,12 +366,36 @@ export function QuickGenerateModal({
 
         await onGenerate(params);
       } else {
-        // Excel source - single call
+        // Excel source - merge and transform data
+        let finalExcelData: Array<Record<string, unknown>>;
+        
+        if (isDualTemplate && excelScoreData.length > 0) {
+          // Merge main and score data
+          finalExcelData = mergeExcelData(
+            excelMainData,
+            excelScoreData,
+            excelMainMapping,
+            excelScoreMapping
+          );
+        } else {
+          // Transform main data only using mapping
+          finalExcelData = excelMainData.map(row => {
+            const transformed: Record<string, unknown> = {};
+            for (const [layerId, excelCol] of Object.entries(excelMainMapping)) {
+              transformed[layerId] = row[excelCol];
+            }
+            // Keep original columns for reference
+            return { ...row, ...transformed };
+          });
+        }
+        
         const params: QuickGenerateParams = {
           template: selectedTemplate,
           dataSource: 'excel',
           dateFormat,
-          excelData
+          excelData: finalExcelData,
+          excelMainMapping,
+          excelScoreMapping: isDualTemplate ? excelScoreMapping : undefined
         };
         await onGenerate(params);
       }
@@ -336,9 +403,15 @@ export function QuickGenerateModal({
       // Reset form
       setSelectedTemplate(null);
       setSelectedMembers([]);
-      setExcelData([]);
+      setExcelMainData([]);
+      setExcelScoreData([]);
+      setExcelMainMapping({});
+      setExcelScoreMapping({});
       setScoreDataMap({});
       setCurrentStep(1);
+      // Reset refs
+      mainMappedRef.current = false;
+      scoreMappedRef.current = false;
       setIssueDate(() => {
         const now = new Date();
         return now.toISOString().split('T')[0];
@@ -370,7 +443,8 @@ export function QuickGenerateModal({
           </DialogTitle>
         </DialogHeader>
 
-        {currentStep === 1 ? (
+        {/* Step 1: Select Template & Data Source */}
+        {currentStep === 1 && (
         <div className="space-y-6 py-4">
           {/* Step 1: Select Template */}
           <div className="space-y-3">
@@ -512,46 +586,42 @@ export function QuickGenerateModal({
 
               {/* Excel Tab */}
               <TabsContent value="excel" className="space-y-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <FileSpreadsheet className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                  <input
-                    ref={excelInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleExcelUpload}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => excelInputRef.current?.click()}
-                    className="mb-2"
-                  >
-                    {t('quickGenerate.chooseExcelFile')}
-                  </Button>
-                  <p className="text-sm text-gray-500">
-                    {excelData.length > 0 
-                      ? `${excelData.length} ${t('quickGenerate.rowsLoaded')}` 
-                      : t('quickGenerate.uploadExcelHint')}
-                  </p>
-                </div>
-
-                {excelData.length > 0 && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="text-sm text-green-800">
-                      ✓ {t('quickGenerate.loadedRows')} {excelData.length} {t('quickGenerate.rowsFromExcel')}
-                    </p>
-                    <p className="text-xs text-green-600 mt-1">
-                      {t('quickGenerate.willGenerate')} {excelData.length} {t('quickGenerate.certificatesAtOnce')}
-                    </p>
-                  </div>
-                )}
+                <ExcelUploadStep
+                  isDualTemplate={isDualTemplate}
+                  mainData={excelMainData}
+                  scoreData={excelScoreData}
+                  onMainUpload={setExcelMainData}
+                  onScoreUpload={setExcelScoreData}
+                />
               </TabsContent>
             </Tabs>
           </div>
         </div>
-        ) : (
+        )}
+
+        {/* Step 2: Column Mapping (Excel only) */}
+        {currentStep === 2 && dataSource === 'excel' && (
           <div className="space-y-6 py-4">
-            {/* Step 2: Input Score Data */}
+            <ColumnMappingStep
+              isDualTemplate={isDualTemplate}
+              dataSource={dataSource}
+              mainColumns={Object.keys(excelMainData[0] || {})}
+              mainLayers={getMainTextLayers()}
+              mainMapping={excelMainMapping}
+              mainPreviewData={excelMainData[0] || {}}
+              onMainMappingChange={setExcelMainMapping}
+              scoreColumns={Object.keys(excelScoreData[0] || {})}
+              scoreLayers={getScoreTextLayers()}
+              scoreMapping={excelScoreMapping}
+              scorePreviewData={excelScoreData[0] || {}}
+              onScoreMappingChange={setExcelScoreMapping}
+            />
+          </div>
+        )}
+
+        {/* Step 2/3: Input Score Data (Member only, dual template) */}
+        {currentStep >= 2 && dataSource === 'member' && isDualTemplate && (
+          <div className="space-y-6 py-4">
             <InputScoreStep
               members={members.filter(m => selectedMembers.includes(m.id))}
               scoreFields={getScoreTextLayers()}
@@ -563,28 +633,50 @@ export function QuickGenerateModal({
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-4 border-t">
-          {currentStep === 2 ? (
-            <Button variant="outline" onClick={() => setCurrentStep(1)} disabled={generating}>
+          {currentStep > 1 ? (
+            <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)} disabled={generating}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Kembali
             </Button>
           ) : (
             <div></div>
           )}
+          
           <LoadingButton 
-            onClick={currentStep === 1 && isDualTemplate && dataSource === 'member' ? () => setCurrentStep(2) : handleGenerate}
+            onClick={() => {
+              // Determine next action based on current step and data source
+              if (currentStep === 1) {
+                // Step 1: Move to step 2 for Excel mapping or member score input
+                if (dataSource === 'excel' && (excelMainData.length > 0)) {
+                  setCurrentStep(2); // Go to mapping step
+                } else if (dataSource === 'member' && isDualTemplate) {
+                  setCurrentStep(2); // Go to score input
+                } else {
+                  // No intermediate step needed, generate directly
+                  handleGenerate();
+                }
+              } else {
+                // Step 2+: Generate
+                handleGenerate();
+              }
+            }}
             disabled={
               !selectedTemplate || 
               (dataSource === 'member' && selectedMembers.length === 0) || 
-              (dataSource === 'excel' && excelData.length === 0) ||
-              (currentStep === 2 && !isAllScoreDataComplete())
+              (dataSource === 'excel' && currentStep === 1 && excelMainData.length === 0) ||
+              (dataSource === 'excel' && currentStep === 1 && isDualTemplate && excelScoreData.length === 0) ||
+              (currentStep === 2 && dataSource === 'member' && !isAllScoreDataComplete()) ||
+              (currentStep === 2 && dataSource === 'excel' && !validateMapping(excelMainMapping, getMainTextLayers()).valid)
             }
             isLoading={generating}
             loadingText={t('quickGenerate.generating')}
             variant="primary"
             className="gradient-primary text-white"
           >
-            {currentStep === 1 && isDualTemplate && dataSource === 'member' ? (
+            {currentStep === 1 && (
+              (dataSource === 'excel' && excelMainData.length > 0) || 
+              (dataSource === 'member' && isDualTemplate)
+            ) ? (
               <>
                 Selanjutnya
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -593,8 +685,8 @@ export function QuickGenerateModal({
               <>
                 <Zap className="w-4 h-4 mr-2" />
                 {t('quickGenerate.generate')} {
-                  dataSource === 'excel' && excelData.length > 0 
-                    ? `(${excelData.length})`
+                  dataSource === 'excel' && excelMainData.length > 0 
+                    ? `(${excelMainData.length})`
                     : dataSource === 'member' && selectedMembers.length > 0
                     ? `(${selectedMembers.length})`
                     : ''

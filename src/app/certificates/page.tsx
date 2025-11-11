@@ -39,8 +39,8 @@ import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
-import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
-import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
+import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Award } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
@@ -49,7 +49,7 @@ import {
   Template,
   getTemplateLayout,
 } from "@/lib/supabase/templates";
-import { getTemplateDefaults, TemplateDefaults, TextLayerDefault } from '@/lib/storage/template-defaults';
+import { getTemplateDefaults, TemplateDefaults, TextLayerDefault, PhotoLayerDefault } from '@/lib/storage/template-defaults';
 import Image from "next/image";
 import { confirmToast } from "@/lib/ui/confirm";
 import { Suspense } from "react";
@@ -559,14 +559,51 @@ function CertificatesContent() {
           lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
         }));
         
+        // CRITICAL FIX: Handle both nested and flat photoLayers structure for backward compatibility
+        // New structure: layoutConfig.certificate.photoLayers (nested)
+        // Old structure: layoutConfig.photoLayers (flat - current database structure)
+        const photoLayersRaw = layoutConfig.certificate.photoLayers || (layoutConfig as unknown as { photoLayers?: PhotoLayerConfig[] }).photoLayers;
+        const photoLayersFromConfig: PhotoLayerDefault[] = (photoLayersRaw || []).map((layer: PhotoLayerConfig) => ({
+          id: layer.id,
+          type: layer.type,
+          src: layer.src,
+          x: layer.x,
+          y: layer.y,
+          xPercent: layer.xPercent,
+          yPercent: layer.yPercent,
+          width: layer.width,
+          height: layer.height,
+          widthPercent: layer.widthPercent,
+          heightPercent: layer.heightPercent,
+          zIndex: layer.zIndex,
+          fitMode: layer.fitMode,
+          crop: layer.crop,
+          mask: layer.mask,
+          opacity: layer.opacity,
+          rotation: layer.rotation,
+          maintainAspectRatio: layer.maintainAspectRatio,
+          originalWidth: layer.originalWidth,
+          originalHeight: layer.originalHeight,
+          storagePath: layer.storagePath,
+        }));
+        
         defaults = {
           templateId: params.template.id,
           templateName: params.template.name,
           textLayers: migratedLayers,
           overlayImages: layoutConfig.certificate.overlayImages,
+          photoLayers: photoLayersFromConfig, // Use extracted photo layers
           savedAt: layoutConfig.lastSavedAt
         };
         console.log('✅ Migrated certificate layers with dual coordinates');
+        if (photoLayersFromConfig && photoLayersFromConfig.length > 0) {
+          console.log('📸 Loaded', photoLayersFromConfig.length, 'photo layers for generation');
+          console.log('📸 Photo layers data:', JSON.stringify(photoLayersFromConfig, null, 2));
+        } else {
+          console.warn('⚠️ No photo layers found in layout config');
+          console.warn('⚠️ Layout structure:', Object.keys(layoutConfig));
+          console.warn('⚠️ Certificate keys:', Object.keys(layoutConfig.certificate || {}));
+        }
       } else {
         // FALLBACK: Try localStorage (OLD METHOD - deprecated)
         console.warn('⚠️ No database layout found, trying localStorage fallback...');
@@ -593,7 +630,7 @@ function CertificatesContent() {
           // Multiple members - show progress like Excel
           const total = params.members.length;
           let generated = 0;
-          let currentToast = loadingToast;
+          const currentToast = loadingToast;
           
           for (const member of params.members) {
             try {
@@ -620,8 +657,7 @@ function CertificatesContent() {
               
               generated++;
               // Update the same toast instead of creating new ones
-              toast.dismiss(currentToast);
-              currentToast = toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`);
+              toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
             } catch (error) {
               console.error('Failed to generate certificate for member:', member.name, error);
             }
@@ -694,8 +730,7 @@ function CertificatesContent() {
             
             generated++;
             // Update the same toast instead of creating new ones
-            toast.dismiss(currentToast);
-            currentToast = toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`);
+            toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
           } catch (error) {
             console.error('Failed to generate certificate for row:', row, error);
           }
@@ -836,12 +871,36 @@ function CertificatesContent() {
       maxWidth: l.maxWidth
     })));
     
+    // Prepare photo layers (convert PhotoLayerDefault → RenderPhotoLayer)
+    const photoLayersForRender = defaults.photoLayers?.map(layer => ({
+      id: layer.id,
+      type: layer.type,
+      src: layer.src,
+      x: layer.x,
+      y: layer.y,
+      xPercent: layer.xPercent,
+      yPercent: layer.yPercent,
+      width: layer.width,
+      height: layer.height,
+      widthPercent: layer.widthPercent,
+      heightPercent: layer.heightPercent,
+      zIndex: layer.zIndex,
+      fitMode: layer.fitMode,
+      opacity: layer.opacity,
+      rotation: layer.rotation,
+      crop: layer.crop,
+      mask: layer.mask
+    })) || [];
+    
+    console.log('📸 Photo layers for rendering:', photoLayersForRender.length);
+    
     // DYNAMIC CANVAS SIZE: Let renderer use template's natural dimensions
     // No width/height specified → uses template.naturalWidth × template.naturalHeight
     // Result: Output matches template resolution exactly (no scaling/distortion)
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,
+      photoLayers: photoLayersForRender, // Add photo layers to rendering
       // width & height omitted → auto-detect from template
     });
     
@@ -949,6 +1008,28 @@ function CertificatesContent() {
           }));
           console.log('✅ Migrated score layers with dual coordinates');
           
+          // Load score photo layers from layout config
+          const scorePhotoLayersRaw = scoreLayoutConfig.photoLayers || [];
+          const scorePhotoLayersForRender = scorePhotoLayersRaw.map(layer => ({
+            id: layer.id,
+            type: layer.type,
+            src: layer.src,
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+            width: layer.width,
+            height: layer.height,
+            widthPercent: layer.widthPercent,
+            heightPercent: layer.heightPercent,
+            zIndex: layer.zIndex,
+            fitMode: layer.fitMode,
+            opacity: layer.opacity,
+            rotation: layer.rotation,
+            crop: layer.crop,
+            mask: layer.mask
+          }));
+          
           // Prepare score text layers with scoreData
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
@@ -1014,6 +1095,7 @@ function CertificatesContent() {
           const scoreImageDataUrl = await renderCertificateToDataURL({
             templateImageUrl: template.score_image_url,
             textLayers: scoreTextLayers,
+            photoLayers: scorePhotoLayersForRender,
             // width & height omitted → auto-detect from template
           });
           
@@ -1413,7 +1495,7 @@ function CertificatesContent() {
     }
   }
 
-  async function openMemberDetail(memberId: string | null) {
+  async function _openMemberDetail(memberId: string | null) {
     if (!memberId) {
       toast.error(t('certificates.memberInfoNotAvailable'));
       return;
@@ -1435,17 +1517,22 @@ function CertificatesContent() {
 
   return (
     <ModernLayout>
-      <section className="py-4 sm:py-6 md:py-8 bg-gray-50 dark:bg-gray-900">
-        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+      <section className="relative -mt-2 pb-6 sm:-mt-3 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+        <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-4 relative">
             {/* Header */}
-            <div className="mb-4 sm:mb-6">
-              <div className="flex flex-col gap-4 mb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                  <div>
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2563eb]">
+            <div className="mb-3">
+              <div className="flex flex-col gap-3 mb-4">
+                {/* Title and Button Row - Horizontal on desktop, vertical on mobile */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
+                      <Award className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    </div>
+                    <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
                       {t("certificates.title")}
                     </h1>
                   </div>
+                  
                   {/* Quick Generate Button */}
                   {(role === "Admin" || role === "Team") && (
                     <Button
@@ -1457,6 +1544,8 @@ function CertificatesContent() {
                     </Button>
                   )}
                 </div>
+                
+                {/* Filters Row */}
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <Input
                     placeholder={t("certificates.search")}
@@ -1542,7 +1631,7 @@ function CertificatesContent() {
                 transition={{ duration: 0.4 }}
               >
                 {/* Desktop Table View */}
-                <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -1690,7 +1779,7 @@ function CertificatesContent() {
                     <div
                       key={certificate.id}
                       onClick={() => openPreview(certificate)}
-                      className={`rounded-lg border p-3 sm:p-4 shadow-sm cursor-pointer transition-colors ${
+                      className={`rounded-lg border p-3 sm:p-4 shadow-md dark:shadow-lg cursor-pointer transition-colors ${
                         isExpired 
                           ? 'bg-red-500/30 dark:bg-red-600/30 border-2 border-red-400 dark:border-red-500 hover:bg-red-500/40 dark:hover:bg-red-600/40' 
                           : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-700/50'
@@ -1928,11 +2017,11 @@ function CertificatesContent() {
         open={!!isEditOpen}
         onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}
       >
-        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-[1000px] max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 data-[state=open]:bg-white data-[state=open]:dark:bg-gray-800">
           {/* Header */}
           <DialogHeader className="px-5 pt-4 pb-3 pr-12 border-b border-gray-200 dark:border-gray-700">
             <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              Edit Certificate
+              {t('certificates.editCertificate')}
             </DialogTitle>
           </DialogHeader>
           
@@ -1942,7 +2031,7 @@ function CertificatesContent() {
               {/* Certificate Number */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Certificate Number
+                  {t('certificates.certificateId')}
                 </label>
                 <Input
                   value={draft?.certificate_no ?? ""}
@@ -1959,7 +2048,7 @@ function CertificatesContent() {
               {/* Recipient */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Recipient
+                  {t('certificates.recipient')}
                 </label>
                 <Input
                   value={draft?.name ?? ""}
@@ -1975,7 +2064,7 @@ function CertificatesContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                    Category
+                    {t('certificates.category')}
                   </label>
                   <select
                     value={draft?.category ?? ""}
@@ -1984,7 +2073,7 @@ function CertificatesContent() {
                     }
                     className="h-8 w-full px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   >
-                    <option value="">Select...</option>
+                    <option value="">{t('certificates.selectCategoryOption')}</option>
                     <option value="MoU">MoU</option>
                     <option value="Magang">Magang</option>
                     <option value="Pelatihan">Pelatihan</option>
@@ -1997,7 +2086,7 @@ function CertificatesContent() {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                    Issued Date
+                    {t('certificates.issuedDate')}
                   </label>
                   <Input
                     type="date"
@@ -2015,7 +2104,7 @@ function CertificatesContent() {
               {/* Expiry Date */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Expiry Date
+                  {t('certificates.expiryDate')}
                 </label>
                 <Input
                   type="date"
@@ -2032,7 +2121,7 @@ function CertificatesContent() {
               {/* Description */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Description
+                  {t('certificates.description')}
                 </label>
                 <textarea
                   value={draft?.description ?? ""}
@@ -2043,7 +2132,7 @@ function CertificatesContent() {
                   }
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
                   rows={2}
-                  placeholder="Optional description..."
+                  placeholder={t('certificates.descriptionPlaceholder')}
                 />
               </div>
             </div>
@@ -2055,7 +2144,7 @@ function CertificatesContent() {
               className="h-8 px-3 text-sm gradient-primary text-white shadow-sm hover:shadow-md transition-shadow"
               onClick={submitEdit}
             >
-              Save Changes
+              {t('certificates.saveChanges')}
             </Button>
           </div>
         </DialogContent>
@@ -2070,7 +2159,6 @@ function CertificatesContent() {
       >
         <DialogContent 
           className="preview-modal-content relative max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 p-4 sm:p-6"
-          style={{ overflowX: 'hidden' }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();
@@ -2169,13 +2257,13 @@ function CertificatesContent() {
                       <div className="flex gap-2 mb-2">
                         <button
                           onClick={() => setPreviewMode('certificate')}
-                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
                           Certificate
                         </button>
                         <button
                           onClick={() => setPreviewMode('score')}
-                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
                           Score
                         </button>
@@ -2654,11 +2742,11 @@ function CertificatesContent() {
           }}
         >
           <DialogHeader className="flex-shrink-0 pb-2 sm:pb-4">
-            <DialogTitle className="text-xl sm:text-2xl font-bold">Send Certificate via Email</DialogTitle>
+            <DialogTitle className="text-xl sm:text-2xl font-bold">{t('hero.sendEmailTitle')}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 pr-1 -mr-1">
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Recipient Email</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.recipientEmail')}</label>
               <Input
                 value={sendForm.email}
                 onChange={(e) => {
@@ -2680,14 +2768,14 @@ function CertificatesContent() {
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Subject</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.subject')}</label>
               <Input
                 value={sendForm.subject}
                 onChange={(e) => {
                   setSendForm((f) => ({ ...f, subject: e.target.value }));
                   if (sendFormErrors.subject) setSendFormErrors((e) => ({ ...e, subject: undefined }));
                 }}
-                placeholder="Subject"
+                placeholder={t('hero.emailSubjectPlaceholder')}
                 disabled={isSendingEmail}
                 className={sendFormErrors.subject ? 'border-red-500' : ''}
                 onKeyDown={(e) => {
@@ -2702,7 +2790,7 @@ function CertificatesContent() {
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-gray-600">Message</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.message')}</label>
               <textarea
                 value={sendForm.message}
                 onChange={(e) => {
@@ -2710,8 +2798,8 @@ function CertificatesContent() {
                   if (sendFormErrors.message) setSendFormErrors((e) => ({ ...e, message: undefined }));
                 }}
                 rows={4}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300'}`}
-                placeholder="Message"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                placeholder={t('hero.emailMessagePlaceholder')}
                 disabled={isSendingEmail}
                 onKeyDown={(e) => {
                   // Allow Shift+Enter for new line in textarea
@@ -2727,7 +2815,7 @@ function CertificatesContent() {
             </div>
             {(sendPreviewSrcs.cert || sendPreviewSrcs.score) && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-600">Attachment Preview</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-white">{t('hero.attachmentPreview')}</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="relative w-full h-48 sm:h-64">
                     {sendPreviewSrcs.cert && (
@@ -2762,16 +2850,16 @@ function CertificatesContent() {
                 onClick={() => setSendModalOpen(false)}
                 disabled={isSendingEmail}
               >
-                Cancel
+                {t('hero.cancel')}
               </Button>
                <LoadingButton 
                  className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto" 
                  onClick={confirmSendEmail}
                  isLoading={isSendingEmail}
-                 loadingText={language === 'id' ? 'Mengirim...' : 'Sending...'}
+                 loadingText={t('hero.sending')}
                  variant="primary"
                >
-                {language === 'id' ? 'Kirim Email' : 'Send Email'}
+                {t('hero.sendEmail')}
               </LoadingButton>
             </div>
         </DialogContent>

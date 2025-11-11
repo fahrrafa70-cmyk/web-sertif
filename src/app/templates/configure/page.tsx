@@ -6,11 +6,12 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
+import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
 import { toast, Toaster } from "sonner";
-import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
+import type { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -61,6 +62,15 @@ function ConfigureLayoutContent() {
   
   // Current text layers based on mode (read-only computed value)
   const textLayers = configMode === 'certificate' ? certificateTextLayers : scoreTextLayers;
+  
+  // Photo layers state - separate for certificate and score
+  const [certificatePhotoLayers, setCertificatePhotoLayers] = useState<PhotoLayerConfig[]>([]);
+  const [scorePhotoLayers, setScorePhotoLayers] = useState<PhotoLayerConfig[]>([]);
+  const [selectedPhotoLayerId, setSelectedPhotoLayerId] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  // Current photo layers based on mode (read-only computed value)
+  const photoLayers = configMode === 'certificate' ? certificatePhotoLayers : scorePhotoLayers;
   
   // Preview text state (for testing display only, not saved)
   const [previewTexts, setPreviewTexts] = useState<Record<string, string>>({});
@@ -153,6 +163,12 @@ function ConfigureLayoutContent() {
               
               setCertificateTextLayers(migratedLayers);
               console.log('✅ Normalized certificate layers to template dimensions:', dimensions);
+              
+              // Load photo layers for certificate mode
+              if (layout.certificate.photoLayers && layout.certificate.photoLayers.length > 0) {
+                setCertificatePhotoLayers(layout.certificate.photoLayers);
+                console.log('📸 Loaded', layout.certificate.photoLayers.length, 'certificate photo layers');
+              }
             }
           };
           
@@ -202,6 +218,12 @@ function ConfigureLayoutContent() {
               
               setCertificateTextLayers(migratedLayers);
               console.log('✅ Normalized certificate layers (cached image)');
+              
+              // Load photo layers for certificate mode (cached)
+              if (layout.certificate.photoLayers && layout.certificate.photoLayers.length > 0) {
+                setCertificatePhotoLayers(layout.certificate.photoLayers);
+                console.log('📸 Loaded', layout.certificate.photoLayers.length, 'certificate photo layers (cached)');
+              }
             }
           }
         }
@@ -243,6 +265,12 @@ function ConfigureLayoutContent() {
               
               setScoreTextLayers(normalizedLayers);
               console.log('✅ Normalized score layers to template dimensions:', dimensions);
+              
+              // Load photo layers for score mode
+              if (layout.score.photoLayers && layout.score.photoLayers.length > 0) {
+                setScorePhotoLayers(layout.score.photoLayers);
+                console.log('📸 Loaded', layout.score.photoLayers.length, 'score photo layers');
+              }
             }
           };
           
@@ -283,6 +311,12 @@ function ConfigureLayoutContent() {
               
               setScoreTextLayers(normalizedLayers);
               console.log('✅ Normalized score layers (cached image)');
+              
+              // Load photo layers for score mode (cached)
+              if (layout.score.photoLayers && layout.score.photoLayers.length > 0) {
+                setScorePhotoLayers(layout.score.photoLayers);
+                console.log('📸 Loaded', layout.score.photoLayers.length, 'score photo layers (cached)');
+              }
             }
           }
         }
@@ -587,7 +621,6 @@ function ConfigureLayoutContent() {
     if (!layer || !canvasRef.current) return;
 
     // Get actual container dimensions and calculate scale
-    const containerRect = canvasRef.current.getBoundingClientRect();
     const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
     const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
     
@@ -648,9 +681,8 @@ function ConfigureLayoutContent() {
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       // Get actual container dimensions and calculate scale
-      const containerRect = canvasRef.current!.getBoundingClientRect();
       const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
-      const actualScale = containerRect.width / templateWidth;
+      const actualScale = canvasScale;
       
       // Convert mouse delta to template coordinates using actual scale
       const deltaX = (moveEvent.clientX - startX) / actualScale;
@@ -681,6 +713,58 @@ function ConfigureLayoutContent() {
       const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
       setter(prev => prev.map(l => 
         l.id === layerId ? { ...l, ...updates } : l
+      ));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle photo layer drag
+  const handlePhotoLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedPhotoLayerId(layerId);
+    
+    const layer = photoLayers.find(l => l.id === layerId);
+    if (!layer || !canvasRef.current) return;
+
+    // Get actual container dimensions and calculate scale
+    const containerRect = canvasRef.current.getBoundingClientRect();
+    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+    
+    // Use canvasScale for mouse coordinate conversion
+    const actualScale = canvasScale;
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLayerX = layer.x;
+    const startLayerY = layer.y;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      // Convert mouse delta to template coordinates using actual scale
+      const deltaX = (moveEvent.clientX - startX) / actualScale;
+      const deltaY = (moveEvent.clientY - startY) / actualScale;
+      
+      const newX = Math.max(0, Math.min(templateWidth, startLayerX + deltaX));
+      const newY = Math.max(0, Math.min(templateHeight, startLayerY + deltaY));
+
+      const setter = configMode === 'certificate' ? setCertificatePhotoLayers : setScorePhotoLayers;
+      setter(prev => prev.map(l => 
+        l.id === layerId 
+          ? { 
+              ...l, 
+              x: Math.round(newX), 
+              y: Math.round(newY),
+              xPercent: newX / templateWidth,
+              yPercent: newY / templateHeight
+            }
+          : l
       ));
     };
 
@@ -903,6 +987,126 @@ function ConfigureLayoutContent() {
     console.log(`✨ Deletion complete. REMINDER: Changes not saved yet!`);
   };
 
+  // ===== PHOTO LAYER MANAGEMENT FUNCTIONS =====
+  
+  // Photo layer setter based on mode
+  const setPhotoLayers = configMode === 'certificate' ? setCertificatePhotoLayers : setScorePhotoLayers;
+  
+  // Handle photo upload
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !template) return;
+    
+    try {
+      setUploadingPhoto(true);
+      
+      // Validate file
+      console.log(`📸 Uploading photo: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
+      
+      const dimensions = await validateImageFile(file);
+      console.log(`📐 Image dimensions: ${dimensions.width}×${dimensions.height}`);
+      
+      // Upload to Supabase Storage
+      const { url, path } = await uploadTemplatePhoto(file, template.id);
+      console.log(`✅ Photo uploaded: ${url}`);
+      
+      // Create photo layer config
+      const timestamp = Date.now();
+      const newPhotoLayer: PhotoLayerConfig = {
+        id: `photo_${timestamp}`,
+        type: 'photo',
+        src: url,
+        storagePath: path,
+        
+        // Position: Center of template
+        x: 0,
+        y: 0,
+        xPercent: 0.5, // 50% from left (centered)
+        yPercent: 0.3, // 30% from top
+        
+        // Size: 20% of template width, maintain aspect ratio
+        width: 0,
+        height: 0,
+        widthPercent: 0.2,
+        heightPercent: 0.2 * (dimensions.height / dimensions.width),
+        
+        // Layer order: Default to 'back' (behind text layers)
+        // Text layers have zIndex = 100, so: 0 = back, 101 = front
+        zIndex: 0,
+        
+        // Default settings
+        fitMode: 'fill', // Hardcoded to fill - photo will stretch to fill border
+        opacity: 1,
+        rotation: 0,
+        maintainAspectRatio: false, // Disabled to allow fill to work properly
+        
+        // Store original dimensions
+        originalWidth: dimensions.width,
+        originalHeight: dimensions.height
+      };
+      
+      // Add to state
+      setPhotoLayers(prev => [...prev, newPhotoLayer]);
+      
+      // Auto-select the new layer
+      setSelectedPhotoLayerId(newPhotoLayer.id);
+      
+      toast.success(`Photo uploaded! ${t('configure.rememberToSave') || 'Remember to save.'}`);
+      console.log(`✨ Photo layer added: ${newPhotoLayer.id}`);
+      
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload photo');
+    } finally {
+      setUploadingPhoto(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+  
+  // Update photo layer properties
+  const updatePhotoLayer = (layerId: string, updates: Partial<PhotoLayerConfig>) => {
+    console.log(`🔄 Updating photo layer ${layerId}:`, updates);
+    
+    setPhotoLayers(prev => 
+      prev.map(layer => 
+        layer.id === layerId 
+          ? { ...layer, ...updates }
+          : layer
+      )
+    );
+  };
+  
+  // Delete photo layer
+  const deletePhotoLayer = async (layerId: string) => {
+    const layer = photoLayers.find(l => l.id === layerId);
+    if (!layer) return;
+    
+    console.log(`🗑️ Deleting photo layer: ${layerId}`);
+    
+    try {
+      // Delete from storage if has storagePath
+      if (layer.storagePath) {
+        await deleteTemplatePhoto(layer.storagePath);
+        console.log(`✅ Deleted from storage: ${layer.storagePath}`);
+      }
+      
+      // Remove from state
+      setPhotoLayers(prev => prev.filter(l => l.id !== layerId));
+      
+      // Deselect if was selected
+      if (selectedPhotoLayerId === layerId) {
+        setSelectedPhotoLayerId(null);
+      }
+      
+      toast.success(`Photo layer deleted. ${t('configure.rememberToSave') || 'Remember to save.'}`);
+      
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete photo from storage');
+    }
+  };
+
   // Save layout configuration
   const handleSave = async () => {
     if (!template) return;
@@ -946,7 +1150,9 @@ function ConfigureLayoutContent() {
               return restWithoutTextAlign;
             }
             return rest;
-          })
+          }),
+          // Add photo layers (always save, even if empty)
+          photoLayers: certificatePhotoLayers
         },
         canvas: {
           width: STANDARD_CANVAS_WIDTH,
@@ -971,7 +1177,9 @@ function ConfigureLayoutContent() {
             }
             // Other score layers keep all properties including textAlign
             return rest;
-          })
+          }),
+          // Add photo layers for score mode (always save, even if empty)
+          photoLayers: scorePhotoLayers
         };
       }
 
@@ -1121,7 +1329,10 @@ function ConfigureLayoutContent() {
                     MozUserSelect: 'none',
                     msUserSelect: 'none'
                   }}
-                  onClick={() => setSelectedLayerId(null)}
+                  onClick={() => {
+                    setSelectedLayerId(null);
+                    setSelectedPhotoLayerId(null);
+                  }}
                 >
                 {/* Template Background - Use different image based on mode */}
                 {templateImageUrl && (
@@ -1246,18 +1457,21 @@ function ConfigureLayoutContent() {
                           // Remove all padding to match PNG generation (text starts from border edge)
                           padding: '0px',
                           // Show border only when selected for visual feedback
-                          border: isSelected ? '2px dashed #3b82f6' : '2px dashed transparent',
+                          border: isSelected ? '5px dashed #3b82f6' : '5px dashed transparent',
                           borderRadius: '4px',
-                          boxSizing: 'border-box'
+                          boxSizing: 'border-box',
+                          boxShadow: isSelected ? '0 0 0 1px rgba(59, 130, 246, 0.2)' : 'none'
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedLayerId(layer.id);
+                          setSelectedPhotoLayerId(null);
                         }}
                         onMouseDown={(e) => {
                           if (!isSelected) {
                             e.stopPropagation();
                             setSelectedLayerId(layer.id);
+                            setSelectedPhotoLayerId(null);
                           } else {
                             handleLayerMouseDown(layer.id, e);
                           }
@@ -1340,6 +1554,94 @@ function ConfigureLayoutContent() {
                     </div>
                   );
                 })}
+
+                {/* Photo Layers - Rendered with z-index sorting */}
+                {photoLayers
+                  .sort((a, b) => a.zIndex - b.zIndex)
+                  .map(layer => {
+                    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                    
+                    // Calculate position (percentage-based)
+                    const leftPercent = layer.xPercent * 100;
+                    const topPercent = layer.yPercent * 100;
+                    
+                    // Calculate size (percentage-based)
+                    const widthPercent = layer.widthPercent * 100;
+                    const heightPercent = layer.heightPercent * 100;
+                    
+                    const isSelected = selectedPhotoLayerId === layer.id;
+                    
+                    // Mask styles
+                    const getMaskStyle = () => {
+                      if (!layer.mask || layer.mask.type === 'none') return {};
+                      if (layer.mask.type === 'circle') return { borderRadius: '50%' };
+                      if (layer.mask.type === 'ellipse') return { borderRadius: '50%' };
+                      if (layer.mask.type === 'roundedRect') {
+                        return { borderRadius: layer.mask.borderRadius ? `${layer.mask.borderRadius}px` : '8px' };
+                      }
+                      return {};
+                    };
+                    
+                    return (
+                      <div
+                        key={layer.id}
+                        className="absolute"
+                        style={{
+                          left: `${leftPercent}%`,
+                          top: `${topPercent}%`,
+                          width: `${widthPercent}%`,
+                          height: `${heightPercent}%`,
+                          transform: `rotate(${layer.rotation}deg)`,
+                          opacity: layer.opacity,
+                          zIndex: layer.zIndex,
+                          cursor: isSelected ? 'move' : 'pointer'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPhotoLayerId(layer.id);
+                          setSelectedLayerId(null);
+                        }}
+                        onMouseDown={(e) => {
+                          if (!isSelected) {
+                            e.stopPropagation();
+                            setSelectedPhotoLayerId(layer.id);
+                            setSelectedLayerId(null);
+                          } else {
+                            handlePhotoLayerMouseDown(layer.id, e);
+                          }
+                        }}
+                      >
+                        <img
+                          src={layer.src}
+                          alt={layer.id}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: layer.fitMode,
+                            ...getMaskStyle(),
+                            userSelect: 'none',
+                            pointerEvents: 'none'
+                          }}
+                          draggable={false}
+                        />
+                        
+                        {/* Selection ring (purple for photos) */}
+                        {isSelected && (
+                          <div 
+                            style={{
+                              position: 'absolute',
+                              inset: -2,
+                              border: '2px solid #a855f7',
+                              borderRadius: layer.mask?.type === 'circle' || layer.mask?.type === 'ellipse' ? '50%' : 
+                                          layer.mask?.type === 'roundedRect' ? '8px' : '0',
+                              pointerEvents: 'none'
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1409,7 +1711,10 @@ function ConfigureLayoutContent() {
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' 
                             : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                         }`}
-                        onClick={() => setSelectedLayerId(layer.id)}
+                        onClick={() => {
+                          setSelectedLayerId(layer.id);
+                          setSelectedPhotoLayerId(null);
+                        }}
                       >
                         <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
                           <Type className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-300 flex-shrink-0" />
@@ -1464,6 +1769,270 @@ function ConfigureLayoutContent() {
                   })}
                 </div>
               </div>
+
+              {/* Photo Layers Section */}
+              <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
+                <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+                  <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Photo Layers ({photoLayers.length})
+                  </h2>
+                  <label htmlFor="photo-upload">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingPhoto}
+                      className="h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm cursor-pointer"
+                      asChild
+                    >
+                      <span>
+                        <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">{uploadingPhoto ? 'Uploading...' : 'Upload'}</span>
+                      </span>
+                    </Button>
+                  </label>
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                </div>
+
+                {/* Photo Layers List */}
+                <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
+                  {photoLayers.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400 dark:text-gray-600 text-xs sm:text-sm">
+                      <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No photos yet</p>
+                      <p className="text-[10px] sm:text-xs mt-1">Upload images to add to template</p>
+                    </div>
+                  ) : (
+                    photoLayers.map(layer => {
+                      const isSelected = selectedPhotoLayerId === layer.id;
+                      
+                      return (
+                        <div
+                          key={layer.id}
+                          className={`flex items-center justify-between p-2 sm:p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            isSelected 
+                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-500/10' 
+                              : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
+                          }`}
+                          onClick={() => {
+                            setSelectedPhotoLayerId(layer.id);
+                            setSelectedLayerId(null);
+                          }}
+                        >
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                            <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-800">
+                              <img 
+                                src={layer.src} 
+                                alt={layer.id}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
+                                {layer.id}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePhotoLayer(layer.id);
+                            }}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 h-7 w-7 sm:h-8 sm:w-auto sm:px-2 p-0 flex-shrink-0"
+                          >
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Photo Layer Properties */}
+              {selectedPhotoLayerId && photoLayers.find(l => l.id === selectedPhotoLayerId) && (() => {
+                const selectedPhoto = photoLayers.find(l => l.id === selectedPhotoLayerId)!;
+                
+                return (
+                  <div className="border-t border-gray-200 dark:border-gray-800 pt-3 sm:pt-4">
+                    <h3 className="text-[10px] sm:text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2 sm:mb-3 uppercase tracking-wide truncate">
+                      {selectedPhoto.id} Settings
+                    </h3>
+                    <div className="space-y-3">
+                      {/* Layer Order */}
+                      <div>
+                        <Label className="text-xs">Layer Order</Label>
+                        <Select
+                          value={selectedPhoto.zIndex >= 100 ? 'front' : 'back'}
+                          onValueChange={(value) => updatePhotoLayer(selectedPhoto.id, { 
+                            zIndex: value === 'front' ? 101 : 0
+                          })}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="front">Front (above text)</SelectItem>
+                            <SelectItem value="back">Back (behind text)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Position */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">X Position (px)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max={templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}
+                            step="1"
+                            value={Math.round(selectedPhoto.xPercent * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH))}
+                            onChange={(e) => {
+                              const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                              const xPx = Number(e.target.value);
+                              updatePhotoLayer(selectedPhoto.id, { 
+                                x: xPx,
+                                xPercent: xPx / templateWidth
+                              });
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Y Position (px)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max={templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}
+                            step="1"
+                            value={Math.round(selectedPhoto.yPercent * (templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT))}
+                            onChange={(e) => {
+                              const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                              const yPx = Number(e.target.value);
+                              updatePhotoLayer(selectedPhoto.id, { 
+                                y: yPx,
+                                yPercent: yPx / templateHeight
+                              });
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Size */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Width (px)</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max={templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}
+                            step="1"
+                            value={Math.round(selectedPhoto.widthPercent * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH))}
+                            onChange={(e) => {
+                              const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                              const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                              const widthPx = Number(e.target.value);
+                              const newWidthPercent = widthPx / templateWidth;
+                              
+                              if (selectedPhoto.maintainAspectRatio && selectedPhoto.originalWidth && selectedPhoto.originalHeight) {
+                                const aspectRatio = selectedPhoto.originalHeight / selectedPhoto.originalWidth;
+                                const heightPx = widthPx * aspectRatio;
+                                const newHeightPercent = heightPx / templateHeight;
+                                updatePhotoLayer(selectedPhoto.id, { 
+                                  width: widthPx,
+                                  widthPercent: newWidthPercent,
+                                  height: heightPx,
+                                  heightPercent: newHeightPercent
+                                });
+                              } else {
+                                updatePhotoLayer(selectedPhoto.id, { 
+                                  width: widthPx,
+                                  widthPercent: newWidthPercent 
+                                });
+                              }
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Height (px)</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max={templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}
+                            step="1"
+                            value={Math.round(selectedPhoto.heightPercent * (templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT))}
+                            onChange={(e) => {
+                              const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                              const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                              const heightPx = Number(e.target.value);
+                              const newHeightPercent = heightPx / templateHeight;
+                              
+                              if (selectedPhoto.maintainAspectRatio && selectedPhoto.originalWidth && selectedPhoto.originalHeight) {
+                                const aspectRatio = selectedPhoto.originalWidth / selectedPhoto.originalHeight;
+                                const widthPx = heightPx * aspectRatio;
+                                const newWidthPercent = widthPx / templateWidth;
+                                updatePhotoLayer(selectedPhoto.id, { 
+                                  height: heightPx,
+                                  heightPercent: newHeightPercent,
+                                  width: widthPx,
+                                  widthPercent: newWidthPercent
+                                });
+                              } else {
+                                updatePhotoLayer(selectedPhoto.id, { 
+                                  height: heightPx,
+                                  heightPercent: newHeightPercent 
+                                });
+                              }
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Opacity */}
+                      <div>
+                        <Label className="text-xs">Opacity ({Math.round(selectedPhoto.opacity * 100)}%)</Label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={selectedPhoto.opacity * 100}
+                          onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
+                            opacity: Number(e.target.value) / 100 
+                          })}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                        />
+                      </div>
+
+                      {/* Rotation */}
+                      <div>
+                        <Label className="text-xs">Rotation ({selectedPhoto.rotation}°)</Label>
+                        <input
+                          type="range"
+                          min="-180"
+                          max="180"
+                          value={selectedPhoto.rotation}
+                          onChange={(e) => updatePhotoLayer(selectedPhoto.id, { 
+                            rotation: Number(e.target.value) 
+                          })}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                        />
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Layer Properties */}
               {selectedLayer && (
@@ -1589,11 +2158,6 @@ function ConfigureLayoutContent() {
                         className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                         title={`Font size ini akan sama dengan hasil generate. Preview menggunakan font size yang sama seperti generate.`}
                       />
-                      {templateImageDimensions && canvasScale < 1 && (
-                        <p className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                          💡 Font size di preview di-scale untuk menampilkan proporsi yang sama dengan hasil generate. Font size yang Anda set ({selectedLayer.fontSize}px) akan sama dengan hasil generate.
-                        </p>
-                      )}
                     </div>
 
                     {/* Font Family & Weight - Side by Side */}
@@ -1832,32 +2396,32 @@ function ConfigureLayoutContent() {
 
       {/* Full Preview Modal */}
       <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+        <DialogContent className="max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6 animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-              Template Preview
+              {t('configure.templatePreview')}
             </DialogTitle>
           </DialogHeader>
           
           {/* Template Information */}
           <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Nama Template</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('configure.templateName')}</p>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.name}</p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Kategori</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('configure.category')}</p>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.category || '-'}</p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Format</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('configure.format')}</p>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{template.orientation || '-'}</p>
             </div>
           </div>
 
           {/* Preview Canvas */}
           <div className="mt-3 sm:mt-4">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">Preview Template</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">{t('configure.previewTemplate')}</h3>
             <div 
               className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden mx-auto"
               style={{ 

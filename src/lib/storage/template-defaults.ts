@@ -91,11 +91,45 @@ export const DEFAULT_SCORE_FONT_SETTINGS: ScoreFontSettings = {
   },
 };
 
+export interface PhotoLayerDefault {
+  id: string;
+  type: 'photo' | 'logo' | 'signature' | 'decoration';
+  src: string;
+  x: number;
+  y: number;
+  xPercent: number;
+  yPercent: number;
+  width: number;
+  height: number;
+  widthPercent: number;
+  heightPercent: number;
+  zIndex: number;
+  fitMode: 'contain' | 'cover' | 'fill' | 'none';
+  crop?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  mask?: {
+    type: 'none' | 'circle' | 'ellipse' | 'roundedRect' | 'polygon';
+    borderRadius?: number;
+    points?: { x: number; y: number }[];
+  };
+  opacity: number;
+  rotation: number;
+  maintainAspectRatio: boolean;
+  originalWidth?: number;
+  originalHeight?: number;
+  storagePath?: string;
+}
+
 export interface TemplateDefaults {
   templateId: string;
   templateName: string;
   textLayers: TextLayerDefault[];
   overlayImages?: OverlayImageDefault[]; // Optional for backward compatibility
+  photoLayers?: PhotoLayerDefault[]; // New: Photo layer system
   scoreFontSettings?: ScoreFontSettings; // Optional score font settings for score mode
   savedAt: string; // ISO timestamp
 }
