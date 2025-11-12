@@ -5,7 +5,7 @@
 
 import { Template } from './templates';
 import { templateImageCache } from '@/lib/cache/template-image-cache';
-import { globalRenderState } from '@/lib/cache/global-render-state';
+import { lightweightRenderCache } from '@/lib/cache/lightweight-render-cache';
 import { getThumbnailUrl, getWebPThumbnailUrl, THUMBNAIL_SIZES } from '@/lib/image/thumbnail-sizes';
 
 /**
@@ -61,40 +61,45 @@ export function getFallbackTemplateUrl(
 }
 
 /**
- * Prefetch template images for better performance with global state
+ * Lightweight prefetch - minimal operations
  */
 export async function prefetchTemplateImages(
   templates: Template[], 
   size: keyof typeof THUMBNAIL_SIZES = 'sm'
 ): Promise<void> {
-  const prefetchRequests = templates
-    .slice(0, 10) // Only prefetch first 10 for performance
-    .filter(template => !globalRenderState.isRendered(template.id, size)) // Skip already rendered
-    .map(template => {
+  // Simplified: just prefetch first 3 templates without heavy checking
+  const criticalTemplates = templates.slice(0, 3);
+  
+  criticalTemplates.forEach(template => {
+    if (!lightweightRenderCache.isRendered(template.id, size)) {
       const url = getOptimizedTemplateUrl(template, size);
-      return url ? { templateId: template.id, size, url } : null;
-    })
-    .filter(Boolean) as Array<{ templateId: string; size: string; url: string }>;
-
-  if (prefetchRequests.length > 0) {
-    // Use global render state for better persistence
-    await globalRenderState.batchPreload(prefetchRequests);
-  }
+      if (url) {
+        // Simple prefetch without heavy caching
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = url;
+        document.head.appendChild(link);
+      }
+    }
+  });
 }
 
 /**
- * Prefetch on hover for instant preview
+ * Simple prefetch on hover
  */
 export function prefetchOnHover(template: Template): void {
   // Skip if already rendered
-  if (globalRenderState.isRendered(template.id, 'lg')) {
+  if (lightweightRenderCache.isRendered(template.id, 'lg')) {
     return;
   }
 
-  // Prefetch larger size for preview
+  // Simple prefetch without heavy operations
   const largeUrl = getOptimizedTemplateUrl(template, 'lg');
   if (largeUrl) {
-    globalRenderState.preloadAndCache(template.id, 'lg', largeUrl);
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = largeUrl;
+    document.head.appendChild(link);
   }
 }
 
@@ -130,32 +135,26 @@ export function getTemplateCacheStats() {
 }
 
 /**
- * Preload critical templates (first few visible) with global state
+ * Fast critical template preload
  */
 export async function preloadCriticalTemplates(templates: Template[]): Promise<void> {
-  // Preload first 6 templates (typical above-the-fold count)
-  const criticalTemplates = templates.slice(0, 6);
+  // Only preload first 3 templates to avoid blocking
+  const criticalTemplates = templates.slice(0, 3);
   
-  // Filter out already rendered templates
-  const unrenderedTemplates = criticalTemplates.filter(template => 
-    !globalRenderState.isRendered(template.id, 'xs') || 
-    !globalRenderState.isRendered(template.id, 'sm')
-  );
+  // Simple prefetch without heavy operations
+  criticalTemplates.forEach(template => {
+    if (!lightweightRenderCache.isRendered(template.id, 'sm')) {
+      const url = getOptimizedTemplateUrl(template, 'sm');
+      if (url) {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = url;
+        document.head.appendChild(link);
+      }
+    }
+  });
 
-  if (unrenderedTemplates.length === 0) {
-    console.log('✅ All critical templates already rendered');
-    return;
-  }
-  
-  // Preload small size immediately
-  await prefetchTemplateImages(unrenderedTemplates, 'xs');
-  
-  // Preload medium size with slight delay
-  setTimeout(() => {
-    prefetchTemplateImages(unrenderedTemplates, 'sm');
-  }, 100);
-
-  console.log(`🚀 Preloaded ${unrenderedTemplates.length} critical templates`);
+  console.log(`🚀 Fast preload for ${criticalTemplates.length} templates`);
 }
 
 /**

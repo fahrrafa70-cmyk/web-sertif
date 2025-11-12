@@ -11,7 +11,7 @@ import {
   THUMBNAIL_SIZES,
   DEFAULT_THUMBNAIL_SIZE 
 } from '@/lib/image/thumbnail-sizes';
-import { globalRenderState } from '@/lib/cache/global-render-state';
+import { lightweightRenderCache } from '@/lib/cache/lightweight-render-cache';
 
 interface OptimizedTemplateImageProps {
   src: string;
@@ -53,13 +53,11 @@ export const OptimizedTemplateImage = memo<OptimizedTemplateImageProps>(({
   enableIntersectionObserver = true,
   placeholder = 'blur'
 }) => {
-  // ✅ ANTI-FLICKER: Check if already rendered
-  const isAlreadyRendered = globalRenderState.isRendered(templateId, size);
-  const isGloballyLoading = globalRenderState.isLoading(templateId, size);
-  const hasGlobalError = globalRenderState.hasError(templateId, size);
+  // ✅ FAST CHECK: Simple render check (no heavy operations)
+  const isAlreadyRendered = lightweightRenderCache.isRendered(templateId, size);
   
-  const [isLoading, setIsLoading] = useState(!isAlreadyRendered && !hasGlobalError);
-  const [hasError, setHasError] = useState(hasGlobalError);
+  const [isLoading, setIsLoading] = useState(!isAlreadyRendered);
+  const [hasError, setHasError] = useState(false);
   const [isInView, setIsInView] = useState(priority || isAlreadyRendered); // Show immediately if already rendered
   const [currentSize, setCurrentSize] = useState<keyof typeof THUMBNAIL_SIZES>(
     isAlreadyRendered ? size : (enableProgressiveLoading ? 'xs' : size)
@@ -134,33 +132,19 @@ export const OptimizedTemplateImage = memo<OptimizedTemplateImageProps>(({
     }
   };
 
-  // ✅ PERSISTENT CACHE: Load handler with global state
+  // ✅ FAST LOAD: Simple load handler
   const handleLoad = useCallback(() => {
-    const optimizedSrc = getWebPThumbnailUrl(src, currentSize);
-    globalRenderState.setLoaded(templateId, currentSize, optimizedSrc);
+    lightweightRenderCache.setRendered(templateId, currentSize);
     setIsLoading(false);
     onLoad?.();
-  }, [src, templateId, currentSize, onLoad]);
+  }, [templateId, currentSize, onLoad]);
 
-  // ✅ ERROR HANDLING: Error handler with global state
+  // ✅ FAST ERROR: Simple error handler
   const handleError = useCallback(() => {
-    const optimizedSrc = getWebPThumbnailUrl(src, currentSize);
-    globalRenderState.setError(templateId, currentSize, optimizedSrc);
     setHasError(true);
     setIsLoading(false);
     onError?.();
-  }, [src, templateId, currentSize, onError]);
-
-  // ✅ PRELOAD: Check for cached image on mount
-  useEffect(() => {
-    if (isAlreadyRendered) {
-      const cachedImg = globalRenderState.getCachedImage(templateId, size);
-      if (cachedImg && cachedImg.complete) {
-        setCachedImageSrc(cachedImg.src);
-        setIsLoading(false);
-      }
-    }
-  }, [templateId, size, isAlreadyRendered]);
+  }, [onError]);
 
   // Don't render until in view (unless priority)
   if (!isInView) {
@@ -192,7 +176,7 @@ export const OptimizedTemplateImage = memo<OptimizedTemplateImageProps>(({
   }
 
   const sizeConfig = THUMBNAIL_SIZES[currentSize];
-  const optimizedSrc = cachedImageSrc || getWebPThumbnailUrl(src, currentSize);
+  const optimizedSrc = getWebPThumbnailUrl(src, currentSize);
   const fallbackSrc = getThumbnailUrl(src, currentSize);
 
   return (
