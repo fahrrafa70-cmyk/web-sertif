@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
+// Bundle analyzer configuration
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 const nextConfig: NextConfig = {
-  // Optimize images
+  // ✅ PHASE 2: Enhanced image optimization configuration
   images: {
     remotePatterns: [
       { protocol: "http", hostname: "localhost", port: "*", pathname: "/**" },
@@ -11,13 +16,19 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },
       { protocol: "https", hostname: "*.supabase.in", pathname: "/storage/v1/object/public/**" },
     ],
+    // Prioritize modern formats for better compression
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 60,
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    // Enable image optimization
+    // ✅ PERFORMANCE: Extended cache TTL for better browser caching
+    minimumCacheTTL: 31536000, // 1 year for template images (they rarely change)
+    // Optimized device sizes for template thumbnails and previews
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
+    // Template-specific image sizes for thumbnails
+    imageSizes: [160, 240, 320, 480, 640], // Optimized for template card sizes
+    // Enable SVG support for icons and simple graphics
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // ✅ PERFORMANCE: Disable image optimization for local development speed
+    unoptimized: process.env.NODE_ENV === 'development',
   },
   // Production optimizations
   compress: true,
@@ -49,8 +60,6 @@ const nextConfig: NextConfig = {
       'framer-motion',
       'recharts',
     ],
-    // Enable SWC minification for better performance
-    swcMinify: true,
   },
   // Prevent build manifest errors
   onDemandEntries: {
@@ -70,4 +79,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

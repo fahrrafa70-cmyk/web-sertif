@@ -1,0 +1,49 @@
+{
+  "timestamp": "2025-11-12T06:02:51.307Z",
+  "totalSize": 19893234,
+  "mainChunkSize": 14325856,
+  "vendorChunkSize": 182738,
+  "chunkCount": 49,
+  "largestChunks": [
+    {
+      "name": "main-app.js",
+      "size": 7587959
+    },
+    {
+      "name": "main.js",
+      "size": 6737897
+    },
+    {
+      "name": "_app-pages-browser_node_modules_jspdf_dist_jspdf_es_min_js.js",
+      "size": 1948036
+    },
+    {
+      "name": "_app-pages-browser_node_modules_canvg_lib_index_es_js.js",
+      "size": 1230562
+    },
+    {
+      "name": "_app-pages-browser_node_modules_html2canvas_dist_html2canvas_js.js",
+      "size": 1108174
+    },
+    {
+      "name": "164f4fb6.3a15dc8bc6365ec4.js",
+      "size": 329380
+    },
+    {
+      "name": "2170a4aa-ec77d2b4930606fb.js",
+      "size": 319304
+    },
+    {
+      "name": "app-pages-internals.js",
+      "size": 250991
+    },
+    {
+      "name": "ad2866b8.e13a3cf75ccf0eb8.js",
+      "size": 198193
+    },
+    {
+      "name": "framework-32492dd9c4fc5870.js",
+      "size": 182738
+    }
+  ]
+}

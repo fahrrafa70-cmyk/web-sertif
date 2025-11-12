@@ -106,6 +106,10 @@ function SearchResultsContent() {
       if (e.key === 'Escape') {
         if (sendModalOpen) {
           setSendModalOpen(false);
+          // Close certificate modal completely
+          setPreviewOpen(false);
+          setPreviewCert(null);
+          setIsModalOpen(false); // Clear modal context
           e.preventDefault();
           return;
         }
@@ -630,6 +634,10 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         message: message,
       });
       setSendModalOpen(true);
+      // Keep certificate modal open but hide its content - backdrop remains active
+      // setPreviewOpen(false); // Don't close certificate modal
+      // setPreviewCert(null);
+      // setIsModalOpen(true); // Modal context already active from certificate modal
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : t('hero.emailPrepareFailed'));
@@ -704,6 +712,10 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         toast.success(`${t('hero.emailSentSuccess')} ${recipientEmail}`);
       }
       setSendModalOpen(false);
+      // Close certificate modal completely when email is sent
+      setPreviewOpen(false);
+      setPreviewCert(null);
+      setIsModalOpen(false); // Clear modal context when email modal closes
       setSendCert(null);
       setSendPreviewSrc(null);
       setSendForm({ email: '', subject: '', message: '' });
@@ -1205,7 +1217,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
               }}
             >
               <div 
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-auto pointer-events-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" 
+                className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-auto pointer-events-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 ${sendModalOpen ? 'opacity-0 pointer-events-none' : ''}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b dark:border-gray-700">
@@ -1374,19 +1386,17 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         {/* Send Email Modal */}
         {sendModalOpen && (
           <>
-            {/* Backdrop for email modal - higher z-index than certificate modal */}
-            <div 
-              className="fixed inset-0 bg-black/20 dark:bg-black/40 animate-in fade-in-0 duration-200"
-              onClick={() => setSendModalOpen(false)}
-              style={{ 
-                zIndex: 10100,
-                position: 'fixed'
-              }}
-            />
+            {/* No backdrop needed - use certificate modal's backdrop */}
             {/* Email Modal Content - above certificate modal */}
             <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen flex items-center justify-center p-4 pointer-events-none animate-in fade-in-0 duration-200" 
-              onClick={() => setSendModalOpen(false)}
-              style={{ zIndex: 10101 }}
+              onClick={() => {
+                setSendModalOpen(false);
+                // Close certificate modal completely
+                setPreviewOpen(false);
+                setPreviewCert(null);
+                setIsModalOpen(false); // Clear modal context
+              }}
+              style={{ zIndex: 10201 }}
             >
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden pointer-events-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
@@ -1394,7 +1404,13 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                   <div className="text-lg font-semibold dark:text-gray-100">{t('hero.sendEmailTitle')}</div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">{t('hero.sendEmailSubtitle')}</div>
                 </div>
-                <Button variant="outline" onClick={() => setSendModalOpen(false)} size="icon" aria-label="Close">
+                <Button variant="outline" onClick={() => {
+                  setSendModalOpen(false);
+                  // Close certificate modal completely
+                  setPreviewOpen(false);
+                  setPreviewCert(null);
+                  setIsModalOpen(false); // Clear modal context
+                }} size="icon" aria-label="Close">
                   <XIcon className="w-4 h-4" />
                 </Button>
               </div>
@@ -1425,6 +1441,10 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                       } else if (e.key === 'Escape') {
                         e.preventDefault();
                         setSendModalOpen(false);
+                        // Close certificate modal completely
+                        setPreviewOpen(false);
+                        setPreviewCert(null);
+                        setIsModalOpen(false); // Clear modal context
                       }
                     }}
                   />
@@ -1450,6 +1470,10 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                       } else if (e.key === 'Escape') {
                         e.preventDefault();
                         setSendModalOpen(false);
+                        // Close certificate modal completely
+                        setPreviewOpen(false);
+                        setPreviewCert(null);
+                        setIsModalOpen(false); // Clear modal context
                       }
                     }}
                   />
@@ -1477,6 +1501,10 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                       } else if (e.key === 'Escape') {
                         e.preventDefault();
                         setSendModalOpen(false);
+                        // Close certificate modal completely
+                        setPreviewOpen(false);
+                        setPreviewCert(null);
+                        setIsModalOpen(false); // Clear modal context
                       }
                     }}
                   />
@@ -1487,7 +1515,13 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                 <div className="flex justify-end gap-3 pt-4">
                   <Button 
                     variant="outline" 
-                    onClick={() => setSendModalOpen(false)}
+                    onClick={() => {
+                      setSendModalOpen(false);
+                      // Close certificate modal completely
+                      setPreviewOpen(false);
+                      setPreviewCert(null);
+                      setIsModalOpen(false); // Clear modal context
+                    }}
                     disabled={isSendingEmail}
                   >
                     {t('hero.cancel')}

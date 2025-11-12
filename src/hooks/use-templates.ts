@@ -68,10 +68,10 @@ export function useTemplates() {
     }
   }, []);
 
-  // Load templates on mount
+  // Load templates on mount - only once
   useEffect(() => {
     loadTemplates();
-  }, [loadTemplates]);
+  }, []); // Remove loadTemplates dependency to prevent reloads
 
   return {
     templates,

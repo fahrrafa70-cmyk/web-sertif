@@ -11,6 +11,8 @@ import { LoginModal } from "@/components/ui/login-modal";
 import { ThemeScript } from "@/components/theme-script";
 import { ErrorBoundaryWrapper } from "@/components/error-boundary-wrapper";
 import { ScrollbarVisibility } from "@/components/scrollbar-visibility";
+import { PWAIntegration } from "@/components/pwa-layout-integration";
+import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,12 +34,23 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "E-Certificate Management Platform",
   description: "Create, manage, and verify certificates for trainings, internships, MoUs, and industrial visits with our multilingual platform.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "E-Certificate",
+  },
+  icons: {
+    icon: "/next.svg",
+    apple: "/next.svg",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  themeColor: "#3b82f6", // ✅ FIXED: Moved themeColor to viewport export
 };
 
 export default function RootLayout({
@@ -147,19 +160,22 @@ export default function RootLayout({
         />
         <ThemeScript />
         <ErrorBoundaryWrapper>
-          <ThemeProvider>
-            <LanguageProvider>
-              <AuthProvider>
-                <ModalProvider>
-                  <LayoutStability />
-                  <ScrollbarVisibility />
-                  {children}
-                  <LoginModal />
-                </ModalProvider>
-              </AuthProvider>
-            </LanguageProvider>
-          </ThemeProvider>
+          {/* <ReactQueryProvider> */}
+            <ThemeProvider>
+              <LanguageProvider>
+                <AuthProvider>
+                  <ModalProvider>
+                    <LayoutStability />
+                    <ScrollbarVisibility />
+                    {children}
+                    <LoginModal />
+                  </ModalProvider>
+                </AuthProvider>
+              </LanguageProvider>
+            </ThemeProvider>
+          {/* </ReactQueryProvider> */}
         </ErrorBoundaryWrapper>
+        <PWAIntegration />
       </body>
     </html>
   );
