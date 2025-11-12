@@ -1,5 +1,7 @@
 import React, { memo } from 'react';
 import { OptimizedTemplateImage } from '@/components/ui/optimized-template-image';
+import { CompressedThumbnail } from '@/components/ui/compressed-thumbnail';
+import { PERFORMANCE_CONFIG, isFeatureEnabled } from '@/lib/config/performance-config';
 import { Template } from '@/lib/supabase/templates';
 import { getOptimizedTemplateUrl, prefetchOnHover } from '@/lib/supabase/template-optimization';
 import { debugTemplateImages } from '@/lib/debug/template-debug';
@@ -99,19 +101,33 @@ const TemplateCard = memo<TemplateCardProps>(({
               
               return null; // Don't render anything, just run debug
             })()}
-            <OptimizedTemplateImage
-              src={getOptimizedTemplateUrl(template) || ''}
-              alt={template.name}
-              templateId={template.id}
-              size="sm"
-              priority={index < 3} // Priority loading for first 3 templates
-              className="w-full h-full object-contain"
-              onLoad={() => onImageLoad(template.id)}
-              onError={() => onImageError(template.id)}
-              onHover={() => prefetchOnHover(template)}
-              enableProgressiveLoading={true}
-              enableIntersectionObserver={index >= 3} // Only lazy load after first 3
-            />
+            {isFeatureEnabled('DISABLE_IMAGE_COMPRESSION') ? (
+              <OptimizedTemplateImage
+                src={getOptimizedTemplateUrl(template) || ''}
+                alt={template.name}
+                templateId={template.id}
+                size="sm"
+                priority={index < 3}
+                className="w-full h-full object-contain"
+                onLoad={() => onImageLoad(template.id)}
+                onError={() => onImageError(template.id)}
+                onHover={() => prefetchOnHover(template)}
+                enableProgressiveLoading={false}
+                enableIntersectionObserver={index >= 3}
+              />
+            ) : (
+              <CompressedThumbnail
+                src={getOptimizedTemplateUrl(template) || ''}
+                alt={template.name}
+                templateId={template.id}
+                size="sm"
+                priority={index < 3}
+                className="w-full h-full"
+                onLoad={() => onImageLoad(template.id)}
+                onError={() => onImageError(template.id)}
+                onHover={() => prefetchOnHover(template)}
+              />
+            )}
             
             {/* Thumbnail generation loading overlay */}
             {generatingThumbnails.has(template.id) && (

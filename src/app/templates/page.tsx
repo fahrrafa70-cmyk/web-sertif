@@ -24,7 +24,10 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import Image from "next/image";
 import TemplateCard from "@/components/template-card";
 import { FastPreviewImage } from "@/components/ui/fast-preview-image";
-// import { useSmartPreloader } from "@/hooks/use-smart-preloader"; // ✅ TEMPORARILY DISABLED
+import { UltraFastPreview } from "@/components/ui/ultra-fast-preview";
+import { professionalPreloader } from "@/lib/preload/professional-preloader";
+import { PERFORMANCE_CONFIG, isFeatureEnabled } from "@/lib/config/performance-config";
+// import { useSmartPreloader } from "@/hooks/use-smart-preloader"; // TEMPORARILY DISABLED
 
 export default function TemplatesPage() {
   const { t } = useLanguage();
@@ -65,17 +68,24 @@ export default function TemplatesPage() {
   //   maxConcurrentPreloads: 3 // Max 3 concurrent preloads
   // });
   
-  // ✅ OPTIMIZED: Preload critical templates on mount
+  // 🚨 SAFE MODE: Conditional preloading based on performance config
   useEffect(() => {
     if (templates.length > 0) {
-      preloadCriticalTemplates(templates);
+      if (isFeatureEnabled('DISABLE_PROFESSIONAL_PRELOADER')) {
+        console.log('⚠️ Professional preloader DISABLED - using safe mode');
+        // Only preload first 3 templates with basic method
+        const criticalTemplates = templates.slice(0, 3);
+        preloadCriticalTemplates(criticalTemplates);
+      } else {
+        console.log('🎯 PROFESSIONAL preload initiated for', templates.length, 'templates');
+        professionalPreloader.preloadAllTemplates(templates);
+      }
     }
   }, [templates]);
 
-  // ✅ OPTIMIZED: Preload on hover function
+  // 🚀 PROFESSIONAL: Instant hover preload
   const preloadOnHover = useCallback((template: Template) => {
-    // Use the optimized prefetch function
-    prefetchOnHover(template);
+    professionalPreloader.preloadOnHover(template);
   }, []);
 
   // derive role from localStorage to match header behavior without changing layout
@@ -501,9 +511,14 @@ export default function TemplatesPage() {
     }
   }
 
-  function openPreview(template: Template) {
+  const openPreview = async (template: Template) => {
+    console.log('🎯 FORCE preload for preview modal:', template.name);
+    
+    // Force preload before showing modal
+    await professionalPreloader.forcePreloadForPreview(template);
+    
     setPreviewTemplate(template);
-  }
+  };
 
   function handleImageUpload(file: File | null) {
     if (file) {
@@ -1596,16 +1611,16 @@ export default function TemplatesPage() {
                     <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
                       {getCachedTemplateUrl(previewTemplate) ? (
                         <div className="relative w-full aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
-                          <FastPreviewImage
+                          <UltraFastPreview
                             src={getCachedTemplateUrl(previewTemplate)!}
                             alt={previewTemplate.name}
                             templateId={previewTemplate.id}
                             className="w-full h-full border border-gray-200 dark:border-gray-700"
                             onLoad={() => {
-                              console.log('✅ Preview loaded for:', previewTemplate.name);
+                              console.log('🚀 ULTRA-FAST preview loaded for:', previewTemplate.name);
                             }}
                             onError={() => {
-                              console.error('❌ Preview failed for:', previewTemplate.name);
+                              console.error('❌ ULTRA-FAST preview failed for:', previewTemplate.name);
                             }}
                           />
                         </div>
