@@ -23,6 +23,7 @@ import { confirmToast } from "@/lib/ui/confirm";
 import { LoadingButton } from "@/components/ui/loading-button";
 import Image from "next/image";
 import TemplateCard from "@/components/template-card";
+import { FastPreviewImage } from "@/components/ui/fast-preview-image";
 // import { useSmartPreloader } from "@/hooks/use-smart-preloader"; // ✅ TEMPORARILY DISABLED
 
 export default function TemplatesPage() {
@@ -1595,32 +1596,16 @@ export default function TemplatesPage() {
                     <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
                       {getCachedTemplateUrl(previewTemplate) ? (
                         <div className="relative w-full aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
-                          {/* Skeleton loader - shown while image loads */}
-                          <div className="absolute inset-0 bg-gray-200 dark:bg-gray-800 animate-pulse" />
-                          <Image
+                          <FastPreviewImage
                             src={getCachedTemplateUrl(previewTemplate)!}
                             alt={previewTemplate.name}
-                            fill
-                            className="object-contain rounded-lg border border-gray-200 dark:border-gray-700 transition-opacity duration-300"
-                            style={{
-                              backgroundColor: 'transparent',
+                            templateId={previewTemplate.id}
+                            className="w-full h-full border border-gray-200 dark:border-gray-700"
+                            onLoad={() => {
+                              console.log('✅ Preview loaded for:', previewTemplate.name);
                             }}
-                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 800px"
-                            priority
-                            unoptimized
-                            onLoadingComplete={(img) => {
-                              // Hide skeleton when image loads
-                              const skeleton = img.parentElement?.querySelector('.animate-pulse');
-                              if (skeleton) {
-                                (skeleton as HTMLElement).style.display = 'none';
-                              }
-                            }}
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              const skeleton = e.currentTarget.parentElement?.querySelector('.animate-pulse');
-                              if (skeleton) {
-                                (skeleton as HTMLElement).style.display = 'none';
-                              }
+                            onError={() => {
+                              console.error('❌ Preview failed for:', previewTemplate.name);
                             }}
                           />
                         </div>

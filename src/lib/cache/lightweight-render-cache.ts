@@ -14,8 +14,8 @@ class LightweightRenderCache {
   private readonly STORAGE_KEY = 'simple-render-cache';
 
   constructor() {
-    // Load from storage asynchronously to avoid blocking
-    this.loadFromStorageAsync();
+    // Load from storage synchronously on init (only once)
+    this.loadFromStorageSync();
   }
 
   /**
@@ -56,6 +56,24 @@ class LightweightRenderCache {
       totalRendered += Object.keys(this.cache[id]).length;
     });
     return { templates: templates.length, rendered: totalRendered };
+  }
+
+  /**
+   * Load from storage synchronously on init (fast, one-time only)
+   */
+  private loadFromStorageSync(): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        this.cache = JSON.parse(stored);
+        console.log('📦 Render cache loaded:', this.getStats());
+      }
+    } catch (error) {
+      console.warn('Failed to load render cache:', error);
+      this.cache = {};
+    }
   }
 
   /**
