@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, memo } from 'react';
+import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { 
@@ -11,6 +11,7 @@ import {
   THUMBNAIL_SIZES,
   DEFAULT_THUMBNAIL_SIZE 
 } from '@/lib/image/thumbnail-sizes';
+import { globalRenderState } from '@/lib/cache/global-render-state';
 
 interface OptimizedTemplateImageProps {
   src: string;
@@ -52,15 +53,21 @@ export const OptimizedTemplateImage = memo<OptimizedTemplateImageProps>(({
   enableIntersectionObserver = true,
   placeholder = 'blur'
 }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-  const [isInView, setIsInView] = useState(priority); // Priority images load immediately
+  // ✅ ANTI-FLICKER: Check if already rendered
+  const isAlreadyRendered = globalRenderState.isRendered(templateId, size);
+  const isGloballyLoading = globalRenderState.isLoading(templateId, size);
+  const hasGlobalError = globalRenderState.hasError(templateId, size);
+  
+  const [isLoading, setIsLoading] = useState(!isAlreadyRendered && !hasGlobalError);
+  const [hasError, setHasError] = useState(hasGlobalError);
+  const [isInView, setIsInView] = useState(priority || isAlreadyRendered); // Show immediately if already rendered
   const [currentSize, setCurrentSize] = useState<keyof typeof THUMBNAIL_SIZES>(
-    enableProgressiveLoading ? 'xs' : size
+    isAlreadyRendered ? size : (enableProgressiveLoading ? 'xs' : size)
   );
   
   const imgRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const [cachedImageSrc, setCachedImageSrc] = useState<string | null>(null);
 
   // ✅ INTERSECTION OBSERVER: True lazy loading
   useEffect(() => {
@@ -127,16 +134,33 @@ export const OptimizedTemplateImage = memo<OptimizedTemplateImageProps>(({
     }
   };
 
-  const handleLoad = () => {
+  // ✅ PERSISTENT CACHE: Load handler with global state
+  const handleLoad = useCallback(() => {
+    const optimizedSrc = getWebPThumbnailUrl(src, currentSize);
+    globalRenderState.setLoaded(templateId, currentSize, optimizedSrc);
     setIsLoading(false);
     onLoad?.();
-  };
+  }, [src, templateId, currentSize, onLoad]);
 
-  const handleError = () => {
+  // ✅ ERROR HANDLING: Error handler with global state
+  const handleError = useCallback(() => {
+    const optimizedSrc = getWebPThumbnailUrl(src, currentSize);
+    globalRenderState.setError(templateId, currentSize, optimizedSrc);
     setHasError(true);
     setIsLoading(false);
     onError?.();
-  };
+  }, [src, templateId, currentSize, onError]);
+
+  // ✅ PRELOAD: Check for cached image on mount
+  useEffect(() => {
+    if (isAlreadyRendered) {
+      const cachedImg = globalRenderState.getCachedImage(templateId, size);
+      if (cachedImg && cachedImg.complete) {
+        setCachedImageSrc(cachedImg.src);
+        setIsLoading(false);
+      }
+    }
+  }, [templateId, size, isAlreadyRendered]);
 
   // Don't render until in view (unless priority)
   if (!isInView) {
@@ -168,7 +192,7 @@ export const OptimizedTemplateImage = memo<OptimizedTemplateImageProps>(({
   }
 
   const sizeConfig = THUMBNAIL_SIZES[currentSize];
-  const optimizedSrc = getWebPThumbnailUrl(src, currentSize);
+  const optimizedSrc = cachedImageSrc || getWebPThumbnailUrl(src, currentSize);
   const fallbackSrc = getThumbnailUrl(src, currentSize);
 
   return (
@@ -177,18 +201,18 @@ export const OptimizedTemplateImage = memo<OptimizedTemplateImageProps>(({
       className={cn("relative overflow-hidden rounded-lg", className)}
       onMouseEnter={handleMouseEnter}
     >
-      {/* ✅ BLUR PLACEHOLDER */}
-      {isLoading && placeholder === 'blur' && (
+      {/* ✅ NO FLICKER: Skip placeholder if already rendered */}
+      {isLoading && !isAlreadyRendered && placeholder === 'blur' && (
         <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 animate-pulse" />
       )}
 
-      {/* ✅ OPTIMIZED IMAGE with Next.js */}
+      {/* ✅ ANTI-FLICKER: Show immediately if cached */}
       <Image
         src={optimizedSrc}
         alt={alt}
         width={sizeConfig.width}
         height={sizeConfig.height}
-        priority={priority}
+        priority={priority || isAlreadyRendered}
         quality={sizeConfig.quality * 100}
         onLoad={handleLoad}
         onError={() => {
@@ -199,8 +223,8 @@ export const OptimizedTemplateImage = memo<OptimizedTemplateImageProps>(({
           img.src = fallbackSrc;
         }}
         className={cn(
-          "transition-opacity duration-300",
-          isLoading ? "opacity-0" : "opacity-100"
+          "transition-opacity duration-200",
+          (isLoading && !isAlreadyRendered) ? "opacity-0" : "opacity-100"
         )}
         // ✅ RESPONSIVE: Multiple sizes for different viewports
         sizes={getThumbnailSizes()}

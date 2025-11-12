@@ -5,6 +5,7 @@
 
 import { Template } from './templates';
 import { templateImageCache } from '@/lib/cache/template-image-cache';
+import { globalRenderState } from '@/lib/cache/global-render-state';
 import { getThumbnailUrl, getWebPThumbnailUrl, THUMBNAIL_SIZES } from '@/lib/image/thumbnail-sizes';
 
 /**
@@ -60,7 +61,7 @@ export function getFallbackTemplateUrl(
 }
 
 /**
- * Prefetch template images for better performance
+ * Prefetch template images for better performance with global state
  */
 export async function prefetchTemplateImages(
   templates: Template[], 
@@ -68,6 +69,7 @@ export async function prefetchTemplateImages(
 ): Promise<void> {
   const prefetchRequests = templates
     .slice(0, 10) // Only prefetch first 10 for performance
+    .filter(template => !globalRenderState.isRendered(template.id, size)) // Skip already rendered
     .map(template => {
       const url = getOptimizedTemplateUrl(template, size);
       return url ? { templateId: template.id, size, url } : null;
@@ -75,7 +77,8 @@ export async function prefetchTemplateImages(
     .filter(Boolean) as Array<{ templateId: string; size: string; url: string }>;
 
   if (prefetchRequests.length > 0) {
-    await templateImageCache.batchPrefetch(prefetchRequests);
+    // Use global render state for better persistence
+    await globalRenderState.batchPreload(prefetchRequests);
   }
 }
 
@@ -83,10 +86,15 @@ export async function prefetchTemplateImages(
  * Prefetch on hover for instant preview
  */
 export function prefetchOnHover(template: Template): void {
+  // Skip if already rendered
+  if (globalRenderState.isRendered(template.id, 'lg')) {
+    return;
+  }
+
   // Prefetch larger size for preview
   const largeUrl = getOptimizedTemplateUrl(template, 'lg');
   if (largeUrl) {
-    templateImageCache.prefetch(template.id, 'lg', largeUrl);
+    globalRenderState.preloadAndCache(template.id, 'lg', largeUrl);
   }
 }
 
@@ -122,19 +130,32 @@ export function getTemplateCacheStats() {
 }
 
 /**
- * Preload critical templates (first few visible)
+ * Preload critical templates (first few visible) with global state
  */
 export async function preloadCriticalTemplates(templates: Template[]): Promise<void> {
   // Preload first 6 templates (typical above-the-fold count)
   const criticalTemplates = templates.slice(0, 6);
   
+  // Filter out already rendered templates
+  const unrenderedTemplates = criticalTemplates.filter(template => 
+    !globalRenderState.isRendered(template.id, 'xs') || 
+    !globalRenderState.isRendered(template.id, 'sm')
+  );
+
+  if (unrenderedTemplates.length === 0) {
+    console.log('✅ All critical templates already rendered');
+    return;
+  }
+  
   // Preload small size immediately
-  await prefetchTemplateImages(criticalTemplates, 'xs');
+  await prefetchTemplateImages(unrenderedTemplates, 'xs');
   
   // Preload medium size with slight delay
   setTimeout(() => {
-    prefetchTemplateImages(criticalTemplates, 'sm');
+    prefetchTemplateImages(unrenderedTemplates, 'sm');
   }, 100);
+
+  console.log(`🚀 Preloaded ${unrenderedTemplates.length} critical templates`);
 }
 
 /**
