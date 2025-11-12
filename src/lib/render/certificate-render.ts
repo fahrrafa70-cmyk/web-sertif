@@ -325,6 +325,7 @@ export async function renderCertificateToDataURL(
       
       // Render text (rich text or regular)
       if (layer.richText && layer.hasInlineFormatting) {
+        // CRITICAL: Pass scaleFactor so span fontSizes can be scaled correctly
         drawRichText(
           ctx,
           layer.richText,
@@ -332,7 +333,8 @@ export async function renderCertificateToDataURL(
           scaledMaxWidth,
           scaledFontSize,
           layer.lineHeight || 1.2,
-          align
+          align,
+          scaleFactor
         );
       } else {
         drawWrappedText(
@@ -762,9 +764,23 @@ function drawRichText(
   maxWidth: number,
   baseFontSize: number,
   lineHeight: number,
-  textAlign: 'left' | 'center' | 'right' | 'justify'
+  textAlign: 'left' | 'center' | 'right' | 'justify',
+  scaleFactor: number = 1
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
+  
+  // Debug: Log rich text rendering with scale factor
+  console.log('🎨 drawRichText called:', {
+    baseFontSize,
+    scaleFactor,
+    spanCount: richText.length,
+    spans: richText.map(s => ({
+      text: s.text.substring(0, 20),
+      fontSize: s.fontSize,
+      scaledFontSize: s.fontSize ? Math.round(s.fontSize * scaleFactor) : baseFontSize,
+      fontWeight: s.fontWeight
+    }))
+  });
   
   // Convert rich text to plain text for wrapping calculation
   const plainText = richText.map(span => span.text).join('');
@@ -813,7 +829,9 @@ function drawRichText(
     // Calculate line width for alignment
     let lineWidth = 0;
     line.spans.forEach(span => {
-      const spanFont = `${span.fontWeight || 'normal'} ${span.fontSize || baseFontSize}px ${span.fontFamily || 'Arial'}`;
+      // CRITICAL: Scale span fontSize if provided, otherwise use base (already scaled)
+      const spanFontSize = span.fontSize ? Math.round(span.fontSize * scaleFactor) : baseFontSize;
+      const spanFont = `${span.fontWeight || 'normal'} ${spanFontSize}px ${span.fontFamily || 'Arial'}`;
       ctx.font = spanFont;
       lineWidth += ctx.measureText(span.text).width;
     });
@@ -828,7 +846,8 @@ function drawRichText(
     // Draw each span
     line.spans.forEach(span => {
       const spanFontWeight = span.fontWeight || 'normal';
-      const spanFontSize = span.fontSize || baseFontSize;
+      // CRITICAL: Scale span fontSize if provided, otherwise use base (already scaled)
+      const spanFontSize = span.fontSize ? Math.round(span.fontSize * scaleFactor) : baseFontSize;
       const spanFontFamily = span.fontFamily || 'Arial';
       const spanColor = span.color || ctx.fillStyle;
       

@@ -50,17 +50,27 @@ export function applyStyleToRange(
     const overlapStart = Math.max(spanStart, startOffset);
     const overlapEnd = Math.min(spanEnd, endOffset);
     
+    // CRITICAL: Extract inline formatting only (fontWeight, fontFamily, color)
+    // DO NOT copy fontSize - it should inherit from layer, not be stored in spans
+    const inlineFormatting = {
+      fontWeight: span.fontWeight,
+      fontFamily: span.fontFamily,
+      color: span.color,
+      textAlign: span.textAlign,
+      // fontSize explicitly excluded - inherit from layer
+    };
+    
     // Before overlap
     if (overlapStart > spanStart) {
       newRichText.push({
-        ...span,
+        ...inlineFormatting,
         text: span.text.slice(0, overlapStart - spanStart)
       });
     }
     
     // Overlap (apply style)
     newRichText.push({
-      ...span,
+      ...inlineFormatting,
       ...style,
       text: span.text.slice(overlapStart - spanStart, overlapEnd - spanStart)
     });
@@ -68,7 +78,7 @@ export function applyStyleToRange(
     // After overlap
     if (overlapEnd < spanEnd) {
       newRichText.push({
-        ...span,
+        ...inlineFormatting,
         text: span.text.slice(overlapEnd - spanStart)
       });
     }

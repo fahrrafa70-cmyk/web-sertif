@@ -21,7 +21,7 @@ interface ColumnMappingStepProps {
   mainMapping: Record<string, string>;
   mainPreviewData: Record<string, unknown>;
   onMainMappingChange: (mapping: Record<string, string>) => void;
-  // Score data mapping (for dual template)
+  // Score data mapping (for dual template) 
   scoreColumns?: string[];
   scoreLayers?: TextLayerConfig[];
   scoreMapping?: Record<string, string>;

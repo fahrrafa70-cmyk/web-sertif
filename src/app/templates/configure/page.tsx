@@ -1162,7 +1162,6 @@ function ConfigureLayoutContent() {
         return;
       }
     }
-    // Score mode: all layers are custom, can be deleted
     
     console.log(`📊 Current ${configMode} layers before deletion:`, textLayers.map(l => l.id));
     
@@ -1325,10 +1324,9 @@ function ConfigureLayoutContent() {
     console.log(`📊 Certificate layers to save (${certificateTextLayers.length}):`, certificateTextLayers.map(l => l.id));
     console.log(`📊 Score layers to save (${scoreTextLayers.length}):`, scoreTextLayers.map(l => l.id));
     
-    // Validate required fields - same for both certificate and score modes
-    const requiredFields = ['name', 'certificate_no', 'issue_date'];
-    
+    // Validate required fields
     if (configMode === 'certificate') {
+      const requiredFields = ['name', 'certificate_no', 'issue_date'];
       const certificateIds = certificateTextLayers.map(l => l.id);
       const missingFields = requiredFields.filter(f => !certificateIds.includes(f));
       
@@ -1337,12 +1335,10 @@ function ConfigureLayoutContent() {
         return;
       }
     } else if (configMode === 'score') {
-      // Score mode: same required fields as certificate mode
+      // Score mode: only issue_date is required
       const scoreIds = scoreTextLayers.map(l => l.id);
-      const missingFields = requiredFields.filter(f => !scoreIds.includes(f));
-      
-      if (missingFields.length > 0) {
-        toast.error(t('configure.missingRequiredFields').replace('{fields}', missingFields.join(', ')));
+      if (!scoreIds.includes('issue_date')) {
+        toast.error(t('configure.missingRequiredFields').replace('{fields}', 'issue_date'));
         return;
       }
     }
@@ -1949,8 +1945,10 @@ function ConfigureLayoutContent() {
                 </div>
                 <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
                   {textLayers.map(layer => {
-                    // Required fields - same for both certificate and score modes
-                    const isRequired = ['name', 'certificate_no', 'issue_date'].includes(layer.id);
+                    // Required fields: Certificate (name, certificate_no, issue_date) | Score (issue_date only)
+                    const isRequired = configMode === 'certificate' 
+                      ? ['name', 'certificate_no', 'issue_date'].includes(layer.id)
+                      : layer.id === 'issue_date';
                     const isSelected = selectedLayerId === layer.id;
                     
                     return (
@@ -2338,7 +2336,7 @@ function ConfigureLayoutContent() {
                           value={selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
                             fontWeight: selectedLayer.fontWeight,
                             fontFamily: selectedLayer.fontFamily,
-                            fontSize: selectedLayer.fontSize,
+                            // fontSize excluded - inherit from layer
                             color: selectedLayer.color
                           })}
                           defaultStyle={{
@@ -2417,14 +2415,14 @@ function ConfigureLayoutContent() {
                           const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
                             fontWeight: selectedLayer.fontWeight,
                             fontFamily: selectedLayer.fontFamily,
-                            fontSize: selectedLayer.fontSize
+                            // fontSize excluded - inherit from layer
                           });
                           
-                          // Update richText to apply new fontSize
-                          const newRichText = currentRichText.map(span => ({
-                            ...span,
-                            fontSize: newSize
-                          }));
+                          // CRITICAL: Remove fontSize from all spans so they inherit from layer
+                          const newRichText = currentRichText.map(span => {
+                            const { fontSize, ...spanWithoutFontSize } = span;
+                            return spanWithoutFontSize;
+                          });
                           
                           updateLayer(selectedLayer.id, { 
                             fontSize: newSize,
@@ -2614,7 +2612,7 @@ function ConfigureLayoutContent() {
                             const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
                               fontWeight: selectedLayer.fontWeight,
                               fontFamily: selectedLayer.fontFamily,
-                              fontSize: selectedLayer.fontSize,
+                              // fontSize excluded - inherit from layer
                               color: selectedLayer.color
                             });
                             
@@ -2639,7 +2637,7 @@ function ConfigureLayoutContent() {
                             const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
                               fontWeight: selectedLayer.fontWeight,
                               fontFamily: selectedLayer.fontFamily,
-                              fontSize: selectedLayer.fontSize,
+                              // fontSize excluded - inherit from layer
                               color: selectedLayer.color
                             });
                             

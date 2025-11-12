@@ -40,7 +40,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
-import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight} from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   getTemplate,
@@ -1448,7 +1448,6 @@ function CertificatesContent() {
                       onClick={handleOpenQuickGenerate}
                       className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
-                      <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
                       <span className="text-sm sm:text-base">{t("certificates.generate")}</span>
                     </Button>
                   )}

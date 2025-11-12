@@ -99,10 +99,10 @@ export function ExcelUploadStep({
           </div>
           <div>
             <p className="font-medium text-green-900">
-              {isDualTemplate ? 'Excel Data Utama' : 'Excel Data Berhasil Dimuat'}
+              {isDualTemplate ? 'Excel Data' : 'Excel Data Berhasil Dimuat'}
             </p>
             <p className="text-sm text-green-700">
-              📄 {mainData.length} baris data
+              {mainData.length} baris data
             </p>
           </div>
         </div>
@@ -124,10 +124,10 @@ export function ExcelUploadStep({
             onClick={() => scoreInputRef.current?.click()}
             className="mb-2 border-yellow-500 text-yellow-700 hover:bg-yellow-50"
           >
-            Pilih File Excel Data Nilai
+            Pilih File Excel Nilai
           </Button>
           <p className="text-sm text-gray-500">
-            Unggah file .xlsx atau .xls dengan data nilai
+            Unggah file .xlsx atau .xls nilai
           </p>
         </div>
       )}
@@ -141,10 +141,10 @@ export function ExcelUploadStep({
             </div>
             <div>
               <p className="font-medium text-green-900">
-                Excel Data Nilai
+                Excel Nilai
               </p>
               <p className="text-sm text-green-700">
-                🏆 {scoreData.length} baris data
+                {scoreData.length} baris data
               </p>
             </div>
           </div>

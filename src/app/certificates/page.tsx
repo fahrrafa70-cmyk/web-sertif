@@ -860,6 +860,8 @@ function CertificatesContent() {
         textAlign: layer.textAlign,
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
+        richText: layer.richText, // CRITICAL: Pass richText for inline formatting
+        hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
       };
     });
     
@@ -871,7 +873,10 @@ function CertificatesContent() {
       xPercent: l.xPercent,
       yPercent: l.yPercent,
       textAlign: l.textAlign,
-      maxWidth: l.maxWidth
+      maxWidth: l.maxWidth,
+      hasRichText: !!l.richText,
+      richTextSpans: l.richText?.length || 0,
+      hasInlineFormatting: l.hasInlineFormatting
     })));
     
     // Prepare photo layers (convert PhotoLayerDefault → RenderPhotoLayer)
@@ -1088,6 +1093,8 @@ function CertificatesContent() {
               textAlign: layer.textAlign,
               maxWidth: layer.maxWidth,
               lineHeight: layer.lineHeight,
+              richText: layer.richText, // CRITICAL: Pass richText for inline formatting
+              hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
             };
           });
           
