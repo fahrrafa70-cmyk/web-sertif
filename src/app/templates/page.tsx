@@ -13,9 +13,10 @@ import { useLanguage } from "@/contexts/language-context";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Plus, Search, Edit, Trash2, Layout, X, Settings, Filter, RefreshCw } from "lucide-react";
 import { useTemplates } from "@/hooks/use-templates";
-import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl } from "@/lib/supabase/templates";
+import { Template, CreateTemplateData, UpdateTemplateData } from "@/lib/supabase/templates";
 import { debugTemplateImages, checkAllTemplatesOptimization } from "@/lib/debug/template-debug";
 import { useTemplateImageCache, persistentCache } from "@/lib/cache/template-cache";
+import { preloadCriticalTemplates, getOptimizedTemplateUrl, prefetchOnHover } from "@/lib/supabase/template-optimization";
 import { getCertificatesByTemplate } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
@@ -63,17 +64,18 @@ export default function TemplatesPage() {
   //   maxConcurrentPreloads: 3 // Max 3 concurrent preloads
   // });
   
-  // Temporary fallback for preloadOnHover
-  const preloadOnHover = (template: Template) => {
-    // Simple fallback preloading
-    const url = getTemplatePreviewUrl(template);
-    if (url) {
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = url;
-      document.head.appendChild(link);
+  // ✅ OPTIMIZED: Preload critical templates on mount
+  useEffect(() => {
+    if (templates.length > 0) {
+      preloadCriticalTemplates(templates);
     }
-  };
+  }, [templates]);
+
+  // ✅ OPTIMIZED: Preload on hover function
+  const preloadOnHover = useCallback((template: Template) => {
+    // Use the optimized prefetch function
+    prefetchOnHover(template);
+  }, []);
 
   // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
@@ -103,7 +105,7 @@ export default function TemplatesPage() {
   // Preload template images for better performance - only when filtered list changes significantly
   useEffect(() => {
     if (filtered.length > 0) {
-      const urlsToPreload = filtered.slice(0, 6).map(tpl => getTemplatePreviewUrl(tpl)).filter(Boolean) as string[];
+      const urlsToPreload = filtered.slice(0, 6).map(tpl => getOptimizedTemplateUrl(tpl)).filter(Boolean) as string[];
       if (urlsToPreload.length > 0) {
         preloadImages(urlsToPreload);
       }
@@ -111,7 +113,7 @@ export default function TemplatesPage() {
   }, [filtered.length, debouncedQuery, categoryFilter]); // Depend on specific filters instead of entire filtered array
 
   // Optimized function to get template URL with caching - memoized to prevent recreation
-  const getOptimizedTemplateUrl = useCallback((template: Template): string | null => {
+  const getCachedTemplateUrl = useCallback((template: Template): string | null => {
     // Check cache first
     if (isCached(template.id)) {
       const cachedUrl = getCachedUrl(template.id);
@@ -126,7 +128,7 @@ export default function TemplatesPage() {
     }
 
     // Get URL from template data
-    const url = getTemplatePreviewUrl(template);
+    const url = getOptimizedTemplateUrl(template);
     if (url) {
       const isOptimized = !!(template.thumbnail_path || template.preview_thumbnail_path);
       cacheTemplate(template.id, url, isOptimized);
@@ -757,7 +759,7 @@ export default function TemplatesPage() {
                     failedImages={failedImages}
                     loadedImages={loadedImages}
                     generatingThumbnails={generatingThumbnails}
-                    getOptimizedTemplateUrl={getOptimizedTemplateUrl}
+                    getOptimizedTemplateUrl={getCachedTemplateUrl}
                     generateThumbnailInBackground={generateThumbnailInBackground}
                     onPreview={openPreview}
                     onImageError={handleImageError}
@@ -1269,10 +1271,10 @@ export default function TemplatesPage() {
                           </div>
                         ) : (
                           <>
-                            {draft && getTemplatePreviewUrl(draft as Template) ? (
+                            {draft && getCachedTemplateUrl(draft as Template) ? (
                               <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                                 <Image
-                                  src={getTemplatePreviewUrl(draft as Template)!}
+                                  src={getCachedTemplateUrl(draft as Template)!}
                                   alt="Current template"
                                   fill
                                   className="object-contain"
@@ -1591,12 +1593,12 @@ export default function TemplatesPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
                     {/* Preview Image - Left Side */}
                     <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
-                      {getTemplatePreviewUrl(previewTemplate) ? (
+                      {getCachedTemplateUrl(previewTemplate) ? (
                         <div className="relative w-full aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
                           {/* Skeleton loader - shown while image loads */}
                           <div className="absolute inset-0 bg-gray-200 dark:bg-gray-800 animate-pulse" />
                           <Image
-                            src={getTemplatePreviewUrl(previewTemplate)!}
+                            src={getCachedTemplateUrl(previewTemplate)!}
                             alt={previewTemplate.name}
                             fill
                             className="object-contain rounded-lg border border-gray-200 dark:border-gray-700 transition-opacity duration-300"

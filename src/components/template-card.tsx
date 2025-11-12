@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
-// import { LazyImage } from '@/components/ui/lazy-image'; // ✅ TEMPORARILY DISABLED
-import Image from 'next/image';
-import { Template, getTemplatePreviewUrl } from '@/lib/supabase/templates';
+import { OptimizedTemplateImage } from '@/components/ui/optimized-template-image';
+import { Template } from '@/lib/supabase/templates';
+import { getOptimizedTemplateUrl, prefetchOnHover } from '@/lib/supabase/template-optimization';
 import { debugTemplateImages } from '@/lib/debug/template-debug';
 import { RefreshCw, Layout, Settings, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -99,22 +99,18 @@ const TemplateCard = memo<TemplateCardProps>(({
               
               return null; // Don't render anything, just run debug
             })()}
-            <Image 
-              src={getOptimizedTemplateUrl(template)!}
+            <OptimizedTemplateImage
+              src={getOptimizedTemplateUrl(template) || ''}
               alt={template.name}
-              fill
-              sizes="(max-width: 768px) 120px, 160px"
-              className="object-contain transition-opacity duration-300 ease-out"
-              loading={index < 3 ? "eager" : "lazy"} // Priority loading for first 3 templates
-              priority={index < 3}
-              quality={75}
-              onError={() => {
-                console.error('Image failed to load:', getTemplatePreviewUrl(template));
-                onImageError(template.id);
-              }}
-              onLoad={() => {
-                onImageLoad(template.id);
-              }}
+              templateId={template.id}
+              size="sm"
+              priority={index < 3} // Priority loading for first 3 templates
+              className="w-full h-full object-contain"
+              onLoad={() => onImageLoad(template.id)}
+              onError={() => onImageError(template.id)}
+              onHover={() => prefetchOnHover(template)}
+              enableProgressiveLoading={true}
+              enableIntersectionObserver={index >= 3} // Only lazy load after first 3
             />
             
             {/* Thumbnail generation loading overlay */}
