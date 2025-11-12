@@ -33,7 +33,8 @@ export default function CategoriesPage() {
             </div>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+          {/* Desktop Table View */}
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="mt-8 hidden md:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -57,6 +58,36 @@ export default function CategoriesPage() {
                 ))}
               </TableBody>
             </Table>
+          </motion.div>
+
+          {/* Mobile Card View */}
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="mt-8 md:hidden space-y-3">
+            {CATEGORIES.map((cat) => (
+              <div key={cat.name} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-md">
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                      {t('categories.name')}
+                    </div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">
+                      {cat.name}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                      {t('categories.relatedTemplate')}
+                    </div>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {cat.template}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <Button variant="outline" className="flex-1 border-gray-300 dark:border-gray-600">{t('common.edit')}</Button>
+                    <Button className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 text-white">{t('common.delete')}</Button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </motion.div>
         </div>
       </section>

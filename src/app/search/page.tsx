@@ -1183,9 +1183,9 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         {/* Certificate Preview Modal */}
         {previewOpen && previewCert && (
           <>
-            {/* Backdrop with blur - covers everything including header */}
+            {/* Backdrop - covers everything including header */}
             <div 
-              className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-200"
+              className="fixed inset-0 bg-black/20 dark:bg-black/40 animate-in fade-in-0 duration-200"
               onClick={handleClosePreview}
               style={{ 
                 top: 0, 
@@ -1374,8 +1374,20 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         {/* Send Email Modal */}
         {sendModalOpen && (
           <>
-            {/* No backdrop - clean preview */}
-            <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen flex items-center justify-center p-4 pointer-events-none z-[110] animate-in fade-in-0 duration-200" onClick={() => setSendModalOpen(false)}>
+            {/* Backdrop for email modal - higher z-index than certificate modal */}
+            <div 
+              className="fixed inset-0 bg-black/20 dark:bg-black/40 animate-in fade-in-0 duration-200"
+              onClick={() => setSendModalOpen(false)}
+              style={{ 
+                zIndex: 10100,
+                position: 'fixed'
+              }}
+            />
+            {/* Email Modal Content - above certificate modal */}
+            <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen flex items-center justify-center p-4 pointer-events-none animate-in fade-in-0 duration-200" 
+              onClick={() => setSendModalOpen(false)}
+              style={{ zIndex: 10101 }}
+            >
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden pointer-events-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
                 <div>

@@ -761,7 +761,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
           >
             {/* Search Bar */}
             <div className="relative mb-2">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex items-center gap-2">
                 <div className="flex-1 flex items-center gap-2 sm:gap-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl sm:rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200">
                   <div className="flex-1 relative">
                     <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />

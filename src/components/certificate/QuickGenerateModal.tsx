@@ -223,17 +223,17 @@ export function QuickGenerateModal({
   const getScoreTextLayers = React.useCallback((): TextLayerConfig[] => {
     if (!selectedTemplate?.layout_config) return [];
     
-    const config = selectedTemplate.layout_config as Record<string, unknown>;
-    if (!config.score || typeof config.score !== 'object') return [];
+    const config = selectedTemplate.layout_config;
+    if (!config.score) return [];
     
-    const scoreConfig = config.score as Record<string, unknown>;
+    const scoreConfig = config.score;
     if (!Array.isArray(scoreConfig.textLayers)) return [];
     
-    const allLayers = scoreConfig.textLayers as TextLayerConfig[];
+    const allLayers = scoreConfig.textLayers;
     
     // Only return layers that need user input
     // Exclude: layers with useDefaultText=true OR default certificate layers (issue_date, certificate_no, name)
-    return allLayers.filter((layer: TextLayerConfig) => {
+    return allLayers.filter((layer) => {
       // Skip layers with useDefaultText flag
       if (layer.useDefaultText) return false;
       // Skip default certificate layers that shouldn't need input in score mode
@@ -271,27 +271,11 @@ export function QuickGenerateModal({
   // Get text layers from template that need mapping
   const getMainTextLayers = React.useCallback((): TextLayerConfig[] => {
     if (!selectedTemplate?.layout_config) return [];
-    const config = selectedTemplate.layout_config as Record<string, unknown>;
+    const config = selectedTemplate.layout_config;
     
-    // Option 1: config.certificate.textLayers (new template structure)
-    if (config.certificate && typeof config.certificate === 'object') {
-      const certConfig = config.certificate as Record<string, unknown>;
-      if (Array.isArray(certConfig.textLayers) && certConfig.textLayers.length > 0) {
-        return certConfig.textLayers as TextLayerConfig[];
-      }
-    }
-    
-    // Option 2: config.main.textLayers (dual template with separate main config)
-    if (config.main && typeof config.main === 'object') {
-      const mainConfig = config.main as Record<string, unknown>;
-      if (Array.isArray(mainConfig.textLayers) && mainConfig.textLayers.length > 0) {
-        return mainConfig.textLayers as TextLayerConfig[];
-      }
-    }
-    
-    // Option 3: config.textLayers (single template or dual template with shared config)
-    if (Array.isArray(config.textLayers) && config.textLayers.length > 0) {
-      return config.textLayers as TextLayerConfig[];
+    // config.certificate.textLayers (standard template structure)
+    if (config.certificate?.textLayers && Array.isArray(config.certificate.textLayers)) {
+      return config.certificate.textLayers;
     }
     
     return [];

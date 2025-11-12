@@ -40,7 +40,7 @@ export interface Template {
   score_image_url?: string; // URL for score image (back)
   is_dual_template?: boolean; // Whether this is a dual template
   // Layout configuration (NEW)
-  layout_config?: Record<string, unknown> | null; // JSONB layout configuration
+  layout_config?: TemplateLayoutConfig | null; // JSONB layout configuration
   layout_config_updated_at?: string | null; // When layout was last updated
   layout_config_updated_by?: string | null; // Who updated the layout
   is_layout_configured?: boolean; // Whether layout is ready for Quick Generate
@@ -730,8 +730,8 @@ export async function getTemplateLayout(
       return null;
     }
     
-    // Explicit type casting to preserve all fields including photoLayers
-    const layout = template.layout_config as unknown as TemplateLayoutConfig;
+    // layout_config is already typed as TemplateLayoutConfig
+    const layout = template.layout_config;
     
     // Ensure photoLayers arrays exist (convert undefined to empty array)
     if (layout.certificate) {
@@ -817,7 +817,7 @@ export async function isTemplateReadyForQuickGenerate(
       };
     }
     
-    const layoutConfig = template.layout_config as TemplateLayoutConfig | null;
+    const layoutConfig = template.layout_config ?? null;
     const validation = validateLayoutConfig(layoutConfig);
     
     if (!validation.isValid) {

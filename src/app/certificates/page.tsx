@@ -40,7 +40,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
-import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Award, Filter, X } from "lucide-react";
+import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Award, Filter, X, Search } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
@@ -510,15 +510,19 @@ function CertificatesContent() {
           getMembers()
         ]);
         
+        // Filter out draft templates - only show ready templates for certificate generation
+        const readyTemplates = templatesData.filter(t => t.status === 'ready' || !t.status);
+        
         console.log('✅ Data loaded:', {
-          templates: templatesData.length,
+          allTemplates: templatesData.length,
+          readyTemplates: readyTemplates.length,
+          draftTemplates: templatesData.length - readyTemplates.length,
           members: membersData.length
         });
         
-        setTemplates(templatesData);
+        setTemplates(readyTemplates);
         setMembers(membersData);
         toast.dismiss(loadingToast);
-        toast.success(`Loaded ${templatesData.length} templates and ${membersData.length} members`);
       } catch (error) {
         console.error('❌ Failed to load Generate data:', error);
         toast.dismiss(loadingToast);
@@ -1581,12 +1585,15 @@ function CertificatesContent() {
                 
                 {/* Search and Filter Row */}
                 <div className="flex gap-2">
-                  <Input
-                    placeholder={t("certificates.search")}
-                    className="flex-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                  />
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                    <Input
+                      placeholder={t("certificates.search")}
+                      className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                    />
+                  </div>
                   <Button
                     onClick={openFilterModal}
                     variant="outline"
@@ -1656,7 +1663,7 @@ function CertificatesContent() {
                 transition={{ duration: 0.4 }}
               >
                 {/* Desktop Table View */}
-                <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden">
+                <div className="hidden xl:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -1796,8 +1803,8 @@ function CertificatesContent() {
                 </div>
                 </div>
 
-                {/* Mobile Card View */}
-                <div className="md:hidden space-y-3">
+                {/* Mobile & Tablet Card View */}
+                <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   {currentCertificates.map((certificate) => {
                     const isExpired = isCertificateExpired(certificate);
                     return (
@@ -1810,8 +1817,8 @@ function CertificatesContent() {
                           : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-700/50'
                       }`}
                     >
-                      {/* Certificate Details - Grid 2 Columns */}
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 mb-3">
+                      {/* Certificate Details - Compact Layout */}
+                      <div className="space-y-2 mb-3">
                         {/* Certificate Number */}
                         <div className="space-y-0.5">
                           <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -1854,7 +1861,7 @@ function CertificatesContent() {
 
                         {/* Expiry Date */}
                         {certificate.expired_date && (
-                          <div className="space-y-0.5 col-span-2">
+                          <div className="space-y-0.5">
                             <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                               {t("certificates.expiryDate")}
                             </div>
@@ -1865,9 +1872,9 @@ function CertificatesContent() {
                         )}
                       </div>
 
-                      {/* Action Buttons - Grid 2 Columns Mobile, 4 Columns Desktop */}
+                      {/* Action Buttons - Compact 2 Column Grid */}
                       <div className="pt-3 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -2142,24 +2149,6 @@ function CertificatesContent() {
                   className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
                 />
               </div>
-
-              {/* Description */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  {t('certificates.description')}
-                </label>
-                <textarea
-                  value={draft?.description ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) =>
-                      d ? { ...d, description: e.target.value } : d,
-                    )
-                  }
-                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none"
-                  rows={2}
-                  placeholder={t('certificates.descriptionPlaceholder')}
-                />
-              </div>
             </div>
           </div>
 
@@ -2197,19 +2186,30 @@ function CertificatesContent() {
             </DialogTitle>
           </DialogHeader>
           <div 
-            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 scrollbar-smooth" 
+            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 overflow-y-auto scrollbar-smooth pb-4" 
             style={{ 
-              scrollbarGutter: 'stable', 
-              overflowY: 'hidden',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
+              scrollbarGutter: 'stable',
             }}
           >
             {previewCertificate && (
               <>
                 {/* Certificate Info */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-                  <div className="space-y-4 sm:space-y-6">
+                <div 
+                  className={(() => {
+                    const isPortrait = previewTemplate?.orientation === 'portrait';
+                    // Portrait: single column centered layout with tighter gap, Landscape: 2 columns side-by-side
+                    return isPortrait 
+                      ? "flex flex-col items-center gap-3 sm:gap-4" 
+                      : "grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8";
+                  })()}
+                >
+                  {/* Info Section - Order changes based on orientation */}
+                  <div className={(() => {
+                    const isPortrait = previewTemplate?.orientation === 'portrait';
+                    return isPortrait 
+                      ? "space-y-3 sm:space-y-4 w-full max-w-2xl order-2" // Portrait: tighter spacing, info below
+                      : "space-y-4 sm:space-y-6"; // Landscape: normal spacing, info on left
+                  })()}>
                     <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                         Certificate Number
@@ -2273,7 +2273,12 @@ function CertificatesContent() {
                   </div>
 
                   {/* Certificate / Score Preview */}
-                  <div className="space-y-2 sm:space-y-4">
+                  <div className={(() => {
+                    const isPortrait = previewTemplate?.orientation === 'portrait';
+                    return isPortrait 
+                      ? "space-y-2 sm:space-y-4 w-full max-w-2xl order-1" // Portrait: preview on top, centered
+                      : "space-y-2 sm:space-y-4"; // Landscape: preview on right
+                  })()}>
                     <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                       {t('hero.certificate')}
                     </label>
@@ -2294,17 +2299,22 @@ function CertificatesContent() {
                         </button>
                       </div>
                     )}
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 border-2 border-dashed border-blue-200 dark:border-blue-500/40">
+                    <div className={(() => {
+                      const isPortrait = previewTemplate?.orientation === 'portrait';
+                      // Portrait: smaller padding for tighter fit, Landscape: normal padding
+                      return isPortrait 
+                        ? "bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-xl sm:rounded-2xl p-2 sm:p-3 border-2 border-dashed border-blue-200 dark:border-blue-500/40 flex items-center justify-center"
+                        : "bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 border-2 border-dashed border-blue-200 dark:border-blue-500/40 flex items-center justify-center";
+                    })()}>
                       <div
                         ref={previewContainerRef}
-                        className="bg-white dark:bg-gray-950 rounded-lg sm:rounded-xl shadow-xl relative"
-                        style={{
-                          width: "100%",
-                          maxWidth: "100%",
-                          aspectRatio: "800 / 600",
-                          minHeight: 200,
-                          maxHeight: "min(50vh, calc(100vw * 600 / 800))", // Ensure aspect ratio is maintained even with maxHeight
-                        }}
+                        className={(() => {
+                          const isPortrait = previewTemplate?.orientation === 'portrait';
+                          // Portrait: optimized size to fit modal at 100% zoom with buttons visible, Landscape: full width
+                          return isPortrait 
+                            ? "w-full max-w-[300px] max-h-[380px] rounded-lg sm:rounded-xl overflow-hidden" 
+                            : "w-full rounded-lg sm:rounded-xl overflow-hidden";
+                        })()}
                       >
                         {/* FIX: Show merged certificate or score image with consistent aspect ratio */}
                         {(() => {
@@ -2338,14 +2348,13 @@ function CertificatesContent() {
                             const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
                             return (
-                              <>
+                              <div className="relative w-full aspect-auto">
                                 <Image
                                   src={src}
                                   alt={previewMode === 'score' ? "Score" : "Certificate"}
-                                  fill
-                                  sizes="100vw"
-                                  className="object-contain absolute inset-0"
-                                  style={{ objectFit: 'contain' }}
+                                  width={800}
+                                  height={600}
+                                  className="w-full h-auto max-h-[380px] object-contain rounded-lg"
                                   onError={() => {
                                     console.warn('Preview image failed to load', src);
                                   }}
@@ -2382,34 +2391,36 @@ function CertificatesContent() {
                                     <div className="text-xs text-red-600 dark:text-red-400 font-bold">EXPIRED</div>
                                   </div>
                                 )}
-                              </>
+                              </div>
                             );
                           })()
                         ) : (
-                          <>
-                            {/* FIX: Template Image with consistent aspect ratio */}
+                          <div className="relative w-full">
+                            {/* FIX: Template Image with consistent aspect ratio - same as /search */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
                               <Image
                                 src={previewTemplate.score_image_url}
                                 alt="Score Template"
-                                fill
-                                className="object-contain absolute inset-0"
+                                width={800}
+                                height={600}
+                                className="w-full h-auto max-h-[380px] object-contain rounded-lg"
                               />
                             ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
                               <Image
                                 src={getTemplateImageUrl(previewTemplate)!}
                                 alt="Certificate Template"
-                                fill
-                                className="object-contain absolute inset-0"
+                                width={800}
+                                height={600}
+                                className="w-full h-auto max-h-[380px] object-contain rounded-lg"
                               />
                             ) : (
-                              <>
+                              <div className="relative w-full aspect-[4/3]">
                                 {/* Decorative Corners */}
                                 <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
                                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
                                 <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-tr-2xl"></div>
                                 <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-yellow-400 to-orange-500 rounded-tl-2xl"></div>
-                              </>
+                              </div>
                             )}
 
                             {/* CRITICAL: Only render text overlay for certificate if NO generated PNG exists (showing template preview)
@@ -2697,7 +2708,7 @@ function CertificatesContent() {
                                 </p>
                               </div>
                             )}
-                          </>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -3015,10 +3026,10 @@ function CertificatesContent() {
             </SheetContent>
           </Sheet>
 
-          {/* Desktop: Dialog */}
+          {/* Desktop & Tablet: Dialog */}
           <div className="hidden md:block">
           <Dialog open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
-            <DialogContent className="hidden md:flex max-w-3xl w-full max-h-[90vh] overflow-hidden flex-col p-6">
+            <DialogContent className="hidden md:flex max-w-3xl w-full max-h-[90vh] overflow-hidden flex-col p-4 md:p-6">
               <DialogHeader className="flex-shrink-0 pb-4">
                 <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   Member Information

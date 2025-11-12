@@ -801,12 +801,11 @@ export default function TemplatesPage() {
 
       {/* Enhanced Create Template Sheet */}
       <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
-          <SheetHeader>
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
+          <SheetHeader className="flex-shrink-0">
             <SheetTitle className="text-xl font-bold text-gradient">{t('templates.createTitle')}</SheetTitle>
-            <SheetDescription>{t('templates.createDescription')}</SheetDescription>
           </SheetHeader>
-          <div className="p-4 space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-6">
             <motion.div 
               className="space-y-2"
               initial={{ opacity: 0, x: 20 }}

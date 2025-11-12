@@ -18,8 +18,8 @@ const ModernHeader = memo(function ModernHeader() {
   const pathname = usePathname();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
-  // Only blur header on /search page when modal is open
-  const shouldBlur = pathname === "/search" && isModalOpen;
+  // Apply dark overlay on header when modal is open on /search page
+  const shouldDarken = pathname === "/search" && isModalOpen;
   
   const handleMobileSidebarToggle = useCallback(() => {
     setIsMobileSidebarOpen(true);
@@ -31,30 +31,23 @@ const ModernHeader = memo(function ModernHeader() {
 
   return (
     <>
+      {/* Dark overlay covering entire header when modal is open */}
+      {shouldDarken && (
+        <div 
+          className="fixed top-0 left-0 right-0 bg-black/20 dark:bg-black/40 pointer-events-none transition-opacity duration-300"
+          style={{
+            height: 'var(--header-height-mobile, 72px)',
+            zIndex: 9998,
+          }}
+        />
+      )}
       <header 
         className={`fixed top-0 left-0 right-0 z-50 border-b w-full transition-all duration-300`}
         style={{
           backgroundColor: 'var(--background)',
           height: 'var(--header-height-mobile, 72px)',
-          transition: 'filter 300ms ease-in-out, background-color 300ms ease-in-out',
-          ...(shouldBlur ? {
-            filter: 'blur(4px)',
-            WebkitFilter: 'blur(4px)',
-          } : {
-            filter: 'none',
-            WebkitFilter: 'none',
-          })
         }}
       >
-        {/* Dark overlay when modal is open - matches backdrop darkening */}
-        {shouldBlur && (
-          <div 
-            className="absolute inset-0 bg-black/20 dark:bg-black/40 pointer-events-none transition-opacity duration-300"
-            style={{
-              zIndex: 0,
-            }}
-          />
-        )}
         <div className="h-full w-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2 relative z-10">
           {/* Mobile Menu Button */}
           <button
