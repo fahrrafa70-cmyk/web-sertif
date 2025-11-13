@@ -1,0 +1,60 @@
+{
+  "timestamp": "2025-11-12T07:20:49.970Z",
+  "totalIcons": 8,
+  "existingIcons": 0,
+  "missingIcons": [
+    "72x72",
+    "96x96",
+    "128x128",
+    "144x144",
+    "152x152",
+    "192x192",
+    "384x384",
+    "512x512"
+  ],
+  "requiredSizes": [
+    {
+      "size": "72x72",
+      "purpose": "any"
+    },
+    {
+      "size": "96x96",
+      "purpose": "any"
+    },
+    {
+      "size": "128x128",
+      "purpose": "any"
+    },
+    {
+      "size": "144x144",
+      "purpose": "any"
+    },
+    {
+      "size": "152x152",
+      "purpose": "any"
+    },
+    {
+      "size": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "size": "384x384",
+      "purpose": "any"
+    },
+    {
+      "size": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "minimumRequired": [
+    "192x192",
+    "512x512"
+  ],
+  "isReady": false,
+  "nextSteps": [
+    "Create missing icon files",
+    "Use online icon generator or image editor",
+    "Save icons to public/ folder with correct naming",
+    "Run npm run pwa:validate to check"
+  ]
+}

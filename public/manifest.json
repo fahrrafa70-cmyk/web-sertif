@@ -1,0 +1,16 @@
+{
+  "name": "E-Certificate Platform",
+  "short_name": "E-Certificate",
+  "description": "Digital certificate management and verification platform",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/next.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

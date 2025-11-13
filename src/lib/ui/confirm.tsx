@@ -88,7 +88,7 @@ export function confirmToast(message: string, options: ConfirmOptions = {}): Pro
     ), {
       duration: Infinity,
       id: toastId,
-      position: "center",
+      position: "top-center" as any,
       className: "!fixed !inset-0 !m-0 !p-0 !w-full !h-full !max-w-full",
       style: {
         position: 'fixed',

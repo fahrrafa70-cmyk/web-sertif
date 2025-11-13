@@ -898,8 +898,8 @@ function CertificatesContent() {
         textAlign: layer.textAlign,
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
-        richText: layer.richText, // CRITICAL: Pass richText for inline formatting
-        hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
+        // richText: layer.richText, // CRITICAL: Pass richText for inline formatting
+        // hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
       };
     });
     
@@ -1625,7 +1625,7 @@ function CertificatesContent() {
     }
   }
 
-  async function openPreview(certificate: Certificate) {
+  const openPreview = useCallback(async (certificate: Certificate) => {
     setPreviewCertificate(certificate);
     setPreviewMode('certificate');
 
@@ -1649,7 +1649,7 @@ function CertificatesContent() {
     } else {
       setPreviewTemplate(null);
     }
-  }
+  }, []);
 
   async function _openMemberDetail(memberId: string | null) {
     if (!memberId) {
@@ -2304,7 +2304,7 @@ function CertificatesContent() {
             </DialogTitle>
           </DialogHeader>
           <div 
-            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 overflow-y-auto scrollbar-smooth pb-4" 
+            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 overflow-y-auto scrollbar-smooth" 
             style={{ 
               scrollbarGutter: 'stable',
             }}
@@ -2469,7 +2469,7 @@ function CertificatesContent() {
                             const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
                             return (
-                              <div className="relative w-full aspect-auto">
+                              <div className="relative w-full aspect-auto min-h-[250px] flex items-center justify-center">
                                 <Image
                                   src={src}
                                   alt={previewMode === 'score' ? "Score" : "Certificate"}
@@ -2516,7 +2516,7 @@ function CertificatesContent() {
                             );
                           })()
                         ) : (
-                          <div className="relative w-full">
+                          <div className="relative w-full min-h-[250px] flex items-center justify-center">
                             {/* FIX: Template Image with consistent aspect ratio - same as /search */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
                               <Image
@@ -2535,7 +2535,7 @@ function CertificatesContent() {
                                 className="w-full h-auto max-h-[380px] object-contain rounded-lg"
                               />
                             ) : (
-                              <div className="relative w-full aspect-[4/3]">
+                              <div className="relative w-full aspect-[4/3] min-h-[250px]">
                                 {/* Decorative Corners */}
                                 <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
                                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
