@@ -34,6 +34,7 @@ export function confirmToast(message: string, options: ConfirmOptions = {}): Pro
           padding: '1rem',
           margin: 0,
           transform: 'none',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
         }}
       >
         <div 
@@ -88,8 +89,7 @@ export function confirmToast(message: string, options: ConfirmOptions = {}): Pro
     ), {
       duration: Infinity,
       id: toastId,
-      position: "top-center" as any,
-      className: "!fixed !inset-0 !m-0 !p-0 !w-full !h-full !max-w-full",
+      className: "!fixed !inset-0 !m-0 !p-0 !w-full !h-full !max-w-full !flex !items-center !justify-center",
       style: {
         position: 'fixed',
         top: 0,
@@ -102,6 +102,7 @@ export function confirmToast(message: string, options: ConfirmOptions = {}): Pro
         height: '100%',
         maxWidth: '100%',
         transform: 'none',
+        zIndex: 9999,
       },
     });
   });
