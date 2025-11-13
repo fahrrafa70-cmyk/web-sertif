@@ -10,8 +10,10 @@ export interface Certificate {
   category: string | null;
   template_id: string | null;
   member_id: string | null;
-  certificate_image_url: string | null;
-  score_image_url: string | null; // NEW: For dual templates
+  certificate_image_url: string | null; // PNG master (high quality)
+  certificate_thumbnail_url?: string | null; // WebP preview (web optimized)
+  score_image_url: string | null; // PNG score master (dual templates)
+  score_thumbnail_url?: string | null; // WebP score preview (dual templates)
   text_layers: TextLayer[];
   created_at: string;
   updated_at: string;
@@ -92,8 +94,10 @@ export interface CreateCertificateData {
   category?: string;
   template_id?: string;
   member_id?: string;
-  certificate_image_url?: string;
-  score_image_url?: string; // NEW: For dual templates
+  certificate_image_url?: string; // PNG master (high quality)
+  certificate_thumbnail_url?: string; // WebP preview (web optimized)
+  score_image_url?: string; // PNG score master (dual templates)
+  score_thumbnail_url?: string; // WebP score preview (dual templates)
   text_layers?: TextLayer[];
   merged_image?: string; // FIX: Add support for merged image
 }
@@ -107,8 +111,10 @@ export interface UpdateCertificateData {
   category?: string;
   template_id?: string;
   member_id?: string;
-  certificate_image_url?: string;
-  score_image_url?: string; // NEW: For dual templates
+  certificate_image_url?: string; // PNG master (high quality)
+  certificate_thumbnail_url?: string; // WebP preview (web optimized)
+  score_image_url?: string; // PNG score master (dual templates)
+  score_thumbnail_url?: string; // WebP score preview (dual templates)
   text_layers?: TextLayer[];
 }
 
@@ -400,8 +406,10 @@ export async function createCertificate(
         certificateData.certificate_image_url ||
         certificateData.merged_image ||
         null,
+      certificate_thumbnail_url: certificateData.certificate_thumbnail_url || null,
       // NEW: Handle score image URL for dual templates
       score_image_url: certificateData.score_image_url || null,
+      score_thumbnail_url: certificateData.score_thumbnail_url || null,
       text_layers: certificateData.text_layers || [],
       public_id: publicId,
       is_public: true, // Default to public
@@ -487,7 +495,9 @@ export async function updateCertificate(
     template_id: certificateData.template_id,
     member_id: certificateData.member_id,
     certificate_image_url: certificateData.certificate_image_url,
+    certificate_thumbnail_url: certificateData.certificate_thumbnail_url,
     score_image_url: certificateData.score_image_url, // NEW: For dual templates
+    score_thumbnail_url: certificateData.score_thumbnail_url,
     text_layers: certificateData.text_layers,
   };
 

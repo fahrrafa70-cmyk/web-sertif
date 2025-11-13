@@ -8,7 +8,7 @@ function Card({ className, ...props }: HTMLMotionProps<"div">) {
     <motion.div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm hover-lift",
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-modern hover-modern",
         className
       )}
       initial={{ opacity: 0, y: 20 }}

@@ -57,6 +57,7 @@ import { QuickGenerateModal, QuickGenerateParams } from "@/components/certificat
 import { getTemplates } from "@/lib/supabase/templates";
 import { getMembers } from "@/lib/supabase/members";
 import { renderCertificateToDataURL, RenderTextLayer } from "@/lib/render/certificate-render";
+import { generateThumbnail, estimateDataUrlSize, calculateSizeReduction } from "@/lib/utils/thumbnail";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
@@ -690,7 +691,7 @@ function CertificatesContent() {
         // Bulk certificate generation from Excel
         const total = params.excelData.length;
         let generated = 0;
-        let currentToast = loadingToast;
+        const currentToast = loadingToast;
         
         for (const row of params.excelData) {
           try {
@@ -726,13 +727,46 @@ function CertificatesContent() {
               updated_at: new Date().toISOString()
             };
             
+            // DUAL TEMPLATE: Extract score data from Excel row for score certificate
+            let excelScoreData: Record<string, string> | undefined;
+            if (params.template.score_image_url && layoutConfig?.score) {
+              excelScoreData = {};
+              
+              // Extract score fields from Excel row based on score text layers
+              const scoreTextLayers = layoutConfig.score.textLayers || [];
+              for (const layer of scoreTextLayers) {
+                // Skip layers with useDefaultText (like score_date) and default certificate layers
+                if (layer.useDefaultText || 
+                    layer.id === 'name' || 
+                    layer.id === 'certificate_no' || 
+                    layer.id === 'issue_date' || 
+                    layer.id === 'score_date') {
+                  continue;
+                }
+                
+                // Extract score value from Excel row
+                if (row[layer.id] !== undefined && row[layer.id] !== null && row[layer.id] !== '') {
+                  excelScoreData[layer.id] = String(row[layer.id]);
+                }
+              }
+              
+              console.log('📊 Extracted score data from Excel row:', {
+                rowIndex: generated + 1,
+                memberName: name,
+                scoreData: excelScoreData,
+                scoreFields: Object.keys(excelScoreData)
+              });
+            }
+            
             // generateSingleCertificate will auto-generate certificate_no and expired_date if empty
             await generateSingleCertificate(
               params.template,
               tempMember,
               { certificate_no: certNo, description, issue_date: issueDate, expired_date: expiredDate },
               defaults,
-              params.dateFormat
+              params.dateFormat,
+              excelScoreData, // Pass extracted score data for dual template
+              layoutConfig // Pass layout config for score generation
             );
             
             generated++;
@@ -864,8 +898,8 @@ function CertificatesContent() {
         textAlign: layer.textAlign,
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
-        richText: layer.richText, // CRITICAL: Pass richText for inline formatting
-        hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
+        // richText: layer.richText, // CRITICAL: Pass richText for inline formatting
+        // hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
       };
     });
     
@@ -916,34 +950,73 @@ function CertificatesContent() {
       // width & height omitted → auto-detect from template
     });
     
-    // CRITICAL FIX: Upload to Supabase Storage BEFORE saving to database
-    console.log('📤 Uploading certificate WebP to Supabase Storage...');
-    // CRITICAL: Add timestamp to filename to prevent Supabase CDN cache collision
-    // Without timestamp, regenerating same cert_no will be served from CDN cache (old version)
+    // DUAL-FORMAT UPLOAD: PNG master + WebP preview
+    console.log('🖼️ Generating thumbnail (WebP preview from PNG master)...');
     const timestamp = Date.now();
-    const fileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}.webp`;
-    const uploadResponse = await fetch('/api/upload-to-storage', {
+    
+    // Generate WebP thumbnail for web preview (faster loading)
+    const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
+      format: 'webp',
+      quality: 0.85,
+      maxWidth: 1200 // Optimize for web preview
+    });
+    
+    // Calculate size reduction
+    const originalSize = estimateDataUrlSize(certificateImageDataUrl);
+    const thumbnailSize = estimateDataUrlSize(certificateThumbnail);
+    const reduction = calculateSizeReduction(originalSize, thumbnailSize);
+    console.log(`✅ Thumbnail generated: ${Math.round(originalSize/1024)}KB → ${Math.round(thumbnailSize/1024)}KB (${reduction} reduction)`);
+    
+    // Upload PNG master file (high quality for download/PDF/email)
+    console.log('📤 Uploading PNG master to Supabase Storage...');
+    const pngFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}.png`;
+    const pngUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         imageData: certificateImageDataUrl,
-        fileName: fileName,
+        fileName: pngFileName,
         bucketName: 'certificates',
       }),
     });
     
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      throw new Error(`Failed to upload certificate to storage: ${errorText}`);
+    if (!pngUploadResponse.ok) {
+      const errorText = await pngUploadResponse.text();
+      throw new Error(`Failed to upload PNG master to storage: ${errorText}`);
     }
     
-    const uploadResult = await uploadResponse.json();
-    if (!uploadResult.success) {
-      throw new Error(`Upload failed: ${uploadResult.error}`);
+    const pngUploadResult = await pngUploadResponse.json();
+    if (!pngUploadResult.success) {
+      throw new Error(`PNG upload failed: ${pngUploadResult.error}`);
     }
     
-    const finalCertificateImageUrl = uploadResult.url;
-    console.log('✅ Certificate PNG uploaded to Supabase Storage:', finalCertificateImageUrl);
+    // Upload WebP preview to preview/ subfolder (optimized for web)
+    console.log('📤 Uploading WebP preview to Supabase Storage...');
+    const webpFileName = `preview/${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}.webp`;
+    const webpUploadResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData: certificateThumbnail,
+        fileName: webpFileName,
+        bucketName: 'certificates',
+      }),
+    });
+    
+    if (!webpUploadResponse.ok) {
+      const errorText = await webpUploadResponse.text();
+      throw new Error(`Failed to upload WebP preview to storage: ${errorText}`);
+    }
+    
+    const webpUploadResult = await webpUploadResponse.json();
+    if (!webpUploadResult.success) {
+      throw new Error(`WebP upload failed: ${webpUploadResult.error}`);
+    }
+    
+    const finalCertificateImageUrl = pngUploadResult.url; // PNG master
+    const finalCertificateThumbnailUrl = webpUploadResult.url; // WebP preview
+    console.log('✅ PNG master uploaded:', finalCertificateImageUrl);
+    console.log('✅ WebP preview uploaded:', finalCertificateThumbnailUrl);
     
     // Prepare certificate text layers for database (includes text data)
     // Remove textAlign for certificate_no and issue_date (they always use left alignment)
@@ -980,8 +1053,9 @@ function CertificatesContent() {
       template_id: template.id,
       member_id: member.id.startsWith('temp-') ? undefined : member.id, // Don't save temp IDs from Excel
       text_layers: certificateTextLayers,
-      merged_image: finalCertificateImageUrl, // Supabase Storage URL
-      certificate_image_url: finalCertificateImageUrl, // Supabase Storage URL
+      merged_image: finalCertificateImageUrl, // PNG master for backward compatibility
+      certificate_image_url: finalCertificateImageUrl, // PNG master (high quality for download/PDF/email)
+      certificate_thumbnail_url: finalCertificateThumbnailUrl, // WebP preview (fast web loading)
     };
     
     // Save certificate to database
@@ -1046,12 +1120,15 @@ function CertificatesContent() {
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
             
-            // Check if layer uses default text
-            if (layer.useDefaultText && layer.defaultText) {
-              text = layer.defaultText;
-            } else if (scoreData[layer.id]) {
-              // Use score data from user input
+            // PRIORITY FIX: Check Excel data FIRST, then default text
+            if (scoreData && scoreData[layer.id]) {
+              // Use score data from Excel/user input (HIGHEST PRIORITY)
               text = scoreData[layer.id];
+              console.log('✅ Using Excel score data:', { layerId: layer.id, value: text });
+            } else if (layer.useDefaultText && layer.defaultText) {
+              // Fallback to default text
+              text = layer.defaultText;
+              console.log('📝 Using default text:', { layerId: layer.id, value: text });
             } else {
               // Map common fields (name, date, etc.)
               if (layer.id === 'name') {
@@ -1113,47 +1190,88 @@ function CertificatesContent() {
             // width & height omitted → auto-detect from template
           });
           
-          // CRITICAL FIX: Upload score WebP to Supabase Storage
-          console.log('📤 Uploading score WebP to Supabase Storage...');
-          // CRITICAL: Use same timestamp as certificate to keep them paired
-          const scoreFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}_score.webp`;
-          console.log('📁 Score file name:', scoreFileName);
-          console.log('🔗 For member:', member.name, 'Certificate ID:', savedCertificate.id);
+          // DUAL-FORMAT SCORE UPLOAD: PNG master + WebP preview
+          console.log('🖼️ Generating score thumbnail (WebP preview from PNG master)...');
           
-          const scoreUploadResponse = await fetch('/api/upload-to-storage', {
+          // Generate WebP score thumbnail for web preview
+          const scoreThumbnail = await generateThumbnail(scoreImageDataUrl, {
+            format: 'webp',
+            quality: 0.85,
+            maxWidth: 1200 // Optimize for web preview
+          });
+          
+          // Calculate score size reduction
+          const scoreOriginalSize = estimateDataUrlSize(scoreImageDataUrl);
+          const scoreThumbnailSize = estimateDataUrlSize(scoreThumbnail);
+          const scoreReduction = calculateSizeReduction(scoreOriginalSize, scoreThumbnailSize);
+          console.log(`✅ Score thumbnail generated: ${Math.round(scoreOriginalSize/1024)}KB → ${Math.round(scoreThumbnailSize/1024)}KB (${scoreReduction} reduction)`);
+          
+          // Upload PNG score master
+          console.log('📤 Uploading PNG score master to Supabase Storage...');
+          const scorePngFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}_score.png`;
+          const scorePngUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               imageData: scoreImageDataUrl,
-              fileName: scoreFileName,
+              fileName: scorePngFileName,
               bucketName: 'certificates',
             }),
           });
           
-          if (!scoreUploadResponse.ok) {
-            const errorText = await scoreUploadResponse.text();
-            throw new Error(`Failed to upload score certificate to storage: ${errorText}`);
+          if (!scorePngUploadResponse.ok) {
+            const errorText = await scorePngUploadResponse.text();
+            throw new Error(`Failed to upload PNG score master to storage: ${errorText}`);
           }
           
-          const scoreUploadResult = await scoreUploadResponse.json();
-          if (!scoreUploadResult.success) {
-            throw new Error(`Score upload failed: ${scoreUploadResult.error}`);
+          const scorePngUploadResult = await scorePngUploadResponse.json();
+          if (!scorePngUploadResult.success) {
+            throw new Error(`PNG score upload failed: ${scorePngUploadResult.error}`);
           }
           
-          const finalScoreImageUrl = scoreUploadResult.url;
-          console.log('✅ Score WebP uploaded to Supabase Storage:', finalScoreImageUrl);
+          // Upload WebP score preview to preview/ subfolder
+          console.log('📤 Uploading WebP score preview to Supabase Storage...');
+          const scoreWebpFileName = `preview/${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}_score.webp`;
+          const scoreWebpUploadResponse = await fetch('/api/upload-to-storage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageData: scoreThumbnail,
+              fileName: scoreWebpFileName,
+              bucketName: 'certificates',
+            }),
+          });
           
-          // Update certificate with score_image_url (Supabase Storage URL)
-          console.log('💾 Updating certificate with score URL:', {
+          if (!scoreWebpUploadResponse.ok) {
+            const errorText = await scoreWebpUploadResponse.text();
+            throw new Error(`Failed to upload WebP score preview to storage: ${errorText}`);
+          }
+          
+          const scoreWebpUploadResult = await scoreWebpUploadResponse.json();
+          if (!scoreWebpUploadResult.success) {
+            throw new Error(`WebP score upload failed: ${scoreWebpUploadResult.error}`);
+          }
+          
+          const finalScoreImageUrl = scorePngUploadResult.url; // PNG master
+          const finalScoreThumbnailUrl = scoreWebpUploadResult.url; // WebP preview
+          console.log('✅ PNG score master uploaded:', finalScoreImageUrl);
+          console.log('✅ WebP score preview uploaded:', finalScoreThumbnailUrl);
+          
+          // Update certificate with score URLs (both PNG master and WebP preview)
+          console.log('💾 Updating certificate with score URLs:', {
             certificateID: savedCertificate.id,
             certificateNo: savedCertificate.certificate_no,
             memberName: member.name,
-            scoreImageUrl: finalScoreImageUrl
+            scoreImageUrl: finalScoreImageUrl,
+            scoreThumbnailUrl: finalScoreThumbnailUrl
           });
           
           const { error: updateError } = await supabaseClient
             .from('certificates')
-            .update({ score_image_url: finalScoreImageUrl })
+            .update({ 
+              score_image_url: finalScoreImageUrl, // PNG master
+              score_thumbnail_url: finalScoreThumbnailUrl // WebP preview
+            })
             .eq('id', savedCertificate.id);
           
           if (updateError) {
@@ -1507,7 +1625,7 @@ function CertificatesContent() {
     }
   }
 
-  async function openPreview(certificate: Certificate) {
+  const openPreview = useCallback(async (certificate: Certificate) => {
     setPreviewCertificate(certificate);
     setPreviewMode('certificate');
 
@@ -1531,7 +1649,7 @@ function CertificatesContent() {
     } else {
       setPreviewTemplate(null);
     }
-  }
+  }, []);
 
   async function _openMemberDetail(memberId: string | null) {
     if (!memberId) {
@@ -2186,7 +2304,7 @@ function CertificatesContent() {
             </DialogTitle>
           </DialogHeader>
           <div 
-            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 overflow-y-auto scrollbar-smooth pb-4" 
+            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 overflow-y-auto scrollbar-smooth" 
             style={{ 
               scrollbarGutter: 'stable',
             }}
@@ -2329,7 +2447,10 @@ function CertificatesContent() {
                           return hasGeneratedImage;
                         })() ? (
                           (() => {
-                            let srcRaw = previewMode === 'score' ? (previewCertificate?.score_image_url || '') : (previewCertificate.certificate_image_url || "");
+                            // DUAL-FORMAT: Use WebP thumbnail for web preview, PNG master for download/PDF/email
+                            let srcRaw = previewMode === 'score' 
+                              ? (previewCertificate?.score_thumbnail_url || previewCertificate?.score_image_url || '') // Score: WebP preview fallback to PNG master
+                              : (previewCertificate.certificate_thumbnail_url || previewCertificate.certificate_image_url || ""); // Certificate: WebP preview fallback to PNG master
                             // Normalize local relative path like "generate/file.png" => "/generate/file.png"
                             if (srcRaw && !/^https?:\/\//i.test(srcRaw) && !srcRaw.startsWith('/') && !srcRaw.startsWith('data:')) {
                               srcRaw = `/${srcRaw}`;
@@ -2348,7 +2469,7 @@ function CertificatesContent() {
                             const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
                             return (
-                              <div className="relative w-full aspect-auto">
+                              <div className="relative w-full aspect-auto min-h-[250px] flex items-center justify-center">
                                 <Image
                                   src={src}
                                   alt={previewMode === 'score' ? "Score" : "Certificate"}
@@ -2395,7 +2516,7 @@ function CertificatesContent() {
                             );
                           })()
                         ) : (
-                          <div className="relative w-full">
+                          <div className="relative w-full min-h-[250px] flex items-center justify-center">
                             {/* FIX: Template Image with consistent aspect ratio - same as /search */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
                               <Image
@@ -2414,7 +2535,7 @@ function CertificatesContent() {
                                 className="w-full h-auto max-h-[380px] object-contain rounded-lg"
                               />
                             ) : (
-                              <div className="relative w-full aspect-[4/3]">
+                              <div className="relative w-full aspect-[4/3] min-h-[250px]">
                                 {/* Decorative Corners */}
                                 <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
                                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>

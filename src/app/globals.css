@@ -1,7 +1,50 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@custom-variant dark (&:is(.dark *));
+@layer components {
+  .gradient-primary {
+    @apply bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent;
+  }
+  
+  /* Card hover effects - Smooth and consistent */
+  .card-hover {
+    @apply hover:shadow-md hover:-translate-y-1 transition-all duration-300 ease-in-out transform will-change-transform;
+  }
+}
+
+@layer base {
+  /* Fix placeholder text styling */
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-gray-400 dark:text-gray-500 font-normal opacity-60;
+  }
+  
+  /* Fix muted text colors */
+  .text-muted-foreground {
+    @apply text-gray-500 dark:text-gray-400;
+  }
+  
+  /* Smooth animation optimization */
+  .group {
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+  
+  /* Hardware acceleration for smooth hover */
+  .group:hover {
+    transform: translateZ(0);
+  }
+  
+  /* Ensure proper dropdown backgrounds */
+  [data-radix-popper-content-wrapper] {
+    z-index: 50;
+  }
+}
 
 /* Prevent FOUC (Flash of Unstyled Content) on mobile */
 /* Ensure responsive styles are applied immediately */
@@ -270,7 +313,9 @@
 
   /* Enhanced focus styles */
   *:focus-visible {
-    @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
   }
 
   /* Hide scrollbar when content doesn't exceed viewport height */
@@ -280,12 +325,45 @@
     scrollbar-width: none !important; /* Firefox */
     -ms-overflow-style: none !important; /* IE and Edge */
   }
-  
-  body.hide-scrollbar::-webkit-scrollbar {
-    display: none !important; /* Chrome, Safari, Opera */
-    width: 0 !important;
-    height: 0 !important;
-    background: transparent !important;
+
+  /* Force dropdown menu background - override any transparent backgrounds */
+  [data-slot="dropdown-menu-content"] {
+    background-color: white !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .dark [data-slot="dropdown-menu-content"] {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+
+  /* Force dropdown menu item hover states */
+  [data-slot="dropdown-menu-item"]:hover {
+    background-color: #f3f4f6 !important;
+  }
+
+  .dark [data-slot="dropdown-menu-item"]:hover {
+    background-color: #374151 !important;
+  }
+
+  /* Additional specific selectors for dropdown menu */
+  [data-radix-popper-content-wrapper] [data-slot="dropdown-menu-content"],
+  [role="menu"] {
+    background-color: white !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 6px !important;
+    padding: 4px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    z-index: 50 !important;
+  }
+
+  .dark [data-radix-popper-content-wrapper] [data-slot="dropdown-menu-content"],
+  .dark [role="menu"] {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
   }
   
   body.hide-scrollbar::-webkit-scrollbar-track {
@@ -1280,6 +1358,83 @@
     animation: stagger 0.1s ease-out;
   }
 
+  /* Enhanced Shadow Effects for Light Mode - Modern UI Style */
+  .shadow-subtle {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-soft {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-elevated {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-floating {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-deep {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Modern UI Shadow - mirip dengan gambar yang diberikan */
+  .shadow-modern {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-modern-elevated {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Button shadow seperti di gambar */
+  .shadow-button {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  .shadow-button:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Enhanced Table Shadows for Light Mode - Modern Style */
+  .table-shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .table-shadow-elevated {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  /* Table shadow modern seperti di gambar */
+  .table-shadow-modern {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  /* Enhanced Card Shadows for Light Mode - Modern UI Style */
+  .card-shadow-light {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  .card-shadow-medium {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .card-shadow-elevated {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Card shadow seperti di gambar - sangat soft dan natural */
+  .card-shadow-modern {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
   /* Hover effects */
   .hover-lift {
     transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
@@ -1288,6 +1443,64 @@
   .hover-lift:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Enhanced Hover Lift with Modern Shadows */
+  .hover-lift-enhanced {
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  .hover-lift-enhanced:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Modern hover effect seperti di gambar */
+  .hover-modern {
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  .hover-modern:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Table Row Hover Effects */
+  .table-row-hover {
+    transition: background-color 0.15s ease-out, box-shadow 0.15s ease-out;
+  }
+
+  .table-row-hover:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Dark mode - disable shadows to maintain clean look */
+  .dark .shadow-subtle,
+  .dark .shadow-soft,
+  .dark .shadow-elevated,
+  .dark .shadow-floating,
+  .dark .shadow-deep,
+  .dark .shadow-modern,
+  .dark .shadow-modern-elevated,
+  .dark .shadow-button,
+  .dark .table-shadow,
+  .dark .table-shadow-elevated,
+  .dark .table-shadow-modern,
+  .dark .card-shadow-light,
+  .dark .card-shadow-medium,
+  .dark .card-shadow-elevated,
+  .dark .card-shadow-modern,
+  .dark .hover-lift-enhanced,
+  .dark .hover-modern {
+    box-shadow: none;
+  }
+
+  .dark .table-row-hover:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    box-shadow: none;
   }
 
   .hover-glow {

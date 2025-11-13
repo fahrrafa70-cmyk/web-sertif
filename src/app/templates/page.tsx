@@ -3,7 +3,7 @@
 import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -11,14 +11,140 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Search, Edit, Trash2, Layout, X, Settings, Filter } from "lucide-react";
+import { FileText, Plus, Search, Edit, Trash2, Layout, X, Settings, Filter, RefreshCw } from "lucide-react";
 import { useTemplates } from "@/hooks/use-templates";
-import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl } from "@/lib/supabase/templates";
+import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl, getTemplateImageUrl } from "@/lib/supabase/templates";
 import { getCertificatesByTemplate } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
 import { LoadingButton } from "@/components/ui/loading-button";
 import Image from "next/image";
+
+// Helper function for category colors
+const getCategoryColor = (category: string) => {
+  const colors = {
+    Training: "from-blue-500 to-blue-600",
+    Internship: "from-green-500 to-green-600", 
+    MoU: "from-purple-500 to-purple-600",
+    Visit: "from-orange-500 to-orange-600"
+  };
+  return colors[category as keyof typeof colors] || "from-gray-500 to-gray-600";
+};
+
+// Memoized Template Card Component to prevent unnecessary re-renders
+interface TemplateCardProps {
+  template: Template;
+  onEdit: (template: Template) => void;
+  onPreview: (template: Template) => void;
+  onConfigure: (templateId: string) => void;
+  getTemplateUrl: (template: Template) => string | null;
+}
+
+const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTemplateUrl }: TemplateCardProps) => {
+  const imageUrl = getTemplateUrl(template);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 ease-in-out cursor-pointer flex flex-row h-[200px] w-full transform will-change-transform"
+      onClick={() => onPreview(template)}
+    >
+      {/* Template Thumbnail - Left Side */}
+      <div className="relative w-[160px] h-full flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={template.name}
+            width={300}
+            height={200}
+            className="w-full h-full object-contain"
+            sizes="160px"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <Layout className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <div className="text-xs text-gray-500">No Image</div>
+            </div>
+          </div>
+        )}
+        
+        {/* Status Badge - Top Left */}
+        <div className="absolute top-2 left-2 z-10">
+          {template.is_layout_configured ? (
+            <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white text-xs shadow-sm px-1.5 py-0.5">
+              ✓ Ready
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs shadow-sm px-1.5 py-0.5">
+              Draft
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Template Info - Right Side */}
+      <div className="flex-1 flex flex-col justify-between min-w-0 p-4 w-full overflow-hidden">
+        {/* Top Section - Title and Metadata */}
+        <div className="min-w-0 flex-1 w-full flex flex-col">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2 w-full text-left truncate">
+            {template.name}
+          </h3>
+          {/* Category Badge */}
+          <div className="mb-2 w-full text-left">
+            <span className={`inline-block px-2 py-1 rounded text-xs font-medium bg-gradient-to-r ${getCategoryColor(template.category)} text-white shadow-sm`}>
+              {template.category}
+            </span>
+          </div>
+          {/* Metadata - Compact */}
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 w-full text-left">
+            <div className="flex items-center gap-1">
+              <Layout className="w-3 h-3 flex-shrink-0" />
+              <span className="font-medium text-xs">{template.orientation}</span>
+            </div>
+            {template.created_at && (
+              <span className="text-gray-400 dark:text-gray-500">•</span>
+            )}
+            {template.created_at && (
+              <span className="text-xs">
+                {new Date(template.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* Bottom Section - Action Buttons */}
+        <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700 w-full">
+          <Button 
+            size="sm"
+            className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm hover:shadow-md transition-all duration-300 flex-1 min-w-0" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfigure(template.id);
+            }}
+          >
+            <Settings className="w-3 h-3 mr-1" />
+            <span className="truncate">Configure</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-shrink-0" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(template);
+            }}
+          >
+            <Edit className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+TemplateCard.displayName = 'TemplateCard';
 
 export default function TemplatesPage() {
   const { t } = useLanguage();
@@ -28,10 +154,37 @@ export default function TemplatesPage() {
   const debouncedQuery = useDebounce(query, 300);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
 
   // Use templates hook for Supabase integration
   const { templates, loading, error, create, update, delete: deleteTemplate, refresh } = useTemplates();
+  
+  // Simplified without heavy caching
+
+  // Filter templates based on search query and category
+  const filtered = useMemo(() => {
+    let list = templates;
+    if (debouncedQuery) {
+      const q = debouncedQuery.toLowerCase();
+      list = list.filter((i) => i.name.toLowerCase().includes(q));
+    }
+    if (categoryFilter) {
+      list = list.filter((i) => i.category === categoryFilter);
+    }
+    return list;
+  }, [templates, debouncedQuery, categoryFilter]);
+  
+  // ✅ PHASE 2: Smart preloader for next page templates - TEMPORARILY DISABLED
+  // const { preloadTemplate, preloadOnHover, preloadNextPage, getStats } = useSmartPreloader({
+  //   templates: filtered,
+  //   itemsPerPage: 12, // Assuming 12 templates per page
+  //   preloadDistance: 6, // Preload 6 templates ahead
+  //   maxConcurrentPreloads: 3 // Max 3 concurrent preloads
+  // });
+  
+  // Simplified without heavy preloading
 
   // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
@@ -45,43 +198,99 @@ export default function TemplatesPage() {
     } catch {}
   }, []);
 
-  const filtered = useMemo(() => {
-    let list = templates;
-    if (debouncedQuery) {
-      const q = debouncedQuery.toLowerCase();
-      list = list.filter((i) => i.name.toLowerCase().includes(q));
-    }
-    if (categoryFilter) {
-      list = list.filter((i) => i.category === categoryFilter);
-    }
-    return list;
-  }, [templates, debouncedQuery, categoryFilter]);
+  // Simplified without debug functions
 
-  // Check template usage when templates are loaded
+  // Simple function to get template URL
+  const getTemplateUrl = useCallback((template: Template): string | null => {
+    return getTemplatePreviewUrl(template);
+  }, []);
+
+  // Stable callback functions for template actions to prevent re-renders
+  const handleEditClick = useCallback((template: Template) => {
+    setIsEditOpen(template.id);
+    setDraft(template);
+    setImagePreview(template.image_path || null);
+    setPreviewImagePreview(template.preview_image_path || null);
+    setIsDualTemplate(template.is_dual_template || false);
+    if (template.is_dual_template) {
+      setCertificateImagePreview(template.certificate_image_url || null);
+      setScoreImagePreview(template.score_image_url || null);
+    }
+  }, []);
+
+  const handlePreviewClick = useCallback((template: Template) => {
+    setPreviewTemplate(template);
+  }, []);
+
+  const handleConfigureClick = useCallback((templateId: string) => {
+    router.push(`/templates/configure?template=${templateId}`);
+  }, [router]);
+
+  // Function to generate thumbnail in background
+  const generateThumbnailInBackground = async (template: Template) => {
+    if (generatingThumbnails.has(template.id)) return; // Already generating
+    
+    setGeneratingThumbnails(prev => new Set(prev).add(template.id));
+    
+    try {
+      console.log(`🔄 Generating thumbnail for ${template.name}...`);
+      
+      const response = await fetch('/api/generate-single-thumbnail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId: template.id }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log(`✅ Thumbnail generated for ${template.name}: ${result.thumbnailUrl}`);
+        // Refresh templates to get updated thumbnail path
+        refresh();
+      } else {
+        console.warn(`⚠️ Thumbnail generation failed for ${template.name}:`, result.error);
+      }
+    } catch (error) {
+      console.error(`❌ Error generating thumbnail for ${template.name}:`, error);
+    } finally {
+      setGeneratingThumbnails(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(template.id);
+        return newSet;
+      });
+    }
+  };
+
+  // Check template usage when templates are loaded - only when length changes
   useEffect(() => {
     if (templates.length === 0) return;
     
     const checkTemplateUsage = async () => {
+      setLoadingUsage(true);
       const usageMap = new Map<string, number>();
       
-      // Check usage for each template in parallel
-      const checks = templates.map(async (template) => {
-        try {
-          const certificates = await getCertificatesByTemplate(template.id);
-          if (certificates && certificates.length > 0) {
-            usageMap.set(template.id, certificates.length);
+      try {
+        // Check usage for each template in parallel
+        const checks = templates.map(async (template) => {
+          try {
+            const certificates = await getCertificatesByTemplate(template.id);
+            if (certificates && certificates.length > 0) {
+              usageMap.set(template.id, certificates.length);
+            }
+          } catch (error) {
+            console.error(`Error checking usage for template ${template.id}:`, error);
           }
-        } catch (error) {
-          console.error(`Error checking usage for template ${template.id}:`, error);
-        }
-      });
-      
-      await Promise.all(checks);
-      setTemplateUsageMap(usageMap);
+        });
+        
+        await Promise.all(checks);
+        setTemplateUsageMap(usageMap);
+      } finally {
+        setLoadingUsage(false);
+      }
     };
     
     checkTemplateUsage();
-  }, [templates]);
+  }, [templates.length]); // Only depend on length to avoid rerunning on every template update
 
   // Sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -95,6 +304,7 @@ export default function TemplatesPage() {
   const [creatingTemplate, setCreatingTemplate] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(false);
   const [templateUsageMap, setTemplateUsageMap] = useState<Map<string, number>>(new Map()); // Map<templateId, certificateCount>
+  const [loadingUsage, setLoadingUsage] = useState(false); // Loading state for template usage check
   
   // Dual template mode state
   const [isDualTemplate, setIsDualTemplate] = useState(false);
@@ -107,6 +317,15 @@ export default function TemplatesPage() {
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   
   const canDelete = role === "Admin"; // Only Admin can delete
+
+  // Stable callback functions to prevent unnecessary rerenders
+  const handleImageError = useCallback((templateId: string) => {
+    setFailedImages(prev => new Set(prev).add(templateId));
+  }, []);
+
+  const handleImageLoad = useCallback((templateId: string) => {
+    setLoadedImages(prev => new Set(prev).add(templateId));
+  }, []);
 
   // Helper function to get image URL for template (now using the imported function)
   // This function is kept for backward compatibility but now uses the proper implementation
@@ -375,9 +594,10 @@ export default function TemplatesPage() {
     }
   }
 
-  function openPreview(template: Template) {
+  const openPreview = (template: Template) => {
+    console.log('🎯 Opening preview modal for:', template.name);
     setPreviewTemplate(template);
-  }
+  };
 
   function handleImageUpload(file: File | null) {
     if (file) {
@@ -626,142 +846,15 @@ export default function TemplatesPage() {
               animate={{ opacity: 1 }}
               transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
             >
-              {filtered.map((tpl, index) => (
-                <motion.div
-                  key={tpl.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  whileHover={{ scale: 1.01, y: -2 }}
-                  className="max-w-full"
-                >
-                  <div
-                    onClick={() => openPreview(tpl)}
-                    className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[200px] will-change-transform w-full"
-                  >
-                    {/* Template Thumbnail - Left Side */}
-                    <div className="relative w-[160px] h-full flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
-                      {getTemplatePreviewUrl(tpl) && !failedImages.has(tpl.id) ? (
-                        <>
-                          <Image 
-                            src={getTemplatePreviewUrl(tpl)!}
-                            alt={tpl.name}
-                            fill
-                            sizes="160px"
-                            className="object-contain group-hover:scale-105 transition-transform duration-200 ease-in-out will-change-transform dark:opacity-90 dark:brightness-95"
-                            loading={index < 3 ? "eager" : "lazy"}
-                            priority={index < 3}
-                            unoptimized
-                            onError={(e) => {
-                              console.error('Image failed to load:', getTemplatePreviewUrl(tpl));
-                              setFailedImages(prev => new Set(prev).add(tpl.id));
-                            }}
-                          />
-                        </>
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="text-center">
-                            <Layout className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <div className="text-xs font-medium text-gray-600 dark:text-gray-300">{tpl.orientation}</div>
-                          </div>
-                        </div>
-                      )}
-                      {/* Status Badge - Top Left */}
-                      <div className="absolute top-2 left-2 z-10">
-                        {/* CRITICAL: Only use is_layout_configured as fallback if status is truly undefined/null/empty */}
-                        {/* If status exists (even if empty string), use it directly */}
-                        {(tpl.status === "ready" || ((tpl.status === undefined || tpl.status === null || tpl.status === '') && tpl.is_layout_configured)) ? (
-                          <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white text-xs shadow-sm px-1.5 py-0.5">
-                            ✓ {t('templates.status.ready')}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs shadow-sm px-1.5 py-0.5">
-                            {t('templates.status.draft')}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Template Info - Right Side */}
-                    <div className="flex-1 flex flex-col justify-between min-w-0 p-4 w-full overflow-hidden">
-                      {/* Top Section - Title and Metadata */}
-                      <div className="min-w-0 flex-1 w-full flex flex-col">
-                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2 w-full text-left truncate">
-                          {tpl.name}
-                        </h3>
-                        {/* Category Badge - Moved from thumbnail */}
-                        <div className="mb-2 w-full text-left">
-                          <span className={`inline-block px-2 py-1 rounded text-xs font-medium bg-gradient-to-r ${getCategoryColor(tpl.category)} text-white shadow-sm`}>
-                            {tpl.category}
-                          </span>
-                        </div>
-                        {/* Metadata - Compact */}
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 w-full text-left">
-                          <div className="flex items-center gap-1">
-                            <Layout className="w-3 h-3 flex-shrink-0" />
-                            <span className="font-medium text-xs">{tpl.orientation}</span>
-                          </div>
-                          {tpl.created_at && (
-                            <span className="text-gray-400 dark:text-gray-500">•</span>
-                          )}
-                          {tpl.created_at && (
-                            <span className="text-xs">
-                              {new Date(tpl.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Bottom Section - Action Buttons */}
-                      {(role === "Admin" || role === "Team") && (
-                        <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700 w-full">
-                          <Button 
-                            size="sm"
-                            className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm hover:shadow-md transition-all duration-300 flex-1 min-w-0" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/templates/configure?template=${tpl.id}`);
-                            }}
-                          >
-                            <Settings className="w-3 h-3 mr-1" />
-                            <span className="truncate">{t('templates.configure')}</span>
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-shrink-0" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEdit(tpl);
-                            }}
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <LoadingButton 
-                            variant="outline" 
-                            size="sm"
-                            className={`h-7 w-7 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 ${canDelete && !templateUsageMap.has(tpl.id) ? 'hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' : 'opacity-50 cursor-not-allowed'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (canDelete && !templateUsageMap.has(tpl.id)) {
-                                requestDelete(tpl.id);
-                              } else if (templateUsageMap.has(tpl.id)) {
-                                const count = templateUsageMap.get(tpl.id) || 0;
-                                toast.error(t('templates.cannotDeleteInUse').replace('{name}', tpl.name).replace('{count}', count.toString()));
-                              }
-                            }}
-                            disabled={!canDelete || templateUsageMap.has(tpl.id)}
-                            isLoading={deletingTemplateId === tpl.id}
-                            loadingText=""
-                            title={templateUsageMap.has(tpl.id) ? t('templates.usedBy').replace('{count}', (templateUsageMap.get(tpl.id) || 0).toString()) : undefined}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </LoadingButton>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
+              {filtered.map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  onEdit={handleEditClick}
+                  onPreview={handlePreviewClick}
+                  onConfigure={handleConfigureClick}
+                  getTemplateUrl={getTemplateUrl}
+                />
               ))}
             </motion.div>
           )}
@@ -801,7 +894,7 @@ export default function TemplatesPage() {
 
       {/* Enhanced Create Template Sheet */}
       <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col bg-white dark:bg-gray-900">
           <SheetHeader className="flex-shrink-0">
             <SheetTitle className="text-xl font-bold text-gradient">{t('templates.createTitle')}</SheetTitle>
           </SheetHeader>
@@ -1100,7 +1193,7 @@ export default function TemplatesPage() {
 
           {/* Enhanced Edit Template Sheet */}
           <Sheet open={!!isEditOpen} onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}>
-            <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+            <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto bg-white dark:bg-gray-900">
               <SheetHeader>
                 <SheetTitle className="text-xl font-bold text-gradient">{t('templates.editTitle')}</SheetTitle>
                 <SheetDescription>{t('templates.editDescription')}</SheetDescription>
@@ -1258,10 +1351,10 @@ export default function TemplatesPage() {
                           </div>
                         ) : (
                           <>
-                            {draft && getTemplatePreviewUrl(draft as Template) ? (
+                            {draft && getTemplateImageUrl(draft as Template) ? (
                               <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                                 <Image
-                                  src={getTemplatePreviewUrl(draft as Template)!}
+                                  src={getTemplateImageUrl(draft as Template)!}
                                   alt="Current template"
                                   fill
                                   className="object-contain"
@@ -1582,32 +1675,17 @@ export default function TemplatesPage() {
                     <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
                       {getTemplatePreviewUrl(previewTemplate) ? (
                         <div className="relative w-full aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
-                          {/* Skeleton loader - shown while image loads */}
-                          <div className="absolute inset-0 bg-gray-200 dark:bg-gray-800 animate-pulse" />
                           <Image
                             src={getTemplatePreviewUrl(previewTemplate)!}
                             alt={previewTemplate.name}
                             fill
-                            className="object-contain rounded-lg border border-gray-200 dark:border-gray-700 transition-opacity duration-300"
-                            style={{
-                              backgroundColor: 'transparent',
-                            }}
-                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 800px"
-                            priority
+                            className="object-contain border border-gray-200 dark:border-gray-700"
                             unoptimized
-                            onLoadingComplete={(img) => {
-                              // Hide skeleton when image loads
-                              const skeleton = img.parentElement?.querySelector('.animate-pulse');
-                              if (skeleton) {
-                                (skeleton as HTMLElement).style.display = 'none';
-                              }
+                            onLoad={() => {
+                              console.log('🚀 Preview loaded for:', previewTemplate.name);
                             }}
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              const skeleton = e.currentTarget.parentElement?.querySelector('.animate-pulse');
-                              if (skeleton) {
-                                (skeleton as HTMLElement).style.display = 'none';
-                              }
+                            onError={() => {
+                              console.error('❌ Preview failed for:', previewTemplate.name);
                             }}
                           />
                         </div>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Templates</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .template { border: 1px solid #ccc; margin: 10px 0; padding: 15px; }
+        .error { color: red; }
+        .success { color: green; }
+        .warning { color: orange; }
+        .image-test { margin: 10px 0; }
+        img { max-width: 200px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>Template Thumbnail Debug</h1>
+    <button onclick="debugTemplates()">Debug Templates</button>
+    <div id="results"></div>
+
+    <script>
+        async function debugTemplates() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                // Fetch templates from the API
+                const response = await fetch('/api/templates');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const templates = await response.json();
+                
+                if (!templates || templates.length === 0) {
+                    resultsDiv.innerHTML = '<p class="warning">No templates found</p>';
+                    return;
+                }
+                
+                let html = `<h2>Found ${templates.length} templates:</h2>`;
+                
+                templates.forEach((template, index) => {
+                    const previewUrl = template.preview_image_path || 
+                                     template.image_path ||
+                                     template.certificate_image_url || 
+                                     null;
+                    
+                    html += `
+                        <div class="template">
+                            <h3>${index + 1}. ${template.name}</h3>
+                            <p><strong>ID:</strong> ${template.id}</p>
+                            <p><strong>Category:</strong> ${template.category}</p>
+                            <p><strong>Created:</strong> ${template.created_at}</p>
+                            <p><strong>Image Path:</strong> ${template.image_path || 'NULL'}</p>
+                            <p><strong>Preview Image Path:</strong> ${template.preview_image_path || 'NULL'}</p>
+                            <p><strong>Certificate Image URL:</strong> ${template.certificate_image_url || 'NULL'}</p>
+                            <p><strong>Score Image URL:</strong> ${template.score_image_url || 'NULL'}</p>
+                            <p><strong>Is Dual Template:</strong> ${template.is_dual_template || false}</p>
+                            <p><strong>Preview URL (used by app):</strong> 
+                                <span class="${previewUrl ? 'success' : 'error'}">
+                                    ${previewUrl || 'NULL'}
+                                </span>
+                            </p>
+                            ${previewUrl ? `
+                                <div class="image-test">
+                                    <p><strong>Image Test:</strong></p>
+                                    <img src="${previewUrl}" 
+                                         alt="Template preview" 
+                                         onload="this.nextElementSibling.innerHTML='✅ Image loaded successfully'"
+                                         onerror="this.nextElementSibling.innerHTML='❌ Image failed to load'"
+                                    />
+                                    <p>Loading...</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                console.error('Debug error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
