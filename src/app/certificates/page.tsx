@@ -1507,7 +1507,7 @@ function CertificatesContent() {
     }
   }
 
-  async function openPreview(certificate: Certificate) {
+  const openPreview = useCallback(async (certificate: Certificate) => {
     setPreviewCertificate(certificate);
     setPreviewMode('certificate');
 
@@ -1531,7 +1531,7 @@ function CertificatesContent() {
     } else {
       setPreviewTemplate(null);
     }
-  }
+  }, []);
 
   async function _openMemberDetail(memberId: string | null) {
     if (!memberId) {

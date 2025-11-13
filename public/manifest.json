@@ -3,83 +3,14 @@
   "short_name": "E-Certificate",
   "description": "Digital certificate management and verification platform",
   "start_url": "/",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
-  "orientation": "portrait-primary",
-  "scope": "/",
-  "lang": "en",
-  "categories": ["education", "productivity", "business"],
   "icons": [
     {
       "src": "/next.svg",
       "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "type": "image/svg+xml"
     }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshot-desktop.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Certificate management dashboard"
-    },
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Mobile certificate search"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Search Certificates",
-      "short_name": "Search",
-      "description": "Search and verify certificates",
-      "url": "/search"
-    },
-    {
-      "name": "My Certificates",
-      "short_name": "Certificates",
-      "description": "View my certificates",
-      "url": "/certificates"
-    },
-    {
-      "name": "Create Certificate",
-      "short_name": "Create",
-      "description": "Create new certificate",
-      "url": "/certificates/create"
-    }
-  ],
-  "share_target": {
-    "action": "/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url",
-      "files": [
-        {
-          "name": "certificate",
-          "accept": ["image/*", ".pdf"]
-        }
-      ]
-    }
-  },
-  "protocol_handlers": [
-    {
-      "protocol": "web+certificate",
-      "url": "/verify?cert=%s"
-    }
-  ],
-  "edge_side_panel": {
-    "preferred_width": 400
-  },
-  "launch_handler": {
-    "client_mode": "focus-existing"
-  }
+  ]
 }

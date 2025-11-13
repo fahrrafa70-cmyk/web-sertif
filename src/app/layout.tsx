@@ -11,7 +11,6 @@ import { LoginModal } from "@/components/ui/login-modal";
 import { ThemeScript } from "@/components/theme-script";
 import { ErrorBoundaryWrapper } from "@/components/error-boundary-wrapper";
 import { ScrollbarVisibility } from "@/components/scrollbar-visibility";
-import { PWAIntegration } from "@/components/pwa-layout-integration";
 import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 
 const inter = Inter({
@@ -34,12 +33,6 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "E-Certificate Management Platform",
   description: "Create, manage, and verify certificates for trainings, internships, MoUs, and industrial visits with our multilingual platform.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "E-Certificate",
-  },
   icons: {
     icon: "/next.svg",
     apple: "/next.svg",
@@ -175,7 +168,6 @@ export default function RootLayout({
             </ThemeProvider>
           {/* </ReactQueryProvider> */}
         </ErrorBoundaryWrapper>
-        <PWAIntegration />
       </body>
     </html>
   );

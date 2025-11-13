@@ -3,7 +3,7 @@
 import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -13,21 +13,86 @@ import { useLanguage } from "@/contexts/language-context";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Plus, Search, Edit, Trash2, Layout, X, Settings, Filter, RefreshCw } from "lucide-react";
 import { useTemplates } from "@/hooks/use-templates";
-import { Template, CreateTemplateData, UpdateTemplateData } from "@/lib/supabase/templates";
-import { debugTemplateImages, checkAllTemplatesOptimization } from "@/lib/debug/template-debug";
-import { useTemplateImageCache, persistentCache } from "@/lib/cache/template-cache";
-import { preloadCriticalTemplates, getOptimizedTemplateUrl, prefetchOnHover } from "@/lib/supabase/template-optimization";
+import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl, getTemplateImageUrl } from "@/lib/supabase/templates";
 import { getCertificatesByTemplate } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
 import { LoadingButton } from "@/components/ui/loading-button";
 import Image from "next/image";
-import TemplateCard from "@/components/template-card";
-import { FastPreviewImage } from "@/components/ui/fast-preview-image";
-import { UltraFastPreview } from "@/components/ui/ultra-fast-preview";
-import { professionalPreloader } from "@/lib/preload/professional-preloader";
-import { PERFORMANCE_CONFIG, isFeatureEnabled } from "@/lib/config/performance-config";
-// import { useSmartPreloader } from "@/hooks/use-smart-preloader"; // TEMPORARILY DISABLED
+
+// Memoized Template Card Component to prevent unnecessary re-renders
+interface TemplateCardProps {
+  template: Template;
+  onGenerate: (templateId: string) => void;
+  onConfigure: (templateId: string) => void;
+  getTemplateUrl: (template: Template) => string | null;
+}
+
+const TemplateCard = memo(({ template, onGenerate, onConfigure, getTemplateUrl }: TemplateCardProps) => {
+  const imageUrl = getTemplateUrl(template);
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+    >
+      {/* Template Image */}
+      <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={template.name}
+            width={400}
+            height={300}
+            className="w-full h-full object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <FileText className="h-12 w-12 text-gray-400" />
+          </div>
+        )}
+      </div>
+
+      {/* Template Info */}
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <h3 className="font-semibold text-gray-900 truncate flex-1">
+            {template.name}
+          </h3>
+          <Badge variant="secondary" className="ml-2 shrink-0">
+            {template.category}
+          </Badge>
+        </div>
+        
+        <p className="text-sm text-gray-600 mb-4">
+          {template.orientation} • {new Date(template.created_at).toLocaleDateString()}
+        </p>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={() => onGenerate(template.id)}
+            className="flex-1"
+          >
+            Generate
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onConfigure(template.id)}
+          >
+            <Layout className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+TemplateCard.displayName = 'TemplateCard';
 
 export default function TemplatesPage() {
   const { t } = useLanguage();
@@ -44,8 +109,7 @@ export default function TemplatesPage() {
   // Use templates hook for Supabase integration
   const { templates, loading, error, create, update, delete: deleteTemplate, refresh } = useTemplates();
   
-  // Use template image cache
-  const { isCached, getCachedUrl, cacheTemplate, preloadImages } = useTemplateImageCache();
+  // Simplified without heavy caching
 
   // Filter templates based on search query and category
   const filtered = useMemo(() => {
@@ -68,25 +132,7 @@ export default function TemplatesPage() {
   //   maxConcurrentPreloads: 3 // Max 3 concurrent preloads
   // });
   
-  // 🚨 SAFE MODE: Conditional preloading based on performance config
-  useEffect(() => {
-    if (templates.length > 0) {
-      if (isFeatureEnabled('DISABLE_PROFESSIONAL_PRELOADER')) {
-        console.log('⚠️ Professional preloader DISABLED - using safe mode');
-        // Only preload first 3 templates with basic method
-        const criticalTemplates = templates.slice(0, 3);
-        preloadCriticalTemplates(criticalTemplates);
-      } else {
-        console.log('🎯 PROFESSIONAL preload initiated for', templates.length, 'templates');
-        professionalPreloader.preloadAllTemplates(templates);
-      }
-    }
-  }, [templates]);
-
-  // 🚀 PROFESSIONAL: Instant hover preload
-  const preloadOnHover = useCallback((template: Template) => {
-    professionalPreloader.preloadOnHover(template);
-  }, []);
+  // Simplified without heavy preloading
 
   // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
@@ -100,54 +146,21 @@ export default function TemplatesPage() {
     } catch {}
   }, []);
 
-  // Debug template optimization status - only run once when templates first load
-  useEffect(() => {
-    if (templates && templates.length > 0 && !loading) {
-      console.log('🔍 Debugging template optimization status...');
-      const stats = checkAllTemplatesOptimization(templates);
-      
-      if (stats.needsOptimization > 0) {
-        console.warn(`⚠️ ${stats.needsOptimization} template(s) masih menggunakan gambar asli!`);
-        console.log('💡 Untuk mempercepat loading, jalankan: npm run thumbnails:regenerate');
-      }
-    }
-  }, [templates.length]); // Only depend on length to avoid rerunning on every template change
+  // Simplified without debug functions
 
-  // Preload template images for better performance - only when filtered list changes significantly
-  useEffect(() => {
-    if (filtered.length > 0) {
-      const urlsToPreload = filtered.slice(0, 6).map(tpl => getOptimizedTemplateUrl(tpl)).filter(Boolean) as string[];
-      if (urlsToPreload.length > 0) {
-        preloadImages(urlsToPreload);
-      }
-    }
-  }, [filtered.length, debouncedQuery, categoryFilter]); // Depend on specific filters instead of entire filtered array
+  // Simple function to get template URL
+  const getTemplateUrl = useCallback((template: Template): string | null => {
+    return getTemplatePreviewUrl(template);
+  }, []);
 
-  // Optimized function to get template URL with caching - memoized to prevent recreation
-  const getCachedTemplateUrl = useCallback((template: Template): string | null => {
-    // Check cache first
-    if (isCached(template.id)) {
-      const cachedUrl = getCachedUrl(template.id);
-      if (cachedUrl) return cachedUrl;
-    }
+  // Stable callback functions for template actions to prevent re-renders
+  const handleGenerateClick = useCallback((templateId: string) => {
+    router.push(`/generate?template=${templateId}`);
+  }, [router]);
 
-    // Check persistent storage
-    const persistent = persistentCache.load(template.id);
-    if (persistent) {
-      cacheTemplate(template.id, persistent.url, persistent.isOptimized);
-      return persistent.url;
-    }
-
-    // Get URL from template data
-    const url = getOptimizedTemplateUrl(template);
-    if (url) {
-      const isOptimized = !!(template.thumbnail_path || template.preview_thumbnail_path);
-      cacheTemplate(template.id, url, isOptimized);
-      persistentCache.save(template.id, url, isOptimized);
-    }
-
-    return url;
-  }, [isCached, getCachedUrl, cacheTemplate]);
+  const handleConfigureClick = useCallback((templateId: string) => {
+    router.push(`/templates/${templateId}/configure`);
+  }, [router]);
 
   // Function to generate thumbnail in background
   const generateThumbnailInBackground = async (template: Template) => {
@@ -189,22 +202,27 @@ export default function TemplatesPage() {
     if (templates.length === 0) return;
     
     const checkTemplateUsage = async () => {
+      setLoadingUsage(true);
       const usageMap = new Map<string, number>();
       
-      // Check usage for each template in parallel
-      const checks = templates.map(async (template) => {
-        try {
-          const certificates = await getCertificatesByTemplate(template.id);
-          if (certificates && certificates.length > 0) {
-            usageMap.set(template.id, certificates.length);
+      try {
+        // Check usage for each template in parallel
+        const checks = templates.map(async (template) => {
+          try {
+            const certificates = await getCertificatesByTemplate(template.id);
+            if (certificates && certificates.length > 0) {
+              usageMap.set(template.id, certificates.length);
+            }
+          } catch (error) {
+            console.error(`Error checking usage for template ${template.id}:`, error);
           }
-        } catch (error) {
-          console.error(`Error checking usage for template ${template.id}:`, error);
-        }
-      });
-      
-      await Promise.all(checks);
-      setTemplateUsageMap(usageMap);
+        });
+        
+        await Promise.all(checks);
+        setTemplateUsageMap(usageMap);
+      } finally {
+        setLoadingUsage(false);
+      }
     };
     
     checkTemplateUsage();
@@ -222,6 +240,7 @@ export default function TemplatesPage() {
   const [creatingTemplate, setCreatingTemplate] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(false);
   const [templateUsageMap, setTemplateUsageMap] = useState<Map<string, number>>(new Map()); // Map<templateId, certificateCount>
+  const [loadingUsage, setLoadingUsage] = useState(false); // Loading state for template usage check
   
   // Dual template mode state
   const [isDualTemplate, setIsDualTemplate] = useState(false);
@@ -511,12 +530,8 @@ export default function TemplatesPage() {
     }
   }
 
-  const openPreview = async (template: Template) => {
-    console.log('🎯 FORCE preload for preview modal:', template.name);
-    
-    // Force preload before showing modal
-    await professionalPreloader.forcePreloadForPreview(template);
-    
+  const openPreview = (template: Template) => {
+    console.log('🎯 Opening preview modal for:', template.name);
     setPreviewTemplate(template);
   };
 
@@ -767,30 +782,14 @@ export default function TemplatesPage() {
               animate={{ opacity: 1 }}
               transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
             >
-              {filtered.map((tpl, index) => (
-                <div key={tpl.id} className="max-w-full">
-                  <TemplateCard
-                    template={tpl}
-                    index={index}
-                    failedImages={failedImages}
-                    loadedImages={loadedImages}
-                    generatingThumbnails={generatingThumbnails}
-                    getOptimizedTemplateUrl={getCachedTemplateUrl}
-                    generateThumbnailInBackground={generateThumbnailInBackground}
-                    onPreview={openPreview}
-                    onImageError={handleImageError}
-                    onImageLoad={handleImageLoad}
-                    onHoverPreload={preloadOnHover}
-                    role={role}
-                    templateUsageMap={templateUsageMap}
-                    canDelete={canDelete}
-                    deletingTemplateId={deletingTemplateId}
-                    onEdit={openEdit}
-                    onDelete={requestDelete}
-                    router={router}
-                    t={t}
-                  />
-                </div>
+              {filtered.map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  onGenerate={handleGenerateClick}
+                  onConfigure={handleConfigureClick}
+                  getTemplateUrl={getTemplateUrl}
+                />
               ))}
             </motion.div>
           )}
@@ -1287,10 +1286,10 @@ export default function TemplatesPage() {
                           </div>
                         ) : (
                           <>
-                            {draft && getCachedTemplateUrl(draft as Template) ? (
+                            {draft && getTemplateImageUrl(draft as Template) ? (
                               <div className="relative w-full h-40 bg-gray-50 dark:bg-gray-800">
                                 <Image
-                                  src={getCachedTemplateUrl(draft as Template)!}
+                                  src={getTemplateImageUrl(draft as Template)!}
                                   alt="Current template"
                                   fill
                                   className="object-contain"
@@ -1609,18 +1608,19 @@ export default function TemplatesPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
                     {/* Preview Image - Left Side */}
                     <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
-                      {getCachedTemplateUrl(previewTemplate) ? (
+                      {getTemplateImageUrl(previewTemplate) ? (
                         <div className="relative w-full aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
-                          <UltraFastPreview
-                            src={getCachedTemplateUrl(previewTemplate)!}
+                          <Image
+                            src={getTemplateImageUrl(previewTemplate)!}
                             alt={previewTemplate.name}
-                            templateId={previewTemplate.id}
-                            className="w-full h-full border border-gray-200 dark:border-gray-700"
+                            fill
+                            className="object-contain border border-gray-200 dark:border-gray-700"
+                            unoptimized
                             onLoad={() => {
-                              console.log('🚀 ULTRA-FAST preview loaded for:', previewTemplate.name);
+                              console.log('🚀 Preview loaded for:', previewTemplate.name);
                             }}
                             onError={() => {
-                              console.error('❌ ULTRA-FAST preview failed for:', previewTemplate.name);
+                              console.error('❌ Preview failed for:', previewTemplate.name);
                             }}
                           />
                         </div>

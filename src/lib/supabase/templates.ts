@@ -77,9 +77,9 @@ export interface UpdateTemplateData {
   status?: string; // Template status: "ready" or "draft"
 }
 
-// Upload image to Supabase Storage (with fallback to local) and generate thumbnail
-export async function uploadTemplateImage(file: File): Promise<{ originalUrl: string; thumbnailUrl: string }> {
-  console.log('📤 Starting template image upload with thumbnail generation...', { fileName: file.name, fileSize: file.size });
+// Upload image to local storage (simplified version)
+export async function uploadTemplateImage(file: File): Promise<string> {
+  console.log('📤 Starting template image upload...', { fileName: file.name, fileSize: file.size });
   
   try {
     // Validate file
@@ -94,46 +94,33 @@ export async function uploadTemplateImage(file: File): Promise<{ originalUrl: st
 
     const fileName = `template-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     
-    // Generate thumbnail using our new API
-    console.log('🖼️ Generating optimized thumbnail...');
-    const thumbnailFormData = new FormData();
-    thumbnailFormData.append('file', file);
-    thumbnailFormData.append('fileName', fileName);
-    thumbnailFormData.append('width', '320');
-    thumbnailFormData.append('height', '240');
-    thumbnailFormData.append('quality', '80');
-
-    const thumbnailResponse = await fetch('/api/generate-thumbnail', {
-      method: 'POST',
-      body: thumbnailFormData,
-    });
-
-    if (!thumbnailResponse.ok) {
-      console.warn('⚠️ Thumbnail generation failed, falling back to original upload...');
-      // Fallback to original upload method
-      return await uploadOriginalImage(file, fileName);
-    }
-
-    const thumbnailResult = await thumbnailResponse.json();
+    // Upload to local storage
+    console.log('📁 Uploading to local storage...');
     
-    if (!thumbnailResult.success) {
-      console.warn('⚠️ Thumbnail generation failed, falling back to original upload...');
-      return await uploadOriginalImage(file, fileName);
-    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('fileName', fileName);
 
-    console.log('✅ Thumbnail generated successfully:', {
-      original: thumbnailResult.originalUrl,
-      thumbnail: thumbnailResult.thumbnailUrl,
-      compressionRatio: thumbnailResult.compressionRatio
+    const response = await fetch('/api/upload-template', {
+      method: 'POST',
+      body: formData,
     });
 
-    return {
-      originalUrl: thumbnailResult.originalUrl,
-      thumbnailUrl: thumbnailResult.thumbnailUrl
-    };
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.success || !result.url) {
+      throw new Error(result.error || 'Upload failed');
+    }
+
+    console.log('✅ Image uploaded successfully:', result.url);
+    return result.url;
 
   } catch (error) {
-    console.error('💥 Image upload process failed:', error);
+    console.error('💥 Image upload failed:', error);
     throw error;
   }
 }
@@ -221,23 +208,17 @@ export function getTemplateImageUrlStatic(template: Template): string | null {
 }
 
 // Helper function: get preview image URL (preferred), fallback to template image
-// Now prioritizes optimized thumbnails for better performance with smart caching
+// Simplified version without heavy optimization - just use the basic image paths
 export function getTemplatePreviewUrl(template: Template): string | null {
-  // Priority order: optimized thumbnails > original images
-  const src = template.preview_thumbnail_path || 
-              template.thumbnail_path || 
-              template.certificate_thumbnail_path ||
-              template.preview_image_path || 
+  // Priority order: preview image > main image > certificate image
+  const src = template.preview_image_path || 
               template.image_path ||
               template.certificate_image_url;
   
   if (!src) return null;
   
-  // ✅ PERFORMANCE FIX: Enable browser caching with version-based cache key
-  // Use template ID for cache versioning - enables browser cache while allowing invalidation
-  // Remove timestamp to enable proper HTTP caching
-  const cacheVersion = `?v=${template.id}`;
-  return `${src}${cacheVersion}`;
+  // Simple cache versioning using template ID
+  return `${src}?v=${template.id}`;
 }
 
 // Note: Image deletion is handled by the file system cleanup process
@@ -338,9 +319,9 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       if (templateData.certificate_image_file) {
         try {
           const uploadResult = await uploadTemplateImage(templateData.certificate_image_file);
-          certificateImagePath = uploadResult.originalUrl;
-          certificateThumbnailPath = uploadResult.thumbnailUrl;
-          console.log('✅ Certificate image upload completed, path:', certificateImagePath, 'thumbnail:', certificateThumbnailPath);
+          certificateImagePath = uploadResult;
+          certificateThumbnailPath = uploadResult; // Use same URL for thumbnail
+          console.log('✅ Certificate image upload completed, path:', certificateImagePath);
         } catch (uploadError) {
           console.error('❌ Certificate image upload failed:', uploadError);
           throw new Error(`Certificate image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
@@ -353,9 +334,9 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       if (templateData.score_image_file) {
         try {
           const uploadResult = await uploadTemplateImage(templateData.score_image_file);
-          scoreImagePath = uploadResult.originalUrl;
-          scoreThumbnailPath = uploadResult.thumbnailUrl;
-          console.log('✅ Score image upload completed, path:', scoreImagePath, 'thumbnail:', scoreThumbnailPath);
+          scoreImagePath = uploadResult;
+          scoreThumbnailPath = uploadResult; // Use same URL for thumbnail
+          console.log('✅ Score image upload completed, path:', scoreImagePath);
         } catch (uploadError) {
           console.error('❌ Score image upload failed:', uploadError);
           throw new Error(`Score image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
@@ -368,9 +349,9 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       if (templateData.preview_image_file) {
         try {
           const uploadResult = await uploadTemplateImage(templateData.preview_image_file);
-          previewImagePath = uploadResult.originalUrl;
-          previewThumbnailPath = uploadResult.thumbnailUrl;
-          console.log('✅ Preview image upload completed, path:', previewImagePath, 'thumbnail:', previewThumbnailPath);
+          previewImagePath = uploadResult;
+          previewThumbnailPath = uploadResult; // Use same URL for thumbnail
+          console.log('✅ Preview image upload completed, path:', previewImagePath);
         } catch (uploadError) {
           console.error('❌ Preview image upload failed:', uploadError);
           // Do not block creation if preview upload fails
@@ -383,9 +364,9 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
         console.log('📤 Image file provided, starting upload...');
         try {
           const uploadResult = await uploadTemplateImage(templateData.image_file);
-          imagePath = uploadResult.originalUrl;
-          thumbnailImagePath = uploadResult.thumbnailUrl;
-          console.log('✅ Image upload completed, path:', imagePath, 'thumbnail:', thumbnailImagePath);
+          imagePath = uploadResult;
+          thumbnailImagePath = uploadResult; // Use same URL for thumbnail
+          console.log('✅ Image upload completed, path:', imagePath);
         } catch (uploadError) {
           console.error('❌ Image upload failed:', uploadError);
           throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
@@ -398,9 +379,9 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       if (templateData.preview_image_file) {
         try {
           const uploadResult = await uploadTemplateImage(templateData.preview_image_file);
-          previewImagePath = uploadResult.originalUrl;
-          previewThumbnailPath = uploadResult.thumbnailUrl;
-          console.log('✅ Preview image upload completed, path:', previewImagePath, 'thumbnail:', previewThumbnailPath);
+          previewImagePath = uploadResult;
+          previewThumbnailPath = uploadResult; // Use same URL for thumbnail
+          console.log('✅ Preview image upload completed, path:', previewImagePath);
         } catch (uploadError) {
           console.error('❌ Preview image upload failed:', uploadError);
           // Do not block creation if preview upload fails
@@ -522,8 +503,8 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
       console.log('📤 New image file provided, starting upload...');
       try {
         const uploadResult = await uploadTemplateImage(templateData.image_file);
-        imagePath = uploadResult.originalUrl;
-        console.log('✅ Image upload completed, path:', imagePath, 'thumbnail:', uploadResult.thumbnailUrl);
+        imagePath = uploadResult;
+        console.log('✅ Image upload completed, path:', imagePath);
       } catch (uploadError) {
         console.error('❌ Image upload failed:', uploadError);
         throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
@@ -535,8 +516,8 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
       console.log('📤 New preview image file provided, starting upload...');
       try {
         const uploadResult = await uploadTemplateImage(templateData.preview_image_file);
-        previewImagePath = uploadResult.originalUrl;
-        console.log('✅ Preview image upload completed, path:', previewImagePath, 'thumbnail:', uploadResult.thumbnailUrl);
+        previewImagePath = uploadResult;
+        console.log('✅ Preview image upload completed, path:', previewImagePath);
       } catch (e) {
         console.warn('⚠️ Preview image upload failed:', e);
         // Do not block update if preview upload fails
