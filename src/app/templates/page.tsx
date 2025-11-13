@@ -20,71 +20,123 @@ import { confirmToast } from "@/lib/ui/confirm";
 import { LoadingButton } from "@/components/ui/loading-button";
 import Image from "next/image";
 
+// Helper function for category colors
+const getCategoryColor = (category: string) => {
+  const colors = {
+    Training: "from-blue-500 to-blue-600",
+    Internship: "from-green-500 to-green-600", 
+    MoU: "from-purple-500 to-purple-600",
+    Visit: "from-orange-500 to-orange-600"
+  };
+  return colors[category as keyof typeof colors] || "from-gray-500 to-gray-600";
+};
+
 // Memoized Template Card Component to prevent unnecessary re-renders
 interface TemplateCardProps {
   template: Template;
-  onGenerate: (templateId: string) => void;
+  onEdit: (template: Template) => void;
+  onPreview: (template: Template) => void;
   onConfigure: (templateId: string) => void;
   getTemplateUrl: (template: Template) => string | null;
 }
 
-const TemplateCard = memo(({ template, onGenerate, onConfigure, getTemplateUrl }: TemplateCardProps) => {
+const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTemplateUrl }: TemplateCardProps) => {
   const imageUrl = getTemplateUrl(template);
   
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+      className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 ease-in-out cursor-pointer flex flex-row h-[200px] w-full transform will-change-transform"
+      onClick={() => onPreview(template)}
     >
-      {/* Template Image */}
-      <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
+      {/* Template Thumbnail - Left Side */}
+      <div className="relative w-[160px] h-full flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
         {imageUrl ? (
           <Image
             src={imageUrl}
             alt={template.name}
-            width={400}
-            height={300}
-            className="w-full h-full object-cover"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+            width={300}
+            height={200}
+            className="w-full h-full object-contain"
+            sizes="160px"
           />
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <FileText className="h-12 w-12 text-gray-400" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <Layout className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <div className="text-xs text-gray-500">No Image</div>
+            </div>
           </div>
         )}
+        
+        {/* Status Badge - Top Left */}
+        <div className="absolute top-2 left-2 z-10">
+          {template.is_layout_configured ? (
+            <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white text-xs shadow-sm px-1.5 py-0.5">
+              ✓ Ready
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs shadow-sm px-1.5 py-0.5">
+              Draft
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {/* Template Info */}
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-gray-900 truncate flex-1">
+      {/* Template Info - Right Side */}
+      <div className="flex-1 flex flex-col justify-between min-w-0 p-4 w-full overflow-hidden">
+        {/* Top Section - Title and Metadata */}
+        <div className="min-w-0 flex-1 w-full flex flex-col">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2 w-full text-left truncate">
             {template.name}
           </h3>
-          <Badge variant="secondary" className="ml-2 shrink-0">
-            {template.category}
-          </Badge>
+          {/* Category Badge */}
+          <div className="mb-2 w-full text-left">
+            <span className={`inline-block px-2 py-1 rounded text-xs font-medium bg-gradient-to-r ${getCategoryColor(template.category)} text-white shadow-sm`}>
+              {template.category}
+            </span>
+          </div>
+          {/* Metadata - Compact */}
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 w-full text-left">
+            <div className="flex items-center gap-1">
+              <Layout className="w-3 h-3 flex-shrink-0" />
+              <span className="font-medium text-xs">{template.orientation}</span>
+            </div>
+            {template.created_at && (
+              <span className="text-gray-400 dark:text-gray-500">•</span>
+            )}
+            {template.created_at && (
+              <span className="text-xs">
+                {new Date(template.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            )}
+          </div>
         </div>
         
-        <p className="text-sm text-gray-600 mb-4">
-          {template.orientation} • {new Date(template.created_at).toLocaleDateString()}
-        </p>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button
+        {/* Bottom Section - Action Buttons */}
+        <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700 w-full">
+          <Button 
             size="sm"
-            onClick={() => onGenerate(template.id)}
-            className="flex-1"
+            className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm hover:shadow-md transition-all duration-300 flex-1 min-w-0" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfigure(template.id);
+            }}
           >
-            Generate
+            <Settings className="w-3 h-3 mr-1" />
+            <span className="truncate">Configure</span>
           </Button>
-          <Button
+          <Button 
+            variant="outline" 
             size="sm"
-            variant="outline"
-            onClick={() => onConfigure(template.id)}
+            className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-shrink-0" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(template);
+            }}
           >
-            <Layout className="h-4 w-4" />
+            <Edit className="w-3 h-3" />
           </Button>
         </div>
       </div>
@@ -154,12 +206,24 @@ export default function TemplatesPage() {
   }, []);
 
   // Stable callback functions for template actions to prevent re-renders
-  const handleGenerateClick = useCallback((templateId: string) => {
-    router.push(`/generate?template=${templateId}`);
-  }, [router]);
+  const handleEditClick = useCallback((template: Template) => {
+    setIsEditOpen(template.id);
+    setDraft(template);
+    setImagePreview(template.image_path || null);
+    setPreviewImagePreview(template.preview_image_path || null);
+    setIsDualTemplate(template.is_dual_template || false);
+    if (template.is_dual_template) {
+      setCertificateImagePreview(template.certificate_image_url || null);
+      setScoreImagePreview(template.score_image_url || null);
+    }
+  }, []);
+
+  const handlePreviewClick = useCallback((template: Template) => {
+    setPreviewTemplate(template);
+  }, []);
 
   const handleConfigureClick = useCallback((templateId: string) => {
-    router.push(`/templates/${templateId}/configure`);
+    router.push(`/templates/configure?template=${templateId}`);
   }, [router]);
 
   // Function to generate thumbnail in background
@@ -786,7 +850,8 @@ export default function TemplatesPage() {
                 <TemplateCard
                   key={template.id}
                   template={template}
-                  onGenerate={handleGenerateClick}
+                  onEdit={handleEditClick}
+                  onPreview={handlePreviewClick}
                   onConfigure={handleConfigureClick}
                   getTemplateUrl={getTemplateUrl}
                 />
@@ -829,7 +894,7 @@ export default function TemplatesPage() {
 
       {/* Enhanced Create Template Sheet */}
       <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col bg-white dark:bg-gray-900">
           <SheetHeader className="flex-shrink-0">
             <SheetTitle className="text-xl font-bold text-gradient">{t('templates.createTitle')}</SheetTitle>
           </SheetHeader>
@@ -1128,7 +1193,7 @@ export default function TemplatesPage() {
 
           {/* Enhanced Edit Template Sheet */}
           <Sheet open={!!isEditOpen} onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}>
-            <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+            <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto bg-white dark:bg-gray-900">
               <SheetHeader>
                 <SheetTitle className="text-xl font-bold text-gradient">{t('templates.editTitle')}</SheetTitle>
                 <SheetDescription>{t('templates.editDescription')}</SheetDescription>
@@ -1608,10 +1673,10 @@ export default function TemplatesPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
                     {/* Preview Image - Left Side */}
                     <div className="p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
-                      {getTemplateImageUrl(previewTemplate) ? (
+                      {getTemplatePreviewUrl(previewTemplate) ? (
                         <div className="relative w-full aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
                           <Image
-                            src={getTemplateImageUrl(previewTemplate)!}
+                            src={getTemplatePreviewUrl(previewTemplate)!}
                             alt={previewTemplate.name}
                             fill
                             className="object-contain border border-gray-200 dark:border-gray-700"

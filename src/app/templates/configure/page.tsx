@@ -90,7 +90,14 @@ function ConfigureLayoutContent() {
   
   // Load template and existing layout
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     async function loadTemplate() {
+      // Set a timeout to prevent infinite loading
+      timeoutId = setTimeout(() => {
+        console.warn('⚠️ Template loading timeout - setting loading to false');
+        setLoading(false);
+      }, 10000); // 10 second timeout
       if (!templateId) {
         toast.error(t('configure.noTemplateId'));
         router.push("/templates");
@@ -126,6 +133,9 @@ function ConfigureLayoutContent() {
           certImg.onerror = (error) => {
             console.error('❌ Failed to load certificate image:', error);
             console.error('Image URL:', certificateImageUrl);
+            // Set loading to false even if image fails to load
+            clearTimeout(timeoutId);
+            setLoading(false);
           };
           
           certImg.onload = () => {
@@ -241,6 +251,9 @@ function ConfigureLayoutContent() {
               }
               console.log('✅ Default certificate layers set successfully');
             }
+            // Set loading to false after processing certificate image
+            clearTimeout(timeoutId);
+            setLoading(false);
           };
           
           // Set src and check if already cached
@@ -348,12 +361,77 @@ function ConfigureLayoutContent() {
                 setSelectedLayerId(defaultLayers[0].id);
               }
             }
+            // Set loading to false after processing cached certificate image
+            clearTimeout(timeoutId);
+            setLoading(false);
           }
+        } else {
+          // No certificate image URL - set loading to false and use default dimensions
+          console.log('⚠️ No certificate image URL found, using default dimensions');
+          setCertificateImageDimensions({ width: STANDARD_CANVAS_WIDTH, height: STANDARD_CANVAS_HEIGHT });
+          
+          // Initialize default certificate text layers since we have no image to load
+          const defaultLayers: TextLayerConfig[] = [
+            {
+              id: 'name',
+              x: Math.round(STANDARD_CANVAS_WIDTH * 0.5),
+              y: Math.round(STANDARD_CANVAS_HEIGHT * 0.5),
+              xPercent: 0.5,
+              yPercent: 0.5,
+              fontSize: 48,
+              color: '#000000',
+              fontWeight: 'bold',
+              fontFamily: 'Arial',
+              textAlign: 'center',
+              maxWidth: Math.round(STANDARD_CANVAS_WIDTH * 0.4),
+              lineHeight: 1.2,
+              visible: true,
+            },
+            {
+              id: 'certificate_no',
+              x: Math.round(STANDARD_CANVAS_WIDTH * 0.1),
+              y: Math.round(STANDARD_CANVAS_HEIGHT * 0.1),
+              xPercent: 0.1,
+              yPercent: 0.1,
+              fontSize: 16,
+              color: '#000000',
+              fontWeight: 'normal',
+              fontFamily: 'Arial',
+              maxWidth: Math.round(STANDARD_CANVAS_WIDTH * 0.3),
+              lineHeight: 1.2,
+              visible: true,
+            },
+            {
+              id: 'issue_date',
+              x: Math.round(STANDARD_CANVAS_WIDTH * 0.7),
+              y: Math.round(STANDARD_CANVAS_HEIGHT * 0.85),
+              xPercent: 0.7,
+              yPercent: 0.85,
+              fontSize: 14,
+              color: '#000000',
+              fontWeight: 'normal',
+              fontFamily: 'Arial',
+              maxWidth: Math.round(STANDARD_CANVAS_WIDTH * 0.3),
+              lineHeight: 1.2,
+              visible: true,
+            },
+          ];
+          setCertificateTextLayers(defaultLayers);
+          if (defaultLayers.length > 0) {
+            setSelectedLayerId(defaultLayers[0].id);
+          }
+          
+          clearTimeout(timeoutId);
+          setLoading(false);
         }
         
         // Load SCORE image dimensions if dual template
         if (tpl.is_dual_template && tpl.score_image_url) {
           const scoreImg = new window.Image();
+          scoreImg.onerror = (error) => {
+            console.error('❌ Failed to load score image:', error);
+            console.error('Score Image URL:', tpl.score_image_url);
+          };
           scoreImg.onload = () => {
             const dimensions = { width: scoreImg.naturalWidth, height: scoreImg.naturalHeight };
             setScoreImageDimensions(dimensions);
@@ -542,7 +620,7 @@ function ConfigureLayoutContent() {
           }
         }
         
-        setLoading(false);
+        // setLoading(false) is now handled in image loading callbacks above
       } catch (error) {
         console.error("Failed to load template:", error);
         toast.error(t('configure.failedToLoad'));
@@ -551,6 +629,13 @@ function ConfigureLayoutContent() {
     }
 
     loadTemplate();
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [templateId, router]);
 
   // CRITICAL: Normalize coordinates when template dimensions change

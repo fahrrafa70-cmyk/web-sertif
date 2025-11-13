@@ -757,7 +757,7 @@ export default function MembersPage() {
                   <div
                     key={m.id}
                     onClick={() => openDetailModal(m)}
-                    className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-md dark:shadow-lg cursor-pointer hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md hover:-translate-y-1 cursor-pointer transition-all duration-300 ease-in-out transform will-change-transform"
                   >
                     {/* Member Details - Compact Vertical Layout */}
                     <div className="space-y-2 mb-3">

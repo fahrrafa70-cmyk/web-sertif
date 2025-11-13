@@ -842,7 +842,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
     return (
       <div
         onClick={handleClick}
-        className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-lg transition-all duration-200 ease-in-out hover:-translate-y-0.5 cursor-pointer flex flex-row h-[180px] will-change-transform relative"
+        className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 ease-in-out cursor-pointer flex flex-row h-[180px] transform will-change-transform relative"
       >
         {/* Certificate Thumbnail - Left Side - Fixed background to prevent flicker */}
         {/* FINAL FIX: Use same approach as template page - Tailwind class directly */}

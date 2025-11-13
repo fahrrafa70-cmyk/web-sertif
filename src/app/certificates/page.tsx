@@ -864,8 +864,8 @@ function CertificatesContent() {
         textAlign: layer.textAlign,
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
-        richText: layer.richText, // CRITICAL: Pass richText for inline formatting
-        hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
+        // richText: layer.richText, // CRITICAL: Pass richText for inline formatting
+        // hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
       };
     });
     

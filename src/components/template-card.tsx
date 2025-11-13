@@ -1,10 +1,11 @@
 import React, { memo } from 'react';
-import { OptimizedTemplateImage } from '@/components/ui/optimized-template-image';
-import { CompressedThumbnail } from '@/components/ui/compressed-thumbnail';
-import { PERFORMANCE_CONFIG, isFeatureEnabled } from '@/lib/config/performance-config';
-import { Template } from '@/lib/supabase/templates';
-import { getOptimizedTemplateUrl, prefetchOnHover } from '@/lib/supabase/template-optimization';
-import { debugTemplateImages } from '@/lib/debug/template-debug';
+// import { OptimizedTemplateImage } from '@/components/ui/optimized-template-image';
+// import { CompressedThumbnail } from '@/components/ui/compressed-thumbnail';
+// import { PERFORMANCE_CONFIG, isFeatureEnabled } from '@/lib/config/performance-config';
+import { Template, getTemplatePreviewUrl } from '@/lib/supabase/templates';
+import Image from 'next/image';
+// import { getOptimizedTemplateUrl, prefetchOnHover } from '@/lib/supabase/template-optimization';
+// import { debugTemplateImages } from '@/lib/debug/template-debug';
 import { RefreshCw, Layout, Settings, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +18,7 @@ interface TemplateCardProps {
   failedImages: Set<string>;
   loadedImages: Set<string>;
   generatingThumbnails: Set<string>;
-  getOptimizedTemplateUrl: (template: Template) => string | null;
+  // getOptimizedTemplateUrl: (template: Template) => string | null;
   generateThumbnailInBackground: (template: Template) => Promise<void>;
   onPreview: (template: Template) => void;
   onImageError: (templateId: string) => void;
@@ -39,7 +40,7 @@ const TemplateCard = memo<TemplateCardProps>(({
   failedImages,
   loadedImages,
   generatingThumbnails,
-  getOptimizedTemplateUrl,
+  // getOptimizedTemplateUrl,
   generateThumbnailInBackground,
   onPreview,
   onImageError,
@@ -61,7 +62,7 @@ const TemplateCard = memo<TemplateCardProps>(({
       onHoverPreload(template);
     } else {
       // Fallback: Basic prefetch for backward compatibility
-      const previewUrl = getOptimizedTemplateUrl(template);
+      const previewUrl = getTemplatePreviewUrl(template);
       if (previewUrl) {
         const link = document.createElement('link');
         link.rel = 'prefetch';
@@ -87,47 +88,20 @@ const TemplateCard = memo<TemplateCardProps>(({
     >
       {/* Template Thumbnail - Left Side */}
       <div className="relative w-[160px] h-full flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
-        {getOptimizedTemplateUrl(template) && !failedImages.has(template.id) ? (
+        {getTemplatePreviewUrl(template) && !failedImages.has(template.id) ? (
           <>
             {/* Debug template image status and trigger thumbnail generation */}
-            {(() => {
-              const debugInfo = debugTemplateImages(template);
-              
-              // Auto-generate thumbnail if needed (only for first 3 templates to avoid overwhelming)
-              if (debugInfo.needsRegeneration && index < 3 && !generatingThumbnails.has(template.id)) {
-                console.log(`🚀 Auto-generating thumbnail for priority template: ${template.name}`);
-                generateThumbnailInBackground(template);
-              }
-              
-              return null; // Don't render anything, just run debug
-            })()}
-            {isFeatureEnabled('DISABLE_IMAGE_COMPRESSION') ? (
-              <OptimizedTemplateImage
-                src={getOptimizedTemplateUrl(template) || ''}
-                alt={template.name}
-                templateId={template.id}
-                size="sm"
-                priority={index < 3}
-                className="w-full h-full object-contain"
-                onLoad={() => onImageLoad(template.id)}
-                onError={() => onImageError(template.id)}
-                onHover={() => prefetchOnHover(template)}
-                enableProgressiveLoading={false}
-                enableIntersectionObserver={index >= 3}
-              />
-            ) : (
-              <CompressedThumbnail
-                src={getOptimizedTemplateUrl(template) || ''}
-                alt={template.name}
-                templateId={template.id}
-                size="sm"
-                priority={index < 3}
-                className="w-full h-full"
-                onLoad={() => onImageLoad(template.id)}
-                onError={() => onImageError(template.id)}
-                onHover={() => prefetchOnHover(template)}
-              />
-            )}
+            {/* Debug and auto-generation removed for simplicity */}
+            <Image
+              src={getTemplatePreviewUrl(template) || '/placeholder.png'}
+              alt={template.name}
+              width={300}
+              height={200}
+              className="w-full h-full object-contain"
+              onLoad={() => onImageLoad(template.id)}
+              onError={() => onImageError(template.id)}
+              priority={index < 3}
+            />
             
             {/* Thumbnail generation loading overlay */}
             {generatingThumbnails.has(template.id) && (
