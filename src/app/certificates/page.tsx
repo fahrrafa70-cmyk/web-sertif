@@ -901,8 +901,7 @@ function CertificatesContent() {
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
         richText: layer.richText,
-        hasInlineFormatting: layer.hasInlineFormatting
-      };
+        hasInlineFormatting: layer.hasInlineFormatting};
     });
     
     // Render certificate to WebP DataURL
@@ -1151,6 +1150,7 @@ function CertificatesContent() {
               y: layer.y,
               xPercent: layer.xPercent,
               yPercent: layer.yPercent,
+
               fontSize: layer.fontSize,
               color: layer.color,
               fontWeight: layer.fontWeight,
@@ -1639,11 +1639,7 @@ function CertificatesContent() {
                 {/* Title and Button Row - Horizontal on desktop, vertical on mobile */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
                   <div className="flex items-center gap-2 sm:gap-3">
-<<<<<<< HEAD
                     <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
-=======
-                    <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
->>>>>>> 6df2f88a8d5f12ff446634f31aaebdfba5de58f6
                       <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
