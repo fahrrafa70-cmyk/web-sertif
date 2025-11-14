@@ -30,7 +30,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "E-Certificate Management Platform",
+  title: "Eeasy Certificate",
   description: "Create, manage, and verify certificates for trainings, internships, MoUs, and industrial visits with our multilingual platform.",
   icons: {
     icon: "/next.svg",

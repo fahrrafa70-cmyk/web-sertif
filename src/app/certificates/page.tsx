@@ -1910,6 +1910,7 @@ function CertificatesContent() {
                 </div>
                 </div>
 
+
                 {/* Mobile & Tablet Card View */}
                 <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   {currentCertificates.map((certificate) => {

@@ -55,15 +55,26 @@ function SearchResultsContent() {
   // Get initial query from URL
   const initialQuery = searchParams.get('q') || '';
   
-  // State management
+  // State management with optimized input handling
   const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [inputValue, setInputValue] = useState(initialQuery); // Separate input state for immediate updates
   const [searching, setSearching] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); // Track if user is actively typing
   const [searchResults, setSearchResults] = useState<Certificate[]>([]);
   const [searchError, setSearchError] = useState("");
   const [hasSearched, setHasSearched] = useState(false); // Track if user has performed initial search
-  const debouncedSearchQuery = useDebounce(searchQuery, 200); // Faster debounce for better INP
+  // Optimized debounce with abort controller
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const debouncedSearchQuery = useDebounce(searchQuery, 400); // Increased for better performance
   const isInitialMount = useRef(true); // Track if this is the initial mount
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // DIAGNOSIS 1.2: Store loading timeout
+  
+  // Virtualization with pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20; // Show 20 items per page for better performance
+  
+  // Input optimization refs
+  const inputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // CRITICAL FIX: Use ref to store searchResults to prevent unmount/mount flicker
   // Only update state if results actually changed (by ID comparison)
   const searchResultsRef = useRef<Certificate[]>([]);
@@ -165,6 +176,20 @@ function SearchResultsContent() {
     endDate: "",
   });
 
+  // Sync inputValue with searchQuery on mount
+  useEffect(() => {
+    setInputValue(searchQuery);
+  }, [searchQuery]);
+  
+  // Cleanup input timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (inputTimeoutRef.current) {
+        clearTimeout(inputTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Load categories on mount
   useEffect(() => {
     const loadCategories = async () => {
@@ -184,8 +209,22 @@ function SearchResultsContent() {
     loadCategories();
   }, []);
 
-  // Perform search function
+  // Abort previous search requests
+  const abortPreviousSearch = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  // Perform search function with abort controller
   const performSearch = useCallback(async (searchFilters: SearchFilters, markAsSearched = false) => {
+    // Abort any ongoing search
+    abortPreviousSearch();
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     // DIAGNOSIS 1.2: Delay loading state to prevent flicker on fast searches
     // Only show loading if search takes more than 100ms
     // Clear any existing timeout
@@ -202,6 +241,11 @@ function SearchResultsContent() {
     setSearchError("");
     
     try {
+      // Check if request was aborted
+      if (signal.aborted) {
+        return;
+      }
+      
       // Check if it's a direct link/ID search
       const q = searchFilters.keyword || '';
       
@@ -266,6 +310,8 @@ function SearchResultsContent() {
               // Results actually changed, update ref and state
               searchResultsRef.current = results;
               setSearchResults(results);
+              // Reset to first page on new search results
+              setCurrentPage(1);
             }
             // If results are the same, don't update to prevent flicker
             
@@ -289,6 +335,12 @@ function SearchResultsContent() {
             setSearchResults([]);
           }
         } catch (searchError) {
+          // Don't show error if request was aborted
+          if (searchError instanceof Error && searchError.name === 'AbortError') {
+            console.log('Search request aborted');
+            return;
+          }
+          
           console.error('Advanced search error:', searchError);
           const errorMsg = t('error.search.failed') || 'Search failed. Please try again.';
           setSearchError(errorMsg);
@@ -297,6 +349,12 @@ function SearchResultsContent() {
         }
       }
     } catch (error) {
+      // Don't show error if request was aborted
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Search request aborted');
+        return;
+      }
+      
       console.error('Unexpected search error:', error);
       setSearchError(t('error.search.failed') || 'Search failed. Please try again.');
       setSearchResults([]);
@@ -312,7 +370,7 @@ function SearchResultsContent() {
         setHasSearched(true);
       }
     }
-  }, [t, router]);
+  }, [t, router, abortPreviousSearch]);
 
   // Search on mount if query exists (from URL) - for backward compatibility
   // URL will stay as /search without query params going forward
@@ -728,6 +786,41 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
   }, [sendCert, sendPreviewSrc, sendForm, isSendingEmail, t]);
 
   // Capitalize first letter helper
+  // Pagination calculations
+  const totalItems = searchResults.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentResults = searchResults.slice(startIndex, endIndex);
+
+  // Optimized input handlers to prevent lag
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInputValue(value); // Update input immediately for smooth typing
+    setIsTyping(true); // User is actively typing
+    
+    // Clear previous search results immediately to prevent race condition
+    // This prevents old results from showing when user types new query
+    if (value.trim() !== searchQuery.trim()) {
+      setSearchResults([]);
+      setSearchError('');
+      searchResultsRef.current = [];
+      setCurrentPage(1); // Reset pagination
+    }
+    
+    // Clear previous timeout
+    if (inputTimeoutRef.current) {
+      clearTimeout(inputTimeoutRef.current);
+    }
+    
+    // Debounce the searchQuery update and stop typing state
+    inputTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(value);
+      setIsTyping(false); // User finished typing
+    }, 500); // Longer delay to ensure user finished typing
+  }, [searchQuery]);
+  
+
   const capitalize = useCallback((str: string) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }, []);
@@ -977,10 +1070,19 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
 
   // Clear search handler - memoized
   const handleClearSearch = useCallback(() => {
+    // Clear input timeout
+    if (inputTimeoutRef.current) {
+      clearTimeout(inputTimeoutRef.current);
+      inputTimeoutRef.current = null;
+    }
+    
+    setInputValue(''); // Clear input immediately
     setSearchQuery('');
     setSearchError('');
     setSearchResults([]);
     setHasSearched(false);
+    setCurrentPage(1);
+    setIsTyping(false); // Reset typing state
   }, []);
 
   // Empty state back to home handler
@@ -1083,12 +1185,12 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                   <Input
                     type="text"
                     placeholder={t('search.searchByName') || 'Search certificates...'}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={inputValue}
+                    onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     className="h-9 sm:h-10 pl-8 sm:pl-9 pr-8 sm:pr-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
                   />
-                  {searchQuery && (
+                  {inputValue && (
                     <button
                       onClick={handleClearSearch}
                       className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -1143,33 +1245,107 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
           </div>
         )}
 
-        {/* Results Grid - Simple conditional rendering like template page */}
-        {/* Template page uses simple conditional rendering without opacity/visibility manipulation */}
-        {searchResults.length > 0 && searchQuery.trim() && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
-            {searchResults.map((certificate, index) => (
-              <CertificateCard
-                key={certificate.id}
-                certificate={certificate}
-                onPreview={handlePreview}
-                language={language}
-                t={t}
-                index={index}
-                expiredOverlayUrl={expiredOverlayUrl}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Loading Skeleton - Only show if no results exist yet */}
-        {searching && searchResults.length === 0 && (
+        {/* Typing Skeleton - Show while user is actively typing */}
+        {isTyping && inputValue.trim() && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
             {loadingSkeletons}
           </div>
         )}
 
-        {/* Empty State */}
-        {!searching && searchResults.length === 0 && !searchError && initialQuery && (
+        {/* Results Grid - Only show when NOT typing and have results */}
+        {!isTyping && searchResults.length > 0 && searchQuery.trim() && (
+          <>
+            {/* Results count and pagination info */}
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {language === 'id' 
+                  ? `Menampilkan ${startIndex + 1}-${Math.min(endIndex, totalItems)} dari ${totalItems} hasil`
+                  : `Showing ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems} results`}
+              </p>
+              {totalPages > 1 && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'id' ? `Halaman ${currentPage} dari ${totalPages}` : `Page ${currentPage} of ${totalPages}`}
+                </p>
+              )}
+            </div>
+            
+            {/* Results Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
+              {currentResults.map((certificate, index) => (
+                <CertificateCard
+                  key={certificate.id}
+                  certificate={certificate}
+                  onPreview={handlePreview}
+                  language={language}
+                  t={t}
+                  index={startIndex + index} // Adjust index for pagination
+                  expiredOverlayUrl={expiredOverlayUrl}
+                />
+              ))}
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  {language === 'id' ? 'Sebelumnya' : 'Previous'}
+                </Button>
+                
+                {/* Page numbers */}
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="w-10"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  {language === 'id' ? 'Selanjutnya' : 'Next'}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Loading Skeleton - Only show if searching and NOT typing */}
+        {!isTyping && searching && searchResults.length === 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-5 gap-y-5 sm:gap-y-6">
+            {loadingSkeletons}
+          </div>
+        )}
+
+        {/* Empty State - Only show when NOT typing */}
+        {!isTyping && !searching && searchResults.length === 0 && !searchError && initialQuery && (
           <div className="text-center py-12 sm:py-16">
             <div className="max-w-md mx-auto">
               <div className="text-6xl mb-4">🔍</div>
