@@ -6,7 +6,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Eye, EyeOff } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
@@ -20,8 +20,7 @@ import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { 
   FontWeightSelect, 
   FontFamilySelect, 
-  FontStyleSelect, 
-  TextShadowSelect 
+  FontStyleSelect
 } from "@/components/editor/MixedStyleSelect";
 import { useLanguage } from "@/contexts/language-context";
 
@@ -222,13 +221,7 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.4),
                   lineHeight: 1.2,
                   visible: true,
-                  // Extended styling properties with defaults
                   fontStyle: 'normal',
-                  textDecoration: 'none',
-                  textTransform: 'none',
-                  letterSpacing: 'normal',
-                  wordSpacing: 'normal',
-                  textShadow: 'none',
                 },
                 {
                   id: 'certificate_no',
@@ -243,13 +236,7 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.3),
                   lineHeight: 1.2,
                   visible: true,
-                  // Extended styling properties with defaults
                   fontStyle: 'normal',
-                  textDecoration: 'none',
-                  textTransform: 'none',
-                  letterSpacing: 'normal',
-                  wordSpacing: 'normal',
-                  textShadow: 'none',
                 },
                 {
                   id: 'issue_date',
@@ -264,13 +251,7 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.3),
                   lineHeight: 1.2,
                   visible: true,
-                  // Extended styling properties with defaults
                   fontStyle: 'normal',
-                  textDecoration: 'none',
-                  textTransform: 'none',
-                  letterSpacing: 'normal',
-                  wordSpacing: 'normal',
-                  textShadow: 'none',
                 },
               ];
               console.log('✅ Created default layers:', defaultLayers.map(l => ({ id: l.id, x: l.x, y: l.y })));
@@ -1868,12 +1849,7 @@ function ConfigureLayoutContent() {
                               fontFamily: span.fontFamily || layer.fontFamily,
                               fontSize: span.fontSize ? `${span.fontSize * domScale}px` : undefined,
                               color: span.color || layer.color,
-                              fontStyle: span.fontStyle || layer.fontStyle || 'normal',
-                              textDecoration: span.textDecoration || layer.textDecoration || 'none',
-                              textTransform: span.textTransform || layer.textTransform || 'none',
-                              letterSpacing: span.letterSpacing || layer.letterSpacing || 'normal',
-                              wordSpacing: span.wordSpacing || layer.wordSpacing || 'normal',
-                              textShadow: span.textShadow || layer.textShadow || 'none'
+                              fontStyle: span.fontStyle || layer.fontStyle || 'normal'
                             }}
                           >
                             {span.text}
@@ -1952,11 +1928,6 @@ function ConfigureLayoutContent() {
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
                           fontStyle: layer.fontStyle || 'normal',
-                          textDecoration: layer.textDecoration || 'none',
-                          textTransform: layer.textTransform || 'none',
-                          letterSpacing: layer.letterSpacing || 'normal',
-                          wordSpacing: layer.wordSpacing || 'normal',
-                          textShadow: layer.textShadow || 'none',
                           // certificate_no and issue_date always use left alignment
                           textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                           // certificate_no and issue_date should never wrap - always stay on one line
@@ -2343,13 +2314,7 @@ function ConfigureLayoutContent() {
 
                 {/* Photo Layers List */}
                 <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
-                  {photoLayers.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400 dark:text-gray-600 text-xs sm:text-sm">
-                      <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>No photos yet</p>
-                      <p className="text-[10px] sm:text-xs mt-1">Upload images to add to template</p>
-                    </div>
-                  ) : (
+                  {photoLayers.length === 0 ? null : (
                     photoLayers.map(layer => {
                       const isSelected = selectedPhotoLayerId === layer.id;
                       
@@ -2408,11 +2373,6 @@ function ConfigureLayoutContent() {
                       <h3 className="text-[10px] sm:text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide truncate">
                         {selectedPhoto.id} Settings
                       </h3>
-                      <div className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-center leading-tight">
-                        <div>Arrow keys to move</div>
-                        <div>Shift+Arrow: 10px</div>
-                        <div>Alt+Arrow: 0.1px</div>
-                      </div>
                     </div>
                     <div className="space-y-3">
                       {/* Layer Order */}
@@ -2590,11 +2550,6 @@ function ConfigureLayoutContent() {
                     <h3 className="text-[10px] sm:text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide truncate">
                       {selectedLayer.id}
                     </h3>
-                    <div className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-center leading-tight">
-                      <div>Arrow keys to move</div>
-                      <div>Shift+Arrow: 10px</div>
-                      <div>Alt+Arrow: 0.1px</div>
-                    </div>
                   </div>
                   <div className="space-y-2 sm:space-y-3">
                     {/* Default Text with Rich Text Formatting - For custom layers only */}
@@ -2837,7 +2792,7 @@ function ConfigureLayoutContent() {
                       </div>
                     </div>
 
-                    {/* Font Style & Text Decoration */}
+                    {/* Font Style & Text Align */}
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
                         <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Style</Label>
@@ -2847,58 +2802,7 @@ function ConfigureLayoutContent() {
                           className="h-7 sm:h-8 text-xs"
                         />
                       </div>
-                      <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Decoration</Label>
-                        <TextDecorationSelect
-                          value={selectedLayer.textDecoration || 'none'}
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { textDecoration: value as TextLayer['textDecoration'] })}
-                          className="h-7 sm:h-8 text-xs"
-                        />
-                      </div>
-                    </div>
 
-                    {/* Text Transform & Letter Spacing */}
-                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                      <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Transform</Label>
-                        <TextTransformSelect
-                          value={selectedLayer.textTransform || 'none'}
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { textTransform: value as TextLayer['textTransform'] })}
-                          className="h-7 sm:h-8 text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Letter Spacing</Label>
-                        <LetterSpacingSelect
-                          value={selectedLayer.letterSpacing || 'normal'}
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { letterSpacing: value })}
-                          className="h-7 sm:h-8 text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Word Spacing & Text Shadow */}
-                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                      <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Word Spacing</Label>
-                        <WordSpacingSelect
-                          value={selectedLayer.wordSpacing || 'normal'}
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { wordSpacing: value })}
-                          className="h-7 sm:h-8 text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Text Shadow</Label>
-                        <TextShadowSelect
-                          value={selectedLayer.textShadow || 'none'}
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { textShadow: value })}
-                          className="h-7 sm:h-8 text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Text Align & Line Height */}
-                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       {/* Hide Text Align only for certificate_no and issue_date */}
                       {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && (
                         <div>
@@ -2919,16 +2823,18 @@ function ConfigureLayoutContent() {
                           </Select>
                         </div>
                       )}
-                      <div className={['certificate_no', 'issue_date'].includes(selectedLayer.id) ? 'col-span-2' : ''}>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={selectedLayer.lineHeight || 1.2}
-                          onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
-                          className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
-                        />
-                      </div>
+                    </div>
+
+                    {/* Line Height */}
+                    <div>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={selectedLayer.lineHeight || 1.2}
+                        onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
+                        className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                      />
                     </div>
 
                     {/* Max Width */}
@@ -3128,11 +3034,6 @@ function ConfigureLayoutContent() {
                         fontWeight: layer.fontWeight,
                         fontFamily: layer.fontFamily,
                         fontStyle: layer.fontStyle || 'normal',
-                        textDecoration: layer.textDecoration || 'none',
-                        textTransform: layer.textTransform || 'none',
-                        letterSpacing: layer.letterSpacing || 'normal',
-                        wordSpacing: layer.wordSpacing || 'normal',
-                        textShadow: layer.textShadow || 'none',
                         textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                         whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
                         width: layer.maxWidth ? `${layer.maxWidth * templateScale}px` : 'auto',
