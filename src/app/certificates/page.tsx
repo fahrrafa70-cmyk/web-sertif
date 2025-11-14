@@ -1,7 +1,6 @@
 "use client";
 
 import ModernLayout from "@/components/modern-layout";
-import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -112,7 +111,7 @@ function CertificatesContent() {
   const certQuery = (params?.get("cert") || "").toLowerCase();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [searchInput, setSearchInput] = useState("");
-  const debouncedSearchInput = useDebounce(searchInput, 300);
+  const debouncedSearchInput = useDebounce(searchInput, 100); // Faster response for better INP
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   
@@ -1640,7 +1639,11 @@ function CertificatesContent() {
                 {/* Title and Button Row - Horizontal on desktop, vertical on mobile */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
                   <div className="flex items-center gap-2 sm:gap-3">
+<<<<<<< HEAD
                     <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
+=======
+                    <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
+>>>>>>> 6df2f88a8d5f12ff446634f31aaebdfba5de58f6
                       <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
@@ -1689,10 +1692,7 @@ function CertificatesContent() {
 
             {/* Loading State */}
             {loading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="min-h-[400px] flex items-center justify-center"
+              <div className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center">
                   <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
@@ -1703,15 +1703,12 @@ function CertificatesContent() {
                     {t("certificates.loadingMessage")}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Error State */}
             {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="min-h-[400px] flex items-center justify-center"
+              <div className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center max-w-md">
                   <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1728,16 +1725,12 @@ function CertificatesContent() {
                     {t("certificates.tryAgain")}
                   </Button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Certificates Table */}
             {!loading && !error && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4 }}
+              <div
               >
                 {/* Desktop Table View */}
                 <div className="hidden xl:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden">
@@ -2046,13 +2039,13 @@ function CertificatesContent() {
                   );
                   })}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Pagination Controls */}
             {!loading && !error && filtered.length > 0 && (
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mt-4 px-2">
-                <div className="text-xs sm:text-sm text-gray-500">
+              <div className="flex flex-row justify-between items-center gap-2 mt-4 px-2">
+                <div className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
                   {t("certificates.showing")
                     .replace("{start}", String(indexOfFirstItem + 1))
                     .replace("{end}", String(Math.min(indexOfLastItem, filtered.length)))
@@ -2063,7 +2056,34 @@ function CertificatesContent() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                {/* Mobile: Compact pagination with chevron only */}
+                <div className="flex items-center gap-2 sm:hidden flex-shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 px-2 whitespace-nowrap">
+                    {t("certificates.page")
+                      .replace("{current}", String(currentPage))
+                      .replace("{total}", String(totalPages))}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+                {/* Desktop: Full pagination with Previous/Next text */}
+                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -2093,10 +2113,7 @@ function CertificatesContent() {
 
             {/* Empty State */}
             {!loading && !error && filtered.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center py-16"
+              <div className="text-center py-16"
               >
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <FileText className="w-12 h-12 text-gray-400" />
@@ -2116,7 +2133,7 @@ function CertificatesContent() {
                     {t("certificates.create")}
                   </Button>
                 )}
-              </motion.div>
+              </div>
             )}
         </div>
       </section>

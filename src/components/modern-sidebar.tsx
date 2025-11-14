@@ -3,7 +3,6 @@
 import { useState, memo, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   Home,
   FileText,
@@ -126,14 +125,15 @@ const ModernSidebar = memo(function ModernSidebar() {
 
                 {/* Tooltip */}
                 {hoveredItem === item.href && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg whitespace-nowrap z-50 pointer-events-none"
+                  <div
+                    className="absolute left-full ml-2 px-2.5 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm border border-gray-300 dark:border-gray-600 rounded whitespace-nowrap z-50 pointer-events-none shadow-sm transition-all duration-150 ease-out animate-in fade-in slide-in-from-left-2"
+                    style={{
+                      top: '30%',
+                      transform: 'translateY(-50%)'
+                    }}
                   >
                     {item.label}
-                  </motion.div>
+                  </div>
                 )}
               </div>
             );

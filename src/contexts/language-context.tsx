@@ -219,11 +219,7 @@ const translations: Translations = {
     'common.tryAgain': 'Try Again',
     'common.saving': 'Saving...',
     
-    // Footer
-    'footer.multilingual': 'Multilingual Platform',
-    'footer.phone': '+6281380935185',
-    'footer.email': 'fahrirafa.rpl1@gmail.com',
-    'footer.location': 'Malang',
+
     
     // Language
     'language.english': 'English',
@@ -322,14 +318,7 @@ const translations: Translations = {
     'about.features.email': 'Email Integration',
     'about.features.emailDesc': 'Send certificates via email individually or in bulk with advanced filtering options.',
     
-    // Footer
-    'footer.quickLinks': 'Quick Links',
-    'footer.legal': 'Legal',
-    'footer.privacy': 'Privacy Policy',
-    'footer.terms': 'Terms of Service',
-    'footer.contact': 'Contact Us',
-    'footer.cookies': 'Cookie Policy',
-    'footer.developedBy': 'Developed by',
+
     
     
     // FAQ
@@ -740,11 +729,7 @@ const translations: Translations = {
     'common.tryAgain': 'Coba Lagi',
     'common.saving': 'Menyimpan...',
     
-    // Footer
-    'footer.multilingual': 'Platform Multibahasa',
-    'footer.phone': '+6281380935185',
-    'footer.email': 'fahrirafa.rpl1@gmail.com',
-    'footer.location': 'Malang',
+  
     
     // Language
     'language.english': 'English',
@@ -843,14 +828,7 @@ const translations: Translations = {
     'about.features.email': 'Integrasi Email',
     'about.features.emailDesc': 'Kirim sertifikat melalui email secara individual atau massal dengan opsi filter lanjutan.',
     
-    // Footer
-    'footer.quickLinks': 'Tautan Cepat',
-    'footer.legal': 'Legal',
-    'footer.privacy': 'Kebijakan Privasi',
-    'footer.terms': 'Syarat Layanan',
-    'footer.contact': 'Hubungi Kami',
-    'footer.cookies': 'Kebijakan Cookie',
-    'footer.developedBy': 'Dikembangkan oleh',
+
     
     
     // FAQ

@@ -92,7 +92,7 @@ export function LoginModal() {
           className="grid grid-cols-1 min-h-[400px]"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, ease: "easeOut" as const }}
+          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] as const }}
         >
           {/* Enhanced header with gradient */}
           <motion.div 
@@ -212,7 +212,7 @@ export function LoginModal() {
                 <Button 
                   type="submit" 
                   disabled={loading} 
-                  className="w-full h-12 gradient-primary text-white font-semibold rounded-lg hover:opacity-90 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="w-full h-12 gradient-primary text-white font-semibold rounded-lg shadow-lg"
                 >
                   {loading ? (
                     <div className="flex items-center gap-2">

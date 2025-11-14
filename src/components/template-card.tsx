@@ -84,7 +84,7 @@ const TemplateCard = memo<TemplateCardProps>(({
     <div
       onClick={() => onPreview(template)}
       onMouseEnter={handleMouseEnter}
-      className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer flex flex-row h-[200px] w-full"
+      className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 ease-out cursor-pointer flex flex-row h-[200px] w-full transform-gpu will-change-transform hover:scale-[1.01] hover:-translate-y-1"
     >
       {/* Template Thumbnail - Left Side */}
       <div className="relative w-[160px] h-full flex-shrink-0 bg-gray-100 dark:bg-gray-900 overflow-hidden border-r border-gray-200 dark:border-gray-700">
@@ -171,7 +171,7 @@ const TemplateCard = memo<TemplateCardProps>(({
           <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700 w-full">
             <Button 
               size="sm"
-              className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm hover:shadow-md transition-all duration-300 flex-1 min-w-0" 
+              className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm transition-all duration-300 flex-1 min-w-0" 
               onClick={(e) => {
                 e.stopPropagation();
                 router.push(`/templates/configure?template=${template.id}`);
@@ -183,7 +183,7 @@ const TemplateCard = memo<TemplateCardProps>(({
             <Button 
               variant="outline" 
               size="sm"
-              className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-shrink-0" 
+              className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0" 
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(template);
@@ -194,7 +194,7 @@ const TemplateCard = memo<TemplateCardProps>(({
             <LoadingButton 
               variant="outline" 
               size="sm"
-              className={`h-7 w-7 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 ${canDelete && !templateUsageMap.has(template.id) ? 'hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' : 'opacity-50 cursor-not-allowed'}`}
+              className={`h-7 w-7 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 ${canDelete && !templateUsageMap.has(template.id) ? '' : 'opacity-50 cursor-not-allowed'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (canDelete && !templateUsageMap.has(template.id)) {

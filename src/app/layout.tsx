@@ -11,7 +11,6 @@ import { LoginModal } from "@/components/ui/login-modal";
 import { ThemeScript } from "@/components/theme-script";
 import { ErrorBoundaryWrapper } from "@/components/error-boundary-wrapper";
 import { ScrollbarVisibility } from "@/components/scrollbar-visibility";
-import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -77,7 +76,6 @@ export default function RootLayout({
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`}>
         <ThemeScript />
         <ErrorBoundaryWrapper>
-          {/* <ReactQueryProvider> */}
             <ThemeProvider>
               <LanguageProvider>
                 <AuthProvider>
@@ -90,7 +88,6 @@ export default function RootLayout({
                 </AuthProvider>
               </LanguageProvider>
             </ThemeProvider>
-          {/* </ReactQueryProvider> */}
         </ErrorBoundaryWrapper>
       </body>
     </html>
