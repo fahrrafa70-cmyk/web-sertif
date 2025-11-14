@@ -2081,8 +2081,8 @@ function CertificatesContent() {
 
             {/* Pagination Controls */}
             {!loading && !error && filtered.length > 0 && (
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mt-4 px-2">
-                <div className="text-xs sm:text-sm text-gray-500">
+              <div className="flex flex-row justify-between items-center gap-2 mt-4 px-2">
+                <div className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
                   {t("certificates.showing")
                     .replace("{start}", String(indexOfFirstItem + 1))
                     .replace("{end}", String(Math.min(indexOfLastItem, filtered.length)))
@@ -2093,7 +2093,34 @@ function CertificatesContent() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                {/* Mobile: Compact pagination with chevron only */}
+                <div className="flex items-center gap-2 sm:hidden flex-shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 px-2 whitespace-nowrap">
+                    {t("certificates.page")
+                      .replace("{current}", String(currentPage))
+                      .replace("{total}", String(totalPages))}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+                {/* Desktop: Full pagination with Previous/Next text */}
+                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                   <Button 
                     variant="outline" 
                     size="sm"

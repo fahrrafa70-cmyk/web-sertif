@@ -82,6 +82,9 @@ function ConfigureLayoutContent() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasScale, setCanvasScale] = useState(1);
 
+  // Screen size detection for responsive behavior
+  const [isDesktop, setIsDesktop] = useState(false);
+
   // Preview modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
@@ -638,6 +641,22 @@ function ConfigureLayoutContent() {
     };
   }, [templateId, router]);
 
+  // Screen size detection for responsive behavior
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+
+    // Check initially
+    checkScreenSize();
+
+    // Listen for resize events
+    window.addEventListener('resize', checkScreenSize);
+
+    // Cleanup
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   // CRITICAL: Normalize coordinates when template dimensions change
   // This handles the case when template image is replaced with different size
   // Use refs to track last normalized dimensions to avoid infinite loops
@@ -785,7 +804,7 @@ function ConfigureLayoutContent() {
     }
   };
 
-  // Calculate canvas scale based on container width - dengan ResizeObserver untuk update yang lebih akurat
+  // Calculate canvas scale based on container size - dengan ResizeObserver untuk update yang lebih akurat
   useEffect(() => {
     const updateScale = () => {
       if (!canvasRef.current) return;
@@ -799,9 +818,11 @@ function ConfigureLayoutContent() {
           const containerWidth = canvasRef.current.offsetWidth;
           const containerHeight = canvasRef.current.offsetHeight;
           
-          // Pastikan container memiliki dimensi yang valid
-          if (containerWidth <= 0 || containerHeight <= 0) {
-            console.warn('Canvas container has invalid dimensions:', { containerWidth, containerHeight });
+          // Pastikan container memiliki dimensi yang valid.
+          // Desktop: butuh width dan height yang valid.
+          // Mobile: kita hanya butuh width, height bisa 0 karena inner canvas absolute.
+          if (containerWidth <= 0 || (isDesktop && containerHeight <= 0)) {
+            console.warn('Canvas container has invalid dimensions:', { containerWidth, containerHeight, isDesktop });
             return;
           }
           
@@ -833,7 +854,11 @@ function ConfigureLayoutContent() {
           
           const scaleX = containerWidth / templateWidth;
           const scaleY = containerHeight / templateHeight;
-          const scale = Math.min(scaleX, scaleY);
+
+          // On desktop: keep using Math.min(scaleX, scaleY) so behavior tetap sama.
+          // On mobile: use width-based scaling (scaleX) supaya preview mengisi lebar container
+          // dan tidak menyisakan ruang putih besar di atas/bawah.
+          const scale = isDesktop ? Math.min(scaleX, scaleY) : scaleX;
           
           // Ensure scale is valid (not NaN, Infinity, or negative)
           if (isNaN(scale) || !isFinite(scale) || scale <= 0) {
@@ -1599,16 +1624,11 @@ function ConfigureLayoutContent() {
           {/* Compact Canvas for Editing */}
           <div className="lg:col-span-4 order-1 lg:order-1">
             <div 
-              className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6"
-              style={{
-                // Always limit wrapper width for portrait templates (even during loading)
-                maxWidth: !templateImageDimensions || (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width)
-                  ? '650px' 
-                  : 'none',
-                margin: !templateImageDimensions || (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width)
-                  ? '0 auto' 
-                  : '0',
-              }}
+              className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6 ${
+                !templateImageDimensions || (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width)
+                  ? 'w-full lg:max-w-[650px] lg:mx-auto' 
+                  : 'w-full'
+              }`}
             >
               {/* Loading skeleton - shown only when dimensions are not yet loaded */}
               {!templateImageDimensions && (
@@ -1637,22 +1657,30 @@ function ConfigureLayoutContent() {
                   aspectRatio: templateImageDimensions 
                     ? `${templateImageDimensions.width}/${templateImageDimensions.height}`
                     : `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
-                  // For portrait: limit height and let width adjust, for landscape: limit width
-                  maxHeight: templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
-                    ? '800px'  // Portrait: larger max height
+                  // Mobile: full width, Desktop: limit height for portrait templates
+                  maxHeight: isDesktop && templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                    ? '800px'  // Desktop Portrait: larger max height
                     : 'none',
-                  width: templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
-                    ? 'auto'   // Portrait: width auto-adjusts based on height and aspect ratio
-                    : '100%',  // Landscape: full width
+                  width: isDesktop && templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                    ? 'auto'   // Desktop Portrait: width auto-adjusts based on height and aspect ratio
+                    : '100%',  // Mobile: full width, Desktop Landscape: full width
                 }}
               >
-                {/* Inner canvas at natural size, scaled down by transform */}
+                {/* Inner canvas at natural size on desktop, full wrapper on mobile */}
                 <div
                   className="absolute top-0 left-0 border-2 border-gray-300 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 overflow-hidden"
                   style={{
-                    width: `${templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}px`,
-                    height: `${templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}px`,
-                    transform: `scale(${canvasScale})`,
+                    // Desktop: use natural template size with transform scale (existing behavior)
+                    // Mobile: make canvas fill the wrapper directly, no extra scaling transform
+                    width: isDesktop
+                      ? `${templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}px`
+                      : '100%',
+                    height: isDesktop
+                      ? `${templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}px`
+                      : '100%',
+                    transform: isDesktop
+                      ? `scale(${canvasScale})`
+                      : 'none',
                     transformOrigin: 'top left',
                     cursor: 'default',
                     userSelect: 'none',
@@ -1694,16 +1722,21 @@ function ConfigureLayoutContent() {
                   // Render richText if available, otherwise plain text
                   const renderText = () => {
                     if (layer.richText && layer.hasInlineFormatting) {
+                      // Base scale from template natural width
+                      const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
+                      // Desktop: behave as before (transform handles visual scaling)
+                      // Mobile: include canvasScale so visual size matches desktop proportionally
+                      const domScale = isDesktop ? templateScale : templateScale * canvasScale;
+
                       // Render with inline formatting
                       return layer.richText.map((span, idx) => {
-                        const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
                         return (
                           <span
                             key={idx}
                             style={{
                               fontWeight: span.fontWeight || layer.fontWeight,
                               fontFamily: span.fontFamily || layer.fontFamily,
-                              fontSize: span.fontSize ? `${span.fontSize * templateScale}px` : undefined,
+                              fontSize: span.fontSize ? `${span.fontSize * domScale}px` : undefined,
                               color: span.color || layer.color
                             }}
                           >
@@ -1764,9 +1797,21 @@ function ConfigureLayoutContent() {
                         style={{
                           // ✅ CRITICAL: Scale font size to match generation output
                           // Generation uses: fontSize * (templateWidth / STANDARD_CANVAS_WIDTH)
-                          // Preview must use the same scaling to match 1:1
-                          // Template 6250px: font 30 * (6250/1500) = 125px
-                          fontSize: `${layer.fontSize * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px`,
+                          // Desktop preview: inner canvas uses transform(scale), so we only need template width scale.
+                          // Mobile preview: canvas fills wrapper without transform, so we must include canvasScale
+                          // so visual size matches desktop proportionally.
+                          ...( (() => {
+                            const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
+                            const domScale = isDesktop ? templateScale : templateScale * canvasScale;
+
+                            return {
+                              fontSize: `${layer.fontSize * domScale}px`,
+                              // Scale width-related properties with the same domScale
+                              width: layer.maxWidth ? `${layer.maxWidth * domScale}px` : 'auto',
+                              maxWidth: layer.maxWidth ? `${layer.maxWidth * domScale}px` : 'none',
+                              minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * domScale}px`,
+                            };
+                          })() ),
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
@@ -1774,10 +1819,6 @@ function ConfigureLayoutContent() {
                           textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                           // certificate_no and issue_date should never wrap - always stay on one line
                           whiteSpace: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'nowrap' : (layer.maxWidth ? 'normal' : 'nowrap'),
-                          // ✅ Scale maxWidth to match generation output
-                          width: layer.maxWidth ? `${layer.maxWidth * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px` : 'auto',
-                          maxWidth: layer.maxWidth ? `${layer.maxWidth * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px` : 'none',
-                          minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH}px`,
                           lineHeight: layer.lineHeight || 1.2,
                           // certificate_no and issue_date: truncate with ellipsis if text overflows
                           textOverflow: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'ellipsis' : 'clip',
