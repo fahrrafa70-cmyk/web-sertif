@@ -10,6 +10,9 @@ export interface TextSpan {
   fontSize?: number;
   color?: string;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
+  // Extended styling properties
+  fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through';
+  textShadow?: string;
 }
 
 export type RichText = TextSpan[];

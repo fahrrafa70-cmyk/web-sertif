@@ -18,6 +18,14 @@ export interface TextLayerDefault {
   useDefaultText?: boolean;
   maxWidth?: number;
   lineHeight?: number;
+  richText?: Array<{
+    text: string;
+    fontSize?: number;
+    color?: string;
+    fontWeight?: string;
+    fontFamily?: string;
+  }>;
+  hasInlineFormatting?: boolean;
 }
 
 export interface OverlayImageDefault {

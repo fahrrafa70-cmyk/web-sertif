@@ -184,14 +184,15 @@ export function mergeExcelData(
     const mainRow = mainData[idx];
     const scoreRow = scoreData[idx];
     
-    const merged: Record<string, unknown> = {};
+    // Start with original main row (like non-dual template approach)
+    const merged: Record<string, unknown> = { ...mainRow };
     
     // Map main data
     for (const [layerId, excelCol] of Object.entries(mainMapping)) {
       merged[layerId] = mainRow[excelCol];
     }
     
-    // Map score data
+    // Map score data  
     for (const [layerId, excelCol] of Object.entries(scoreMapping)) {
       merged[layerId] = scoreRow[excelCol];
     }
