@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
       exclude: ['error', 'warn'], // Keep errors and warnings for debugging
     } : false,
   },
-  // Optimize bundle size
+  // Optimize bundle size and performance
   experimental: {
     optimizePackageImports: [
       '@radix-ui/react-dialog',
@@ -58,9 +58,10 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-tooltip',
       '@tabler/icons-react',
       'lucide-react',
-      'framer-motion',
       'recharts',
     ],
+    // Enable modern bundling
+    esmExternals: true,
   },
   // Prevent build manifest errors
   onDemandEntries: {

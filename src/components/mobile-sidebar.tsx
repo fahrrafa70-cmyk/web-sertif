@@ -107,7 +107,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[59] lg:hidden"
             onClick={onClose}
           />
@@ -117,7 +117,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
+            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
             className="fixed top-0 left-0 h-full w-[85vw] max-w-sm bg-white dark:bg-gray-900 shadow-xl border-r border-gray-200 dark:border-gray-700 z-[60] lg:hidden"
           >
             <div className="flex flex-col h-full">

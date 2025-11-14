@@ -61,7 +61,7 @@ function SearchResultsContent() {
   const [searchResults, setSearchResults] = useState<Certificate[]>([]);
   const [searchError, setSearchError] = useState("");
   const [hasSearched, setHasSearched] = useState(false); // Track if user has performed initial search
-  const debouncedSearchQuery = useDebounce(searchQuery, 500); // Debounce for auto-search after first search
+  const debouncedSearchQuery = useDebounce(searchQuery, 200); // Faster debounce for better INP
   const isInitialMount = useRef(true); // Track if this is the initial mount
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // DIAGNOSIS 1.2: Store loading timeout
   // CRITICAL FIX: Use ref to store searchResults to prevent unmount/mount flicker

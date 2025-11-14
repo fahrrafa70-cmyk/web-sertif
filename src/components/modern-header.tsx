@@ -99,7 +99,7 @@ const ModernHeader = memo(function ModernHeader() {
             ) : (
               <Button
                 size="sm"
-                className="gradient-primary text-white border-0 hover:opacity-90 transition-opacity shadow-md hover:shadow-lg h-7 sm:h-8 md:h-9 text-xs sm:text-sm px-2 sm:px-3 md:px-4"
+                className="gradient-primary text-white border-0 shadow-md h-7 sm:h-8 md:h-9 text-xs sm:text-sm px-2 sm:px-3 md:px-4"
                 onClick={() => setOpenLogin(true)}
               >
                 Login

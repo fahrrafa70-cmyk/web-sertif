@@ -1,7 +1,6 @@
 "use client";
 
 import ModernLayout from "@/components/modern-layout";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { Input } from "@/components/ui/input";
@@ -44,10 +43,8 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTempla
   const imageUrl = getTemplateUrl(template);
   
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 ease-in-out cursor-pointer flex flex-row h-[200px] w-full transform will-change-transform"
+    <div
+      className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 ease-out cursor-pointer flex flex-row h-[200px] w-full transform will-change-transform"
       onClick={() => onPreview(template)}
     >
       {/* Template Thumbnail - Left Side */}
@@ -56,10 +53,13 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTempla
           <Image
             src={imageUrl}
             alt={template.name}
-            width={300}
+            width={160}
             height={200}
             className="w-full h-full object-contain"
             sizes="160px"
+            priority={false}
+            loading="lazy"
+            quality={85}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -118,9 +118,11 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTempla
         <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700 w-full">
           <Button 
             size="sm"
-            className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm hover:shadow-md transition-all duration-300 flex-1 min-w-0" 
+            className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm transition-all duration-300 flex-1 min-w-0 relative z-10 pointer-events-auto" 
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
+              console.log('Configure button clicked for template:', template.id);
               onConfigure(template.id);
             }}
           >
@@ -130,8 +132,9 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTempla
           <Button 
             variant="outline" 
             size="sm"
-            className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-shrink-0" 
+            className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 relative z-10 pointer-events-auto" 
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               onEdit(template);
             }}
@@ -140,7 +143,7 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTempla
           </Button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 });
 
@@ -151,7 +154,7 @@ export default function TemplatesPage() {
   const router = useRouter();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [query, setQuery] = useState("");
-  const debouncedQuery = useDebounce(query, 300);
+  const debouncedQuery = useDebounce(query, 100); // Optimized for INP performance
   const [categoryFilter, setCategoryFilter] = useState("");
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
@@ -163,16 +166,30 @@ export default function TemplatesPage() {
   
   // Simplified without heavy caching
 
-  // Filter templates based on search query and category
+  // Optimized filtering with early returns and better performance
   const filtered = useMemo(() => {
+    // Early return if no templates
+    if (!templates.length) return [];
+    
     let list = templates;
-    if (debouncedQuery) {
-      const q = debouncedQuery.toLowerCase();
-      list = list.filter((i) => i.name.toLowerCase().includes(q));
-    }
+    
+    // Apply category filter first (usually more selective)
     if (categoryFilter) {
-      list = list.filter((i) => i.category === categoryFilter);
+      list = list.filter((template) => template.category === categoryFilter);
+      if (!list.length) return []; // Early return if no matches
     }
+    
+    // Apply search query filter
+    if (debouncedQuery) {
+      const q = debouncedQuery.toLowerCase().trim();
+      if (q) {
+        list = list.filter((template) => 
+          template.name.toLowerCase().includes(q) ||
+          template.category.toLowerCase().includes(q)
+        );
+      }
+    }
+    
     return list;
   }, [templates, debouncedQuery, categoryFilter]);
   
@@ -223,7 +240,15 @@ export default function TemplatesPage() {
   }, []);
 
   const handleConfigureClick = useCallback((templateId: string) => {
-    router.push(`/templates/configure?template=${templateId}`);
+    console.log('Navigating to configure page for template:', templateId);
+    // Use setTimeout to ensure navigation happens after current event loop
+    setTimeout(() => {
+      try {
+        router.push(`/templates/configure?template=${templateId}`);
+      } catch (error) {
+        console.error('Error navigating to configure page:', error);
+      }
+    }, 0);
   }, [router]);
 
   // Function to generate thumbnail in background
@@ -696,11 +721,8 @@ export default function TemplatesPage() {
   return (
     <ModernLayout>
       {/* Main Content Section */}
-      <motion.section 
-        className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
+      <section 
+        className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900 duration-500"
       >
         <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
           {/* Header Section - Like Groups page */}
@@ -768,7 +790,7 @@ export default function TemplatesPage() {
                       <select
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">{t('templates.allCategories')}</option>
                         <option value="MoU">MoU</option>
@@ -787,10 +809,8 @@ export default function TemplatesPage() {
 
             {/* Loading State */}
             {loading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="min-h-[400px] flex items-center justify-center"
+              <div
+                                className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center">
                   <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
@@ -801,15 +821,13 @@ export default function TemplatesPage() {
                     {t("templates.loadingMessage")}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Error State */}
             {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="min-h-[400px] flex items-center justify-center"
+              <div
+                                className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center max-w-md">
                   <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -826,7 +844,7 @@ export default function TemplatesPage() {
                     {t("templates.tryAgain")}
                   </Button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Results Count */}
@@ -840,11 +858,8 @@ export default function TemplatesPage() {
 
             {/* Templates Grid - 3 Columns like /search */}
             {!loading && !error && filtered.length > 0 && (
-            <motion.div 
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-full"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
+            <div 
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-full duration-300"
             >
               {filtered.map((template) => (
                 <TemplateCard
@@ -856,15 +871,13 @@ export default function TemplatesPage() {
                   getTemplateUrl={getTemplateUrl}
                 />
               ))}
-            </motion.div>
+            </div>
           )}
 
             {/* Empty State */}
             {!loading && !error && filtered.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-12 sm:p-16"
+              <div
+                                className="p-12 sm:p-16"
               >
                 <div className="text-center max-w-md mx-auto">
                   <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-6">
@@ -886,11 +899,11 @@ export default function TemplatesPage() {
                     </Button>
                   )}
                 </div>
-              </motion.div>
+              </div>
             )}
           </div>
         </div>
-      </motion.section>
+      </section>
 
       {/* Enhanced Create Template Sheet */}
       <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -899,12 +912,9 @@ export default function TemplatesPage() {
             <SheetTitle className="text-xl font-bold text-gradient">{t('templates.createTitle')}</SheetTitle>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-6">
-            <motion.div 
+            <div 
               className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-            >
+                          >
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateName')}</label>
               <Input 
                 value={draft?.name ?? ""} 
@@ -912,14 +922,11 @@ export default function TemplatesPage() {
                 placeholder={t('templates.templateNamePlaceholder')}
                 className="rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 dark:bg-gray-900 dark:text-gray-100"
               />
-            </motion.div>
+            </div>
             
-            <motion.div 
+            <div 
               className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
+                          >
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.category')}</label>
               <select 
                 value={draft?.category ?? ""} 
@@ -935,14 +942,11 @@ export default function TemplatesPage() {
                 <option value="Surat">Surat</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
-            </motion.div>
+            </div>
             
-            <motion.div 
+            <div 
               className="space-y-3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            >
+                          >
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.orientation')}</label>
               <div className="grid grid-cols-2 gap-3">
                 <Button 
@@ -962,14 +966,11 @@ export default function TemplatesPage() {
                   {t('templates.portrait')}
                 </Button>
               </div>
-            </motion.div>
+            </div>
 
             {/* Dual Template Mode Selector */}
-            <motion.div 
+            <div 
               className="space-y-3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.25 }}
             >
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateMode')}</label>
               <div className="grid grid-cols-2 gap-3">
@@ -995,15 +996,12 @@ export default function TemplatesPage() {
                   {t('templates.dualTemplateInfo')}
                 </p>
               )}
-            </motion.div>
+            </div>
 
             {/* Single Template Image */}
             {!isDualTemplate && (
-            <motion.div 
+            <div 
               className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
             >
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateImage')}</label>
               <div className="space-y-3">
@@ -1035,18 +1033,15 @@ export default function TemplatesPage() {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
             )}
 
             {/* Dual Template Images */}
             {isDualTemplate && (
               <>
                 {/* Certificate Image */}
-                <motion.div 
+                <div 
                   className="space-y-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.3 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.certificateImage')}</label>
                   <div className="space-y-3">
@@ -1078,14 +1073,11 @@ export default function TemplatesPage() {
                       </div>
                     )}
                   </div>
-                </motion.div>
+                </div>
 
                 {/* Score Image */}
-                <motion.div 
+                <div 
                   className="space-y-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.35 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.scoreImage')}</label>
                   <div className="space-y-3">
@@ -1117,18 +1109,13 @@ export default function TemplatesPage() {
                       </div>
                     )}
                   </div>
-                </motion.div>
+                </div>
               </>
             )}
 
-            
-
             {/* Preview Image Upload */}
-            <motion.div 
+            <div 
               className="space-y-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.35 }}
             >
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.previewImage')}</label>
               <div className="space-y-3">
@@ -1160,13 +1147,10 @@ export default function TemplatesPage() {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
             
-            <motion.div 
+            <div 
               className="flex justify-end gap-3 pt-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.4 }}
             >
               <Button 
                 variant="outline" 
@@ -1184,7 +1168,7 @@ export default function TemplatesPage() {
               >
                 {t('templates.create')}
               </LoadingButton>
-            </motion.div>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -1200,11 +1184,8 @@ export default function TemplatesPage() {
               </SheetHeader>
               <div className="p-4 space-y-6">
                 {/* Template Name */}
-                <motion.div 
+                <div 
                   className="space-y-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateName')}</label>
                   <Input 
@@ -1213,14 +1194,11 @@ export default function TemplatesPage() {
                     placeholder={t('templates.templateNamePlaceholder')}
                     className="rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 dark:bg-gray-900 dark:text-gray-100"
                   />
-                </motion.div>
+                </div>
 
                 {/* Category */}
-                <motion.div 
+                <div 
                   className="space-y-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.1 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.category')}</label>
                   <select 
@@ -1237,14 +1215,11 @@ export default function TemplatesPage() {
                     <option value="Surat">Surat</option>
                     <option value="Lainnya">Lainnya</option>
                   </select>
-                </motion.div>
+                </div>
 
                 {/* Orientation */}
-                <motion.div 
+                <div 
                   className="space-y-3"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.2 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.orientation')}</label>
                   <div className="grid grid-cols-2 gap-3">
@@ -1265,14 +1240,11 @@ export default function TemplatesPage() {
                       {t('templates.portrait')}
                     </Button>
                   </div>
-                </motion.div>
+                </div>
 
                 {/* Status */}
-                <motion.div 
+                <div 
                   className="space-y-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.22 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.status')}</label>
                   <select 
@@ -1292,14 +1264,11 @@ export default function TemplatesPage() {
                     <option value="draft">{t('templates.status.draft')}</option>
                     <option value="ready">{t('templates.status.ready')}</option>
                   </select>
-                </motion.div>
+                </div>
 
                 {/* Dual Template Mode Selector */}
-                <motion.div 
+                <div 
                   className="space-y-3"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.25 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateMode')}</label>
                   <div className="grid grid-cols-2 gap-3">
@@ -1325,17 +1294,14 @@ export default function TemplatesPage() {
                       {t('templates.dualTemplateInfo')}
                     </p>
                   )}
-                </motion.div>
+                </div>
 
                 {/* Single Template Image */}
                 {!isDualTemplate && (
                   <>
                     {/* Current Template Image */}
-                    <motion.div 
+                    <div 
                       className="space-y-2"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: 0.3 }}
                     >
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.currentTemplateImage')}</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
@@ -1370,14 +1336,11 @@ export default function TemplatesPage() {
                           </>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
 
                     {/* Upload New Template Image */}
-                    <motion.div 
+                    <div 
                       className="space-y-2"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: 0.4 }}
                     >
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.changeTemplateImage')}</label>
                       <div className="space-y-3">
@@ -1399,7 +1362,7 @@ export default function TemplatesPage() {
                           </Button>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
                   </>
                 )}
 
@@ -1407,11 +1370,8 @@ export default function TemplatesPage() {
                 {isDualTemplate && (
                   <>
                     {/* Current Certificate Image */}
-                    <motion.div 
+                    <div 
                       className="space-y-2"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: 0.3 }}
                     >
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.currentCertificateImage')}</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
@@ -1446,14 +1406,11 @@ export default function TemplatesPage() {
                           </>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
 
                     {/* Upload New Certificate Image */}
-                    <motion.div 
+                    <div 
                       className="space-y-2"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: 0.4 }}
                     >
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.changeCertificateImage')}</label>
                       <div className="space-y-3">
@@ -1475,14 +1432,11 @@ export default function TemplatesPage() {
                           </Button>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
 
                     {/* Current Score Image */}
-                    <motion.div 
+                    <div 
                       className="space-y-2"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: 0.5 }}
                     >
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.currentScoreImage')}</label>
                       <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
@@ -1517,14 +1471,11 @@ export default function TemplatesPage() {
                           </>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
 
                     {/* Upload New Score Image */}
-                    <motion.div 
+                    <div 
                       className="space-y-2"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: 0.6 }}
                     >
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.changeScoreImage')}</label>
                       <div className="space-y-3">
@@ -1546,16 +1497,13 @@ export default function TemplatesPage() {
                           </Button>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
                   </>
                 )}
 
                 {/* Current Preview Image */}
-                <motion.div 
+                <div 
                   className="space-y-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.5 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.currentPreviewImage')}</label>
                   <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
@@ -1590,14 +1538,11 @@ export default function TemplatesPage() {
                       </>
                     )}
                   </div>
-                </motion.div>
+                </div>
 
                 {/* Upload New Preview Image */}
-                <motion.div 
+                <div 
                   className="space-y-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.6 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.changePreviewImage')}</label>
                   <div className="space-y-3">
@@ -1619,14 +1564,11 @@ export default function TemplatesPage() {
                       </Button>
                     )}
                   </div>
-                </motion.div>
+                </div>
 
                 {/* Action Buttons */}
-                <motion.div 
+                <div 
                   className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.7 }}
                 >
                   <Button 
                     variant="outline" 
@@ -1646,7 +1588,7 @@ export default function TemplatesPage() {
                       {t('members.saveChanges')}
                     </LoadingButton>
                   )}
-                </motion.div>
+                </div>
               </div>
             </SheetContent>
           </Sheet>

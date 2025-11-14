@@ -1,7 +1,6 @@
 "use client";
 
 import ModernLayout from "@/components/modern-layout";
-import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -112,7 +111,7 @@ function CertificatesContent() {
   const certQuery = (params?.get("cert") || "").toLowerCase();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
   const [searchInput, setSearchInput] = useState("");
-  const debouncedSearchInput = useDebounce(searchInput, 300);
+  const debouncedSearchInput = useDebounce(searchInput, 100); // Faster response for better INP
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   
@@ -1730,10 +1729,7 @@ function CertificatesContent() {
 
             {/* Loading State */}
             {loading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="min-h-[400px] flex items-center justify-center"
+              <div className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center">
                   <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
@@ -1744,15 +1740,12 @@ function CertificatesContent() {
                     {t("certificates.loadingMessage")}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Error State */}
             {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="min-h-[400px] flex items-center justify-center"
+              <div className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center max-w-md">
                   <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1769,16 +1762,12 @@ function CertificatesContent() {
                     {t("certificates.tryAgain")}
                   </Button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Certificates Table */}
             {!loading && !error && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4 }}
+              <div
               >
                 {/* Desktop Table View */}
                 <div className="hidden xl:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden">
@@ -2087,7 +2076,7 @@ function CertificatesContent() {
                   );
                   })}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Pagination Controls */}
@@ -2134,10 +2123,7 @@ function CertificatesContent() {
 
             {/* Empty State */}
             {!loading && !error && filtered.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center py-16"
+              <div className="text-center py-16"
               >
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <FileText className="w-12 h-12 text-gray-400" />
@@ -2157,7 +2143,7 @@ function CertificatesContent() {
                     {t("certificates.create")}
                   </Button>
                 )}
-              </motion.div>
+              </div>
             )}
         </div>
       </section>

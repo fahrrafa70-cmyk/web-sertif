@@ -127,7 +127,7 @@ export const LazyImage = memo(function LazyImage({
           alt={alt}
           onLoad={handleLoad}
           onError={handleError}
-          className={`transition-all duration-500 ease-out ${
+          className={`transition-all duration-700 ease-out ${
             isLoading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'
           } ${className}`}
           loading={priority ? 'eager' : 'lazy'}
