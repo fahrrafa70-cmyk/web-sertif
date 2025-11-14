@@ -22,7 +22,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { getMember, Member } from "@/lib/supabase/members";
+import { Member } from "@/lib/supabase/members";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +40,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
-import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Award, Filter, X, Search } from "lucide-react";
+import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Filter, X, Search } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
@@ -732,7 +732,8 @@ function CertificatesContent() {
             if (params.template.score_image_url && layoutConfig?.score) {
               excelScoreData = {};
               
-              // Extract score fields from Excel row based on score text layers
+              // CRITICAL FIX: Use merged Excel data that already contains mapped columns
+              // The row data comes from mergeExcelData() which maps Excel columns to layer IDs
               const scoreTextLayers = layoutConfig.score.textLayers || [];
               for (const layer of scoreTextLayers) {
                 // Skip layers with useDefaultText (like score_date) and default certificate layers
@@ -744,17 +745,19 @@ function CertificatesContent() {
                   continue;
                 }
                 
-                // Extract score value from Excel row
+                // FIXED: Use mapped column data (layer.id is already mapped from Excel column names)
                 if (row[layer.id] !== undefined && row[layer.id] !== null && row[layer.id] !== '') {
                   excelScoreData[layer.id] = String(row[layer.id]);
                 }
               }
               
-              console.log('📊 Extracted score data from Excel row:', {
+              console.log('📊 Extracted score data from Excel row (FIXED):', {
                 rowIndex: generated + 1,
                 memberName: name,
                 scoreData: excelScoreData,
-                scoreFields: Object.keys(excelScoreData)
+                scoreFields: Object.keys(excelScoreData),
+                rawRowData: Object.keys(row),
+                availableScoreFields: Object.keys(row).filter(k => scoreTextLayers.some(l => l.id === k))
               });
             }
             
@@ -898,8 +901,8 @@ function CertificatesContent() {
         textAlign: layer.textAlign,
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
-        // richText: layer.richText, // CRITICAL: Pass richText for inline formatting
-        // hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
+        richText: layer.richText,
+        hasInlineFormatting: layer.hasInlineFormatting
       };
     });
     
@@ -1120,45 +1123,27 @@ function CertificatesContent() {
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
             
-            // PRIORITY FIX: Check Excel data FIRST, then default text
-            if (scoreData && scoreData[layer.id]) {
-              // Use score data from Excel/user input (HIGHEST PRIORITY)
-              text = scoreData[layer.id];
-              console.log('✅ Using Excel score data:', { layerId: layer.id, value: text });
-            } else if (layer.useDefaultText && layer.defaultText) {
-              // Fallback to default text
-              text = layer.defaultText;
-              console.log('📝 Using default text:', { layerId: layer.id, value: text });
-            } else {
-              // Map common fields (name, date, etc.)
-              if (layer.id === 'name') {
-                text = member.name;
-                console.log('✨ Setting name layer:', { layerId: layer.id, text, memberName: member.name });
-              }
-              else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
-              else if (layer.id === 'issue_date' || layer.id === 'score_date') {
-                text = formatDateString(finalCertData.issue_date, dateFormat);
-              } else if (layer.id === 'expired_date' || layer.id === 'expiry_date') {
-                // Add support for expired/expiry date
-                text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
-              } else if (layer.defaultText) {
-                text = layer.defaultText;
-              }
+            // PRIORITY 1: Excel data (ignore useDefaultText flag for score layers)
+            if (scoreData && scoreData[layer.id] !== undefined && scoreData[layer.id] !== null) {
+              text = String(scoreData[layer.id]).trim();
+            } 
+            // PRIORITY 2: Common fields mapping
+            else if (layer.id === 'name') {
+              text = member.name;
             }
-            
-            // Debug logging for each layer
-            console.log(`📝 Score layer [${layer.id}]:`, {
-              id: layer.id,
-              text: text || '(empty)',
-              textAlign: layer.textAlign,
-              x: layer.x,
-              y: layer.y,
-              xPercent: layer.xPercent,
-              yPercent: layer.yPercent,
-              useDefaultText: layer.useDefaultText,
-              defaultText: layer.defaultText,
-              hasScoreData: !!scoreData[layer.id]
-            });
+            else if (layer.id === 'certificate_no') {
+              text = finalCertData.certificate_no || '';
+            }
+            else if (layer.id === 'issue_date' || layer.id === 'score_date') {
+              text = formatDateString(finalCertData.issue_date, dateFormat);
+            }
+            else if (layer.id === 'expired_date' || layer.id === 'expiry_date') {
+              text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
+            }
+            // PRIORITY 3: Default text as last resort
+            else if (layer.defaultText) {
+              text = layer.defaultText;
+            }
             
             return {
               id: layer.id,
@@ -1367,10 +1352,6 @@ function CertificatesContent() {
     setFilterModalOpen(false);
   };
 
-  const clearFilters = () => {
-    setTempCategoryFilter("");
-    setTempDateFilter("");
-  };
 
   const [isEditOpen, setIsEditOpen] = useState<null | string>(null);
   const [draft, setDraft] = useState<Certificate | null>(null);
@@ -1386,8 +1367,8 @@ function CertificatesContent() {
   
   // Member detail modal state
   const [memberDetailOpen, setMemberDetailOpen] = useState<boolean>(false);
-  const [detailMember, setDetailMember] = useState<Member | null>(null);
-  const [loadingMemberDetail, setLoadingMemberDetail] = useState<boolean>(false);
+  const [detailMember] = useState<Member | null>(null);
+  const [loadingMemberDetail] = useState<boolean>(false);
   
   // REMOVED: templateImageDimensions state - no longer needed
   // We now use container dimensions directly for text scaling
@@ -1625,7 +1606,7 @@ function CertificatesContent() {
     }
   }
 
-  const openPreview = useCallback(async (certificate: Certificate) => {
+  async function openPreview(certificate: Certificate) {
     setPreviewCertificate(certificate);
     setPreviewMode('certificate');
 
@@ -1646,43 +1627,21 @@ function CertificatesContent() {
         console.error("Failed to load template:", error);
         setPreviewTemplate(null);
       }
-    } else {
-      setPreviewTemplate(null);
-    }
-  }, []);
-
-  async function _openMemberDetail(memberId: string | null) {
-    if (!memberId) {
-      toast.error(t('certificates.memberInfoNotAvailable'));
-      return;
-    }
-    
-    try {
-      setLoadingMemberDetail(true);
-      setMemberDetailOpen(true);
-      const member = await getMember(memberId);
-      setDetailMember(member);
-    } catch (error) {
-      console.error('Failed to load member details:', error);
-      toast.error(t('certificates.loadMemberDetailsFailed'));
-      setMemberDetailOpen(false);
-    } finally {
-      setLoadingMemberDetail(false);
     }
   }
 
   return (
-    <ModernLayout>
-      <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
-        <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
+      <ModernLayout>
+        <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+          <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
             {/* Header */}
             <div className="mb-3">
               <div className="flex flex-col gap-3 mb-4">
                 {/* Title and Button Row - Horizontal on desktop, vertical on mobile */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
-                      <Award className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
+                      <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
                       {t("certificates.title")}
@@ -2304,7 +2263,7 @@ function CertificatesContent() {
             </DialogTitle>
           </DialogHeader>
           <div 
-            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 overflow-y-auto scrollbar-smooth" 
+            className="flex-1 space-y-4 sm:space-y-6 md:space-y-8 pr-1 -mr-1 overflow-y-auto scrollbar-smooth pb-4" 
             style={{ 
               scrollbarGutter: 'stable',
             }}
@@ -2469,7 +2428,7 @@ function CertificatesContent() {
                             const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
                             return (
-                              <div className="relative w-full aspect-auto min-h-[250px] flex items-center justify-center">
+                              <div className="relative w-full aspect-auto">
                                 <Image
                                   src={src}
                                   alt={previewMode === 'score' ? "Score" : "Certificate"}
@@ -2516,7 +2475,7 @@ function CertificatesContent() {
                             );
                           })()
                         ) : (
-                          <div className="relative w-full min-h-[250px] flex items-center justify-center">
+                          <div className="relative w-full">
                             {/* FIX: Template Image with consistent aspect ratio - same as /search */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
                               <Image
@@ -2535,7 +2494,7 @@ function CertificatesContent() {
                                 className="w-full h-auto max-h-[380px] object-contain rounded-lg"
                               />
                             ) : (
-                              <div className="relative w-full aspect-[4/3] min-h-[250px]">
+                              <div className="relative w-full aspect-[4/3]">
                                 {/* Decorative Corners */}
                                 <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-br-2xl"></div>
                                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-yellow-400 to-orange-500 rounded-bl-2xl"></div>
