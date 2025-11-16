@@ -753,7 +753,7 @@ export default function MembersPage() {
             {/* Mobile & Tablet Card View */}
             {!loading && !error && (
               <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                {currentMembers.map((m, index) => (
+                {currentMembers.map((m) => (
                   <div
                     key={m.id}
                     onClick={() => openDetailModal(m)}

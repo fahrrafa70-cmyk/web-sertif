@@ -536,7 +536,10 @@ export function QuickGenerateModal({
                   </Label>
                   <Select value={dateFormat} onValueChange={(value) => setDateFormat(value as DateFormat)}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <SelectValue />
+                      </div>
                     </SelectTrigger>
                     <SelectContent position="popper" className="z-[9999] max-h-[300px]" sideOffset={5}>
                       {DATE_FORMATS.map(format => (

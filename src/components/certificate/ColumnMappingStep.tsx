@@ -7,7 +7,6 @@ import React, { useMemo } from 'react';
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { FileSpreadsheet, Award, ArrowRight } from "lucide-react";
 import { TextLayerConfig } from "@/types/template-layout";
 import { formatFieldLabel } from "@/lib/utils/excel-mapping";
@@ -33,13 +32,11 @@ function MappingRow({
   layer,
   excelColumns,
   selectedColumn,
-  previewData,
   onSelect
 }: {
   layer: TextLayerConfig;
   excelColumns: string[];
   selectedColumn: string;
-  previewData: Record<string, unknown>;
   onSelect: (column: string) => void;
 }) {
   return (
@@ -71,27 +68,13 @@ function MappingRow({
             <SelectItem value="__none__">-- Tidak dipetakan --</SelectItem>
             {excelColumns.map(col => (
               <SelectItem key={col} value={col}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{col}</span>
-                  {previewData[col] !== undefined && (
-                    <span className="text-xs text-gray-500">
-                      Contoh: {String(previewData[col]).substring(0, 30)}
-                      {String(previewData[col]).length > 30 ? '...' : ''}
-                    </span>
-                  )}
-                </div>
+                <span className="font-medium">{col}</span>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Match Indicator */}
-      {selectedColumn && (
-        <Badge variant="default" className="bg-green-500 text-white flex-shrink-0">
-          ✓
-        </Badge>
-      )}
     </div>
   );
 }
@@ -155,7 +138,6 @@ export function ColumnMappingStep({
               layer={layer}
               excelColumns={mainColumns}
               selectedColumn={mainMapping[layer.id] || ''}
-              previewData={mainPreviewData}
               onSelect={(col) => {
                 onMainMappingChange({ ...mainMapping, [layer.id]: col });
               }}
@@ -212,7 +194,6 @@ export function ColumnMappingStep({
                 layer={layer}
                 excelColumns={mainColumns}
                 selectedColumn={mainMapping[layer.id] || ''}
-                previewData={mainPreviewData}
                 onSelect={(col) => {
                   onMainMappingChange({ ...mainMapping, [layer.id]: col });
                 }}
@@ -231,7 +212,6 @@ export function ColumnMappingStep({
                 layer={layer}
                 excelColumns={scoreColumns}
                 selectedColumn={scoreMapping[layer.id] || ''}
-                previewData={scorePreviewData}
                 onSelect={(col) => {
                   onScoreMappingChange?.({ ...scoreMapping, [layer.id]: col });
                 }}

@@ -6,7 +6,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Image as ImageIcon, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Eye, EyeOff } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
@@ -17,7 +17,11 @@ import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { plainTextToRichText, applyStyleToRange, richTextToPlainText, getCommonStyleValue, hasMixedStyle } from "@/types/rich-text";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
-import { FontWeightSelect, FontFamilySelect } from "@/components/editor/MixedStyleSelect";
+import { 
+  FontWeightSelect, 
+  FontFamilySelect, 
+  FontStyleSelect
+} from "@/components/editor/MixedStyleSelect";
 import { useLanguage } from "@/contexts/language-context";
 
 // Dummy data for preview
@@ -217,6 +221,7 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.4),
                   lineHeight: 1.2,
                   visible: true,
+                  fontStyle: 'normal',
                 },
                 {
                   id: 'certificate_no',
@@ -231,6 +236,7 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.3),
                   lineHeight: 1.2,
                   visible: true,
+                  fontStyle: 'normal',
                 },
                 {
                   id: 'issue_date',
@@ -245,6 +251,7 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.3),
                   lineHeight: 1.2,
                   visible: true,
+                  fontStyle: 'normal',
                 },
               ];
               console.log('✅ Created default layers:', defaultLayers.map(l => ({ id: l.id, x: l.x, y: l.y })));
@@ -656,6 +663,109 @@ function ConfigureLayoutContent() {
     // Cleanup
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  // Arrow key navigation for moving selected layers (text and photo)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle arrow keys when a layer is selected and not editing text
+      if ((!selectedLayerId && !selectedPhotoLayerId) || renamingLayerId) return;
+      
+      // Check if user is typing in an input field
+      const activeElement = document.activeElement;
+      if (activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.contentEditable === 'true'
+      )) {
+        return;
+      }
+
+      const isArrowKey = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key);
+      if (!isArrowKey) return;
+
+      e.preventDefault(); // Prevent page scrolling
+
+      // Calculate movement step (1px normal, 10px with Shift, 0.1px with Alt for fine adjustment)
+      let step = 1;
+      if (e.shiftKey) step = 10;
+      if (e.altKey) step = 0.1;
+
+      const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+      const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+
+      let deltaX = 0;
+      let deltaY = 0;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          deltaX = -step;
+          break;
+        case 'ArrowRight':
+          deltaX = step;
+          break;
+        case 'ArrowUp':
+          deltaY = -step;
+          break;
+        case 'ArrowDown':
+          deltaY = step;
+          break;
+      }
+
+      // Handle text layer movement
+      if (selectedLayerId) {
+        const selectedLayer = textLayers.find(l => l.id === selectedLayerId);
+        if (!selectedLayer) return;
+
+        const newX = Math.max(0, Math.min(templateWidth, selectedLayer.x + deltaX));
+        const newY = Math.max(0, Math.min(templateHeight, selectedLayer.y + deltaY));
+
+        const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
+        setter(prev => prev.map(l => 
+          l.id === selectedLayerId 
+            ? { 
+                ...l, 
+                x: Math.round(newX * 10) / 10, // Round to 1 decimal place for smooth movement
+                y: Math.round(newY * 10) / 10,
+                xPercent: newX / templateWidth,
+                yPercent: newY / templateHeight
+              }
+            : l
+        ));
+      }
+
+      // Handle photo layer movement
+      if (selectedPhotoLayerId) {
+        const selectedPhoto = photoLayers.find(l => l.id === selectedPhotoLayerId);
+        if (!selectedPhoto) return;
+
+        const currentX = selectedPhoto.xPercent * templateWidth;
+        const currentY = selectedPhoto.yPercent * templateHeight;
+        const newX = Math.max(0, Math.min(templateWidth, currentX + deltaX));
+        const newY = Math.max(0, Math.min(templateHeight, currentY + deltaY));
+
+        const setter = configMode === 'certificate' ? setCertificatePhotoLayers : setScorePhotoLayers;
+        setter(prev => prev.map(l => 
+          l.id === selectedPhotoLayerId 
+            ? { 
+                ...l, 
+                x: Math.round(newX * 10) / 10,
+                y: Math.round(newY * 10) / 10,
+                xPercent: newX / templateWidth,
+                yPercent: newY / templateHeight
+              }
+            : l
+        ));
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedLayerId, selectedPhotoLayerId, renamingLayerId, textLayers, photoLayers, configMode, templateImageDimensions]);
 
   // CRITICAL: Normalize coordinates when template dimensions change
   // This handles the case when template image is replaced with different size
@@ -1088,6 +1198,7 @@ function ConfigureLayoutContent() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return 0;
+    
     
     // Use absolute font size (not scaled) for measurement to match coordinate system
     // The coordinate system is based on STANDARD_CANVAS_WIDTH (800px)
@@ -1737,7 +1848,8 @@ function ConfigureLayoutContent() {
                               fontWeight: span.fontWeight || layer.fontWeight,
                               fontFamily: span.fontFamily || layer.fontFamily,
                               fontSize: span.fontSize ? `${span.fontSize * domScale}px` : undefined,
-                              color: span.color || layer.color
+                              color: span.color || layer.color,
+                              fontStyle: span.fontStyle || layer.fontStyle || 'normal'
                             }}
                           >
                             {span.text}
@@ -1815,6 +1927,7 @@ function ConfigureLayoutContent() {
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
+                          fontStyle: layer.fontStyle || 'normal',
                           // certificate_no and issue_date always use left alignment
                           textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                           // certificate_no and issue_date should never wrap - always stay on one line
@@ -2201,13 +2314,7 @@ function ConfigureLayoutContent() {
 
                 {/* Photo Layers List */}
                 <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
-                  {photoLayers.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400 dark:text-gray-600 text-xs sm:text-sm">
-                      <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>No photos yet</p>
-                      <p className="text-[10px] sm:text-xs mt-1">Upload images to add to template</p>
-                    </div>
-                  ) : (
+                  {photoLayers.length === 0 ? null : (
                     photoLayers.map(layer => {
                       const isSelected = selectedPhotoLayerId === layer.id;
                       
@@ -2262,9 +2369,11 @@ function ConfigureLayoutContent() {
                 
                 return (
                   <div className="border-t border-gray-200 dark:border-gray-800 pt-3 sm:pt-4">
-                    <h3 className="text-[10px] sm:text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2 sm:mb-3 uppercase tracking-wide truncate">
-                      {selectedPhoto.id} Settings
-                    </h3>
+                    <div className="flex items-center justify-between mb-2 sm:mb-3">
+                      <h3 className="text-[10px] sm:text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide truncate">
+                        {selectedPhoto.id} Settings
+                      </h3>
+                    </div>
                     <div className="space-y-3">
                       {/* Layer Order */}
                       <div>
@@ -2437,9 +2546,11 @@ function ConfigureLayoutContent() {
               {/* Layer Properties */}
               {selectedLayer && (
                 <div className="border-t border-gray-200 dark:border-gray-800 pt-3 sm:pt-4">
-                  <h3 className="text-[10px] sm:text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 sm:mb-3 uppercase tracking-wide truncate">
-                    {selectedLayer.id}
-                  </h3>
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <h3 className="text-[10px] sm:text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide truncate">
+                      {selectedLayer.id}
+                    </h3>
+                  </div>
                   <div className="space-y-2 sm:space-y-3">
                     {/* Default Text with Rich Text Formatting - For custom layers only */}
                     {!['name', 'certificate_no', 'issue_date'].includes(selectedLayer.id) && (
@@ -2681,8 +2792,17 @@ function ConfigureLayoutContent() {
                       </div>
                     </div>
 
-                    {/* Text Align & Line Height */}
+                    {/* Font Style & Text Align */}
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                      <div>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Style</Label>
+                        <FontStyleSelect
+                          value={selectedLayer.fontStyle || 'normal'}
+                          onValueChange={(value) => updateLayer(selectedLayer.id, { fontStyle: value as TextLayer['fontStyle'] })}
+                          className="h-7 sm:h-8 text-xs"
+                        />
+                      </div>
+
                       {/* Hide Text Align only for certificate_no and issue_date */}
                       {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && (
                         <div>
@@ -2703,16 +2823,18 @@ function ConfigureLayoutContent() {
                           </Select>
                         </div>
                       )}
-                      <div className={['certificate_no', 'issue_date'].includes(selectedLayer.id) ? 'col-span-2' : ''}>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={selectedLayer.lineHeight || 1.2}
-                          onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
-                          className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
-                        />
-                      </div>
+                    </div>
+
+                    {/* Line Height */}
+                    <div>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={selectedLayer.lineHeight || 1.2}
+                        onChange={(e) => updateLayer(selectedLayer.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
+                        className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                      />
                     </div>
 
                     {/* Max Width */}
@@ -2911,6 +3033,7 @@ function ConfigureLayoutContent() {
                         color: layer.color,
                         fontWeight: layer.fontWeight,
                         fontFamily: layer.fontFamily,
+                        fontStyle: layer.fontStyle || 'normal',
                         textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                         whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
                         width: layer.maxWidth ? `${layer.maxWidth * templateScale}px` : 'auto',
