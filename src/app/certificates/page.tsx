@@ -39,7 +39,7 @@ import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
 import { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
-import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Zap, Filter, X, Search } from "lucide-react";
+import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Filter, X, Search } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
@@ -187,7 +187,7 @@ function CertificatesContent() {
   // Export both certificate and score as a single PDF (main first, score second)
   async function exportToPDF(certificate: Certificate) {
     if (!certificate.certificate_image_url) {
-      toast.error("Certificate image not available to export");
+      toast.error("Certificate image not available to export", { duration: 2000 });
       return;
     }
 
@@ -270,7 +270,7 @@ function CertificatesContent() {
   // Export both certificate and score to PNG (two files)
   async function exportToPNG(certificate: Certificate) {
     if (!certificate.certificate_image_url) {
-      toast.error("Certificate image not available to export");
+      toast.error("Certificate image not available to export", { duration: 2000 });
       return;
     }
 
@@ -344,7 +344,7 @@ function CertificatesContent() {
       // Copy to clipboard
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(certificateLink);
-        toast.success(t('hero.linkCopied'));
+        toast.success(t('hero.linkCopied'), { duration: 2000 });
       } else {
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
@@ -355,13 +355,13 @@ function CertificatesContent() {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        toast.success(t('hero.linkCopied'));
+        toast.success(t('hero.linkCopied'), { duration: 2000 });
       }
       
       console.log('Generated public certificate link:', certificateLink);
     } catch (err) {
       console.error('Failed to generate certificate link:', err);
-      toast.error(t('hero.linkGenerateFailed'));
+      toast.error(t('hero.linkGenerateFailed'), { duration: 2000 });
     } finally {
       setGeneratingLink(null);
     }
@@ -371,7 +371,7 @@ function CertificatesContent() {
   async function openSendEmailModal(certificate: Certificate) {
     try {
       if (!certificate.certificate_image_url) {
-        toast.error("Certificate image not available");
+        toast.error("Certificate image not available", { duration: 2000 });
         return;
       }
 
@@ -671,7 +671,7 @@ function CertificatesContent() {
           }
           
           toast.dismiss(currentToast);
-          toast.success(`${t('quickGenerate.successMultiple')} ${generated}/${total} ${t('quickGenerate.certificatesGenerated')}`);
+          toast.success(`${t('quickGenerate.successMultiple')} ${generated}/${total} ${t('quickGenerate.certificatesGenerated')}`, { duration: 3000 });
         } else if (params.member && params.certificateData) {
           // Single certificate generation from member
           await generateSingleCertificate(
@@ -682,7 +682,7 @@ function CertificatesContent() {
             params.dateFormat
           );
           toast.dismiss(loadingToast);
-          toast.success(t('quickGenerate.successSingle'));
+          toast.success(t('quickGenerate.successSingle'), { duration: 2000 });
         } else {
           throw new Error('No member(s) provided for certificate generation');
         }
@@ -780,7 +780,7 @@ function CertificatesContent() {
         }
         
         toast.dismiss(currentToast);
-        toast.success(`${t('quickGenerate.successMultiple')} ${generated}/${total} ${t('quickGenerate.certificatesGenerated')}`);
+        toast.success(`${t('quickGenerate.successMultiple')} ${generated}/${total} ${t('quickGenerate.certificatesGenerated')}`, { duration: 3000 });
       }
       
       // Refresh certificates list
@@ -788,7 +788,7 @@ function CertificatesContent() {
     } catch (error) {
       toast.dismiss(loadingToast);
       console.error('Quick Generate error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to generate certificate');
+      toast.error(error instanceof Error ? error.message : 'Failed to generate certificate', { duration: 3000 });
     }
   };
 
@@ -1531,12 +1531,13 @@ function CertificatesContent() {
         category: draft.category || undefined,
       });
 
-      toast.success(t("certificates.updateSuccess"));
+      toast.success(t("certificates.updateSuccess"), { duration: 2000 });
       setIsEditOpen(null);
       setDraft(null);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : t("certificates.updateFailed"),
+        { duration: 2000 }
       );
     }
   }
@@ -1559,7 +1560,7 @@ function CertificatesContent() {
         localStorageRole:
           typeof window !== "undefined" ? window.localStorage.getItem("ecert-role") : null
       });
-      toast.error(t("certificates.deleteNoPermission"));
+      toast.error(t("certificates.deleteNoPermission"), { duration: 2000 });
       return;
     }
 
@@ -1589,13 +1590,14 @@ function CertificatesContent() {
         console.log("✅ Delete successful!");
         const successMessage = t("certificates.deleteSuccess")
           .replace("{name}", certificateName);
-        toast.success(successMessage);
+        toast.success(successMessage, { duration: 2000 });
       } catch (error) {
         console.error("❌ Delete error:", error);
         toast.error(
           error instanceof Error
             ? error.message
             : t("certificates.deleteFailed"),
+          { duration: 2000 }
         );
       } finally {
         setDeletingCertificateId(null);
@@ -1653,7 +1655,6 @@ function CertificatesContent() {
                       onClick={handleOpenQuickGenerate}
                       className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
-                      <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
                       <span className="text-sm sm:text-base">{t("certificates.generate")}</span>
                     </Button>
                   )}
