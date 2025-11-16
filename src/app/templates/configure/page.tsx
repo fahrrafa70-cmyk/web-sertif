@@ -23,6 +23,8 @@ import {
   FontStyleSelect
 } from "@/components/editor/MixedStyleSelect";
 import { useLanguage } from "@/contexts/language-context";
+import { logPreviewPositioning } from "@/lib/debug/positioning-debug";
+import { UnifiedPositioning } from "@/lib/utils/unified-positioning";
 
 // Dummy data for preview
 const DUMMY_DATA = {
@@ -94,6 +96,12 @@ function ConfigureLayoutContent() {
 
   // Store raw layout data in ref for use in image onload callbacks
   const existingLayoutRef = useRef<Awaited<ReturnType<typeof getTemplateLayout>> | null>(null);
+  
+  // Image preloading state to prevent flickering
+  const [imagesLoaded, setImagesLoaded] = useState<{
+    certificate: boolean;
+    score: boolean;
+  }>({ certificate: false, score: false });
   
   // Load template and existing layout
   useEffect(() => {
@@ -648,6 +656,38 @@ function ConfigureLayoutContent() {
     };
   }, [templateId, router]);
 
+  // Preload both certificate and score images for smooth transitions
+  useEffect(() => {
+    if (!template) return;
+    
+    const preloadImage = (src: string, type: 'certificate' | 'score') => {
+      const img = new window.Image();
+      img.onload = () => {
+        setImagesLoaded(prev => ({ ...prev, [type]: true }));
+        console.log(`✅ Preloaded ${type} image:`, src);
+      };
+      img.onerror = () => {
+        console.warn(`⚠️ Failed to preload ${type} image:`, src);
+        setImagesLoaded(prev => ({ ...prev, [type]: true })); // Mark as loaded to prevent blocking
+      };
+      img.src = src;
+    };
+
+    // Preload certificate image
+    if (template.certificate_image_url) {
+      preloadImage(template.certificate_image_url, 'certificate');
+    } else {
+      setImagesLoaded(prev => ({ ...prev, certificate: true }));
+    }
+
+    // Preload score image
+    if (template.score_image_url) {
+      preloadImage(template.score_image_url, 'score');
+    } else {
+      setImagesLoaded(prev => ({ ...prev, score: true }));
+    }
+  }, [template]);
+
   // Screen size detection for responsive behavior
   useEffect(() => {
     const checkScreenSize = () => {
@@ -675,7 +715,7 @@ function ConfigureLayoutContent() {
       if (activeElement && (
         activeElement.tagName === 'INPUT' || 
         activeElement.tagName === 'TEXTAREA' ||
-        activeElement.contentEditable === 'true'
+        (activeElement as HTMLElement).contentEditable === 'true'
       )) {
         return;
       }
@@ -1804,22 +1844,78 @@ function ConfigureLayoutContent() {
                     setSelectedPhotoLayerId(null);
                   }}
                 >
-                {/* Template Background - Use different image based on mode */}
+                {/* Template Background - Separate images for smooth transitions */}
                 {templateImageUrl && (
                   <div className="absolute inset-0" style={{ userSelect: 'none', pointerEvents: 'none' }}>
-                    <Image
-                      src={configMode === 'certificate' && template.certificate_image_url 
-                        ? template.certificate_image_url 
-                        : configMode === 'score' && template.score_image_url
-                        ? template.score_image_url
-                        : templateImageUrl}
-                      alt={`${template.name} - ${configMode}`}
-                      fill
-                      className="object-contain"
-                      style={{ userSelect: 'none', pointerEvents: 'none' }}
-                      unoptimized
-                      draggable={false}
-                    />
+                    {/* Certificate Image */}
+                    {template.certificate_image_url && (
+                      <div 
+                        className={`absolute inset-0 transition-opacity duration-300 ease-in-out ${
+                          configMode === 'certificate' && imagesLoaded.certificate 
+                            ? 'opacity-100' 
+                            : 'opacity-0 pointer-events-none'
+                        }`}
+                      >
+                        <Image
+                          src={template.certificate_image_url}
+                          alt={`${template.name} - Certificate`}
+                          fill
+                          className="object-contain"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                          unoptimized
+                          draggable={false}
+                          priority={configMode === 'certificate'}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Score Image */}
+                    {template.score_image_url && (
+                      <div 
+                        className={`absolute inset-0 transition-opacity duration-300 ease-in-out ${
+                          configMode === 'score' && imagesLoaded.score 
+                            ? 'opacity-100' 
+                            : 'opacity-0 pointer-events-none'
+                        }`}
+                      >
+                        <Image
+                          src={template.score_image_url}
+                          alt={`${template.name} - Score`}
+                          fill
+                          className="object-contain"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                          unoptimized
+                          draggable={false}
+                          priority={configMode === 'score'}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Loading placeholder for image transitions */}
+                    {((configMode === 'certificate' && !imagesLoaded.certificate) || 
+                      (configMode === 'score' && !imagesLoaded.score)) && (
+                      <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <div className="animate-pulse text-gray-400 dark:text-gray-500 text-sm">
+                          Loading {configMode} image...
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Fallback Image (for non-dual templates) */}
+                    {(!template.certificate_image_url || !template.score_image_url) && (
+                      <div className="absolute inset-0">
+                        <Image
+                          src={templateImageUrl}
+                          alt={`${template.name} - ${configMode}`}
+                          fill
+                          className="object-contain"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                          unoptimized
+                          draggable={false}
+                          priority
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -1862,20 +1958,6 @@ function ConfigureLayoutContent() {
                   
                   const isSelected = selectedLayerId === layer.id;
                   
-                  // Calculate transform based on alignment
-                  const getTransform = () => {
-                    // certificate_no and issue_date always left
-                    if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
-                      return 'translate(0%, -50%)';
-                    }
-                    
-                    // All other layers (including score layers) use their alignment setting
-                    const align = layer.textAlign || 'left';
-                    if (align === 'center') return 'translate(-50%, -50%)';
-                    if (align === 'right') return 'translate(-100%, -50%)';
-                    return 'translate(0%, -50%)';
-                  };
-                  
                   // ✅ DYNAMIC POSITIONING: Use template's actual dimensions
                   // This ensures preview matches generation exactly, even when template image is replaced
                   const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
@@ -1889,6 +1971,34 @@ function ConfigureLayoutContent() {
                   const topPercent = layer.yPercent !== undefined && layer.yPercent !== null
                     ? layer.yPercent * 100
                     : (layer.y / templateHeight) * 100;
+
+                  // RESTORE ORIGINAL TRANSFORM LOGIC: Keep preview working as before
+                  const getTransform = () => {
+                    // Special handling for certificate_no and issue_date (vertical centering)
+                    if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                      return 'translate(0%, -50%)'; // Vertical center
+                    }
+                    
+                    // Default transform for other layers
+                    switch (layer.textAlign) {
+                      case 'center':
+                        return 'translate(-50%, -50%)'; // Center both axes
+                      case 'right':
+                        return 'translate(-100%, -50%)'; // Right align, vertical center
+                      default:
+                        return 'translate(0%, -50%)'; // Left align, vertical center
+                    }
+                  };
+                  
+                  // 🔍 DEBUG: Log positioning data untuk certificate_no dan issue_date
+                  if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                    logPreviewPositioning(
+                      layer.id,
+                      layer,
+                      { width: templateWidth, height: templateHeight },
+                      getTransform()
+                    );
+                  }
                   
                   return (
                     <div

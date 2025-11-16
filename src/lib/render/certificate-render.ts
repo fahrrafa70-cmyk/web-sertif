@@ -240,6 +240,32 @@ export async function renderCertificateToDataURL(
   
   // Add text layers (default zIndex = 100 to appear above photos)
   console.log(`📝 TEXT LAYERS TO RENDER: ${textLayers.length}`);
+  
+  // 🔍 COMPREHENSIVE DATA FLOW DEBUGGING
+  console.group('🎯 SCORE GENERATION DEBUG - DATA FLOW ANALYSIS');
+  console.log('📊 All Text Layers Received:');
+  textLayers.forEach((layer, index) => {
+    const isDefaultLayer = ['certificate_no', 'issue_date', 'name'].includes(layer.id);
+    const isScoreRelated = layer.text && (
+      layer.text.includes('Nilai') || 
+      layer.text.includes('Prestasi') || 
+      layer.text.includes('Score') ||
+      /\d+/.test(layer.text) // Contains numbers
+    );
+    
+    console.log(`   Layer ${index}:`, {
+      id: layer.id,
+      text: layer.text?.substring(0, 50) + (layer.text?.length > 50 ? '...' : ''),
+      fontSize: layer.fontSize,
+      isDefaultLayer,
+      isScoreRelated,
+      xPercent: layer.xPercent,
+      yPercent: layer.yPercent,
+      textAlign: layer.textAlign
+    });
+  });
+  console.groupEnd();
+  
   textLayers.forEach(layer => {
     layersToRender.push({
       type: 'text',
@@ -283,9 +309,81 @@ export async function renderCertificateToDataURL(
       const x = layer.xPercent !== undefined && layer.xPercent !== null
         ? Math.round(layer.xPercent * finalWidth)    // Percentage (NEW system) ✅
         : Math.round((layer.x || 0) * scaleFactor);  // Absolute (OLD system, legacy)
-      const y = layer.yPercent !== undefined && layer.yPercent !== null
+      let y = layer.yPercent !== undefined && layer.yPercent !== null
         ? Math.round(layer.yPercent * finalHeight)   // Percentage (NEW system) ✅
         : Math.round((layer.y || 0) * scaleFactor);  // Absolute (OLD system, legacy)
+      
+      // 🎯 SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
+      const isScoreLayer = (layer: RenderTextLayer) => {
+        // Check by ID first
+        if (layer.id === 'nilai' || layer.id === 'prestasi') return true;
+        
+        // Check by text content (more reliable for custom layers)
+        if (layer.text) {
+          const text = layer.text.toLowerCase();
+          const scoreKeywords = ['nilai', 'prestasi', 'score', 'skor'];
+          const hasScoreKeyword = scoreKeywords.some(keyword => text.includes(keyword));
+          const hasNumbers = /\d+/.test(layer.text);
+          
+          // Score layer characteristics:
+          // 1. Contains score keywords OR numbers
+          // 2. Font size typically 20-30px
+          // 3. Not a default layer
+          return (hasScoreKeyword || hasNumbers) && 
+                 layer.fontSize >= 18 && 
+                 layer.fontSize <= 30 &&
+                 !['certificate_no', 'issue_date', 'name'].includes(layer.id);
+        }
+        return false;
+      };
+      
+      // Dynamic Y-axis adjustment based on font size and layer type
+      const getYAdjustment = (layer: RenderTextLayer) => {
+        const fontSize = layer.fontSize || 16;
+        
+        // Certificate number: fixed adjustment
+        if (layer.id === 'certificate_no') return 7;
+        
+        // Score layers: font-size based adjustment
+        if (isScoreLayer(layer)) {
+          if (fontSize <= 18) return 3;
+          if (fontSize <= 22) return 4;
+          if (fontSize <= 26) return 5;
+          return 6;
+        }
+        
+        // Other layers: no adjustment
+        return 0;
+      };
+      
+      // DEBUG: Log all layer IDs to identify custom text layers
+      console.log(`🔍 [DEBUG] Processing layer:`, {
+        id: layer.id,
+        text: layer.text?.substring(0, 30),
+        fontSize: layer.fontSize,
+        yPercent: layer.yPercent,
+        originalY: y
+      });
+      
+      const yAdjustment = getYAdjustment(layer);
+      const isScore = isScoreLayer(layer);
+      
+      if (yAdjustment > 0) {
+        const originalY = y;
+        y = y + yAdjustment;
+        
+        console.log(`🎯 [${layer.id}] Y-AXIS ADJUSTMENT:`, {
+          layerId: layer.id,
+          text: layer.text?.substring(0, 30),
+          fontSize: layer.fontSize,
+          isScoreLayer: isScore,
+          adjustment: `+${yAdjustment}px DOWN`,
+          originalY,
+          newY: y,
+          detectionMethod: layer.id === 'certificate_no' ? 'ID_MATCH' : 
+                          isScore ? 'SMART_DETECTION' : 'NO_MATCH'
+        });
+      }
       
       // Scale maxWidth based on template resolution
       const baseMaxWidth = layer.maxWidth || 300;
