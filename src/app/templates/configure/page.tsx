@@ -1920,7 +1920,7 @@ function ConfigureLayoutContent() {
                 )}
                 
                 {/* Text Layers */}
-                {textLayers.filter(layer => layer.visible !== false).map(layer => {
+                {textLayers.filter((layer: any) => layer.visible !== false).map((layer: any) => {
                   const plainText = previewTexts[layer.id] || 
                                     layer.defaultText || 
                                     DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
@@ -1936,7 +1936,7 @@ function ConfigureLayoutContent() {
                       const domScale = isDesktop ? templateScale : templateScale * canvasScale;
 
                       // Render with inline formatting
-                      return layer.richText.map((span, idx) => {
+                      return layer.richText.map((span: any, idx: any) => {
                         return (
                           <span
                             key={idx}
@@ -1976,10 +1976,56 @@ function ConfigureLayoutContent() {
                   const getTransform = () => {
                     // Special handling for certificate_no and issue_date (vertical centering)
                     if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
-                      return 'translate(0%, -50%)'; // Vertical center
+                      // 🔧 MOBILE FIX: Adjust vertical centering for mobile scaling differences
+                      if (!isDesktop) {
+                        // Mobile: compensate for canvasScale effect on font size
+                        // The double scaling (templateScale * canvasScale) affects visual positioning
+                        // Need to adjust the vertical offset to match desktop positioning exactly
+                        
+                        // 🎯 PRECISE MOBILE POSITIONING: Fix both vertical and horizontal positioning
+                        
+                        // Calculate both vertical and horizontal offsets
+                        let mobileVerticalOffset = -50;
+                        let mobileHorizontalOffset = 0;
+                        
+                        if (canvasScale < 1.0) {
+                          // Scale is smaller than 1, text appears higher and shifted, adjust both axes
+                          const scaleDifference = 1.0 - canvasScale;
+                          
+                          // 🎯 DIFFERENT ADJUSTMENT FOR EACH LAYER
+                          if (layer.id === 'issue_date') {
+                            // issue_date: already perfect with current values
+                            mobileVerticalOffset = -50 - (scaleDifference * 3);
+                            mobileHorizontalOffset = -(scaleDifference * 2);
+                          } else if (layer.id === 'certificate_no') {
+                            // certificate_no: needs different adjustment
+                            mobileVerticalOffset = -43 - (scaleDifference * 1); // More down movement
+                            mobileHorizontalOffset = -2 -(scaleDifference * 1); // Less left movement (more right)
+                          }
+                        } else if (canvasScale > 1.0) {
+                          // Scale is larger than 1, adjust accordingly
+                          const scaleDifference = canvasScale - 1.0;
+                          mobileVerticalOffset = -50 + (scaleDifference * 10);
+                          mobileHorizontalOffset = scaleDifference * 5; // Move right slightly
+                        }
+                      
+                        
+                        console.log(`🎯 [${layer.id}] Mobile Transform Calculation:`, {
+                          layerId: layer.id,
+                          canvasScale,
+                          verticalOffset: mobileVerticalOffset,
+                          horizontalOffset: mobileHorizontalOffset,
+                          scaleDifference: Math.abs(canvasScale - 1.0),
+                          adjustmentType: layer.id === 'issue_date' ? 'ISSUE_DATE_PERFECT' : 
+                                         layer.id === 'certificate_no' ? 'CERTIFICATE_NO_CUSTOM' : 'DEFAULT'
+                        });
+                        
+                        return `translate(${mobileHorizontalOffset}%, ${mobileVerticalOffset}%)`;
+                      }
+                      return 'translate(0%, -50%)'; // Desktop: keep original
                     }
                     
-                    // Default transform for other layers
+                    // Default transform for other layers (unchanged)
                     switch (layer.textAlign) {
                       case 'center':
                         return 'translate(-50%, -50%)'; // Center both axes

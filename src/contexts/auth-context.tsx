@@ -36,9 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openLogin, setOpenLogin] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // DIAG: Fix 1 - Initialize auth state on app startup using getSession()
+    // 🚀 PERFORMANCE: Non-blocking auth initialization
     const initializeAuth = async () => {
       try {
         const { data: { session }, error } = await supabaseClient.auth.getSession();
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (error) {
           console.error('Session initialization error:', error);
+          setIsInitialized(true);
           return;
         }
         
@@ -65,10 +67,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error('Auth initialization failed:', err);
+      } finally {
+        setIsInitialized(true);
       }
     };
 
-    // Initialize auth state immediately
+    // 🚀 CRITICAL: Set initialized immediately to prevent UI blocking
+    setIsInitialized(true);
+    
+    // Initialize auth state in background (non-blocking)
     initializeAuth();
 
     // Set up auth state change listener

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { FileSpreadsheet, Users, Calendar, Zap, ArrowRight, ArrowLeft } from "lucide-react";
+import { FileSpreadsheet, Users, Calendar, ArrowRight, ArrowLeft } from "lucide-react";
 import { Template } from "@/lib/supabase/templates";
 import { Member } from "@/lib/supabase/members";
 import { DateFormat, DATE_FORMATS } from "@/types/certificate-generator";
@@ -422,7 +422,6 @@ export function QuickGenerateModal({
       <DialogContent className="max-w-3xl min-h-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
-            <Zap className="w-6 h-6 text-yellow-500" />
             {t('quickGenerate.title')} {isDualTemplate && currentStep === 2 && '- Input Data Nilai'}
           </DialogTitle>
         </DialogHeader>
@@ -670,7 +669,6 @@ export function QuickGenerateModal({
               </>
             ) : (
               <>
-                <Zap className="w-4 h-4 mr-2" />
                 {t('quickGenerate.generate')} {
                   dataSource === 'excel' && excelMainData.length > 0 
                     ? `(${excelMainData.length})`

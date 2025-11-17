@@ -18,6 +18,7 @@ import { toast, Toaster } from "sonner";
 import { confirmToast } from "@/lib/ui/confirm";
 import { LoadingButton } from "@/components/ui/loading-button";
 import Image from "next/image";
+import { TemplatesPageSkeleton } from "@/components/ui/templates-skeleton";
 
 // Helper function for category colors
 const getCategoryColor = (category: string) => {
@@ -153,6 +154,7 @@ export default function TemplatesPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 100); // Optimized for INP performance
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -202,6 +204,12 @@ export default function TemplatesPage() {
   // });
   
   // Simplified without heavy preloading
+
+  // 🚀 PERFORMANCE: Instant skeleton render, no delay
+  useEffect(() => {
+    // Show skeleton immediately, then transition to real content when data loads
+    setIsInitialLoad(false);
+  }, []);
 
   // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
@@ -717,6 +725,15 @@ export default function TemplatesPage() {
     };
     return colors[category as keyof typeof colors] || "from-gray-500 to-gray-600";
   };
+
+  // 🚀 PERFORMANCE: Show skeleton only when actually loading
+  if (loading && templates.length === 0) {
+    return (
+      <ModernLayout>
+        <TemplatesPageSkeleton />
+      </ModernLayout>
+    );
+  }
 
   return (
     <ModernLayout>

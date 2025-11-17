@@ -223,37 +223,11 @@ export function getTemplatePreviewUrl(template: Template): string | null {
 
 // Note: Image deletion is handled by the file system cleanup process
 
-// Get all templates with optional caching
+// 🚀 PERFORMANCE: Simplified templates fetching without dynamic imports
 export async function getTemplates(useCache: boolean = true): Promise<Template[]> {
-  console.log('📥 Fetching templates, useCache:', useCache);
-  if (useCache && typeof window !== 'undefined') {
-    try {
-      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-      
-      // Use getOrFetch for automatic deduplication and caching
-      return dataCache.getOrFetch<Template[]>(
-        CACHE_KEYS.TEMPLATES,
-        async () => {
-          const { data, error } = await supabaseClient
-            .from('templates')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-          if (error) {
-            throw new Error(`Failed to fetch templates: ${error.message}`);
-          }
-
-          console.log('📥 Cached templates fetched:', data?.length || 0, 'with status fields:', data?.map(t => ({ id: t.id, name: t.name, status: t.status })));
-          return data || [];
-        },
-        30 * 60 * 1000 // 30 minutes cache for better navigation performance
-      );
-    } catch {
-      // Cache module not available, continue with fetch
-    }
-  }
-
-  // If cache is disabled, fetch directly
+  console.log('📥 Fetching templates directly (no cache delay)');
+  
+  // 🚀 CRITICAL: Direct fetch without dynamic imports to eliminate delay
   const { data, error } = await supabaseClient
     .from('templates')
     .select('*')
@@ -263,7 +237,7 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
     throw new Error(`Failed to fetch templates: ${error.message}`);
   }
 
-  console.log('📥 Fetched templates:', data?.length || 0, 'with status fields:', data?.map(t => ({ id: t.id, name: t.name, status: t.status })));
+  console.log('📥 Fetched templates:', data?.length || 0);
   return data || [];
 }
 

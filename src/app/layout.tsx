@@ -15,18 +15,20 @@ import { ScrollbarVisibility } from "@/components/scrollbar-visibility";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  display: "swap", // Prevent FOUT (Flash of Unstyled Text)
+  display: "optional", // 🚀 PERFORMANCE: Faster initial render, fallback if font not ready
   preload: true, // Preload critical fonts 
   adjustFontFallback: true, // Better font fallback
+  fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'], // Better fallback chain
 });
 
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-poppins",
-  display: "swap", // Prevent FOUT (Flash of Unstyled Text)
-  preload: true, // Preload critical fonts
+  display: "optional", // 🚀 PERFORMANCE: Faster initial render, fallback if font not ready
+  preload: false, // Don't preload secondary font to improve initial load
   adjustFontFallback: true, // Better font fallback
+  fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'], // Better fallback chain
 });
 
 export const metadata: Metadata = {
