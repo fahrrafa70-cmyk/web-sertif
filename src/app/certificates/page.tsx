@@ -61,6 +61,7 @@ import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/c
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
 import { CertificatesPageSkeleton } from "@/components/ui/certificates-skeleton";
+import Xid from "xid-js";
 
 function CertificatesContent() {
   const { t, language } = useLanguage();
@@ -979,7 +980,8 @@ function CertificatesContent() {
     
     // DUAL-FORMAT UPLOAD: PNG master + WebP preview
     console.log('🖼️ Generating thumbnail (WebP preview from PNG master)...');
-    const timestamp = Date.now();
+    const xid = new Xid();
+    const uniqueId = xid.toString();
     
     // Generate WebP thumbnail for web preview (faster loading)
     const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
@@ -996,7 +998,7 @@ function CertificatesContent() {
     
     // Upload PNG master file (high quality for download/PDF/email)
     console.log('📤 Uploading PNG master to Supabase Storage...');
-    const pngFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}.png`;
+    const pngFileName = `${uniqueId}.png`;
     const pngUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1019,7 +1021,7 @@ function CertificatesContent() {
     
     // Upload WebP preview to preview/ subfolder (optimized for web)
     console.log('📤 Uploading WebP preview to Supabase Storage...');
-    const webpFileName = `preview/${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}.webp`;
+    const webpFileName = `preview/${uniqueId}.webp`;
     const webpUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1269,9 +1271,13 @@ function CertificatesContent() {
           const scoreReduction = calculateSizeReduction(scoreOriginalSize, scoreThumbnailSize);
           console.log(`✅ Score thumbnail generated: ${Math.round(scoreOriginalSize/1024)}KB → ${Math.round(scoreThumbnailSize/1024)}KB (${scoreReduction} reduction)`);
           
+          // Generate unique XID for score image (separate from certificate)
+          const scoreXid = new Xid();
+          const scoreUniqueId = scoreXid.toString();
+          
           // Upload PNG score master
           console.log('📤 Uploading PNG score master to Supabase Storage...');
-          const scorePngFileName = `${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}_score.png`;
+          const scorePngFileName = `${scoreUniqueId}.png`;
           const scorePngUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1294,7 +1300,7 @@ function CertificatesContent() {
           
           // Upload WebP score preview to preview/ subfolder
           console.log('📤 Uploading WebP score preview to Supabase Storage...');
-          const scoreWebpFileName = `preview/${finalCertificateNo.replace(/[^a-zA-Z0-9-_]/g, '_')}_${timestamp}_score.webp`;
+          const scoreWebpFileName = `preview/${scoreUniqueId}.webp`;
           const scoreWebpUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
