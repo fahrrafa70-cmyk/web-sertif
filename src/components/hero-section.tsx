@@ -625,6 +625,9 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
       }
     } else {
       // Keyword search - redirect to search results page with smooth transition
+      setSearching(true); // Show loading state during redirect
+      setSearchError("");
+      
       const params = new URLSearchParams();
       params.set('q', q);
       if (filters.category) params.set('category', filters.category);
@@ -637,9 +640,10 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         // Small delay for smooth transition before navigation
         setTimeout(() => {
           router.push(`/search?${params.toString()}`);
+          // Note: searching state will persist until page navigation completes
         }, 150);
       } else {
-      router.push(`/search?${params.toString()}`);
+        router.push(`/search?${params.toString()}`);
       }
     }
   }, [certificateId, filters, router, t]);

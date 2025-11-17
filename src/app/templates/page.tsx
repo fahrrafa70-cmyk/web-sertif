@@ -37,9 +37,10 @@ interface TemplateCardProps {
   onPreview: (template: Template) => void;
   onConfigure: (templateId: string) => void;
   getTemplateUrl: (template: Template) => string | null;
+  isConfiguring: boolean; // Loading state for configure button
 }
 
-const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTemplateUrl }: TemplateCardProps) => {
+const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTemplateUrl, isConfiguring }: TemplateCardProps) => {
   const imageUrl = getTemplateUrl(template);
   
   return (
@@ -116,19 +117,21 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTempla
         
         {/* Bottom Section - Action Buttons */}
         <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700 w-full">
-          <Button 
+          <LoadingButton 
             size="sm"
-            className="h-7 px-2 text-xs font-medium gradient-primary text-white shadow-sm transition-all duration-300 flex-1 min-w-0 relative z-10 pointer-events-auto" 
+            className="h-7 px-2 text-xs font-medium !bg-blue-600 hover:!bg-blue-700 text-white shadow-sm transition-all duration-300 flex-1 min-w-0 relative z-10 pointer-events-auto hover:scale-[1.02] hover:shadow-md" 
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               console.log('Configure button clicked for template:', template.id);
               onConfigure(template.id);
             }}
+            isLoading={isConfiguring}
+            loadingText="Opening..."
           >
-            <Settings className="w-3 h-3 mr-1" />
-            <span className="truncate">Configure</span>
-          </Button>
+            {!isConfiguring && <Settings className="w-3 h-3 mr-1" />}
+            <span className="truncate">{isConfiguring ? "Opening..." : "Configure"}</span>
+          </LoadingButton>
           <Button 
             variant="outline" 
             size="sm"
@@ -260,12 +263,16 @@ export default function TemplatesPage() {
 
   const handleConfigureClick = useCallback((templateId: string) => {
     console.log('Navigating to configure page for template:', templateId);
+    // Set loading state
+    setConfiguringTemplateId(templateId);
     // Use setTimeout to ensure navigation happens after current event loop
     setTimeout(() => {
       try {
         router.push(`/templates/configure?template=${templateId}`);
+        // Note: loading state will persist until page navigation completes
       } catch (error) {
         console.error('Error navigating to configure page:', error);
+        setConfiguringTemplateId(null);
       }
     }, 0);
   }, [router]);
@@ -349,6 +356,7 @@ export default function TemplatesPage() {
   const [editingTemplate, setEditingTemplate] = useState(false);
   const [templateUsageMap, setTemplateUsageMap] = useState<Map<string, number>>(new Map()); // Map<templateId, certificateCount>
   const [loadingUsage, setLoadingUsage] = useState(false); // Loading state for template usage check
+  const [configuringTemplateId, setConfiguringTemplateId] = useState<string | null>(null); // Loading state for configure navigation
   
   // Dual template mode state
   const [isDualTemplate, setIsDualTemplate] = useState(false);
@@ -877,6 +885,7 @@ export default function TemplatesPage() {
                   onPreview={handlePreviewClick}
                   onConfigure={handleConfigureClick}
                   getTemplateUrl={getTemplateUrl}
+                  isConfiguring={configuringTemplateId === template.id}
                 />
               ))}
             </div>

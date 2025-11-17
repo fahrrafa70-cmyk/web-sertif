@@ -71,7 +71,7 @@ function SearchResultsContent() {
   
   // Virtualization with pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 20; // Show 20 items per page for better performance
+  const ITEMS_PER_PAGE = 9; // Show 9 items per page (3x3 grid) for optimal performance
   
   // Input optimization refs
   const inputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1291,9 +1291,15 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(1, prev - 1));
+                    // Scroll to top smoothly when changing page
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   disabled={currentPage === 1}
+                  className="flex items-center gap-1"
                 >
+                  <ChevronLeft className="w-4 h-4" />
                   {language === 'id' ? 'Sebelumnya' : 'Previous'}
                 </Button>
                 
@@ -1316,7 +1322,11 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                         key={pageNum}
                         variant={currentPage === pageNum ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setCurrentPage(pageNum)}
+                        onClick={() => {
+                          setCurrentPage(pageNum);
+                          // Scroll to top smoothly when changing page
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
                         className="w-10"
                       >
                         {pageNum}
@@ -1328,10 +1338,16 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                    // Scroll to top smoothly when changing page
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   disabled={currentPage === totalPages}
+                  className="flex items-center gap-1"
                 >
                   {language === 'id' ? 'Selanjutnya' : 'Next'}
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
             )}
