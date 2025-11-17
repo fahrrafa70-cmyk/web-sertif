@@ -60,6 +60,7 @@ import { generateThumbnail, estimateDataUrlSize, calculateSizeReduction } from "
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
+import { CertificatesPageSkeleton } from "@/components/ui/certificates-skeleton";
 
 function CertificatesContent() {
   const { t, language } = useLanguage();
@@ -3329,12 +3330,9 @@ function CertificatesContent() {
 export default function CertificatesPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading certificates...</p>
-        </div>
-      </div>
+      <ModernLayout>
+        <CertificatesPageSkeleton />
+      </ModernLayout>
     }>
       <CertificatesContent />
     </Suspense>

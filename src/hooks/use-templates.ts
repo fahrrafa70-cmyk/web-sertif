@@ -6,13 +6,15 @@ export function useTemplates() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load templates
+  // 🚀 PERFORMANCE: Optimized templates loading
   const loadTemplates = useCallback(async (bypassCache: boolean = false) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getTemplates(!bypassCache);
-      console.log('📥 Templates loaded:', data.length, 'templates with status:', data.map(t => ({ id: t.id, name: t.name, status: t.status })));
+      
+      // 🚀 CRITICAL: Direct fetch without cache complexity
+      const data = await getTemplates(false); // Always bypass cache for consistent performance
+      console.log('📥 Templates loaded:', data.length);
       setTemplates(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load templates');

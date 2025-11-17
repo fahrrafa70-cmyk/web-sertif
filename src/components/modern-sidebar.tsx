@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, memo, useMemo, useCallback } from "react";
+import { useState, memo, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   FileText,
@@ -25,6 +25,7 @@ const ModernSidebar = memo(function ModernSidebar() {
   const { t } = useLanguage();
   const { role } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const navItems: NavItem[] = useMemo(() => [
@@ -84,6 +85,19 @@ const ModernSidebar = memo(function ModernSidebar() {
     setHoveredItem(null);
   }, []);
 
+  // 🚀 PERFORMANCE: Simplified prefetching - only on hover
+  // Removed automatic prefetching to reduce initial bundle complexity
+
+  // 🚀 PERFORMANCE: Prefetch on hover for immediate navigation
+  const handleMouseEnterWithPrefetch = useCallback((href: string) => {
+    setHoveredItem(href);
+    
+    // Prefetch route on hover for instant navigation
+    if (href !== pathname) {
+      router.prefetch(href);
+    }
+  }, [pathname, router]);
+
   return (
     <>
       {/* Desktop Sidebar - Fixed Left */}
@@ -99,7 +113,7 @@ const ModernSidebar = memo(function ModernSidebar() {
               <div
                 key={item.href}
                 className="relative w-full"
-                onMouseEnter={() => handleMouseEnter(item.href)}
+                onMouseEnter={() => handleMouseEnterWithPrefetch(item.href)}
                 onMouseLeave={handleMouseLeave}
               >
                 <Link

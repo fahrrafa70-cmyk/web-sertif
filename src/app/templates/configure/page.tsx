@@ -1920,7 +1920,7 @@ function ConfigureLayoutContent() {
                 )}
                 
                 {/* Text Layers */}
-                {textLayers.filter(layer => layer.visible !== false).map(layer => {
+                {textLayers.filter((layer: any) => layer.visible !== false).map((layer: any) => {
                   const plainText = previewTexts[layer.id] || 
                                     layer.defaultText || 
                                     DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
@@ -1936,7 +1936,7 @@ function ConfigureLayoutContent() {
                       const domScale = isDesktop ? templateScale : templateScale * canvasScale;
 
                       // Render with inline formatting
-                      return layer.richText.map((span, idx) => {
+                      return layer.richText.map((span: any, idx: any) => {
                         return (
                           <span
                             key={idx}
@@ -2008,18 +2008,7 @@ function ConfigureLayoutContent() {
                           mobileVerticalOffset = -50 + (scaleDifference * 10);
                           mobileHorizontalOffset = scaleDifference * 5; // Move right slightly
                         }
-                        
-                        // Alternative: Direct values for common mobile scenarios
-                        // Uncomment if scale-based calculation still not perfect
-                        /*
-                        if (canvasScale >= 0.3 && canvasScale <= 0.6) {
-                          mobileVerticalOffset = -35; // Move down significantly for small scales
-                          mobileHorizontalOffset = -8; // Move left for small scales
-                        } else if (canvasScale >= 0.6 && canvasScale <= 0.8) {
-                          mobileVerticalOffset = -42; // Move down moderately
-                          mobileHorizontalOffset = -4; // Move left slightly
-                        }
-                        */
+                      
                         
                         console.log(`🎯 [${layer.id}] Mobile Transform Calculation:`, {
                           layerId: layer.id,
