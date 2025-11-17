@@ -205,9 +205,9 @@ export default function TemplatesPage() {
   
   // Simplified without heavy preloading
 
-  // 🚀 PERFORMANCE: Instant skeleton render, no delay
+  // 🚀 PERFORMANCE: Remove any initial load delay
   useEffect(() => {
-    // Show skeleton immediately, then transition to real content when data loads
+    // Immediately set to false to prevent any skeleton delay
     setIsInitialLoad(false);
   }, []);
 
@@ -739,7 +739,10 @@ export default function TemplatesPage() {
     <ModernLayout>
       {/* Main Content Section */}
       <section 
-        className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900 duration-500"
+        className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 duration-500"
+        style={{ 
+          backgroundColor: 'var(--background, #f9fafb)'
+        } as React.CSSProperties}
       >
         <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
           {/* Header Section - Like Groups page */}

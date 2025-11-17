@@ -1712,7 +1712,10 @@ function CertificatesContent() {
 
   return (
       <ModernLayout>
-        <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+        <section 
+          className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8"
+          style={{ backgroundColor: 'var(--background, #f9fafb)' } as React.CSSProperties}
+        >
           <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
             {/* Header */}
             <div className="mb-3">

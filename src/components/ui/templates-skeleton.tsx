@@ -2,15 +2,22 @@
 
 import { memo } from "react";
 import { Skeleton } from "./skeleton";
-import { Layout, Plus } from "lucide-react";
+import { Layout, Search, Filter } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { Input } from "./input";
+import { Button } from "./button";
 
 // 🎨 Templates skeleton yang sesuai dengan layout asli
 const TemplatesPageSkeleton = memo(() => {
   const { t } = useLanguage();
   
   return (
-    <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900 duration-500">
+    <section 
+      className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 duration-500"
+      style={{ 
+        backgroundColor: 'var(--background, #f9fafb)'
+      } as React.CSSProperties}
+    >
       <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
         {/* Header Section - REAL TITLE (tidak skeleton) */}
         <div className="mb-3">
@@ -32,12 +39,26 @@ const TemplatesPageSkeleton = memo(() => {
 
         {/* Main Content Card - Sesuai layout asli */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg p-4 sm:p-6 max-w-full">
-          {/* Search Bar Skeleton - Inside Card */}
+          {/* Search Bar ASLI - Inside Card */}
           <div className="mb-4">
             <div className="flex items-center gap-2">
-              <Skeleton className="h-10 flex-1 rounded-lg" />
-              <Skeleton className="h-10 w-10 rounded-lg" />
-              <Skeleton className="h-10 w-16 rounded-lg" />
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <Input 
+                  placeholder={t('templates.search')} 
+                  className="pl-10 h-10 rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 text-sm bg-white dark:bg-gray-800" 
+                  disabled
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-10 p-0 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0"
+                aria-label="Toggle filters"
+                disabled
+              >
+                <Filter className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 

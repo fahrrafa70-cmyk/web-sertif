@@ -70,8 +70,9 @@ export function useTemplates() {
     }
   }, []);
 
-  // Load templates on mount - only once
+  // 🚀 PERFORMANCE: Load templates immediately on mount
   useEffect(() => {
+    // Start loading immediately without delay
     loadTemplates();
   }, []); // Remove loadTemplates dependency to prevent reloads
 

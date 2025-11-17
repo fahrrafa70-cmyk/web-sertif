@@ -149,7 +149,7 @@
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(1 0 0);
+  --background: #f9fafb;
   --foreground: oklch(0.15 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.15 0 0);
@@ -303,11 +303,16 @@
   /* Very fast theme transition for body - synchronized change - INSTANT */
   body {
     color: var(--foreground);
-    background-color: var(--background);
+    background-color: var(--background) !important;
     transition-property: background-color, color, border-color !important;
     transition-timing-function: linear !important;
     transition-duration: 0s !important;
     will-change: background-color, color, border-color;
+  }
+
+  /* Force consistent background for all main sections */
+  section[style*="background"] {
+    background-color: var(--background) !important;
   }
 
   /* Ensure all text elements transition color synchronously - INSTANT */

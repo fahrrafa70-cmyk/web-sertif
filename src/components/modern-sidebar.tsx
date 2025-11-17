@@ -85,8 +85,20 @@ const ModernSidebar = memo(function ModernSidebar() {
     setHoveredItem(null);
   }, []);
 
-  // 🚀 PERFORMANCE: Simplified prefetching - only on hover
-  // Removed automatic prefetching to reduce initial bundle complexity
+  // 🚀 PERFORMANCE: Aggressive prefetching for instant navigation
+  useEffect(() => {
+    // Prefetch common routes immediately after sidebar loads
+    const commonRoutes = ['/templates', '/certificates', '/members'];
+    const timeout = setTimeout(() => {
+      commonRoutes.forEach(route => {
+        if (route !== pathname) {
+          router.prefetch(route);
+        }
+      });
+    }, 100); // Small delay to not block initial render
+
+    return () => clearTimeout(timeout);
+  }, [pathname, router]);
 
   // 🚀 PERFORMANCE: Prefetch on hover for immediate navigation
   const handleMouseEnterWithPrefetch = useCallback((href: string) => {
