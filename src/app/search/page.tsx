@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense, useMemo, memo } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, Filter, X as XIcon, Download, ChevronDown, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, Filter, X as XIcon, Download, ChevronDown, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { useModal } from "@/contexts/modal-context";
 import { toast } from "sonner";
@@ -1203,12 +1203,13 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                 <Button
                   onClick={handleSearch}
                   disabled={searching}
-                  className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
+                  className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex items-center gap-2"
                 >
+                  <span>{t('hero.searchButton')}</span>
                   {searching ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <span>{t('hero.searchButton')}</span>
+                    <ArrowRight className="w-4 h-4" />
                   )}
                 </Button>
               </div>

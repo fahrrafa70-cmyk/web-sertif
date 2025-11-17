@@ -787,18 +787,20 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                       className="h-9 sm:h-10 pl-8 sm:pl-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
                     />
                   </div>
-                  <LoadingButton
+                  <Button
                     type="button"
                     onClick={handleSearch}
-                    isLoading={searching}
-                    loadingText={t('hero.searching')}
-                    variant="primary"
-                    className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] text-xs sm:text-sm"
+                    disabled={searching}
+                    className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex items-center gap-1 sm:gap-2"
                   >
                     <span className="hidden sm:inline">{t('hero.searchButton')}</span>
                     <span className="sm:hidden">{t('hero.searchButton')}</span>
-                    <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                  </LoadingButton>
+                    {searching ? (
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                    )}
+                  </Button>
                 </div>
                 
                 {/* Filter Icon Button */}

@@ -478,12 +478,30 @@ export function QuickGenerateModal({
             </Label>
             
             <Tabs value={dataSource} onValueChange={(value) => setDataSource(value as 'excel' | 'member')}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="member" className="flex items-center gap-2">
+              <TabsList className="grid w-full grid-cols-2 dark:bg-gray-800 p-1 rounded-lg">
+                <TabsTrigger 
+                  value="member" 
+                  className="flex items-center gap-2 rounded-md
+                    data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm
+                    dark:data-[state=active]:bg-blue-500 dark:data-[state=active]:text-white
+                    data-[state=inactive]:text-gray-600 data-[state=inactive]:bg-transparent
+                    dark:data-[state=inactive]:text-gray-400 dark:data-[state=inactive]:bg-transparent
+                    hover:bg-gray-200 dark:hover:bg-gray-700/50
+                    transition-all"
+                >
                   <Users className="w-4 h-4" />
                   {t('quickGenerate.selectMember')}
                 </TabsTrigger>
-                <TabsTrigger value="excel" className="flex items-center gap-2">
+                <TabsTrigger 
+                  value="excel" 
+                  className="flex items-center gap-2 rounded-md
+                    data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm
+                    dark:data-[state=active]:bg-blue-500 dark:data-[state=active]:text-white
+                    data-[state=inactive]:text-gray-600 data-[state=inactive]:bg-transparent
+                    dark:data-[state=inactive]:text-gray-400 dark:data-[state=inactive]:bg-transparent
+                    hover:bg-gray-200 dark:hover:bg-gray-700/50
+                    transition-all"
+                >
                   <FileSpreadsheet className="w-4 h-4" />
                   {t('quickGenerate.uploadExcel')}
                 </TabsTrigger>
