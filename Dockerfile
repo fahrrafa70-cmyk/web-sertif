@@ -1,33 +1,28 @@
-# ---------- BUILDER ----------
-FROM node:20-alpine AS builder
-
-# Required for sharp
-RUN apk add --no-cache \
-    python3 make g++ \
-    libc6-compat vips-dev
-
+# ----------------- DEPS -----------------
+FROM node:20-slim AS deps
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm install
+
+# ----------------- BUILDER -----------------
+FROM node:20-slim AS builder
+WORKDIR /app
 
 COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+
 RUN npm run build
 
-
-# ---------- RUNNER ----------
-FROM node:20-alpine
-
-# Required for sharp runtime
-RUN apk add --no-cache vips-dev libc6-compat
-
+# ----------------- RUNNER -----------------
+FROM node:20-slim AS runner
 WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3019
 
 COPY --from=builder /app ./
 
-# Set PORT
-ENV PORT=3019
-
 EXPOSE 3019
 
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]
