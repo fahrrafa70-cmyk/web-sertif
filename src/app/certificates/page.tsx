@@ -673,13 +673,31 @@ function CertificatesContent() {
           toast.dismiss(currentToast);
           toast.success(`${t('quickGenerate.successMultiple')} ${generated}/${total} ${t('quickGenerate.certificatesGenerated')}`);
         } else if (params.member && params.certificateData) {
-          // Single certificate generation from member
+          // Single certificate generation from member (manual input)
+          console.log('🎯 Single certificate generation - Manual input');
+          
+          // Extract score data from scoreDataMap (for manual input)
+          let memberScoreData: Record<string, string> | undefined;
+          if (params.template.score_image_url && layoutConfig?.score && params.scoreDataMap && params.member.id) {
+            // Get score data for this specific member from scoreDataMap
+            const memberScoreFromMap = params.scoreDataMap[params.member.id];
+            
+            if (memberScoreFromMap) {
+              memberScoreData = memberScoreFromMap;
+              console.log(`✅ Manual input score data for member ${params.member.name}:`, memberScoreData);
+            } else {
+              console.warn(`⚠️ No score data found for member ${params.member.id} in scoreDataMap`);
+            }
+          }
+          
           await generateSingleCertificate(
             params.template,
             params.member,
             params.certificateData,
             defaults,
-            params.dateFormat
+            params.dateFormat,
+            memberScoreData,  // ✅ Pass score data for manual input
+            layoutConfig      // ✅ Pass layout config
           );
           toast.dismiss(loadingToast);
           toast.success(t('quickGenerate.successSingle'));
@@ -731,22 +749,23 @@ function CertificatesContent() {
             if (params.template.score_image_url && layoutConfig?.score) {
               excelScoreData = {};
               
-              // CRITICAL FIX: Use merged Excel data that already contains mapped columns
+              // CRITICAL FIX: Extract ALL Excel data regardless of useDefaultText flag
               // The row data comes from mergeExcelData() which maps Excel columns to layer IDs
               const scoreTextLayers = layoutConfig.score.textLayers || [];
               for (const layer of scoreTextLayers) {
-                // Skip layers with useDefaultText (like score_date) and default certificate layers
-                if (layer.useDefaultText || 
-                    layer.id === 'name' || 
+                // Only skip standard certificate fields that are handled separately
+                // DO NOT skip based on useDefaultText - we need Excel data for ALL layers!
+                if (layer.id === 'name' || 
                     layer.id === 'certificate_no' || 
                     layer.id === 'issue_date' || 
                     layer.id === 'score_date') {
                   continue;
                 }
                 
-                // FIXED: Use mapped column data (layer.id is already mapped from Excel column names)
+                // Extract Excel data for ALL other layers (including those with useDefaultText)
                 if (row[layer.id] !== undefined && row[layer.id] !== null && row[layer.id] !== '') {
                   excelScoreData[layer.id] = String(row[layer.id]);
+                  console.log(`✅ Extracted Excel data for layer '${layer.id}': ${row[layer.id]}`);
                 }
               }
               
@@ -754,9 +773,12 @@ function CertificatesContent() {
                 rowIndex: generated + 1,
                 memberName: name,
                 scoreData: excelScoreData,
+                scoreDataFull: JSON.stringify(excelScoreData, null, 2),
                 scoreFields: Object.keys(excelScoreData),
                 rawRowData: Object.keys(row),
-                availableScoreFields: Object.keys(row).filter(k => scoreTextLayers.some(l => l.id === k))
+                rawRowFull: JSON.stringify(row, null, 2),
+                availableScoreFields: Object.keys(row).filter(k => scoreTextLayers.some(l => l.id === k)),
+                scoreLayerIds: scoreTextLayers.map(l => l.id)
               });
             }
             
@@ -863,7 +885,10 @@ function CertificatesContent() {
     }
     
     // Prepare text layers with member data
-    const textLayers: RenderTextLayer[] = defaults.textLayers.map((layer) => {
+    // CRITICAL: Filter out layers with visible=false (hidden in configure page)
+    const textLayers: RenderTextLayer[] = defaults.textLayers
+      .filter(layer => layer.visible !== false)
+      .map((layer) => {
       let text = '';
       
       // Check if layer uses default text
@@ -1082,7 +1107,10 @@ function CertificatesContent() {
           console.log('📋 Score text layers to process:', scoreLayoutConfig.textLayers.length);
           
           // Migrate score layers: ensure dual coordinates
-          const migratedScoreLayers = scoreLayoutConfig.textLayers.map(layer => ({
+          // CRITICAL: Filter out layers with visible=false (hidden in configure page)
+          const migratedScoreLayers = scoreLayoutConfig.textLayers
+            .filter(layer => layer.visible !== false)
+            .map(layer => ({
             ...layer,
             // CRITICAL: Ensure absolute coordinates exist (convert from percentage if needed)
             x: layer.x !== undefined ? layer.x : (layer.xPercent || 0) * STANDARD_CANVAS_WIDTH,
@@ -1118,29 +1146,79 @@ function CertificatesContent() {
           }));
           
           // Prepare score text layers with scoreData
+          console.log('🎯 CRITICAL DEBUG - Score Data Mapping:', {
+            scoreDataReceived: !!scoreData,
+            scoreDataKeys: scoreData ? Object.keys(scoreData) : [],
+            scoreDataValues: scoreData,
+            totalScoreLayers: migratedScoreLayers.length,
+            scoreLayerIds: migratedScoreLayers.map(l => l.id)
+          });
+          
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
+            let dataSource = 'none';
             
-            // PRIORITY 1: Excel data (ignore useDefaultText flag for score layers)
-            if (scoreData && scoreData[layer.id] !== undefined && scoreData[layer.id] !== null) {
+            console.log(`\n🔍 Processing layer '${layer.id}':`);
+            console.log(`  - useDefaultText: ${layer.useDefaultText}`);
+            console.log(`  - defaultText: "${layer.defaultText}"`);
+            console.log(`  - scoreData[layer.id]: ${scoreData ? scoreData[layer.id] : 'NO SCORE DATA'}`);
+            
+            // PRIORITY 1: Excel/Input data ALWAYS takes precedence (even if useDefaultText=true)
+            if (scoreData && 
+                scoreData[layer.id] !== undefined && 
+                scoreData[layer.id] !== null && 
+                scoreData[layer.id] !== '' &&
+                String(scoreData[layer.id]).trim() !== '') {
               text = String(scoreData[layer.id]).trim();
+              dataSource = 'excel';
+              console.log(`  ✅ DECISION: Using Excel data = "${text}"`);
             } 
-            // PRIORITY 2: Common fields mapping
+            // PRIORITY 2: Common fields mapping (name, certificate_no, dates)
             else if (layer.id === 'name') {
               text = member.name;
+              dataSource = 'member';
+              console.log(`📝 Layer '${layer.id}': Using member name = "${text}"`);
             }
             else if (layer.id === 'certificate_no') {
               text = finalCertData.certificate_no || '';
+              dataSource = 'certificate';
+              console.log(`📝 Layer '${layer.id}': Using certificate number = "${text}"`);
             }
             else if (layer.id === 'issue_date' || layer.id === 'score_date') {
               text = formatDateString(finalCertData.issue_date, dateFormat);
+              dataSource = 'date';
+              console.log(`📅 Layer '${layer.id}': Using formatted date = "${text}"`);
             }
             else if (layer.id === 'expired_date' || layer.id === 'expiry_date') {
               text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
+              dataSource = 'date';
+              console.log(`📅 Layer '${layer.id}': Using expiry date = "${text}"`);
             }
-            // PRIORITY 3: Default text as last resort
-            else if (layer.defaultText) {
+            // PRIORITY 3: Default text ONLY if useDefaultText flag is TRUE
+            else if (layer.useDefaultText && layer.defaultText) {
               text = layer.defaultText;
+              dataSource = 'default';
+              console.log(`⚠️ Layer '${layer.id}': Using default text (flag=true) = "${text}"`);
+            }
+            // NO FALLBACK - Jika tidak ada data, render kosong (empty string)
+            // This prevents Excel defaultText from appearing when no input data provided
+            
+            // Debug: Log the final mapping for this layer
+            console.log(`📝 Score Layer Mapping: ${layer.id} = "${text}" (source: ${dataSource})`);
+            
+            // Skip rendering if useDefaultText=false and no data available
+            if (!layer.useDefaultText && !text && dataSource === 'none') {
+              console.log(`❌ Layer '${layer.id}': Skipped - no data and useDefaultText=false`);
+            }
+            
+            // CRITICAL FIX: If text changed from layer config, clear richText
+            // richText contains Excel defaultText spans that override layer.text
+            // Only use richText if text matches (no data override happened)
+            const textChanged = text !== layer.defaultText;
+            const shouldClearRichText = textChanged && layer.richText;
+            
+            if (shouldClearRichText) {
+              console.log(`🔧 Clearing richText for layer '${layer.id}' because text changed from "${layer.defaultText}" to "${text}"`);
             }
             
             return {
@@ -1158,8 +1236,8 @@ function CertificatesContent() {
               textAlign: layer.textAlign,
               maxWidth: layer.maxWidth,
               lineHeight: layer.lineHeight,
-              richText: layer.richText, // CRITICAL: Pass richText for inline formatting
-              hasInlineFormatting: layer.hasInlineFormatting, // CRITICAL: Flag to use rich text renderer
+              richText: shouldClearRichText ? undefined : layer.richText,
+              hasInlineFormatting: shouldClearRichText ? false : layer.hasInlineFormatting,
             };
           });
           

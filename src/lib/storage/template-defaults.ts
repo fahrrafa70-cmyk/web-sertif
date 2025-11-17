@@ -16,6 +16,7 @@ export interface TextLayerDefault {
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   defaultText?: string;
   useDefaultText?: boolean;
+  visible?: boolean; // Whether this layer is visible in preview and generation (default: true)
   maxWidth?: number;
   lineHeight?: number;
   richText?: Array<{
