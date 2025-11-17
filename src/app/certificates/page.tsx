@@ -2392,7 +2392,7 @@ function CertificatesContent() {
                   })()}>
                     <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                        Certificate Number
+                        {t('certificates.certificateNumber')}
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.certificate_no}
@@ -2401,7 +2401,7 @@ function CertificatesContent() {
 
                     <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                        Recipient Name
+                        {t('certificates.recipientName')}
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.name}
@@ -2459,9 +2459,6 @@ function CertificatesContent() {
                       ? "space-y-2 sm:space-y-4 w-full max-w-2xl order-1" // Portrait: preview on top, centered
                       : "space-y-2 sm:space-y-4"; // Landscape: preview on right
                   })()}>
-                    <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                      {t('hero.certificate')}
-                    </label>
                     {/* Toggle for dual templates - only show if score image exists */}
                     {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url && (
                       <div className="flex gap-2 mb-2">
@@ -2528,7 +2525,7 @@ function CertificatesContent() {
                             // Use Next.js Image for all cases. For remote/data URLs, disable optimization.
                             const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
-                            const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
+                            const isExpired = previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
                             return (
                               <div className="relative w-full aspect-auto">

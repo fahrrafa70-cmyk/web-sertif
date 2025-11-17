@@ -90,6 +90,7 @@ function ConfigureLayoutContent() {
 
   // Screen size detection for responsive behavior
   const [isDesktop, setIsDesktop] = useState(false);
+  const [isTablet, setIsTablet] = useState(false); // iPad detection
 
   // Preview modal state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -691,7 +692,9 @@ function ConfigureLayoutContent() {
   // Screen size detection for responsive behavior
   useEffect(() => {
     const checkScreenSize = () => {
-      setIsDesktop(window.innerWidth >= 1024);
+      const width = window.innerWidth;
+      setIsDesktop(width >= 1024);
+      setIsTablet(width >= 768 && width < 1024); // iPad range: 768px - 1023px
     };
 
     // Check initially
@@ -1989,6 +1992,19 @@ function ConfigureLayoutContent() {
                                              !layer.id.toLowerCase().includes('nilai') &&
                                              (layer.textAlign === 'left' || !layer.textAlign);
                     
+                    // 🔍 DEBUG: Log device detection for certificate_no and issue_date
+                    if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                      console.log(`🖥️ [Device Detection] ${layer.id}:`, {
+                        id: layer.id,
+                        isDesktop: isDesktop,
+                        isTablet: isTablet,
+                        isMobile: !isDesktop && !isTablet,
+                        windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'N/A',
+                        willGetTabletOffset: isTablet ? '✅ YES' : '❌ NO',
+                        willGetMobileOffset: (!isDesktop && !isTablet) ? '✅ YES' : '❌ NO'
+                      });
+                    }
+                    
                     // 🔍 DEBUG: Log all score mode layers to verify which ones are affected
                     if (configMode === 'score') {
                       console.log(`📋 [Score Layer] ${layer.id}:`, {
@@ -2006,8 +2022,67 @@ function ConfigureLayoutContent() {
                     }
                     
                     if (isSpecialLayer || isNilaiPrestasiLayer || isKompetensiLayer) {
+                      // 🔧 TABLET (iPad) FIX: Dynamic adjustment based on canvasScale
+                      // Works for all tablet sizes (iPad Mini, iPad Air, iPad Pro, Android tablets, etc.)
+                      if (isTablet && (layer.id === 'certificate_no' || layer.id === 'issue_date')) {
+                        // Calculate dynamic offset based on canvasScale
+                        // canvasScale reflects how much the canvas is scaled to fit the viewport
+                        // Smaller scale = more zoom out = need more adjustment
+                        
+                        let tabletHorizontalOffset = 0;
+                        let tabletVerticalOffset = -50;
+                        
+                        if (canvasScale < 1.0) {
+                          // Canvas is scaled down to fit tablet viewport
+                          const scaleDifference = 1.0 - canvasScale;
+                          
+                          // Horizontal adjustment: Use iPad Pro as reference (canvasScale ~0.948)
+                          // iPad Pro offset should be minimal, smaller tablets get more offset
+                          // Formula: Adjust relative to iPad Pro scale
+                          const iPadProScale = 0.948; // Reference scale for iPad Pro (1024px)
+                          const relativeScaleDiff = iPadProScale - canvasScale;
+                          
+                          // Base offset for iPad Pro + additional offset for smaller tablets
+                          const baseOffset = -0.1; // Small base offset for iPad Pro
+                          const additionalOffset = -(relativeScaleDiff * 2); // Reduced multiplier (was 4, now 2)
+                          tabletHorizontalOffset = baseOffset + additionalOffset;
+                          
+                          // Vertical adjustment for issue_date only
+                          if (layer.id === 'issue_date') {
+                            // Issue date needs slight downward adjustment
+                            // iPad Pro should have minimal vertical offset
+                            const baseVerticalOffset = 0.05; // Small base for iPad Pro
+                            const additionalVerticalOffset = relativeScaleDiff * 1; // Reduced multiplier (was 2, now 1)
+                            const verticalAdjustment = baseVerticalOffset + additionalVerticalOffset;
+                            tabletVerticalOffset = -50 + verticalAdjustment;
+                          }
+                        } else if (canvasScale > 1.0) {
+                          // Canvas is scaled up (rare for tablets, but handle it)
+                          const scaleDifference = canvasScale - 1.0;
+                          tabletHorizontalOffset = scaleDifference * 1; // Slight right shift
+                        }
+                        
+                        console.log(`📱 [${layer.id}] Tablet Dynamic Adjustment:`, {
+                          layerId: layer.id,
+                          canvasScale: canvasScale,
+                          scaleDifference: Math.abs(canvasScale - 1.0),
+                          iPadProScale: 0.948,
+                          relativeScaleDiff: canvasScale < 1.0 ? (0.948 - canvasScale) : 0,
+                          baseOffset: canvasScale < 1.0 ? -0.1 : 0,
+                          additionalOffset: canvasScale < 1.0 ? -((0.948 - canvasScale) * 2) : 0,
+                          horizontalOffset: tabletHorizontalOffset,
+                          verticalOffset: tabletVerticalOffset,
+                          device: 'Tablet (Dynamic)',
+                          windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'N/A',
+                          templateWidth: templateImageDimensions?.width || STANDARD_CANVAS_WIDTH,
+                          containerWidth: canvasRef.current?.offsetWidth || 0
+                        });
+                        return `translate(${tabletHorizontalOffset}%, ${tabletVerticalOffset}%)`;
+                      }
+                      
                       // 🔧 MOBILE FIX: Adjust vertical centering for mobile scaling differences
-                      if (!isDesktop) {
+                      // iPad (tablet) should NOT get mobile offset - treat like desktop
+                      if (!isDesktop && !isTablet) {
                         // Mobile: compensate for canvasScale effect on font size
                         // The double scaling (templateScale * canvasScale) affects visual positioning
                         // Need to adjust the vertical offset to match desktop positioning exactly
@@ -2065,7 +2140,7 @@ function ConfigureLayoutContent() {
                           mobileHorizontalOffset = scaleDifference * 5; // Move right slightly
                         }
                       
-                        
+
                         console.log(`🎯 [${layer.id}] Mobile Transform Calculation:`, {
                           layerId: layer.id,
                           configMode,
