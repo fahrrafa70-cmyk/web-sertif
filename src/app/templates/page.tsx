@@ -231,15 +231,27 @@ export default function TemplatesPage() {
 
   // Stable callback functions for template actions to prevent re-renders
   const handleEditClick = useCallback((template: Template) => {
-    setIsEditOpen(template.id);
-    setDraft(template);
+    // CRITICAL: Only use is_layout_configured as fallback if status is truly undefined/null
+    // If status exists (even if empty string), use it directly
+    // This ensures that once status is set, it won't be overridden by is_layout_configured
+    const initialStatus = (template.status !== undefined && template.status !== null && template.status !== '')
+      ? template.status 
+      : (template.is_layout_configured ? "ready" : "draft");
+    setDraft({ 
+      ...template, 
+      status: initialStatus // Explicitly set status to ensure it's always present
+    });
+    console.log('📝 Opening edit for template:', template.name, 'with status:', initialStatus, 'from template.status:', template.status, 'is_layout_configured:', template.is_layout_configured);
+    setImageFile(null);
     setImagePreview(template.image_path || null);
+    setPreviewImageFile(null);
     setPreviewImagePreview(template.preview_image_path || null);
     setIsDualTemplate(template.is_dual_template || false);
-    if (template.is_dual_template) {
-      setCertificateImagePreview(template.certificate_image_url || null);
-      setScoreImagePreview(template.score_image_url || null);
-    }
+    setCertificateImageFile(null);
+    setCertificateImagePreview(template.certificate_image_url || null);
+    setScoreImageFile(null);
+    setScoreImagePreview(template.score_image_url || null);
+    setIsEditOpen(template.id);
   }, []);
 
   const handlePreviewClick = useCallback((template: Template) => {
@@ -451,29 +463,6 @@ export default function TemplatesPage() {
     }
   }
 
-  function openEdit(item: Template) {
-    // CRITICAL: Only use is_layout_configured as fallback if status is truly undefined/null
-    // If status exists (even if empty string), use it directly
-    // This ensures that once status is set, it won't be overridden by is_layout_configured
-    const initialStatus = (item.status !== undefined && item.status !== null && item.status !== '')
-      ? item.status 
-      : (item.is_layout_configured ? "ready" : "draft");
-    setDraft({ 
-      ...item, 
-      status: initialStatus // Explicitly set status to ensure it's always present
-    });
-    console.log('📝 Opening edit for template:', item.name, 'with status:', initialStatus, 'from item.status:', item.status, 'is_layout_configured:', item.is_layout_configured);
-    setImageFile(null);
-    setImagePreview(null);
-    setPreviewImageFile(null);
-    setPreviewImagePreview(null);
-    setIsDualTemplate(item.is_dual_template || false);
-    setCertificateImageFile(null);
-    setCertificateImagePreview(null);
-    setScoreImageFile(null);
-    setScoreImagePreview(null);
-    setIsEditOpen(item.id);
-  }
 
   async function submitEdit() {
     if (!draft || !isEditOpen || !draft.name || !draft.category) {

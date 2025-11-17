@@ -471,21 +471,56 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
 
     let imagePath: string | undefined = currentTemplate.image_path;
     let previewImagePath: string | undefined = currentTemplate.preview_image_path;
+    let certificateImagePath: string | undefined = currentTemplate.certificate_image_url;
+    let scoreImagePath: string | undefined = currentTemplate.score_image_url;
 
-    // Handle image update
-    if (templateData.image_file) {
-      console.log('📤 New image file provided, starting upload...');
-      try {
-        const uploadResult = await uploadTemplateImage(templateData.image_file);
-        imagePath = uploadResult;
-        console.log('✅ Image upload completed, path:', imagePath);
-      } catch (uploadError) {
-        console.error('❌ Image upload failed:', uploadError);
-        throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+    // Handle dual template mode
+    if (templateData.is_dual_template) {
+      console.log('🔄 Dual template mode - handling certificate and score images...');
+      
+      // Handle certificate image update
+      if (templateData.certificate_image_file) {
+        console.log('📤 New certificate image file provided, starting upload...');
+        try {
+          const uploadResult = await uploadTemplateImage(templateData.certificate_image_file);
+          certificateImagePath = uploadResult;
+          // For backward compatibility, also update image_path
+          imagePath = uploadResult;
+          console.log('✅ Certificate image upload completed, path:', certificateImagePath);
+        } catch (uploadError) {
+          console.error('❌ Certificate image upload failed:', uploadError);
+          throw new Error(`Certificate image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        }
+      }
+      
+      // Handle score image update
+      if (templateData.score_image_file) {
+        console.log('📤 New score image file provided, starting upload...');
+        try {
+          const uploadResult = await uploadTemplateImage(templateData.score_image_file);
+          scoreImagePath = uploadResult;
+          console.log('✅ Score image upload completed, path:', scoreImagePath);
+        } catch (uploadError) {
+          console.error('❌ Score image upload failed:', uploadError);
+          throw new Error(`Score image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        }
+      }
+    } else {
+      // Single template mode - handle regular image
+      if (templateData.image_file) {
+        console.log('📤 New image file provided, starting upload...');
+        try {
+          const uploadResult = await uploadTemplateImage(templateData.image_file);
+          imagePath = uploadResult;
+          console.log('✅ Image upload completed, path:', imagePath);
+        } catch (uploadError) {
+          console.error('❌ Image upload failed:', uploadError);
+          throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        }
       }
     }
 
-    // Handle preview image update
+    // Handle preview image update (for both modes)
     if (templateData.preview_image_file) {
       console.log('📤 New preview image file provided, starting upload...');
       try {
@@ -503,11 +538,20 @@ export async function updateTemplate(id: string, templateData: UpdateTemplateDat
       name: templateData.name,
       category: templateData.category,
       orientation: templateData.orientation,
-      image_path: imagePath
+      image_path: imagePath,
+      is_dual_template: templateData.is_dual_template
     };
 
     if (typeof previewImagePath !== 'undefined') {
       updateData.preview_image_path = previewImagePath;
+    }
+
+    // Add dual template image URLs if they exist
+    if (typeof certificateImagePath !== 'undefined') {
+      updateData.certificate_image_url = certificateImagePath;
+    }
+    if (typeof scoreImagePath !== 'undefined') {
+      updateData.score_image_url = scoreImagePath;
     }
 
     // CRITICAL: Always include status if provided

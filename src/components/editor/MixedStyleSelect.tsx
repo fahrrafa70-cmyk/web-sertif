@@ -32,7 +32,12 @@ export function MixedStyleSelect({
           )}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+      <SelectContent 
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 max-h-[300px] overflow-y-auto"
+        position="popper"
+        align="start"
+        sideOffset={4}
+      >
         {options.map(option => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
@@ -76,7 +81,7 @@ export function FontWeightSelect({
   );
 }
 
-// Pre-configured Font Family Select
+// Pre-configured Font Family Select with Categories
 export function FontFamilySelect({
   value,
   onValueChange,
@@ -86,54 +91,76 @@ export function FontFamilySelect({
   onValueChange: (value: string) => void;
   className?: string;
 }) {
-  const familyOptions = [
-    // Sans-serif fonts
-    { value: 'Arial', label: 'Arial' },
-    { value: 'Helvetica', label: 'Helvetica' },
-    { value: 'Roboto', label: 'Roboto' },
-    { value: 'Open Sans', label: 'Open Sans' },
-    { value: 'Poppins', label: 'Poppins' },
-    { value: 'Lato', label: 'Lato' },
-    { value: 'Montserrat', label: 'Montserrat' },
-    { value: 'Source Sans Pro', label: 'Source Sans Pro' },
-    { value: 'Inter', label: 'Inter' },
-    { value: 'Verdana', label: 'Verdana' },
-    { value: 'Calibri', label: 'Calibri' },
-    { value: 'Tahoma', label: 'Tahoma' },
-    
-    // Serif fonts
-    { value: 'Times New Roman', label: 'Times New Roman' },
-    { value: 'Georgia', label: 'Georgia' },
-    { value: 'Garamond', label: 'Garamond' },
-    { value: 'Playfair Display', label: 'Playfair Display' },
-    { value: 'Merriweather', label: 'Merriweather' },
-    { value: 'Crimson Text', label: 'Crimson Text' },
-    { value: 'Libre Baskerville', label: 'Libre Baskerville' },
-    
-    // Monospace fonts
-    { value: 'Courier New', label: 'Courier New' },
-    { value: 'Monaco', label: 'Monaco' },
-    { value: 'Consolas', label: 'Consolas' },
-    { value: 'Source Code Pro', label: 'Source Code Pro' },
-    
-    // Display/Decorative fonts
-    { value: 'Impact', label: 'Impact' },
-    { value: 'Oswald', label: 'Oswald' },
-    { value: 'Bebas Neue', label: 'Bebas Neue' },
-    { value: 'Raleway', label: 'Raleway' },
-    { value: 'Nunito', label: 'Nunito' },
-    { value: 'Dancing Script', label: 'Dancing Script' },
-    { value: 'Pacifico', label: 'Pacifico' },
-  ];
+  const selectedOption = value === 'mixed' ? undefined : value;
+  const displayLabel = value === 'mixed' ? 'Mixed' : value;
   
   return (
-    <MixedStyleSelect
-      value={value}
-      onValueChange={onValueChange}
-      options={familyOptions}
-      placeholder="Font"
-      className={className}
-    />
+    <Select value={selectedOption} onValueChange={onValueChange}>
+      <SelectTrigger className={className}>
+        <SelectValue placeholder="Font">
+          {value === 'mixed' ? (
+            <span className="text-gray-500 italic">Mixed</span>
+          ) : (
+            <span style={{ fontFamily: value || 'inherit' }}>{displayLabel}</span>
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent 
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 max-h-[400px] overflow-y-auto w-[280px]"
+        position="popper"
+        align="start"
+        sideOffset={4}
+      >
+        {/* Sans-serif fonts */}
+        <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10">
+          Sans-serif
+        </div>
+        <SelectItem value="Arial"><span style={{ fontFamily: 'Arial' }}>Arial</span></SelectItem>
+        <SelectItem value="Helvetica"><span style={{ fontFamily: 'Helvetica' }}>Helvetica</span></SelectItem>
+        <SelectItem value="Roboto"><span style={{ fontFamily: 'Roboto' }}>Roboto</span></SelectItem>
+        <SelectItem value="Open Sans"><span style={{ fontFamily: 'Open Sans' }}>Open Sans</span></SelectItem>
+        <SelectItem value="Poppins"><span style={{ fontFamily: 'Poppins' }}>Poppins</span></SelectItem>
+        <SelectItem value="Lato"><span style={{ fontFamily: 'Lato' }}>Lato</span></SelectItem>
+        <SelectItem value="Montserrat"><span style={{ fontFamily: 'Montserrat' }}>Montserrat</span></SelectItem>
+        <SelectItem value="Inter"><span style={{ fontFamily: 'Inter' }}>Inter</span></SelectItem>
+        <SelectItem value="Verdana"><span style={{ fontFamily: 'Verdana' }}>Verdana</span></SelectItem>
+        <SelectItem value="Calibri"><span style={{ fontFamily: 'Calibri' }}>Calibri</span></SelectItem>
+        <SelectItem value="Tahoma"><span style={{ fontFamily: 'Tahoma' }}>Tahoma</span></SelectItem>
+        
+        {/* Serif fonts */}
+        <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10 mt-1">
+          Serif
+        </div>
+        <SelectItem value="Times New Roman"><span style={{ fontFamily: 'Times New Roman' }}>Times New Roman</span></SelectItem>
+        <SelectItem value="Georgia"><span style={{ fontFamily: 'Georgia' }}>Georgia</span></SelectItem>
+        <SelectItem value="Garamond"><span style={{ fontFamily: 'Garamond' }}>Garamond</span></SelectItem>
+        <SelectItem value="Playfair Display"><span style={{ fontFamily: 'Playfair Display' }}>Playfair Display</span></SelectItem>
+        <SelectItem value="Merriweather"><span style={{ fontFamily: 'Merriweather' }}>Merriweather</span></SelectItem>
+        <SelectItem value="Crimson Text"><span style={{ fontFamily: 'Crimson Text' }}>Crimson Text</span></SelectItem>
+        <SelectItem value="Libre Baskerville"><span style={{ fontFamily: 'Libre Baskerville' }}>Libre Baskerville</span></SelectItem>
+        
+        {/* Monospace fonts */}
+        <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10 mt-1">
+          Monospace
+        </div>
+        <SelectItem value="Courier New"><span style={{ fontFamily: 'Courier New' }}>Courier New</span></SelectItem>
+        <SelectItem value="Monaco"><span style={{ fontFamily: 'Monaco' }}>Monaco</span></SelectItem>
+        <SelectItem value="Consolas"><span style={{ fontFamily: 'Consolas' }}>Consolas</span></SelectItem>
+        <SelectItem value="Source Code Pro"><span style={{ fontFamily: 'Source Code Pro' }}>Source Code Pro</span></SelectItem>
+        
+        {/* Display/Decorative fonts */}
+        <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10 mt-1">
+          Display & Decorative
+        </div>
+        <SelectItem value="Impact"><span style={{ fontFamily: 'Impact' }}>Impact</span></SelectItem>
+        <SelectItem value="Oswald"><span style={{ fontFamily: 'Oswald' }}>Oswald</span></SelectItem>
+        <SelectItem value="Bebas Neue"><span style={{ fontFamily: 'Bebas Neue' }}>Bebas Neue</span></SelectItem>
+        <SelectItem value="Raleway"><span style={{ fontFamily: 'Raleway' }}>Raleway</span></SelectItem>
+        <SelectItem value="Nunito"><span style={{ fontFamily: 'Nunito' }}>Nunito</span></SelectItem>
+        <SelectItem value="Dancing Script"><span style={{ fontFamily: 'Dancing Script' }}>Dancing Script</span></SelectItem>
+        <SelectItem value="Pacifico"><span style={{ fontFamily: 'Pacifico' }}>Pacifico</span></SelectItem>
+      </SelectContent>
+    </Select>
   );
 }
 

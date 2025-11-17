@@ -1974,7 +1974,38 @@ function ConfigureLayoutContent() {
                   // RESTORE ORIGINAL TRANSFORM LOGIC: Keep preview working as before
                   const getTransform = () => {
                     // Special handling for certificate_no and issue_date (vertical centering)
-                    if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                    // Also apply same logic for score mode layers
+                    const isSpecialLayer = layer.id === 'certificate_no' || layer.id === 'issue_date';
+                    
+                    // Only apply to SPECIFIC custom text layers in score mode
+                    // Using whitelist array for exact match - prevents other layers from being affected
+                    const isNilaiPrestasiLayer = configMode === 'score' && 
+                                                 ['Nilai / Prestasi'].includes(layer.id) &&
+                                                 (layer.textAlign === 'left' || !layer.textAlign);
+                    
+                    // Separate condition for kompetensi layer
+                    const isKompetensiLayer = configMode === 'score' && 
+                                             (layer.id === 'kompetensi' || layer.id === 'Kompetensi' || layer.id.toLowerCase().includes('kompetensi')) &&
+                                             !layer.id.toLowerCase().includes('nilai') &&
+                                             (layer.textAlign === 'left' || !layer.textAlign);
+                    
+                    // 🔍 DEBUG: Log all score mode layers to verify which ones are affected
+                    if (configMode === 'score') {
+                      console.log(`📋 [Score Layer] ${layer.id}:`, {
+                        id: layer.id,
+                        fontSize: layer.fontSize,
+                        textAlign: layer.textAlign,
+                        isDesktop: isDesktop,
+                        configMode: configMode,
+                        isInArray: ['nilai', 'prestasi'].includes(layer.id),
+                        isNilaiPrestasi: isNilaiPrestasiLayer,
+                        isKompetensi: isKompetensiLayer,
+                        willGetOffset: (isNilaiPrestasiLayer || isKompetensiLayer) ? '✅ YES' : '❌ NO',
+                        text: layer.text?.substring(0, 30)
+                      });
+                    }
+                    
+                    if (isSpecialLayer || isNilaiPrestasiLayer || isKompetensiLayer) {
                       // 🔧 MOBILE FIX: Adjust vertical centering for mobile scaling differences
                       if (!isDesktop) {
                         // Mobile: compensate for canvasScale effect on font size
@@ -1991,15 +2022,41 @@ function ConfigureLayoutContent() {
                           // Scale is smaller than 1, text appears higher and shifted, adjust both axes
                           const scaleDifference = 1.0 - canvasScale;
                           
-                          // 🎯 DIFFERENT ADJUSTMENT FOR EACH LAYER
-                          if (layer.id === 'issue_date') {
-                            // issue_date: already perfect with current values
+                          // 🎯 DIFFERENT ADJUSTMENT FOR EACH LAYER AND MODE
+                          if (layer.id === 'issue_date' && configMode === 'certificate') {
+                            // issue_date in CERTIFICATE mode
                             mobileVerticalOffset = -50 - (scaleDifference * 3);
                             mobileHorizontalOffset = -(scaleDifference * 2);
+                          } else if (layer.id === 'issue_date' && configMode === 'score') {
+                            // issue_date in SCORE mode - different offset
+                            mobileVerticalOffset = -50 - (scaleDifference * 3);
+                            mobileHorizontalOffset = -(scaleDifference * 5);
                           } else if (layer.id === 'certificate_no') {
-                            // certificate_no: needs different adjustment
+                            // certificate_no: only in certificate mode
                             mobileVerticalOffset = -43 - (scaleDifference * 1); // More down movement
                             mobileHorizontalOffset = -2 -(scaleDifference * 1); // Less left movement (more right)
+                          } else if (isNilaiPrestasiLayer) {
+                            // ONLY nilai/prestasi layers - NOT aspek teknis or other layers
+                            mobileVerticalOffset = -10 - (scaleDifference * 40);
+                            mobileHorizontalOffset = 10 - (scaleDifference * 15);
+                            console.log(`🎯 [${layer.id}] NILAI/PRESTASI OFFSET APPLIED:`, {
+                              layerId: layer.id,
+                              scaleDifference: scaleDifference,
+                              verticalOffset: mobileVerticalOffset,
+                              horizontalOffset: mobileHorizontalOffset,
+                              canvasScale: canvasScale
+                            });
+                          } else if (isKompetensiLayer) {
+                            // ONLY kompetensi layer - geser sedikit ke kiri
+                            mobileVerticalOffset = -50 - (scaleDifference * 3);
+                            mobileHorizontalOffset = -1 - (scaleDifference * 1); // -1 = geser 1px ke kiri
+                            console.log(`🎯 [${layer.id}] KOMPETENSI OFFSET APPLIED:`, {
+                              layerId: layer.id,
+                              scaleDifference: scaleDifference,
+                              verticalOffset: mobileVerticalOffset,
+                              horizontalOffset: mobileHorizontalOffset,
+                              canvasScale: canvasScale
+                            });
                           }
                         } else if (canvasScale > 1.0) {
                           // Scale is larger than 1, adjust accordingly
@@ -2011,12 +2068,16 @@ function ConfigureLayoutContent() {
                         
                         console.log(`🎯 [${layer.id}] Mobile Transform Calculation:`, {
                           layerId: layer.id,
+                          configMode,
                           canvasScale,
                           verticalOffset: mobileVerticalOffset,
                           horizontalOffset: mobileHorizontalOffset,
                           scaleDifference: Math.abs(canvasScale - 1.0),
-                          adjustmentType: layer.id === 'issue_date' ? 'ISSUE_DATE_PERFECT' : 
-                                         layer.id === 'certificate_no' ? 'CERTIFICATE_NO_CUSTOM' : 'DEFAULT'
+                          adjustmentType: (layer.id === 'issue_date' && configMode === 'certificate') ? 'ISSUE_DATE_CERTIFICATE' : 
+                                         (layer.id === 'issue_date' && configMode === 'score') ? 'ISSUE_DATE_SCORE' :
+                                         layer.id === 'certificate_no' ? 'CERTIFICATE_NO' : 
+                                         isNilaiPrestasiLayer ? 'NILAI_PRESTASI_ONLY' : 
+                                         isKompetensiLayer ? 'KOMPETENSI_ONLY' : 'DEFAULT'
                         });
                         
                         return `translate(${mobileHorizontalOffset}%, ${mobileVerticalOffset}%)`;
@@ -2035,8 +2096,8 @@ function ConfigureLayoutContent() {
                     }
                   };
                   
-                  // 🔍 DEBUG: Log positioning data untuk certificate_no dan issue_date
-                  if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
+                  // 🔍 DEBUG: Log positioning data untuk certificate_no, issue_date, dan Nilai / Prestasi
+                  if (layer.id === 'certificate_no' || layer.id === 'issue_date' || layer.id === 'Nilai / Prestasi') {
                     logPreviewPositioning(
                       layer.id,
                       layer,
@@ -2083,16 +2144,16 @@ function ConfigureLayoutContent() {
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
                           fontStyle: layer.fontStyle || 'normal',
-                          // certificate_no and issue_date always use left alignment
-                          textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
-                          // certificate_no and issue_date should never wrap - always stay on one line
-                          whiteSpace: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'nowrap' : (layer.maxWidth ? 'normal' : 'nowrap'),
+                          // certificate_no, issue_date, and Nilai / Prestasi only
+                          textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'left' : (layer.textAlign || 'left'),
+                          // certificate_no, issue_date, and Nilai / Prestasi should never wrap - always stay on one line
+                          whiteSpace: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'nowrap' : (layer.maxWidth ? 'normal' : 'nowrap'),
                           lineHeight: layer.lineHeight || 1.2,
-                          // certificate_no and issue_date: truncate with ellipsis if text overflows
-                          textOverflow: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'ellipsis' : 'clip',
-                          overflow: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'hidden' : 'visible',
-                          wordWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
-                          overflowWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'normal' : 'break-word',
+                          // certificate_no, issue_date, and Nilai / Prestasi: truncate with ellipsis if text overflows
+                          textOverflow: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'ellipsis' : 'clip',
+                          overflow: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'hidden' : 'visible',
+                          wordWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'normal' : 'break-word',
+                          overflowWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'normal' : 'break-word',
                           userSelect: 'none',
                           // Remove all padding to match PNG generation (text starts from border edge)
                           padding: '0px',

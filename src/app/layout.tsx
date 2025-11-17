@@ -25,8 +25,8 @@ const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-poppins",
-  display: "optional", // 🚀 PERFORMANCE: Faster initial render, fallback if font not ready
-  preload: false, // Don't preload secondary font to improve initial load
+  display: "swap", // ✅ FIXED: Use swap to ensure Poppins loads and displays
+  preload: true, // ✅ FIXED: Preload Poppins as it's the primary font
   adjustFontFallback: true, // Better font fallback
   fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'], // Better fallback chain
 });
