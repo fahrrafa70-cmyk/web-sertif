@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { useDebounce } from "@/hooks/use-debounce";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X, Users } from "lucide-react";
+import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X, Users, Filter } from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { confirmToast } from "@/lib/ui/confirm";
 
@@ -577,23 +577,33 @@ export default function MembersPage() {
                 )}
               </div>
               
-              {/* Search Bar */}
-              <div className="relative max-w-md mt-6">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Search data by name, email, organization..."
-                  className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm placeholder:text-sm"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    ✕
-                  </button>
-                )}
+              {/* Search Bar and Filter */}
+              <div className="flex gap-2 mt-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                  <Input
+                    placeholder="Search data by name, email, organization..."
+                    className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <Button
+                  onClick={() => {/* TODO: Add filter functionality */}}
+                  variant="outline"
+                  size="icon"
+                  className="flex-shrink-0 h-10 w-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                >
+                  <Filter className="h-5 w-5" />
+                </Button>
               </div>
             </div>
 

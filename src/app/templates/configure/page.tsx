@@ -1740,10 +1740,9 @@ function ConfigureLayoutContent() {
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push("/templates")}
-                className="flex-shrink-0 h-8 w-8 sm:h-9 sm:w-auto sm:px-3 p-0 sm:p-2"
+                className="flex-shrink-0 h-9 w-9 sm:h-10 sm:w-10 p-0"
               >
-                <ArrowLeft className="w-4 h-4 sm:mr-2 border-2 border-gray-300 dark:border-gray-600 rounded-full" />
-                <span className="hidden sm:inline">Back</span>
+                <ArrowLeft className="w-5 h-5" />
               </Button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white truncate">

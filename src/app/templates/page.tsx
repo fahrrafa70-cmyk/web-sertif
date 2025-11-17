@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
@@ -914,13 +913,13 @@ export default function TemplatesPage() {
         </div>
       </section>
 
-      {/* Enhanced Create Template Sheet */}
-      <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col bg-white dark:bg-gray-900">
-          <SheetHeader className="flex-shrink-0">
-            <SheetTitle className="text-xl font-bold text-gradient">{t('templates.createTitle')}</SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-6">
+      {/* Enhanced Create Template Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('templates.createTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
             <div 
               className="space-y-2"
                           >
@@ -957,21 +956,27 @@ export default function TemplatesPage() {
               className="space-y-3"
                           >
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.orientation')}</label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 dark:bg-gray-800 p-1 rounded-lg">
                 <Button 
-                  variant={draft?.orientation === "Landscape" ? "default" : "outline"} 
+                  variant="ghost"
                   onClick={() => setDraft((d) => (d ? { ...d, orientation: "Landscape" } : d))}
-                  className="rounded-lg"
+                  className={`rounded-md transition-all ${
+                    draft?.orientation === "Landscape"
+                      ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:text-white hover:bg-blue-700 dark:hover:bg-blue-600 border border-transparent"
+                      : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-600"
+                  }`}
                 >
-                  <Layout className="w-4 h-4 mr-2" />
                   {t('templates.landscape')}
                 </Button>
                 <Button 
-                  variant={draft?.orientation === "Portrait" ? "default" : "outline"} 
+                  variant="ghost"
                   onClick={() => setDraft((d) => (d ? { ...d, orientation: "Portrait" } : d))}
-                  className="rounded-lg"
+                  className={`rounded-md transition-all ${
+                    draft?.orientation === "Portrait"
+                      ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:text-white hover:bg-blue-700 dark:hover:bg-blue-600 border border-transparent"
+                      : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-600"
+                  }`}
                 >
-                  <Layout className="w-4 h-4 mr-2" />
                   {t('templates.portrait')}
                 </Button>
               </div>
@@ -982,29 +987,30 @@ export default function TemplatesPage() {
               className="space-y-3"
             >
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateMode')}</label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 dark:bg-gray-800 p-1 rounded-lg">
                 <Button 
-                  variant={!isDualTemplate ? "default" : "outline"} 
+                  variant="ghost"
                   onClick={() => setIsDualTemplate(false)}
-                  className="rounded-lg"
+                  className={`rounded-md transition-all ${
+                    !isDualTemplate
+                      ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:text-white hover:bg-blue-700 dark:hover:bg-blue-600 border border-transparent"
+                      : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-600"
+                  }`}
                 >
-                  <FileText className="w-4 h-4 mr-2" />
                   {t('templates.singleSide')}
                 </Button>
                 <Button 
-                  variant={isDualTemplate ? "default" : "outline"} 
+                  variant="ghost"
                   onClick={() => setIsDualTemplate(true)}
-                  className="rounded-lg"
+                  className={`rounded-md transition-all ${
+                    isDualTemplate
+                      ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:text-white hover:bg-blue-700 dark:hover:bg-blue-600 border border-transparent"
+                      : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-600"
+                  }`}
                 >
-                  <Layout className="w-4 h-4 mr-2" />
                   {t('templates.doubleSide')}
                 </Button>
               </div>
-              {isDualTemplate && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg">
-                  {t('templates.dualTemplateInfo')}
-                </p>
-              )}
             </div>
 
             {/* Single Template Image */}
@@ -1094,7 +1100,7 @@ export default function TemplatesPage() {
                       type="file"
                       accept=".png,.jpg,.jpeg"
                       onChange={(e) => handleScoreImageUpload(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                      className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
                     />
                     {scoreImagePreview && (
                       <div className="relative">
@@ -1132,7 +1138,7 @@ export default function TemplatesPage() {
                   type="file"
                   accept=".png,.jpg,.jpeg"
                   onChange={(e) => handlePreviewImageUpload(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                  className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
                 />
                 {previewImagePreview && (
                   <div className="relative">
@@ -1179,19 +1185,18 @@ export default function TemplatesPage() {
               </LoadingButton>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       
 
-          {/* Enhanced Edit Template Sheet */}
-          <Sheet open={!!isEditOpen} onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}>
-            <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto bg-white dark:bg-gray-900">
-              <SheetHeader>
-                <SheetTitle className="text-xl font-bold text-gradient">{t('templates.editTitle')}</SheetTitle>
-                <SheetDescription>{t('templates.editDescription')}</SheetDescription>
-              </SheetHeader>
-              <div className="p-4 space-y-6">
+          {/* Enhanced Edit Template Dialog */}
+          <Dialog open={!!isEditOpen} onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('templates.editTitle')}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6 py-4">
                 {/* Template Name */}
                 <div 
                   className="space-y-2"
@@ -1231,21 +1236,27 @@ export default function TemplatesPage() {
                   className="space-y-3"
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.orientation')}</label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                     <Button 
-                      variant={draft?.orientation === "Landscape" ? "default" : "outline"} 
+                      variant="ghost"
                       onClick={() => setDraft((d) => (d ? { ...d, orientation: "Landscape" } : d))}
-                      className="rounded-lg"
+                      className={`rounded-md transition-all ${
+                        draft?.orientation === "Landscape"
+                          ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:text-white hover:bg-blue-700 dark:hover:bg-blue-600 border border-transparent"
+                          : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-600"
+                      }`}
                     >
-                      <Layout className="w-4 h-4 mr-2" />
                       {t('templates.landscape')}
                     </Button>
                     <Button 
-                      variant={draft?.orientation === "Portrait" ? "default" : "outline"} 
+                      variant="ghost"
                       onClick={() => setDraft((d) => (d ? { ...d, orientation: "Portrait" } : d))}
-                      className="rounded-lg"
+                      className={`rounded-md transition-all ${
+                        draft?.orientation === "Portrait"
+                          ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:text-white hover:bg-blue-700 dark:hover:bg-blue-600 border border-transparent"
+                          : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-600"
+                      }`}
                     >
-                      <Layout className="w-4 h-4 mr-2" />
                       {t('templates.portrait')}
                     </Button>
                   </div>
@@ -1280,29 +1291,30 @@ export default function TemplatesPage() {
                   className="space-y-3"
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('templates.templateMode')}</label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                     <Button 
-                      variant={!isDualTemplate ? "default" : "outline"} 
+                      variant="ghost"
                       onClick={() => setIsDualTemplate(false)}
-                      className="rounded-lg"
+                      className={`rounded-md transition-all ${
+                        !isDualTemplate
+                          ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:text-white hover:bg-blue-700 dark:hover:bg-blue-600 border border-transparent"
+                          : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-600"
+                      }`}
                     >
-                      <FileText className="w-4 h-4 mr-2" />
                       {t('templates.singleSide')}
                     </Button>
                     <Button 
-                      variant={isDualTemplate ? "default" : "outline"} 
+                      variant="ghost"
                       onClick={() => setIsDualTemplate(true)}
-                      className="rounded-lg"
+                      className={`rounded-md transition-all ${
+                        isDualTemplate
+                          ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:text-white hover:bg-blue-700 dark:hover:bg-blue-600 border border-transparent"
+                          : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-600"
+                      }`}
                     >
-                      <Layout className="w-4 h-4 mr-2" />
                       {t('templates.doubleSide')}
                     </Button>
                   </div>
-                  {isDualTemplate && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg">
-                      {t('templates.dualTemplateInfo')}
-                    </p>
-                  )}
                 </div>
 
                 {/* Single Template Image */}
@@ -1492,7 +1504,7 @@ export default function TemplatesPage() {
                           type="file"
                           accept=".png,.jpg,.jpeg"
                           onChange={(e) => handleScoreImageUpload(e.target.files?.[0] || null)}
-                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 dark:file:bg-green-900/30 file:text-green-700 dark:file:text-green-300 hover:file:bg-green-100 dark:hover:file:bg-green-900/50 cursor-pointer"
+                          className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 cursor-pointer"
                         />
                         {scoreImagePreview && (
                           <Button
@@ -1559,7 +1571,7 @@ export default function TemplatesPage() {
                       type="file"
                       accept=".png,.jpg,.jpeg"
                       onChange={(e) => handlePreviewImageUpload(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 dark:file:bg-purple-900/30 file:text-purple-700 dark:file:text-purple-300 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/50 cursor-pointer"
+                      className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 cursor-pointer"
                     />
                     {previewImagePreview && (
                       <Button
@@ -1577,18 +1589,18 @@ export default function TemplatesPage() {
 
                 {/* Action Buttons */}
                 <div 
-                  className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700"
+                  className="flex justify-end gap-3 pt-6"
                 >
                   <Button 
                     variant="outline" 
-                    className="border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 dark:text-gray-100 px-6" 
+                    className="border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 dark:text-gray-100" 
                     onClick={() => setIsEditOpen(null)}
                   >
                     {t('common.cancel')}
                   </Button>
                   {(role === "Admin" || role === "Team") && (
                     <LoadingButton 
-                      className="gradient-primary text-white shadow-lg hover:shadow-xl px-6" 
+                      className="gradient-primary text-white shadow-lg hover:shadow-xl" 
                       onClick={submitEdit}
                       isLoading={editingTemplate}
                       loadingText={t('common.saving')}
@@ -1599,8 +1611,8 @@ export default function TemplatesPage() {
                   )}
                 </div>
               </div>
-            </SheetContent>
-          </Sheet>
+            </DialogContent>
+          </Dialog>
 
           {/* Template Preview Modal */}
           <Dialog open={!!previewTemplate} onOpenChange={(o) => setPreviewTemplate(o ? previewTemplate : null)}>
