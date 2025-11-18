@@ -1470,7 +1470,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                                   {/* Expired Overlay - Same as thumbnail */}
                                   {isExpired && expiredOverlayUrl && (
                                     <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden flex items-center justify-center">
-                                      <img
+                                      <Image
                                         src={expiredOverlayUrl}
                                         alt="Expired"
                                         className="max-w-full max-h-full"

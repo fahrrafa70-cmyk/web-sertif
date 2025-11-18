@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
 import { Button } from "@/components/ui/button";
-import { Link2, Share2, FileText, Calendar, Building2, User, Tag, Clock, CheckCircle2, ArrowLeft, Image as ImageIcon } from "lucide-react";
+import { Link2, Share2, FileText, Calendar, Building2, User, Clock, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { motion } from "framer-motion";

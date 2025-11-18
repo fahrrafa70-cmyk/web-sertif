@@ -2590,7 +2590,7 @@ function ConfigureLayoutContent() {
                           }
                         }}
                       >
-                        <img
+                        <Image
                           src={layer.src}
                           alt={layer.id}
                           style={{
@@ -2830,7 +2830,7 @@ function ConfigureLayoutContent() {
                         >
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
                             <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-800">
-                              <img 
+                              <Image 
                                 src={layer.src} 
                                 alt={layer.id}
                                 className="w-full h-full object-cover"
