@@ -59,9 +59,6 @@ export function FontWeightSelect({
   className?: string;
 }) {
   const weightOptions = [
-    { value: '100', label: 'Thin' },
-    { value: '200', label: 'Extra Light' },
-    { value: '300', label: 'Light' },
     { value: 'normal', label: 'Normal' },
     { value: '500', label: 'Medium' },
     { value: '600', label: 'Semi Bold' },
