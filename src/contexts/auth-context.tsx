@@ -42,6 +42,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 🚀 PERFORMANCE: Non-blocking auth initialization
     const initializeAuth = async () => {
       try {
+        // Check if there are any Supabase auth keys in localStorage
+        let hasSupabaseAuth = false;
+        try {
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const key = window.localStorage.key(i);
+            if (key && key.startsWith('sb-') && key.includes('auth-token')) {
+              hasSupabaseAuth = true;
+              break;
+            }
+          }
+        } catch {}
+        
+        // If no auth keys found, skip session restoration
+        if (!hasSupabaseAuth) {
+          console.log('No auth tokens found in storage, skipping session restoration');
+          setIsInitialized(true);
+          return;
+        }
+        
         const { data: { session }, error } = await supabaseClient.auth.getSession();
         console.log('Initializing auth state:', { session: !!session, error });
         
@@ -83,10 +102,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Auth state change:', event, session?.user?.email);
       
       if (event === "SIGNED_OUT" || !session) {
-        // Clear localStorage when signed out
+        // Clear ALL storage when signed out
         try {
           window.localStorage.removeItem("ecert-role");
-        } catch {}
+          
+          // Remove all Supabase auth storage keys
+          const keysToRemove = [];
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const key = window.localStorage.key(i);
+            if (key && key.startsWith('sb-')) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(key => window.localStorage.removeItem(key));
+          
+          console.log('Auth state cleared on SIGNED_OUT event');
+        } catch (err) {
+          console.error('Error clearing storage on sign out:', err);
+        }
         
         setRole(null);
         setEmail(null);
@@ -256,19 +289,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setEmail(null);
       setError(null);
       
-      // Clear local storage
+      // Clear ALL Supabase storage keys
       try {
+        // Remove custom storage
         window.localStorage.removeItem("ecert-role");
-      } catch {}
+        
+        // Remove all Supabase auth storage keys
+        const keysToRemove = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith('sb-')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => window.localStorage.removeItem(key));
+        
+        console.log('Cleared storage keys:', keysToRemove);
+      } catch (err) {
+        console.error('Error clearing storage:', err);
+      }
       
-      // Clear Supabase session
-      await supabaseClient.auth.signOut();
+      // Sign out from Supabase with scope: 'global' to clear all sessions
+      await supabaseClient.auth.signOut({ scope: 'global' });
       
       // Small delay to ensure state updates are reflected in UI
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Redirect to home
       router.push("/");
+      
+      console.log('Sign out completed successfully');
     } catch (error) {
       console.error("Error during sign out:", error);
       // Even if there's an error, clear local state and redirect
@@ -286,19 +336,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setEmail(null);
       setError(null);
       
-      // Clear local storage
+      // Clear ALL Supabase storage keys
       try {
+        // Remove custom storage
         window.localStorage.removeItem("ecert-role");
-      } catch {}
+        
+        // Remove all Supabase auth storage keys
+        const keysToRemove = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith('sb-')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => window.localStorage.removeItem(key));
+        
+        console.log('Cleared storage keys:', keysToRemove);
+      } catch (err) {
+        console.error('Error clearing storage:', err);
+      }
       
-      // Sign out of Supabase to clear persisted session
-      await supabaseClient.auth.signOut();
+      // Sign out of Supabase with scope: 'global' to clear all sessions
+      await supabaseClient.auth.signOut({ scope: 'global' });
       
       // Small delay to ensure state updates are reflected in UI
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Redirect to home
       router.push("/");
+      
+      console.log('Local sign out completed successfully');
     } catch (error) {
       console.error("Error during local sign out:", error);
       // Even if there's an error, clear local state and redirect

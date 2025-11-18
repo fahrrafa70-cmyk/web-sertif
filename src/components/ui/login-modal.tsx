@@ -17,6 +17,17 @@ export function LoginModal() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Reset form and errors when modal opens/closes
   useEffect(() => {
@@ -87,40 +98,44 @@ export function LoginModal() {
 
   return (
     <Dialog open={openLogin} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[480px] sm:w-[500px] p-0 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <DialogContent 
+        className={`p-0 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${
+          isMobile ? '!w-[calc(100%-3rem)] !max-w-[calc(100vw-3rem)]' : '!w-[440px] !max-w-[440px]'
+        }`}
+      >
         <motion.div 
-          className="grid grid-cols-1 min-h-[400px]"
+          className="grid grid-cols-1"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] as const }}
         >
           {/* Enhanced header with gradient */}
           <motion.div 
-            className="gradient-primary text-white px-6 py-6 relative overflow-hidden"
+            className="gradient-primary text-white px-4 py-5 sm:px-6 sm:py-6 relative overflow-hidden"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12"></div>
             <DialogHeader className="relative z-10">
-              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Mail className="w-4 h-4" />
+              <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2 text-white">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
                 {t('login.welcomeBack')}
               </DialogTitle>
-              <p className="text-white text-sm mt-1">{t('login.signInMessage')}</p>
+              <p className="text-white text-xs sm:text-sm mt-1">{t('login.signInMessage')}</p>
             </DialogHeader>
           </motion.div>
 
           {/* Enhanced form */}
           <motion.div 
-            className="p-6 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950"
+            className="p-4 sm:p-6 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
           >
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <motion.div 
                 className="space-y-2"
                 initial={{ opacity: 0, x: -20 }}
@@ -140,7 +155,7 @@ export function LoginModal() {
                     setEmailError("");
                   }}
                   required
-                  className={`h-12 rounded-lg transition-all duration-200 dark:bg-gray-900 dark:text-gray-100 ${
+                  className={`h-11 sm:h-12 rounded-lg transition-all duration-200 dark:bg-gray-900 dark:text-gray-100 ${
                     emailError 
                       ? "border-red-300 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500 focus:ring-red-500/20 dark:focus:ring-red-500/20" 
                       : "border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500/20 dark:focus:ring-blue-500/20"
@@ -178,7 +193,7 @@ export function LoginModal() {
                       setPasswordError("");
                     }}
                     required
-                    className={`h-12 rounded-lg transition-all duration-200 pr-12 dark:bg-gray-900 dark:text-gray-100 ${
+                    className={`h-11 sm:h-12 rounded-lg transition-all duration-200 pr-12 dark:bg-gray-900 dark:text-gray-100 ${
                       passwordError 
                         ? "border-red-300 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500 focus:ring-red-500/20 dark:focus:ring-red-500/20" 
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500/20 dark:focus:ring-blue-500/20"
@@ -212,7 +227,7 @@ export function LoginModal() {
                 <Button 
                   type="submit" 
                   disabled={loading} 
-                  className="w-full h-12 gradient-primary text-white font-semibold rounded-lg shadow-lg"
+                  className="w-full h-11 sm:h-12 gradient-primary text-white font-semibold rounded-lg shadow-lg"
                 >
                   {loading ? (
                     <div className="flex items-center gap-2">
@@ -231,7 +246,7 @@ export function LoginModal() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.6 }}
-              className="relative my-6"
+              className="relative my-4 sm:my-6"
             >
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
@@ -262,7 +277,7 @@ export function LoginModal() {
                     console.error('Google OAuth error:', err);
                   }
                 }}
-                className="w-full h-12 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-all duration-200"
+                className="w-full h-11 sm:h-12 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-all duration-200 text-sm sm:text-base"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none">
                   <path
@@ -297,7 +312,7 @@ export function LoginModal() {
                     console.error('GitHub OAuth error:', err);
                   }
                 }}
-                className="w-full h-12 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-all duration-200"
+                className="w-full h-11 sm:h-12 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-all duration-200 text-sm sm:text-base"
               >
                 <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24">
                   <path

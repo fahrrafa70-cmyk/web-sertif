@@ -2128,7 +2128,7 @@ function ConfigureLayoutContent() {
                       const domScale = isDesktop ? templateScale : templateScale * canvasScale;
 
                       // Render with inline formatting
-                      return layer.richText.map((span: { text: string; fontWeight?: string; fontStyle?: string; fontSize?: number }, idx: number) => {
+                      return layer.richText.map((span: { text: string; fontWeight?: string; fontStyle?: string; fontSize?: number; fontFamily?: string; color?: string; textDecoration?: string }, idx: number) => {
                         const style = span.fontStyle || layer.fontStyle || 'normal';
                         const isDecoration = style === 'underline' || style === 'line-through' || style === 'overline';
                         
@@ -2211,7 +2211,7 @@ function ConfigureLayoutContent() {
                         isNilaiPrestasi: isNilaiPrestasiLayer,
                         isKompetensi: isKompetensiLayer,
                         willGetOffset: (isNilaiPrestasiLayer || isKompetensiLayer) ? '✅ YES' : '❌ NO',
-                        text: layer.text?.substring(0, 30)
+                        text: plainText?.substring(0, 30)
                       });
                     }
                     

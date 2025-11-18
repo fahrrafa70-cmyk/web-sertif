@@ -358,9 +358,24 @@ Format Excel untuk Quick Generate berbeda dengan import members:
 2. Klik **"Quick Generate"**
 3. Pilih template
 4. Pilih **"Upload Excel"** sebagai data source
-5. Upload file Excel
-6. Set tanggal issue dan expired (akan digunakan untuk semua row jika tidak diisi di Excel)
-7. Klik **"Generate"**
+5. **Pilih format tanggal** yang diinginkan untuk tampilan di sertifikat:
+   - `dd-mm-yyyy` (contoh: 15-01-2025)
+   - `mm-dd-yyyy` (contoh: 01-15-2025)
+   - `yyyy-mm-dd` (contoh: 2025-01-15)
+   - `dd-mmm-yyyy` (contoh: 15-Jan-2025)
+   - `dd-mmmm-yyyy` (contoh: 15-January-2025)
+   - `dd/mm/yyyy` (contoh: 15/01/2025)
+   - `mm/dd/yyyy` (contoh: 01/15/2025)
+   - `yyyy/mm/dd` (contoh: 2025/01/15)
+   - `dd-indonesian-yyyy` (contoh: 15 Januari 2025)
+6. Upload file Excel
+7. Mapping kolom Excel ke field sertifikat (otomatis atau manual)
+8. Klik **"Generate"**
+
+**Catatan Penting tentang Format Tanggal:**
+- Format tanggal di Excel harus tetap menggunakan format ISO: `YYYY-MM-DD` (contoh: 2025-01-15)
+- Pilihan format tanggal hanya mengubah **tampilan** di sertifikat yang dihasilkan
+- Contoh: Jika Excel berisi `2025-01-15` dan Anda pilih format `dd-indonesian-yyyy`, maka di sertifikat akan tampil `15 Januari 2025`
 
 ### 5.3. Tips Import Excel
 
