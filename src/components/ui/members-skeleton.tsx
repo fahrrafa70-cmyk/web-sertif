@@ -3,11 +3,9 @@
 import { memo } from "react";
 import { Skeleton } from "./skeleton";
 import { Users } from "lucide-react";
-import { useLanguage } from "@/contexts/language-context";
 
 // 🎨 Members skeleton yang sesuai dengan layout asli
 const MembersPageSkeleton = memo(() => {
-  const { t } = useLanguage();
   
   return (
     <section 

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Search, Edit, Trash2, Layout, X, Settings, Filter, RefreshCw } from "lucide-react";
+import { FileText, Plus, Search, Edit, Trash2, Layout, X, Settings, Filter } from "lucide-react";
 import { useTemplates } from "@/hooks/use-templates";
 import { Template, CreateTemplateData, UpdateTemplateData, getTemplatePreviewUrl, getTemplateImageUrl } from "@/lib/supabase/templates";
 import { getCertificatesByTemplate } from "@/lib/supabase/certificates";
@@ -182,12 +182,9 @@ export default function TemplatesPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 100); // Optimized for INP performance
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
-  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
 
@@ -233,11 +230,7 @@ export default function TemplatesPage() {
   
   // Simplified without heavy preloading
 
-  // 🚀 PERFORMANCE: Remove any initial load delay
-  useEffect(() => {
-    // Immediately set to false to prevent any skeleton delay
-    setIsInitialLoad(false);
-  }, []);
+  // 🚀 PERFORMANCE: Removed initial load delay logic
 
   // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
@@ -303,72 +296,6 @@ export default function TemplatesPage() {
     }, 0);
   }, [router]);
 
-  // Function to generate thumbnail in background
-  const generateThumbnailInBackground = async (template: Template) => {
-    if (generatingThumbnails.has(template.id)) return; // Already generating
-    
-    setGeneratingThumbnails(prev => new Set(prev).add(template.id));
-    
-    try {
-      console.log(`🔄 Generating thumbnail for ${template.name}...`);
-      
-      const response = await fetch('/api/generate-single-thumbnail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateId: template.id }),
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log(`✅ Thumbnail generated for ${template.name}: ${result.thumbnailUrl}`);
-        // Refresh templates to get updated thumbnail path
-        refresh();
-      } else {
-        console.warn(`⚠️ Thumbnail generation failed for ${template.name}:`, result.error);
-      }
-    } catch (error) {
-      console.error(`❌ Error generating thumbnail for ${template.name}:`, error);
-    } finally {
-      setGeneratingThumbnails(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(template.id);
-        return newSet;
-      });
-    }
-  };
-
-  // Check template usage when templates are loaded - only when length changes
-  useEffect(() => {
-    if (templates.length === 0) return;
-    
-    const checkTemplateUsage = async () => {
-      setLoadingUsage(true);
-      const usageMap = new Map<string, number>();
-      
-      try {
-        // Check usage for each template in parallel
-        const checks = templates.map(async (template) => {
-          try {
-            const certificates = await getCertificatesByTemplate(template.id);
-            if (certificates && certificates.length > 0) {
-              usageMap.set(template.id, certificates.length);
-            }
-          } catch (error) {
-            console.error(`Error checking usage for template ${template.id}:`, error);
-          }
-        });
-        
-        await Promise.all(checks);
-        setTemplateUsageMap(usageMap);
-      } finally {
-        setLoadingUsage(false);
-      }
-    };
-    
-    checkTemplateUsage();
-  }, [templates.length]); // Only depend on length to avoid rerunning on every template update
-
   // Sheet state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState<null | string>(null);
@@ -381,7 +308,6 @@ export default function TemplatesPage() {
   const [creatingTemplate, setCreatingTemplate] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(false);
   const [templateUsageMap, setTemplateUsageMap] = useState<Map<string, number>>(new Map()); // Map<templateId, certificateCount>
-  const [loadingUsage, setLoadingUsage] = useState(false); // Loading state for template usage check
   const [configuringTemplateId, setConfiguringTemplateId] = useState<string | null>(null); // Loading state for configure navigation
   
   // Dual template mode state
@@ -395,15 +321,6 @@ export default function TemplatesPage() {
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   
   const canDelete = role === "Admin"; // Only Admin can delete
-
-  // Stable callback functions to prevent unnecessary rerenders
-  const handleImageError = useCallback((templateId: string) => {
-    setFailedImages(prev => new Set(prev).add(templateId));
-  }, []);
-
-  const handleImageLoad = useCallback((templateId: string) => {
-    setLoadedImages(prev => new Set(prev).add(templateId));
-  }, []);
 
   // Helper function to get image URL for template (now using the imported function)
   // This function is kept for backward compatibility but now uses the proper implementation
@@ -629,13 +546,6 @@ export default function TemplatesPage() {
         setDeletingTemplateId(id);
         await deleteTemplate(id);
         
-        // Clear failed image state for deleted template
-        setFailedImages(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(id);
-          return newSet;
-        });
-        
         toast.success(t('templates.deleteSuccess').replace('{name}', templateName));
         
         // Note: No need to call refresh() here because deleteTemplate already updates state
@@ -648,11 +558,6 @@ export default function TemplatesPage() {
       }
     }
   }
-
-  const openPreview = (template: Template) => {
-    console.log('🎯 Opening preview modal for:', template.name);
-    setPreviewTemplate(template);
-  };
 
   function handleImageUpload(file: File | null) {
     if (file) {

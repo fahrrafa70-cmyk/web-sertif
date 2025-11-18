@@ -16,10 +16,10 @@ interface TemplateCardProps {
   template: Template;
   index: number;
   failedImages: Set<string>;
-  loadedImages: Set<string>;
+  _loadedImages: Set<string>;
   generatingThumbnails: Set<string>;
   // getOptimizedTemplateUrl: (template: Template) => string | null;
-  generateThumbnailInBackground: (template: Template) => Promise<void>;
+  _generateThumbnailInBackground: (template: Template) => Promise<void>;
   onPreview: (template: Template) => void;
   onImageError: (templateId: string) => void;
   onImageLoad: (templateId: string) => void;
@@ -38,10 +38,10 @@ const TemplateCard = memo<TemplateCardProps>(({
   template,
   index,
   failedImages,
-  loadedImages,
+  _loadedImages,
   generatingThumbnails,
   // getOptimizedTemplateUrl,
-  generateThumbnailInBackground,
+  _generateThumbnailInBackground,
   onPreview,
   onImageError,
   onImageLoad,
@@ -72,7 +72,7 @@ const TemplateCard = memo<TemplateCardProps>(({
         setTimeout(() => {
           try {
             document.head.removeChild(link);
-          } catch (e) {
+          } catch (_e) {
             // Link may have been removed already
           }
         }, 5000);

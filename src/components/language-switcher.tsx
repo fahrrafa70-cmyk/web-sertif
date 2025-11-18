@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, memo, useMemo } from 'react';
+import { useState, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,

@@ -679,11 +679,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
     setFilterModalOpen(false);
   }, [filters]);
 
-  const clearTempFilters = useCallback(() => {
-    setTempCategory("");
-    setTempStartDate("");
-    setTempEndDate("");
-  }, []);
+  // Removed unused clearTempFilters function
 
   // Clear all filters
   const clearFilters = useCallback(() => {

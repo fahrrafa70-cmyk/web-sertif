@@ -2210,8 +2210,11 @@ function ConfigureLayoutContent() {
                         isInArray: ['nilai', 'prestasi'].includes(layer.id),
                         isNilaiPrestasi: isNilaiPrestasiLayer,
                         isKompetensi: isKompetensiLayer,
+
                         willGetOffset: (isNilaiPrestasiLayer || isKompetensiLayer) ? '✅ YES' : '❌ NO',
                         text: plainText?.substring(0, 30)
+
+
                       });
                     }
                     
@@ -2390,7 +2393,7 @@ function ConfigureLayoutContent() {
                       <div
                         className={`relative cursor-move transition-all ${
                           isSelected ? 'bg-blue-50/30' : ''
-                        } ${layer.isDragging ? 'opacity-70' : ''}`}
+                        }`}
                         style={{
                           // ✅ CRITICAL: Scale font size to match generation output
                           // Generation uses: fontSize * (templateWidth / STANDARD_CANVAS_WIDTH)

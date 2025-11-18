@@ -77,9 +77,7 @@ const ModernSidebar = memo(function ModernSidebar() {
     return pathname.startsWith(href);
   }, [pathname]);
   
-  const handleMouseEnter = useCallback((href: string) => {
-    setHoveredItem(href);
-  }, []);
+  // Removed unused handleMouseEnter - using handleMouseEnterWithPrefetch instead
   
   const handleMouseLeave = useCallback(() => {
     setHoveredItem(null);

@@ -149,7 +149,6 @@ export async function PUT(request: NextRequest) {
       // If status column is missing, try update without status first, then add status separately
       if (error && statusColumnError && updateData.status) {
         console.warn('⚠️ Status column may be missing. Attempting update without status first...');
-        const statusValue = updateData.status;
         delete updateData.status;
         
         // Try update without status

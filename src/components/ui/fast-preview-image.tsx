@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { lightweightRenderCache } from '@/lib/cache/lightweight-render-cache';
