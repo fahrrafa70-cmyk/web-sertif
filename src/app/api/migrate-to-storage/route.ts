@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { generatePairedXIDFilenames } from '@/lib/utils/generate-xid';
 
 interface CertificateRecord {
   id: string;
@@ -90,10 +91,13 @@ export async function POST(request: NextRequest) {
         certificate_no: cert.certificate_no,
       };
 
+      // Generate paired XID filenames for certificate and score (same XID prefix)
+      const { cert: certFileName, score: scoreFileName } = generatePairedXIDFilenames();
+
       // Migrate certificate_image_url
       if (cert.certificate_image_url?.startsWith('data:image')) {
         try {
-          const fileName = `${cert.certificate_no.replace(/[^a-zA-Z0-9-_]/g, '_')}.png`;
+          const fileName = certFileName;
           
           if (!dryRun) {
             const storageUrl = await uploadDataUrlToStorage(
@@ -141,7 +145,7 @@ export async function POST(request: NextRequest) {
       // Migrate score_image_url
       if (cert.score_image_url?.startsWith('data:image')) {
         try {
-          const fileName = `${cert.certificate_no.replace(/[^a-zA-Z0-9-_]/g, '_')}_score.png`;
+          const fileName = scoreFileName;
           
           if (!dryRun) {
             const storageUrl = await uploadDataUrlToStorage(

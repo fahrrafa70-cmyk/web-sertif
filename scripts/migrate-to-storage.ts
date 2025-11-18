@@ -10,6 +10,7 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';
+import { generatePairedXIDFilenames } from '../src/lib/utils/generate-xid';
 
 // Load environment variables
 dotenv.config({ path: resolve(process.cwd(), '.env.local') });
@@ -138,10 +139,14 @@ async function migrateCertificates(
         certificate_no: cert.certificate_no,
       };
 
+      // Generate paired XID filenames for certificate and score (same XID prefix)
+      const { cert: certFileName, score: scoreFileName, xid } = generatePairedXIDFilenames();
+      console.log(`  📝 Generated XID: ${xid}`);
+
       // Migrate certificate_image_url
       if (cert.certificate_image_url?.startsWith('data:image')) {
         try {
-          const fileName = `${cert.certificate_no.replace(/[^a-zA-Z0-9-_]/g, '_')}.png`;
+          const fileName = certFileName;
 
           if (!dryRun) {
             const storageUrl = await uploadDataUrlToStorage(
@@ -191,7 +196,7 @@ async function migrateCertificates(
       // Migrate score_image_url
       if (cert.score_image_url?.startsWith('data:image')) {
         try {
-          const fileName = `${cert.certificate_no.replace(/[^a-zA-Z0-9-_]/g, '_')}_score.png`;
+          const fileName = scoreFileName;
 
           if (!dryRun) {
             const storageUrl = await uploadDataUrlToStorage(
