@@ -1,22 +1,20 @@
-# ----------------- DEPS -----------------
+# Install dependencies
 FROM node:20-slim AS deps
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm install
 
-# ----------------- BUILDER -----------------
+# Build the app
 FROM node:20-slim AS builder
 WORKDIR /app
 
 COPY . .
-COPY --from=deps /app/node_modules ./
+COPY --from=deps /app/node_modules ./node_modules
 
-# Ignore TypeScript/ESLint errors saat build
-RUN npx next build --ignore-ts-errors || true
+RUN npm run build
 
-
-# ----------------- RUNNER -----------------
+# Run the app
 FROM node:20-slim AS runner
 WORKDIR /app
 

@@ -61,6 +61,7 @@ import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/c
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
 import { CertificatesPageSkeleton } from "@/components/ui/certificates-skeleton";
+import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
 import { autoPopulatePrestasi } from "@/lib/utils/score-predicates";
 
 function CertificatesContent() {
@@ -1021,7 +1022,11 @@ function CertificatesContent() {
     
     // DUAL-FORMAT UPLOAD: PNG master + WebP preview
     console.log('🖼️ Generating thumbnail (WebP preview from PNG master)...');
-    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Generate paired XID filenames for certificate and score (same XID prefix)
+    const { cert: certFileName, score: scoreFileName, xid } = generatePairedXIDFilenames();
+    console.log(`📝 Generated XID: ${xid}`);
+
     
     // Generate WebP thumbnail for web preview (faster loading)
     const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
@@ -1038,7 +1043,7 @@ function CertificatesContent() {
     
     // Upload PNG master file (high quality for download/PDF/email)
     console.log('📤 Uploading PNG master to Supabase Storage...');
-    const pngFileName = `${uniqueId}.png`;
+    const pngFileName = certFileName;
     const pngUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1061,7 +1066,7 @@ function CertificatesContent() {
     
     // Upload WebP preview to preview/ subfolder (optimized for web)
     console.log('📤 Uploading WebP preview to Supabase Storage...');
-    const webpFileName = `preview/${uniqueId}.webp`;
+    const webpFileName = `preview/${xid}_cert.webp`;
     const webpUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1312,12 +1317,15 @@ function CertificatesContent() {
           const scoreReduction = calculateSizeReduction(scoreOriginalSize, scoreThumbnailSize);
           console.log(`✅ Score thumbnail generated: ${Math.round(scoreOriginalSize/1024)}KB → ${Math.round(scoreThumbnailSize/1024)}KB (${scoreReduction} reduction)`);
           
+
+
           // Generate unique ID for score image (separate from certificate)
           const scoreUniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
           
+
           // Upload PNG score master
           console.log('📤 Uploading PNG score master to Supabase Storage...');
-          const scorePngFileName = `${scoreUniqueId}.png`;
+          const scorePngFileName = scoreFileName;
           const scorePngUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1340,7 +1348,7 @@ function CertificatesContent() {
           
           // Upload WebP score preview to preview/ subfolder
           console.log('📤 Uploading WebP score preview to Supabase Storage...');
-          const scoreWebpFileName = `preview/${scoreUniqueId}.webp`;
+          const scoreWebpFileName = `preview/${xid}_score.webp`;
           const scoreWebpUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2406,7 +2414,7 @@ function CertificatesContent() {
                   })()}>
                     <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                        {t('certificates.certificateNumber')}
+                        Certificate Number
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.certificate_no}
@@ -2415,7 +2423,7 @@ function CertificatesContent() {
 
                     <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                        {t('certificates.recipientName')}
+                        Recipient Name
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.name}
@@ -2473,6 +2481,9 @@ function CertificatesContent() {
                       ? "space-y-2 sm:space-y-4 w-full max-w-2xl order-1" // Portrait: preview on top, centered
                       : "space-y-2 sm:space-y-4"; // Landscape: preview on right
                   })()}>
+                    <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      {t('hero.certificate')}
+                    </label>
                     {/* Toggle for dual templates - only show if score image exists */}
                     {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url && (
                       <div className="flex gap-2 mb-2">
@@ -2539,7 +2550,7 @@ function CertificatesContent() {
                             // Use Next.js Image for all cases. For remote/data URLs, disable optimization.
                             const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
-                            const isExpired = previewCertificate ? isCertificateExpired(previewCertificate) : false;
+                            const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
                             // CRITICAL: Use WebP thumbnail for view full image (faster loading), fallback to PNG master
                             const imageUrl = previewMode === 'score' 
