@@ -194,15 +194,24 @@ export function getTemplateImageUrl(template: Template): string | null {
     return null;
   }
   
-  // ✅ FIX: Remove cache-busting parameter to allow Next.js Image optimization
-  // Browser will cache properly, and we can invalidate via redeployment if needed
-  return imagePath;
+  // ✅ CRITICAL FIX: Strip any existing query parameters (especially ?v=xxx)
+  // This prevents Next.js Image optimization 400 errors
+  const cleanUrl = imagePath.split('?')[0];
+  
+  return cleanUrl;
 }
 
 // Helper function to get template image URL without cache busting (for previews)
 export function getTemplateImageUrlStatic(template: Template): string | null {
   // ✅ CRITICAL: Prioritize certificate_image_url (new dual template system)
-  return template.certificate_image_url || template.image_path || null;
+  const imagePath = template.certificate_image_url || template.image_path;
+  
+  if (!imagePath) return null;
+  
+  // ✅ CRITICAL FIX: Strip any existing query parameters
+  const cleanUrl = imagePath.split('?')[0];
+  
+  return cleanUrl;
 }
 
 // Helper function: get preview image URL (preferred), fallback to template image
@@ -215,9 +224,12 @@ export function getTemplatePreviewUrl(template: Template): string | null {
   
   if (!src) return null;
   
-  // ✅ FIX: Remove cache-busting parameter to allow Next.js Image optimization
-  // Browser will cache properly, and we can invalidate via redeployment if needed
-  return src;
+  // ✅ CRITICAL FIX: Strip any existing query parameters (especially ?v=xxx)
+  // This prevents Next.js Image optimization 400 errors
+  // For remote URLs (Supabase), query params cause issues with Next.js image optimizer
+  const cleanUrl = src.split('?')[0];
+  
+  return cleanUrl;
 }
 
 // Note: Image deletion is handled by the file system cleanup process
