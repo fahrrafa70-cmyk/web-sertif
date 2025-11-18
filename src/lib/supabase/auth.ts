@@ -38,10 +38,31 @@ export async function signInWithEmailPassword(email: string, password: string) {
  */
 export async function signInWithGoogle() {
   try {
+    // Auto-detect environment and set appropriate redirect URL
+    let redirectUrl: string | undefined;
+    
+    if (typeof window !== 'undefined') {
+      const isLocalhost = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1' ||
+                         window.location.hostname.includes('localhost');
+      
+      if (isLocalhost) {
+        // Localhost: Force redirect to localhost
+        redirectUrl = `${window.location.origin}/auth/callback`;
+        console.log('🔧 Development mode: OAuth will redirect to localhost');
+      } else {
+        // Production: Use environment variable or current origin
+        redirectUrl = process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL || `${window.location.origin}/auth/callback`;
+        console.log('🚀 Production mode: OAuth will redirect to production URL');
+      }
+    }
+    
+    console.log('Google OAuth redirect URL:', redirectUrl);
+    
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
+        redirectTo: redirectUrl,
       },
     });
 
@@ -66,10 +87,31 @@ export async function signInWithGoogle() {
  */
 export async function signInWithGitHub() {
   try {
+    // Auto-detect environment and set appropriate redirect URL
+    let redirectUrl: string | undefined;
+    
+    if (typeof window !== 'undefined') {
+      const isLocalhost = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1' ||
+                         window.location.hostname.includes('localhost');
+      
+      if (isLocalhost) {
+        // Localhost: Force redirect to localhost
+        redirectUrl = `${window.location.origin}/auth/callback`;
+        console.log('🔧 Development mode: OAuth will redirect to localhost');
+      } else {
+        // Production: Use environment variable or current origin
+        redirectUrl = process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL || `${window.location.origin}/auth/callback`;
+        console.log('🚀 Production mode: OAuth will redirect to production URL');
+      }
+    }
+    
+    console.log('GitHub OAuth redirect URL:', redirectUrl);
+    
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
+        redirectTo: redirectUrl,
       },
     });
 

@@ -611,6 +611,29 @@ export function QuickGenerateModal({
 
               {/* Excel Tab */}
               <TabsContent value="excel" className="space-y-4">
+                {/* Date Format Selection for Excel */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Date Format
+                  </Label>
+                  <Select value={dateFormat} onValueChange={(value) => setDateFormat(value as DateFormat)}>
+                    <SelectTrigger>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <SelectValue />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="z-[9999] max-h-[300px]" sideOffset={5}>
+                      {DATE_FORMATS.map(format => (
+                        <SelectItem key={format} value={format}>
+                          {format}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <ExcelUploadStep
                   isDualTemplate={isDualTemplate}
                   mainData={excelMainData}

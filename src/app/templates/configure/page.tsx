@@ -2210,7 +2210,11 @@ function ConfigureLayoutContent() {
                         isInArray: ['nilai', 'prestasi'].includes(layer.id),
                         isNilaiPrestasi: isNilaiPrestasiLayer,
                         isKompetensi: isKompetensiLayer,
-                        willGetOffset: (isNilaiPrestasiLayer || isKompetensiLayer) ? '✅ YES' : '❌ NO'
+
+                        willGetOffset: (isNilaiPrestasiLayer || isKompetensiLayer) ? '✅ YES' : '❌ NO',
+                        text: plainText?.substring(0, 30)
+
+
                       });
                     }
                     

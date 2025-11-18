@@ -345,12 +345,12 @@ export async function renderCertificateToDataURL(
         // Certificate number: fixed adjustment
         if (layer.id === 'certificate_no') return 7;
         
-        // Score layers: font-size based adjustment
+        // Score layers: font-size based adjustment (significantly increased for lower positioning)
         if (isScoreLayer(layer)) {
-          if (fontSize <= 18) return 3;
-          if (fontSize <= 22) return 4;
-          if (fontSize <= 26) return 5;
-          return 6;
+          if (fontSize <= 18) return 8;   // +8px DOWN for small fonts
+          if (fontSize <= 22) return 10;  // +10px DOWN for medium fonts
+          if (fontSize <= 26) return 12;  // +12px DOWN for large fonts
+          return 14;                      // +14px DOWN for extra large fonts
         }
         
         // Other layers: no adjustment

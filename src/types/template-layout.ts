@@ -29,6 +29,9 @@ export interface TextLayerConfig {
   fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through' | 'overline'; // Font style including decorations (default: 'normal')
   textDecoration?: 'none' | 'underline' | 'line-through' | 'overline'; // Legacy: Text decoration (default: 'none')
   textShadow?: string; // Text shadow CSS value (e.g., '2px 2px 4px rgba(0,0,0,0.5)')
+  
+  // UI state (not persisted to database)
+  isDragging?: boolean; // Temporary state during drag operations
 }
 
 /**
