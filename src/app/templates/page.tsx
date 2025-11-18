@@ -135,7 +135,7 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, onDelete,
             loadingText="Opening..."
           >
             {!isConfiguring && <Settings className="w-3 h-3 mr-1" />}
-            <span className="truncate">{isConfiguring ? "Opening..." : "Configure"}</span>
+            <span className="truncate">{isConfiguring ? "Opening..." : "Layout"}</span>
           </LoadingButton>
           <Button 
             variant="outline" 

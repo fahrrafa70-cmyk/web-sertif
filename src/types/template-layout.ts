@@ -26,7 +26,8 @@ export interface TextLayerConfig {
   hasInlineFormatting?: boolean; // Whether this layer uses rich text formatting
   
   // Extended styling properties
-  fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through'; // Font style including underline and strike through (default: 'normal')
+  fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through' | 'overline'; // Font style including decorations (default: 'normal')
+  textDecoration?: 'none' | 'underline' | 'line-through' | 'overline'; // Legacy: Text decoration (default: 'none')
   textShadow?: string; // Text shadow CSS value (e.g., '2px 2px 4px rgba(0,0,0,0.5)')
 }
 

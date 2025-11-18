@@ -6,7 +6,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Eye, EyeOff, Pencil } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
@@ -20,7 +20,8 @@ import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { 
   FontWeightSelect, 
   FontFamilySelect, 
-  FontStyleSelect
+  FontStyleSelect,
+  TextDecorationSelect
 } from "@/components/editor/MixedStyleSelect";
 import { useLanguage } from "@/contexts/language-context";
 import { logPreviewPositioning } from "@/lib/debug/positioning-debug";
@@ -136,8 +137,101 @@ function ConfigureLayoutContent() {
         
         // Load existing layout and store in ref for use in image onload callbacks
         const existingLayout = await getTemplateLayout(templateId);
+        
+        // 🔄 AUTO-MIGRATE: Set description as default text layer if exists
+        // ONLY for layer with id === 'description'
+        if (existingLayout?.certificate?.textLayers) {
+          const hasDescription = existingLayout.certificate.textLayers.some((layer: any) => layer.id === 'description');
+          
+          existingLayout.certificate.textLayers = existingLayout.certificate.textLayers.map((layer: any) => {
+            // Only migrate if id is exactly 'description'
+            if (layer.id === 'description') {
+              console.log('🔄 Setting description as default text layer');
+              return {
+                ...layer,
+                defaultText: layer.defaultText || 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+                useDefaultText: true,
+              };
+            }
+            // Reset useDefaultText for non-description layers that might have it set incorrectly
+            if (layer.id !== 'description' && layer.useDefaultText) {
+              console.log(`🔄 Removing useDefaultText from non-description layer: ${layer.id}`);
+              const { useDefaultText, ...rest } = layer;
+              return rest;
+            }
+            return layer;
+          });
+          
+          // Add description layer if not exists
+          if (!hasDescription) {
+            console.log('➕ Adding missing description layer to certificate');
+            existingLayout.certificate.textLayers.push({
+              id: 'description',
+              x: 400,
+              y: 390,
+              xPercent: 400 / STANDARD_CANVAS_WIDTH,
+              yPercent: 390 / STANDARD_CANVAS_HEIGHT,
+              fontSize: 18,
+              color: '#000000',
+              fontWeight: 'normal',
+              fontFamily: 'Arial',
+              textAlign: 'center',
+              maxWidth: 480,
+              lineHeight: 1.4,
+              visible: true,
+              defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+              useDefaultText: true,
+            } as any);
+          }
+        }
+        
+        if (existingLayout?.score?.textLayers) {
+          const hasDescription = existingLayout.score.textLayers.some((layer: any) => layer.id === 'description');
+          
+          existingLayout.score.textLayers = existingLayout.score.textLayers.map((layer: any) => {
+            // Only migrate if id is exactly 'description'
+            if (layer.id === 'description') {
+              console.log('🔄 Setting score description as default text layer');
+              return {
+                ...layer,
+                defaultText: layer.defaultText || 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+                useDefaultText: true,
+              };
+            }
+            // Reset useDefaultText for non-description layers
+            if (layer.id !== 'description' && layer.useDefaultText) {
+              console.log(`🔄 Removing useDefaultText from non-description layer: ${layer.id}`);
+              const { useDefaultText, ...rest } = layer;
+              return rest;
+            }
+            return layer;
+          });
+          
+          // Add description layer if not exists
+          if (!hasDescription) {
+            console.log('➕ Adding missing description layer to score');
+            existingLayout.score.textLayers.push({
+              id: 'description',
+              x: 400,
+              y: 390,
+              xPercent: 400 / STANDARD_CANVAS_WIDTH,
+              yPercent: 390 / STANDARD_CANVAS_HEIGHT,
+              fontSize: 18,
+              color: '#000000',
+              fontWeight: 'normal',
+              fontFamily: 'Arial',
+              textAlign: 'center',
+              maxWidth: 480,
+              lineHeight: 1.4,
+              visible: true,
+              defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+              useDefaultText: true,
+            } as any);
+          }
+        }
+        
         existingLayoutRef.current = existingLayout;
-        console.log('📋 Existing layout loaded:', existingLayout);
+        console.log('📋 Existing layout loaded and migrated:', existingLayout);
         
         // Load CERTIFICATE image dimensions for dynamic aspect ratio
         const certificateImageUrl = (tpl.certificate_image_url || tpl.image_path) as string;
@@ -189,10 +283,24 @@ function ConfigureLayoutContent() {
               });
               
               // Remove textAlign for certificate_no and issue_date
+              // AND set description as default text layer (ONLY for id === 'description')
               const migratedLayers = normalizedLayers.map(layer => {
                 if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
                   const { textAlign, ...rest } = layer;
                   void textAlign;
+                  return rest;
+                }
+                // Set description as default text layer with dummy text if not already set
+                if (layer.id === 'description') {
+                  return {
+                    ...layer,
+                    defaultText: layer.defaultText || 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+                    useDefaultText: true,
+                  };
+                }
+                // Remove useDefaultText from non-description layers
+                if (layer.id !== 'description' && layer.useDefaultText) {
+                  const { useDefaultText, ...rest } = layer;
                   return rest;
                 }
                 return layer;
@@ -262,6 +370,24 @@ function ConfigureLayoutContent() {
                   visible: true,
                   fontStyle: 'normal',
                 },
+                {
+                  id: 'description',
+                  x: Math.round(dimensions.width * 0.5),
+                  y: Math.round(dimensions.height * 0.65),
+                  xPercent: 0.5,
+                  yPercent: 0.65,
+                  fontSize: 18,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  textAlign: 'center',
+                  maxWidth: Math.round(dimensions.width * 0.6),
+                  lineHeight: 1.4,
+                  visible: true,
+                  fontStyle: 'normal',
+                  defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+                  useDefaultText: true,
+                },
               ];
               console.log('✅ Created default layers:', defaultLayers.map(l => ({ id: l.id, x: l.x, y: l.y })));
               setCertificateTextLayers(defaultLayers);
@@ -314,6 +440,19 @@ function ConfigureLayoutContent() {
                 if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
                   const { textAlign, ...rest } = layer;
                   void textAlign;
+                  return rest;
+                }
+                // Set description as default text layer with dummy text if not already set
+                if (layer.id === 'description') {
+                  return {
+                    ...layer,
+                    defaultText: layer.defaultText || 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+                    useDefaultText: true,
+                  };
+                }
+                // Remove useDefaultText from non-description layers
+                if (layer.id !== 'description' && layer.useDefaultText) {
+                  const { useDefaultText, ...rest } = layer;
                   return rest;
                 }
                 return layer;
@@ -374,6 +513,23 @@ function ConfigureLayoutContent() {
                   lineHeight: 1.2,
                   visible: true,
                 },
+                {
+                  id: 'description',
+                  x: Math.round(dimensions.width * 0.5),
+                  y: Math.round(dimensions.height * 0.65),
+                  xPercent: 0.5,
+                  yPercent: 0.65,
+                  fontSize: 18,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  textAlign: 'center',
+                  maxWidth: Math.round(dimensions.width * 0.6),
+                  lineHeight: 1.4,
+                  visible: true,
+                  defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+                  useDefaultText: true,
+                },
               ];
               setCertificateTextLayers(defaultLayers);
               if (defaultLayers.length > 0) {
@@ -433,6 +589,23 @@ function ConfigureLayoutContent() {
               maxWidth: Math.round(STANDARD_CANVAS_WIDTH * 0.3),
               lineHeight: 1.2,
               visible: true,
+            },
+            {
+              id: 'description',
+              x: Math.round(STANDARD_CANVAS_WIDTH * 0.5),
+              y: Math.round(STANDARD_CANVAS_HEIGHT * 0.65),
+              xPercent: 0.5,
+              yPercent: 0.65,
+              fontSize: 18,
+              color: '#000000',
+              fontWeight: 'normal',
+              fontFamily: 'Arial',
+              textAlign: 'center',
+              maxWidth: Math.round(STANDARD_CANVAS_WIDTH * 0.6),
+              lineHeight: 1.4,
+              visible: true,
+              defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+              useDefaultText: true,
             },
           ];
           setCertificateTextLayers(defaultLayers);
@@ -924,9 +1097,9 @@ function ConfigureLayoutContent() {
       },
       {
         id: 'certificate_no',
-        x: 200,
+        x: 100,
         y: 100,
-        xPercent: 200 / STANDARD_CANVAS_WIDTH,
+        xPercent: 100 / STANDARD_CANVAS_WIDTH,
         yPercent: 100 / STANDARD_CANVAS_HEIGHT,
         fontSize: 16,
         color: '#000000',
@@ -949,6 +1122,22 @@ function ConfigureLayoutContent() {
         // No textAlign for issue_date - always uses left alignment
         maxWidth: 300,
         lineHeight: 1.2,
+      },
+      {
+        id: 'description',
+        x: 400,
+        y: 390,
+        xPercent: 400 / STANDARD_CANVAS_WIDTH,
+        yPercent: 390 / STANDARD_CANVAS_HEIGHT,
+        fontSize: 18,
+        color: '#000000',
+        fontWeight: 'normal',
+        fontFamily: 'Arial',
+        textAlign: 'center',
+        maxWidth: 480,
+        lineHeight: 1.4,
+        defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
+        useDefaultText: true,
       },
     ];
     setCertificateTextLayers(defaultLayers);
@@ -1410,18 +1599,19 @@ function ConfigureLayoutContent() {
   const deleteLayer = (layerId: string) => {
     console.log(`🗑️ Attempting to delete layer: ${layerId} in ${configMode} mode`);
     
-    // Prevent deleting required fields
+    // Prevent deleting ONLY the 4 default required fields
     if (configMode === 'certificate') {
-      const requiredFields = ['name', 'certificate_no', 'issue_date'];
+      const requiredFields = ['name', 'certificate_no', 'issue_date', 'description'];
       if (requiredFields.includes(layerId)) {
         toast.error(t('configure.cannotDeleteRequired'));
         console.log(`❌ Cannot delete required field: ${layerId}`);
         return;
       }
     } else if (configMode === 'score') {
-      // Score mode: only issue_date is required
-      if (layerId === 'issue_date') {
-        toast.error(t('configure.cannotDeleteIssueDate'));
+      // Score mode: issue_date and description are required
+      const requiredFields = ['issue_date', 'description'];
+      if (requiredFields.includes(layerId)) {
+        toast.error(t('configure.cannotDeleteRequired'));
         console.log(`❌ Cannot delete required field: ${layerId}`);
         return;
       }
@@ -1939,6 +2129,9 @@ function ConfigureLayoutContent() {
 
                       // Render with inline formatting
                       return layer.richText.map((span: any, idx: any) => {
+                        const style = span.fontStyle || layer.fontStyle || 'normal';
+                        const isDecoration = style === 'underline' || style === 'line-through' || style === 'overline';
+                        
                         return (
                           <span
                             key={idx}
@@ -1947,7 +2140,8 @@ function ConfigureLayoutContent() {
                               fontFamily: span.fontFamily || layer.fontFamily,
                               fontSize: span.fontSize ? `${span.fontSize * domScale}px` : undefined,
                               color: span.color || layer.color,
-                              fontStyle: span.fontStyle || layer.fontStyle || 'normal'
+                              fontStyle: isDecoration ? 'normal' : style,
+                              textDecoration: isDecoration ? style : (span.textDecoration || layer.textDecoration || 'none')
                             }}
                           >
                             {span.text}
@@ -2218,7 +2412,16 @@ function ConfigureLayoutContent() {
                           color: layer.color,
                           fontWeight: layer.fontWeight,
                           fontFamily: layer.fontFamily,
-                          fontStyle: layer.fontStyle || 'normal',
+                          fontStyle: (() => {
+                            const style = layer.fontStyle || 'normal';
+                            const isDecoration = style === 'underline' || style === 'line-through' || style === 'overline';
+                            return isDecoration ? 'normal' : style;
+                          })(),
+                          textDecoration: (() => {
+                            const style = layer.fontStyle || 'normal';
+                            const isDecoration = style === 'underline' || style === 'line-through' || style === 'overline';
+                            return isDecoration ? style : (layer.textDecoration || 'none');
+                          })(),
                           // certificate_no, issue_date, and Nilai / Prestasi only
                           textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'left' : (layer.textAlign || 'left'),
                           // certificate_no, issue_date, and Nilai / Prestasi should never wrap - always stay on one line
@@ -2475,10 +2678,12 @@ function ConfigureLayoutContent() {
                 </div>
                 <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
                   {textLayers.map(layer => {
-                    // Required fields: Certificate (name, certificate_no, issue_date) | Score (issue_date only)
+                    // Required fields: ONLY the 4 default layers
+                    // Certificate: name, certificate_no, issue_date, description
+                    // Score: issue_date, description
                     const isRequired = configMode === 'certificate' 
-                      ? ['name', 'certificate_no', 'issue_date'].includes(layer.id)
-                      : layer.id === 'issue_date';
+                      ? ['name', 'certificate_no', 'issue_date', 'description'].includes(layer.id)
+                      : ['issue_date', 'description'].includes(layer.id);
                     const isSelected = selectedLayerId === layer.id;
                     
                     return (
@@ -2512,10 +2717,12 @@ function ConfigureLayoutContent() {
                               />
                             ) : (
                               <div 
-                                className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate"
+                                className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors group relative flex items-center gap-1"
                                 onDoubleClick={() => handleLayerDoubleClick(layer.id)}
+                                title="Double-click to rename"
                               >
                                 {layer.id}
+                                <Pencil className="w-3 h-3 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                               </div>
                             )}
                             <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -3324,7 +3531,16 @@ function ConfigureLayoutContent() {
                         color: layer.color,
                         fontWeight: layer.fontWeight,
                         fontFamily: layer.fontFamily,
-                        fontStyle: layer.fontStyle || 'normal',
+                        fontStyle: (() => {
+                          const style = layer.fontStyle || 'normal';
+                          const isDecoration = style === 'underline' || style === 'line-through' || style === 'overline';
+                          return isDecoration ? 'normal' : style;
+                        })(),
+                        textDecoration: (() => {
+                          const style = layer.fontStyle || 'normal';
+                          const isDecoration = style === 'underline' || style === 'line-through' || style === 'overline';
+                          return isDecoration ? style : (layer.textDecoration || 'none');
+                        })(),
                         textAlign: (layer.id === 'certificate_no' || layer.id === 'issue_date') ? 'left' : (layer.textAlign || 'left'),
                         whiteSpace: layer.maxWidth ? 'normal' : 'nowrap',
                         width: layer.maxWidth ? `${layer.maxWidth * templateScale}px` : 'auto',

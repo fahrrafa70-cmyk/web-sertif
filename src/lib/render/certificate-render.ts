@@ -18,6 +18,7 @@ export interface RenderTextLayer {
   color: string;
   fontWeight?: string;
   fontFamily?: string;
+  fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through' | 'overline';
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   maxWidth?: number;
   lineHeight?: number;
@@ -400,7 +401,13 @@ export async function renderCertificateToDataURL(
       const baseFontSize = Math.max(1, layer.fontSize || 16);
       const scaledFontSize = Math.round(baseFontSize * scaleFactor);
       const fontFamily = layer.fontFamily || 'Arial';
-      ctx.font = `${fontWeight} ${scaledFontSize}px ${fontFamily}`;
+      
+      // Handle fontStyle: italic/oblique for CSS fontStyle, underline/line-through for textDecoration
+      const style = layer.fontStyle || 'normal';
+      const isDecoration = style === 'underline' || style === 'line-through' || style === 'overline';
+      const fontStyle = isDecoration ? 'normal' : style; // italic/oblique/normal
+      
+      ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${fontFamily}`;
       
       // Debug logging for critical layers
       if (layer.id === 'name' || layer.id === 'certificate_no' || layer.id === 'issue_date') {
@@ -416,7 +423,6 @@ export async function renderCertificateToDataURL(
           textAlign: align
         });
       }
-
       // Set color and baseline
       ctx.fillStyle = layer.color || '#000000';
       ctx.textBaseline = 'top';
@@ -432,7 +438,8 @@ export async function renderCertificateToDataURL(
           scaledFontSize,
           layer.lineHeight || 1.2,
           align,
-          scaleFactor
+          scaleFactor,
+          isDecoration ? style : undefined // Pass decoration style
         );
       } else {
         drawWrappedText(
@@ -443,7 +450,8 @@ export async function renderCertificateToDataURL(
           scaledFontSize, 
           layer.lineHeight || 1.2,
           align,
-          layer.id
+          layer.id,
+          isDecoration ? style : undefined // Pass decoration style
         );
       }
     }
@@ -482,7 +490,8 @@ function drawWrappedText(
   fontSize: number,
   lineHeight: number,
   textAlign: 'left' | 'center' | 'right' | 'justify',
-  layerId?: string // Optional layer ID for debugging
+  layerId?: string, // Optional layer ID for debugging
+  textDecoration?: 'underline' | 'line-through' | 'overline' // Optional text decoration
 ) {
   // CRITICAL: For "name" layer, prevent wrapping - text should shift left instead of wrapping down
   // If text is longer than maxWidth, keep it as single line and adjust x position to shift left
@@ -834,6 +843,37 @@ function drawWrappedText(
     const lineY = startY + (index * lineHeightPx);
     ctx.fillText(line, adjustedDrawX, lineY);
     
+    // Draw text decoration if specified
+    if (textDecoration) {
+      const lineWidth = ctx.measureText(line).width;
+      const lineThickness = Math.max(1, fontSize / 16); // Scale line thickness with font size
+      
+      // Calculate line start X based on text alignment
+      let decorationX = adjustedDrawX;
+      if (ctx.textAlign === 'center') {
+        decorationX = adjustedDrawX - (lineWidth / 2);
+      } else if (ctx.textAlign === 'right') {
+        decorationX = adjustedDrawX - lineWidth;
+      }
+      
+      // Draw decoration line
+      ctx.fillStyle = ctx.fillStyle; // Use same color as text
+      
+      if (textDecoration === 'underline') {
+        // Underline: below text baseline
+        const underlineY = lineY + fontSize;
+        ctx.fillRect(decorationX, underlineY, lineWidth, lineThickness);
+      } else if (textDecoration === 'line-through') {
+        // Line-through: middle of text
+        const strikeY = lineY + (fontSize / 2);
+        ctx.fillRect(decorationX, strikeY, lineWidth, lineThickness);
+      } else if (textDecoration === 'overline') {
+        // Overline: above text
+        const overlineY = lineY - lineThickness;
+        ctx.fillRect(decorationX, overlineY, lineWidth, lineThickness);
+      }
+    }
+    
     // Log final draw position for critical layers (first line only)
     if (index === 0 && (layerId === 'name' || layerId === 'certificate_no' || layerId === 'issue_date')) {
       console.log(`🔍 [${layerId}] FILLTEXT CALL:`, {
@@ -844,7 +884,8 @@ function drawWrappedText(
         textAlign: ctx.textAlign,
         textBaseline: ctx.textBaseline,
         fontSize,
-        font: ctx.font
+        font: ctx.font,
+        textDecoration: textDecoration || 'none'
       });
     }
   });
@@ -863,7 +904,8 @@ function drawRichText(
   baseFontSize: number,
   lineHeight: number,
   textAlign: 'left' | 'center' | 'right' | 'justify',
-  scaleFactor: number = 1
+  scaleFactor: number = 1,
+  textDecoration?: 'underline' | 'line-through' | 'overline' // Optional text decoration
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
   

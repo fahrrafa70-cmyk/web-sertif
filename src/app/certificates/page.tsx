@@ -963,6 +963,7 @@ function CertificatesContent() {
         fontSize: layer.fontSize,
         color: layer.color,
         fontWeight: layer.fontWeight,
+        fontStyle: layer.fontStyle,
         fontFamily: layer.fontFamily,
         textAlign: layer.textAlign,
         maxWidth: layer.maxWidth,
@@ -1274,6 +1275,7 @@ function CertificatesContent() {
               fontSize: layer.fontSize,
               color: layer.color,
               fontWeight: layer.fontWeight,
+              fontStyle: layer.fontStyle, // ✅ ADD fontStyle
               fontFamily: layer.fontFamily,
               textAlign: layer.textAlign,
               maxWidth: layer.maxWidth,

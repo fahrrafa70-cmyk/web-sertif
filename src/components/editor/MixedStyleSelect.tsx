@@ -164,7 +164,7 @@ export function FontFamilySelect({
   );
 }
 
-// Font Style Select (normal, italic, oblique, underline, strike through)
+// Font Style Select (includes all text styling options)
 export function FontStyleSelect({
   value,
   onValueChange,
@@ -177,9 +177,9 @@ export function FontStyleSelect({
   const styleOptions = [
     { value: 'normal', label: 'Normal' },
     { value: 'italic', label: 'Italic' },
-    { value: 'oblique', label: 'Oblique' },
     { value: 'underline', label: 'Underline' },
     { value: 'line-through', label: 'Strike Through' },
+    { value: 'overline', label: 'Overline' },
   ];
   
   return (
@@ -188,6 +188,34 @@ export function FontStyleSelect({
       onValueChange={onValueChange}
       options={styleOptions}
       placeholder="Style"
+      className={className}
+    />
+  );
+}
+
+// Text Decoration Select (underline, line-through)
+export function TextDecorationSelect({
+  value,
+  onValueChange,
+  className
+}: {
+  value: string | 'mixed' | undefined;
+  onValueChange: (value: string) => void;
+  className?: string;
+}) {
+  const decorationOptions = [
+    { value: 'none', label: 'None' },
+    { value: 'underline', label: 'Underline' },
+    { value: 'line-through', label: 'Strike Through' },
+    { value: 'overline', label: 'Overline' },
+  ];
+  
+  return (
+    <MixedStyleSelect
+      value={value}
+      onValueChange={onValueChange}
+      options={decorationOptions}
+      placeholder="Decoration"
       className={className}
     />
   );

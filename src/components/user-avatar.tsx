@@ -8,7 +8,7 @@ import { useLanguage } from "@/contexts/language-context";
 
 const UserAvatar = memo(function UserAvatar() {
   const { t } = useLanguage();
-  const { isAuthenticated, localSignOut, email } = useAuth();
+  const { isAuthenticated, localSignOut, email, role } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -101,10 +101,24 @@ const UserAvatar = memo(function UserAvatar() {
                   {getInitials}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {email?.split("@")[0] || "User"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {email?.split("@")[0] || "User"}
+                    </p>
+                    {/* Role Badge - Inline with name */}
+                    {role && (
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium flex-shrink-0 ${
+                        role === 'admin' 
+                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' 
+                          : role === 'team'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {role === 'admin' ? 'Admin' : role === 'team' ? 'Team' : 'User'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                     {email || ""}
                   </p>
                 </div>
@@ -115,8 +129,8 @@ const UserAvatar = memo(function UserAvatar() {
             <div className="py-1">
             </div>
 
-            {/* Logout */}
-            <div className="border-t border-gray-100 dark:border-gray-700 py-1">
+            {/* Logout - Removed border-t */}
+            <div className="py-1">
               <button
                 onClick={() => {
                   localSignOut();

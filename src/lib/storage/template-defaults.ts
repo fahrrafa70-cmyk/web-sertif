@@ -13,6 +13,7 @@ export interface TextLayerDefault {
   color: string;
   fontWeight: string;
   fontFamily: string;
+  fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through' | 'overline';
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   defaultText?: string;
   useDefaultText?: boolean;
