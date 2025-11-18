@@ -24,7 +24,7 @@ interface ColumnMappingStepProps {
   scoreColumns?: string[];
   scoreLayers?: TextLayerConfig[];
   scoreMapping?: Record<string, string>;
-  scorePreviewData?: Record<string, unknown>;
+  _scorePreviewData?: Record<string, unknown>;
   onScoreMappingChange?: (mapping: Record<string, string>) => void;
 }
 
@@ -90,7 +90,7 @@ export function ColumnMappingStep({
   scoreColumns = [],
   scoreLayers = [],
   scoreMapping = {},
-  scorePreviewData = {},
+  _scorePreviewData = {},
   onScoreMappingChange
 }: ColumnMappingStepProps) {
   // For Excel mode, show ALL layers without filtering

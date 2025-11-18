@@ -638,7 +638,7 @@ export function QuickGenerateModal({
               scoreColumns={Object.keys(excelScoreData[0] || {})}
               scoreLayers={getScoreTextLayers()}
               scoreMapping={excelScoreMapping}
-              scorePreviewData={excelScoreData[0] || {}}
+              _scorePreviewData={excelScoreData[0] || {}}
               onScoreMappingChange={setExcelScoreMapping}
             />
           </div>

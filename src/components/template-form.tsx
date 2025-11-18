@@ -9,7 +9,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Template, CreateTemplateData, UpdateTemplateData, createTemplate, updateTemplate } from "@/lib/supabase/templates";
 import { useLanguage } from "@/contexts/language-context";
 import { toast } from "sonner";
-import { Upload, X } from "lucide-react";
+import { X } from "lucide-react";
 
 interface TemplateFormProps {
   template?: Template;
@@ -106,12 +106,12 @@ export default function TemplateForm({ template, onSuccess, onCancel }: Template
     label, 
     file, 
     onChange, 
-    type 
+    _type 
   }: { 
     label: string; 
     file: File | null; 
     onChange: (file: File | null) => void;
-    type: 'image' | 'preview' | 'certificate' | 'score';
+    _type: 'image' | 'preview' | 'certificate' | 'score';
   }) => (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -210,19 +210,19 @@ export default function TemplateForm({ template, onSuccess, onCancel }: Template
               label={`${t('templates.form.certificateImage')} *`}
               file={certificateImageFile}
               onChange={(file) => handleFileChange(file, 'certificate')}
-              type="certificate"
+              _type="certificate"
             />
             <FileUploadField
               label={`${t('templates.form.scoreImage')} *`}
               file={scoreImageFile}
               onChange={(file) => handleFileChange(file, 'score')}
-              type="score"
+              _type="score"
             />
             <FileUploadField
               label={t('templates.form.previewImage')}
               file={previewImageFile}
               onChange={(file) => handleFileChange(file, 'preview')}
-              type="preview"
+              _type="preview"
             />
           </>
         ) : (
@@ -231,13 +231,13 @@ export default function TemplateForm({ template, onSuccess, onCancel }: Template
               label={t('templates.form.image')}
               file={imageFile}
               onChange={(file) => handleFileChange(file, 'image')}
-              type="image"
+              _type="image"
             />
             <FileUploadField
               label={t('templates.form.previewImage')}
               file={previewImageFile}
               onChange={(file) => handleFileChange(file, 'preview')}
-              type="preview"
+              _type="preview"
             />
           </>
         )}

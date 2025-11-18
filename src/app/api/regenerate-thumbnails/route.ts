@@ -4,7 +4,7 @@ import { writeFile, mkdir, access } from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
 
-export async function POST(request: Request) {
+export async function POST(_request: Request) {
   try {
     console.log('🔄 Starting thumbnail regeneration for existing templates...');
     

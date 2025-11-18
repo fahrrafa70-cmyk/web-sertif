@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTemplates } from '@/lib/supabase/templates';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const templates = await getTemplates();
     return NextResponse.json(templates);
