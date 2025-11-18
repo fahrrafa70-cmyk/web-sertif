@@ -14,7 +14,7 @@ export function usePerformanceMonitor() {
     const checkLCP = () => {
       const observer = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        const lastEntry = entries[entries.length - 1] as any;
+        const lastEntry = entries[entries.length - 1] as PerformanceEntry & { startTime: number };
         console.log('🎯 LCP:', lastEntry.startTime.toFixed(2) + 'ms');
         observer.disconnect(); // Stop after first measurement
       });

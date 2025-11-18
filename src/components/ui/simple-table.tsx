@@ -10,7 +10,7 @@ interface SimpleTableProps<T> {
     key: keyof T;
     header: string;
     width?: number;
-    render?: (value: any, item: T, index: number) => React.ReactNode;
+    render?: (value: T[keyof T], item: T, index: number) => React.ReactNode;
   }>;
   loading?: boolean;
   emptyMessage?: string;

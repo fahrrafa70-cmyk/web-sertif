@@ -24,7 +24,7 @@ export function useDebounce<T>(value: T, delay: number = 300): T {
  * Enhanced debounce hook for callbacks
  * Useful for debouncing function calls like API requests
  */
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
+export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number = 300
 ): T {

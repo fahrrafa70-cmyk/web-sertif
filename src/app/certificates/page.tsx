@@ -86,7 +86,7 @@ function CertificatesContent() {
       today.setHours(0, 0, 0, 0);
       expiredDate.setHours(0, 0, 0, 0);
       return expiredDate < today;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error checking expired date:', error, certificate.expired_date);
       return false;
     }
@@ -105,7 +105,7 @@ function CertificatesContent() {
         console.warn('Expired overlay URL not found');
       }
       return url;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error getting expired overlay URL:', error);
       return null;
     }
@@ -212,7 +212,7 @@ function CertificatesContent() {
       const mapped = normalized === "admin" ? "Admin" : normalized === "team" ? "Team" : normalized === "public" ? "Public" : "Public";
       setRole(mapped);
       console.log("✅ Role set to:", mapped);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("❌ Error reading role from localStorage:", error);
       setRole("Public");
     }
@@ -296,7 +296,7 @@ function CertificatesContent() {
       const fileName = `${certificate.certificate_no || 'certificate'}-combined.pdf`;
       doc.save(fileName);
       toast.success("PDF exported");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PDF");
     } finally {
@@ -344,7 +344,7 @@ function CertificatesContent() {
       }
 
       toast.success("PNGs downloaded successfully");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PNG");
     } finally {
@@ -396,7 +396,7 @@ function CertificatesContent() {
       }
       
       console.log('Generated public certificate link:', certificateLink);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to generate certificate link:', err);
       toast.error(t('hero.linkGenerateFailed'), { duration: 2000 });
     } finally {
@@ -442,7 +442,7 @@ function CertificatesContent() {
 • Category: ${certificate.category}` : ""}`,
       });
       setSendModalOpen(true);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Failed to prepare email');
     }
@@ -522,7 +522,7 @@ function CertificatesContent() {
       setSendCert(null);
       setSendPreviewSrcs({ cert: null, score: null });
       setSendForm({ email: '', subject: '', message: '' });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Email send error:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to send email. Please try again.');
     } finally {
@@ -560,7 +560,7 @@ function CertificatesContent() {
         setTemplates(readyTemplates);
         setMembers(membersData);
         toast.dismiss(loadingToast);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('❌ Failed to load Generate data:', error);
         toast.dismiss(loadingToast);
         toast.error('Failed to load templates and members');
@@ -702,7 +702,7 @@ function CertificatesContent() {
               generated++;
               // Update the same toast instead of creating new ones
               toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
-            } catch (error) {
+            } catch (error: unknown) {
               console.error('Failed to generate certificate for member:', member.name, error);
             }
           }
@@ -833,7 +833,7 @@ function CertificatesContent() {
             generated++;
             // Update the same toast instead of creating new ones
             toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
-          } catch (error) {
+          } catch (error: unknown) {
             console.error('Failed to generate certificate for row:', row, error);
           }
         }
@@ -844,7 +844,7 @@ function CertificatesContent() {
       
       // Refresh certificates list
       await refresh();
-    } catch (error) {
+    } catch (error: unknown) {
       toast.dismiss(loadingToast);
       console.error('Quick Generate error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to generate certificate', { duration: 3000 });
@@ -884,7 +884,7 @@ function CertificatesContent() {
         const issueDate = new Date(certData.issue_date);
         finalCertificateNo = await generateCertificateNumber(issueDate);
         console.log('✨ Auto-generated certificate number:', finalCertificateNo);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('❌ Failed to auto-generate certificate number:', error);
         // Fallback: use timestamp-based number
         finalCertificateNo = `CERT-${Date.now()}`;
@@ -1399,7 +1399,7 @@ function CertificatesContent() {
         } else {
           console.warn('⚠️ Score layout not configured, skipping score generation');
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('❌ Failed to generate score certificate:', error);
         // Don't throw - main certificate is already saved
       }
@@ -1667,7 +1667,7 @@ function CertificatesContent() {
       toast.success(t("certificates.updateSuccess"), { duration: 2000 });
       setIsEditOpen(null);
       setDraft(null);
-    } catch (error) {
+    } catch (error: unknown) {
       toast.error(
         error instanceof Error ? error.message : t("certificates.updateFailed"),
         { duration: 2000 }
@@ -1724,7 +1724,7 @@ function CertificatesContent() {
         const successMessage = t("certificates.deleteSuccess")
           .replace("{name}", certificateName);
         toast.success(successMessage, { duration: 2000 });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("❌ Delete error:", error);
         toast.error(
           error instanceof Error
@@ -1753,11 +1753,11 @@ function CertificatesContent() {
             try {
               const defaults = template ? getTemplateDefaults(`${template.id}_score`) : null;
               setScoreDefaults(defaults);
-            } catch (err) {
+            } catch (err: unknown) {
               console.warn('Failed to load score defaults', err);
               setScoreDefaults(null);
             }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Failed to load template:", error);
         setPreviewTemplate(null);
       }
