@@ -316,8 +316,11 @@ export async function renderCertificateToDataURL(
       
       // 🎯 SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
       const isScoreLayer = (layer: RenderTextLayer) => {
-        // Check by ID first
-        if (layer.id === 'nilai' || layer.id === 'prestasi') return true;
+        // Check by ID first (including "Nilai / Prestasi" with space and slash)
+        if (layer.id === 'nilai' || layer.id === 'prestasi' || layer.id === 'Nilai / Prestasi') {
+          console.log(`✅ Score layer detected by exact ID match: ${layer.id}`);
+          return true;
+        }
         
         // Check by text content (more reliable for custom layers)
         if (layer.text) {
@@ -345,12 +348,12 @@ export async function renderCertificateToDataURL(
         // Certificate number: fixed adjustment
         if (layer.id === 'certificate_no') return 7;
         
-        // Score layers: font-size based adjustment (significantly increased for lower positioning)
+        // Score layers: font-size based adjustment (fine-tuned positioning)
         if (isScoreLayer(layer)) {
-          if (fontSize <= 18) return 8;   // +8px DOWN for small fonts
-          if (fontSize <= 22) return 10;  // +10px DOWN for medium fonts
-          if (fontSize <= 26) return 12;  // +12px DOWN for large fonts
-          return 14;                      // +14px DOWN for extra large fonts
+          if (fontSize <= 18) return 3;   // +3px DOWN for small fonts
+          if (fontSize <= 22) return 5;   // +5px DOWN for medium fonts
+          if (fontSize <= 26) return 7;   // +7px DOWN for large fonts
+          return 9;                       // +9px DOWN for extra large fonts
         }
         
         // Other layers: no adjustment
