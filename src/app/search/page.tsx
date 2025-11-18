@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense, useMemo, memo } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Search, Filter, X as XIcon, Download, ChevronDown, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, Filter, X as XIcon, Download, ChevronDown, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { useModal } from "@/contexts/modal-context";
 import { toast } from "sonner";

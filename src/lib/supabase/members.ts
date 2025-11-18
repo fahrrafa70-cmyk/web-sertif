@@ -139,6 +139,9 @@ export async function updateMember(id: string, input: UpdateMemberInput): Promis
   if (input.city !== undefined) updateData.city = sanitize(input.city);
   if (input.notes !== undefined) updateData.notes = sanitize(input.notes);
 
+  // Always update updated_at timestamp
+  updateData.updated_at = new Date().toISOString();
+
   // Remove undefined keys
   Object.keys(updateData).forEach((k) => updateData[k] === undefined && delete updateData[k]);
 
