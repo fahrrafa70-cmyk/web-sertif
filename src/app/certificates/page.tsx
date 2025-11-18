@@ -61,11 +61,8 @@ import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/c
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
 import { CertificatesPageSkeleton } from "@/components/ui/certificates-skeleton";
-<<<<<<< HEAD
 import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
-=======
 import { autoPopulatePrestasi } from "@/lib/utils/score-predicates";
->>>>>>> 83e2b4f73a9209996df3f040f30298ea58e967a6
 
 function CertificatesContent() {
   const { t, language } = useLanguage();
