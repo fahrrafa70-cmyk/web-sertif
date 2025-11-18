@@ -61,7 +61,7 @@ import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/c
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
 import { CertificatesPageSkeleton } from "@/components/ui/certificates-skeleton";
-import Xid from "xid-js";
+import { autoPopulatePrestasi } from "@/lib/utils/score-predicates";
 
 function CertificatesContent() {
   const { t, language } = useLanguage();
@@ -163,6 +163,40 @@ function CertificatesContent() {
   });
   const [sendPreviewSrcs, setSendPreviewSrcs] = useState<{ cert: string | null; score: string | null }>({ cert: null, score: null });
   const [sendCert, setSendCert] = useState<Certificate | null>(null);
+
+  // Handle opening image in new tab for full view
+  const handleOpenImagePreview = useCallback((url: string | null | undefined, updatedAt?: string | null) => {
+    if (!url) return;
+    
+    // Normalize URL untuk memastikan URL lengkap
+    let imageUrl = url;
+    
+    // Jika sudah full URL (http/https) atau data URL, gunakan langsung
+    if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
+      // URL Supabase atau external URL sudah lengkap, gunakan langsung
+      window.open(imageUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    
+    // Normalize local relative path like "generate/file.png" => "/generate/file.png"
+    if (!imageUrl.startsWith('/')) {
+      imageUrl = `/${imageUrl}`;
+    }
+    
+    // Add cache bust for local paths if updated_at is available
+    if (updatedAt) {
+      const cacheBust = `?v=${new Date(updatedAt).getTime()}`;
+      imageUrl = `${imageUrl}${cacheBust}`;
+    }
+    
+    // Convert relative path to absolute URL
+    if (typeof window !== 'undefined') {
+      imageUrl = `${window.location.origin}${imageUrl}`;
+    }
+    
+    // Open image in new tab
+    window.open(imageUrl, '_blank', 'noopener,noreferrer');
+  }, []);
 
   // Loading states for export and generate operations
   const [exportingPDF, setExportingPDF] = useState<string | null>(null);
@@ -835,6 +869,12 @@ function CertificatesContent() {
     console.log('🗓️ Using date format:', dateFormat);
     console.log('🎯 Score data received:', scoreData ? Object.keys(scoreData).length + ' fields' : 'none', scoreData);
     
+    // CRITICAL: Auto-populate prestasi based on nilai
+    if (scoreData) {
+      scoreData = autoPopulatePrestasi(scoreData);
+      console.log('✨ Score data after auto-populate prestasi:', scoreData);
+    }
+    
     // CRITICAL: Auto-generate certificate_no if empty
     let finalCertificateNo = certData.certificate_no?.trim();
     if (!finalCertificateNo && certData.issue_date) {
@@ -980,8 +1020,7 @@ function CertificatesContent() {
     
     // DUAL-FORMAT UPLOAD: PNG master + WebP preview
     console.log('🖼️ Generating thumbnail (WebP preview from PNG master)...');
-    const xid = new Xid();
-    const uniqueId = xid.toString();
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
     // Generate WebP thumbnail for web preview (faster loading)
     const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
@@ -1271,9 +1310,8 @@ function CertificatesContent() {
           const scoreReduction = calculateSizeReduction(scoreOriginalSize, scoreThumbnailSize);
           console.log(`✅ Score thumbnail generated: ${Math.round(scoreOriginalSize/1024)}KB → ${Math.round(scoreThumbnailSize/1024)}KB (${scoreReduction} reduction)`);
           
-          // Generate unique XID for score image (separate from certificate)
-          const scoreXid = new Xid();
-          const scoreUniqueId = scoreXid.toString();
+          // Generate unique ID for score image (separate from certificate)
+          const scoreUniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
           
           // Upload PNG score master
           console.log('📤 Uploading PNG score master to Supabase Storage...');
@@ -2240,23 +2278,6 @@ function CertificatesContent() {
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-4 py-3">
             <div className="space-y-2.5">
-              {/* Certificate Number */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  {t('certificates.certificateId')}
-                </label>
-                <Input
-                  value={draft?.certificate_no ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) =>
-                      d ? { ...d, certificate_no: e.target.value } : d,
-                    )
-                  }
-                  className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                  placeholder="251102038"
-                />
-              </div>
-
               {/* Recipient */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
@@ -2272,30 +2293,8 @@ function CertificatesContent() {
                 />
               </div>
 
-              {/* Category & Issue Date */}
+              {/* Issue Date & Expiry Date - Side by Side */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                    {t('certificates.category')}
-                  </label>
-                  <select
-                    value={draft?.category ?? ""}
-                    onChange={(e) =>
-                      setDraft((d) => (d ? { ...d, category: e.target.value } : d))
-                    }
-                    className="h-8 w-full px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">{t('certificates.selectCategoryOption')}</option>
-                    <option value="MoU">MoU</option>
-                    <option value="Magang">Magang</option>
-                    <option value="Pelatihan">Pelatihan</option>
-                    <option value="Kunjungan Industri">Kunjungan Industri</option>
-                    <option value="Sertifikat">Sertifikat</option>
-                    <option value="Surat">Surat</option>
-                    <option value="Lainnya">Lainnya</option>
-                  </select>
-                </div>
-
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
                     {t('certificates.issuedDate')}
@@ -2311,23 +2310,22 @@ function CertificatesContent() {
                     className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
                   />
                 </div>
-              </div>
 
-              {/* Expiry Date */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  {t('certificates.expiryDate')}
-                </label>
-                <Input
-                  type="date"
-                  value={draft?.expired_date ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) =>
-                      d ? { ...d, expired_date: e.target.value } : d,
-                    )
-                  }
-                  className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                    {t('certificates.expiryDate')}
+                  </label>
+                  <Input
+                    type="date"
+                    value={draft?.expired_date ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) =>
+                        d ? { ...d, expired_date: e.target.value } : d,
+                      )
+                    }
+                    className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -2466,13 +2464,13 @@ function CertificatesContent() {
                           onClick={() => setPreviewMode('certificate')}
                           className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
-                          Certificate
+                          Front
                         </button>
                         <button
                           onClick={() => setPreviewMode('score')}
                           className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
-                          Score
+                          Back
                         </button>
                       </div>
                     )}
@@ -2527,14 +2525,35 @@ function CertificatesContent() {
                             const isData = srcRaw.startsWith('data:');
                             const isExpired = previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
+                            // CRITICAL: Use WebP thumbnail for view full image (faster loading), fallback to PNG master
+                            const imageUrl = previewMode === 'score' 
+                              ? (previewCertificate?.score_thumbnail_url || previewCertificate?.score_image_url)
+                              : (previewCertificate.certificate_thumbnail_url || previewCertificate.certificate_image_url);
                             return (
-                              <div className="relative w-full aspect-auto">
+                              <div 
+                                className={`relative w-full aspect-auto ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
+                                role={isExpired ? undefined : "button"}
+                                tabIndex={isExpired ? undefined : 0}
+                                onClick={() => {
+                                  if (!isExpired && imageUrl) {
+                                    handleOpenImagePreview(imageUrl, previewCertificate?.updated_at);
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (!isExpired && (e.key === 'Enter' || e.key === ' ')) {
+                                    e.preventDefault();
+                                    if (imageUrl) {
+                                      handleOpenImagePreview(imageUrl, previewCertificate?.updated_at);
+                                    }
+                                  }
+                                }}
+                              >
                                 <Image
                                   src={src}
                                   alt={previewMode === 'score' ? "Score" : "Certificate"}
                                   width={800}
                                   height={600}
-                                  className="w-full h-auto max-h-[380px] object-contain rounded-lg"
+                                  className={`w-full h-auto max-h-[380px] object-contain rounded-lg transition-transform duration-200 ${isExpired ? '' : 'group-hover:scale-[1.01]'}`}
                                   onError={() => {
                                     console.warn('Preview image failed to load', src);
                                   }}
@@ -2569,6 +2588,12 @@ function CertificatesContent() {
                                 {isExpired && !expiredOverlayUrl && (
                                   <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center bg-red-500/20">
                                     <div className="text-xs text-red-600 dark:text-red-400 font-bold">EXPIRED</div>
+                                  </div>
+                                )}
+                                {/* View Full Image tooltip - Only show if not expired */}
+                                {!isExpired && (
+                                  <div className="absolute bottom-3 right-3 px-3 py-1 rounded-md bg-black/60 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {t('hero.viewFullImage')}
                                   </div>
                                 )}
                               </div>

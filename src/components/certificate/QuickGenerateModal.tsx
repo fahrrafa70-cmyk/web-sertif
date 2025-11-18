@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { FileSpreadsheet, Users, Calendar, ArrowRight, ArrowLeft } from "lucide-react";
+import { batchAutoPopulatePrestasi } from '@/lib/utils/score-predicates';
 import { Template } from "@/lib/supabase/templates";
 import { Member } from "@/lib/supabase/members";
 import { DateFormat, DATE_FORMATS } from "@/types/certificate-generator";
@@ -334,6 +335,11 @@ export function QuickGenerateModal({
           .map(id => members.find(m => m.id === id))
           .filter((m): m is Member => m !== undefined);
 
+        // Auto-populate prestasi based on nilai for all members
+        const finalScoreDataMap = isDualTemplate && scoreDataMap 
+          ? batchAutoPopulatePrestasi(scoreDataMap)
+          : scoreDataMap;
+
         const params: QuickGenerateParams = {
           template: selectedTemplate,
           dataSource: 'member',
@@ -345,7 +351,7 @@ export function QuickGenerateModal({
             issue_date: issueDate,
             expired_date: expiredDate
           },
-          scoreDataMap: isDualTemplate ? scoreDataMap : undefined // Pass score data for dual templates
+          scoreDataMap: isDualTemplate ? finalScoreDataMap : undefined // Pass score data with auto-populated prestasi
         };
 
         await onGenerate(params);

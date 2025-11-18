@@ -36,11 +36,16 @@ interface TemplateCardProps {
   onEdit: (template: Template) => void;
   onPreview: (template: Template) => void;
   onConfigure: (templateId: string) => void;
+  onDelete: (templateId: string) => void;
   getTemplateUrl: (template: Template) => string | null;
   isConfiguring: boolean; // Loading state for configure button
+  canDelete: boolean;
+  templateUsageMap: Map<string, number>;
+  deletingTemplateId: string | null;
+  t: (key: string) => string;
 }
 
-const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTemplateUrl, isConfiguring }: TemplateCardProps) => {
+const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, onDelete, getTemplateUrl, isConfiguring, canDelete, templateUsageMap, deletingTemplateId, t }: TemplateCardProps) => {
   const imageUrl = getTemplateUrl(template);
   
   return (
@@ -144,6 +149,27 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, getTempla
           >
             <Edit className="w-3 h-3" />
           </Button>
+          <LoadingButton 
+            variant="outline" 
+            size="sm"
+            className={`h-7 w-7 p-0 border-gray-200 dark:border-gray-700 flex-shrink-0 relative z-10 pointer-events-auto ${canDelete && !templateUsageMap.has(template.id) ? '' : 'opacity-50 cursor-not-allowed'}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (canDelete && !templateUsageMap.has(template.id)) {
+                onDelete(template.id);
+              } else if (templateUsageMap.has(template.id)) {
+                const count = templateUsageMap.get(template.id) || 0;
+                toast.error(t('templates.cannotDeleteInUse').replace('{name}', template.name).replace('{count}', count.toString()));
+              }
+            }}
+            disabled={!canDelete || templateUsageMap.has(template.id)}
+            isLoading={deletingTemplateId === template.id}
+            loadingText=""
+            title={templateUsageMap.has(template.id) ? t('templates.usedBy').replace('{count}', (templateUsageMap.get(template.id) || 0).toString()) : undefined}
+          >
+            {deletingTemplateId !== template.id && <Trash2 className="w-3 h-3" />}
+          </LoadingButton>
         </div>
       </div>
     </div>
@@ -884,8 +910,13 @@ export default function TemplatesPage() {
                   onEdit={handleEditClick}
                   onPreview={handlePreviewClick}
                   onConfigure={handleConfigureClick}
+                  onDelete={requestDelete}
                   getTemplateUrl={getTemplateUrl}
                   isConfiguring={configuringTemplateId === template.id}
+                  canDelete={canDelete}
+                  templateUsageMap={templateUsageMap}
+                  deletingTemplateId={deletingTemplateId}
+                  t={t}
                 />
               ))}
             </div>

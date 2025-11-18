@@ -339,43 +339,60 @@ export default function PublicCertificatePage() {
 
             {/* Certificate Card */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-              {/* Top: Certificate Images - Side by Side */}
+              {/* Top: Certificate Images - Centered for single, side by side for double */}
               <div className="p-4 bg-gray-50 dark:bg-gray-900">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Main Certificate Image */}
-                  {certificate.certificate_image_url ? (
-                    <div className="relative w-full">
+                {/* Single-sided: Center the certificate image */}
+                {!certificate.score_image_url && certificate.certificate_image_url ? (
+                  <div className="flex justify-center">
+                    <div className="relative w-full max-w-4xl">
                       <Image
                         src={certificate.certificate_image_url}
                         alt="Certificate"
-                        width={800}
-                        height={600}
+                        width={1200}
+                        height={900}
                         className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
                         priority
                       />
                     </div>
-                  ) : (
-                    <div className="w-full h-48 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-                      <div className="text-center">
-                        <FileText className="w-12 h-12 mx-auto mb-2" />
-                        <p className="text-sm">No preview available</p>
+                  </div>
+                ) : (
+                  /* Double-sided: Side by side layout */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Main Certificate Image */}
+                    {certificate.certificate_image_url ? (
+                      <div className="relative w-full">
+                        <Image
+                          src={certificate.certificate_image_url}
+                          alt="Certificate"
+                          width={800}
+                          height={600}
+                          className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+                          priority
+                        />
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* Score Image (if exists) */}
-                  {certificate.score_image_url && (
-                    <div className="relative w-full">
-                      <Image
-                        src={certificate.score_image_url}
-                        alt="Score"
-                        width={800}
-                        height={600}
-                        className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
-                      />
-                    </div>
-                  )}
-                </div>
+                    ) : (
+                      <div className="w-full h-48 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+                        <div className="text-center">
+                          <FileText className="w-12 h-12 mx-auto mb-2" />
+                          <p className="text-sm">No preview available</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Score Image */}
+                    {certificate.score_image_url && (
+                      <div className="relative w-full">
+                        <Image
+                          src={certificate.score_image_url}
+                          alt="Score"
+                          width={800}
+                          height={600}
+                          className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Bottom: Certificate Details */}

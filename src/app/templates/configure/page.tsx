@@ -2440,7 +2440,7 @@ function ConfigureLayoutContent() {
                         : 'hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                   >
-                    Certificate
+                    Front
                   </Button>
                   <Button
                     variant={configMode === 'score' ? 'default' : 'ghost'}
@@ -2452,7 +2452,7 @@ function ConfigureLayoutContent() {
                         : 'hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                   >
-                    Score
+                    Back
                   </Button>
                 </div>
               )}

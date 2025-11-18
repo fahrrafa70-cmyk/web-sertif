@@ -1428,21 +1428,23 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                     {previewCert.certificate_image_url ? (
                       (() => {
                         const isExpired = isCertificateExpired(previewCert);
+                        // CRITICAL: Use WebP thumbnail for view full image (faster loading), fallback to PNG master
+                        const imageUrl = previewCert.certificate_thumbnail_url || previewCert.certificate_image_url;
                         return (
                           <div
                             className={`relative w-full ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
                             role={isExpired ? undefined : "button"}
                             tabIndex={isExpired ? undefined : 0}
                             onClick={() => {
-                              if (!isExpired && previewCert.certificate_image_url) {
-                                handleOpenImagePreview(previewCert.certificate_image_url, previewCert.updated_at);
+                              if (!isExpired && imageUrl) {
+                                handleOpenImagePreview(imageUrl, previewCert.updated_at);
                               }
                             }}
                             onKeyDown={(e) => {
                               if (!isExpired && (e.key === 'Enter' || e.key === ' ')) {
                                 e.preventDefault();
-                                if (previewCert.certificate_image_url) {
-                                  handleOpenImagePreview(previewCert.certificate_image_url, previewCert.updated_at);
+                                if (imageUrl) {
+                                  handleOpenImagePreview(imageUrl, previewCert.updated_at);
                                 }
                               }
                             }}
