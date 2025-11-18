@@ -16,7 +16,7 @@ interface ColumnMappingUIProps {
   scoreLayers: TextLayerConfig[];
   availableColumns: string[];
   columnMapping: Record<string, string>;
-  sampleData?: Record<string, any>;
+  sampleData?: Record<string, unknown>;
   onChange: (layerId: string, columnName: string) => void;
 }
 

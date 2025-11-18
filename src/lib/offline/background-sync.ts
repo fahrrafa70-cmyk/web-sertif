@@ -9,7 +9,7 @@ interface OfflineAction {
   id: string;
   type: 'certificate' | 'member' | 'template';
   action: 'create' | 'update' | 'delete';
-  data: any;
+  data: unknown;
   timestamp: number;
   retryCount: number;
   maxRetries: number;
@@ -18,7 +18,7 @@ interface OfflineAction {
 interface SyncResult {
   success: boolean;
   error?: string;
-  data?: any;
+  data?: unknown;
 }
 
 class BackgroundSyncManager {
@@ -99,7 +99,7 @@ class BackgroundSyncManager {
   async queueAction(
     type: 'certificate' | 'member' | 'template',
     action: 'create' | 'update' | 'delete',
-    data: any,
+    data: unknown,
     maxRetries: number = 5
   ): Promise<string> {
     const actionId = `${type}-${action}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -268,7 +268,7 @@ class BackgroundSyncManager {
    */
   private async executeAction(action: OfflineAction): Promise<SyncResult> {
     try {
-      let result: any;
+      let result: unknown;
 
       switch (action.type) {
         case 'certificate':
@@ -296,17 +296,19 @@ class BackgroundSyncManager {
   /**
    * Execute certificate actions
    */
-  private async executeCertificateAction(action: OfflineAction): Promise<any> {
+  private async executeCertificateAction(action: OfflineAction): Promise<unknown> {
     const { createCertificate, updateCertificate, deleteCertificate } = 
       await import('@/lib/supabase/certificates');
 
     switch (action.action) {
       case 'create':
-        return createCertificate(action.data);
+        return createCertificate(action.data as Parameters<typeof createCertificate>[0]);
       case 'update':
-        return updateCertificate(action.data.id, action.data.updates);
+        const updateData = action.data as { id: string; updates: Record<string, unknown> };
+        return updateCertificate(updateData.id, updateData.updates);
       case 'delete':
-        return deleteCertificate(action.data.id);
+        const deleteData = action.data as { id: string };
+        return deleteCertificate(deleteData.id);
       default:
         throw new Error(`Unknown certificate action: ${action.action}`);
     }
@@ -315,17 +317,19 @@ class BackgroundSyncManager {
   /**
    * Execute member actions
    */
-  private async executeMemberAction(action: OfflineAction): Promise<any> {
+  private async executeMemberAction(action: OfflineAction): Promise<unknown> {
     const { createMember, updateMember, deleteMember } = 
       await import('@/lib/supabase/members');
 
     switch (action.action) {
       case 'create':
-        return createMember(action.data);
+        return createMember(action.data as Parameters<typeof createMember>[0]);
       case 'update':
-        return updateMember(action.data.id, action.data.updates);
+        const updateData = action.data as { id: string; updates: Record<string, unknown> };
+        return updateMember(updateData.id, updateData.updates);
       case 'delete':
-        return deleteMember(action.data.id);
+        const deleteData = action.data as { id: string };
+        return deleteMember(deleteData.id);
       default:
         throw new Error(`Unknown member action: ${action.action}`);
     }
@@ -334,7 +338,7 @@ class BackgroundSyncManager {
   /**
    * Execute template actions
    */
-  private async executeTemplateAction(action: OfflineAction): Promise<any> {
+  private async executeTemplateAction(_action: OfflineAction): Promise<unknown> {
     // Implement template actions when available
     throw new Error('Template actions not implemented yet');
   }
@@ -343,7 +347,8 @@ class BackgroundSyncManager {
    * Show feedback for queued actions
    */
   private showQueuedFeedback(type: string, action: string): void {
-    const { toast } = require('sonner');
+    // Dynamic import to avoid SSR issues
+    import('sonner').then(({ toast }) => {
     
     const messages = {
       create: `${type} will be created when back online`,
@@ -351,9 +356,10 @@ class BackgroundSyncManager {
       delete: `${type} will be deleted when back online`
     };
 
-    toast.info(messages[action as keyof typeof messages] || 'Action queued for sync', {
-      duration: 3000,
-      icon: '📱'
+      toast.info(messages[action as keyof typeof messages] || 'Action queued for sync', {
+        duration: 3000,
+        icon: '📱'
+      });
     });
   }
 
@@ -361,7 +367,8 @@ class BackgroundSyncManager {
    * Show sync results
    */
   private showSyncResults(successCount: number, failureCount: number): void {
-    const { toast } = require('sonner');
+    // Dynamic import to avoid SSR issues
+    import('sonner').then(({ toast }) => {
 
     if (successCount > 0 && failureCount === 0) {
       toast.success(`✅ Synced ${successCount} action${successCount > 1 ? 's' : ''}`, {
@@ -376,6 +383,7 @@ class BackgroundSyncManager {
         duration: 5000
       });
     }
+    });
   }
 
   /**

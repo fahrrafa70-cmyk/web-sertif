@@ -123,5 +123,5 @@ export const lightweightRenderCache = new LightweightRenderCache();
 
 // Export for debugging
 if (typeof window !== 'undefined') {
-  (window as any).lightweightRenderCache = lightweightRenderCache;
+  (window as Window & { lightweightRenderCache?: LightweightRenderCache }).lightweightRenderCache = lightweightRenderCache;
 }

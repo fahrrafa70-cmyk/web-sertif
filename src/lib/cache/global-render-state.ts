@@ -370,5 +370,5 @@ export const globalRenderState = new GlobalRenderStateManager();
 
 // Export for debugging
 if (typeof window !== 'undefined') {
-  (window as any).globalRenderState = globalRenderState;
+  (window as Window & { globalRenderState?: GlobalRenderStateManager }).globalRenderState = globalRenderState;
 }

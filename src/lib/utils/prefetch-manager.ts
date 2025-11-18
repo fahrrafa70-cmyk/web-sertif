@@ -5,7 +5,25 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useCallback, useRef } from 'react';
-import { queryClient, prefetchQueries } from '@/lib/react-query/client';
+// import { queryClient, prefetchQueries } from '@/lib/react-query/client'; // TODO: Implement React Query
+
+// Placeholder for React Query - replace with actual implementation
+const prefetchQueries = {
+  certificates: {
+    categories: () => {/* TODO: Implement */}
+  },
+  templates: {
+    categories: () => {/* TODO: Implement */}
+  }
+};
+
+const queryClient = {
+  prefetchQuery: (_options: {
+    queryKey: unknown[];
+    queryFn: () => Promise<unknown>;
+    staleTime?: number;
+  }) => Promise.resolve()
+};
 
 interface PrefetchConfig {
   routes: string[];
@@ -22,11 +40,11 @@ class PrefetchManager {
   /**
    * Prefetch a route with Next.js router
    */
-  async prefetchRoute(router: any, route: string, priority: 'high' | 'low' = 'low') {
+  async prefetchRoute(router: { prefetch: (route: string) => void }, route: string, _priority: 'high' | 'low' = 'low') {
     if (this.prefetchedRoutes.has(route)) return;
 
     try {
-      await router.prefetch(route);
+      router.prefetch(route);
       this.prefetchedRoutes.add(route);
       console.log(`🚀 Prefetched route: ${route}`);
     } catch (error) {
@@ -132,7 +150,7 @@ export function usePrefetch(config: PrefetchConfig) {
 
   return {
     prefetchRoute: (route: string) => prefetchManager.prefetchRoute(router, route, 'high'),
-    prefetchData: prefetchQueries,
+    prefetchData: () => {/* TODO: Implement data prefetching */},
   };
 }
 

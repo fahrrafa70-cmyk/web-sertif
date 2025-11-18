@@ -69,7 +69,7 @@ export function EditorSkeleton() {
 }
 
 // Wrapper components with Suspense
-export function DataTableWithSuspense(props: any) {
+export function DataTableWithSuspense(props: React.ComponentPropsWithoutRef<typeof LazyDataTable>) {
   return (
     <Suspense fallback={<TableSkeleton />}>
       <LazyDataTable {...props} />
@@ -77,7 +77,7 @@ export function DataTableWithSuspense(props: any) {
   );
 }
 
-export function QuickGenerateModalWithSuspense(props: any) {
+export function QuickGenerateModalWithSuspense(props: React.ComponentPropsWithoutRef<typeof LazyQuickGenerateModal>) {
   return (
     <Suspense fallback={<ModalSkeleton />}>
       <LazyQuickGenerateModal {...props} />
@@ -85,7 +85,7 @@ export function QuickGenerateModalWithSuspense(props: any) {
   );
 }
 
-export function ColumnMappingUIWithSuspense(props: any) {
+export function ColumnMappingUIWithSuspense(props: React.ComponentPropsWithoutRef<typeof LazyColumnMappingUI>) {
   return (
     <Suspense fallback={<ModalSkeleton />}>
       <LazyColumnMappingUI {...props} />
@@ -93,7 +93,7 @@ export function ColumnMappingUIWithSuspense(props: any) {
   );
 }
 
-export function RichTextEditorWithSuspense(props: any) {
+export function RichTextEditorWithSuspense(props: React.ComponentPropsWithoutRef<typeof LazyRichTextEditor>) {
   return (
     <Suspense fallback={<EditorSkeleton />}>
       <LazyRichTextEditor {...props} />

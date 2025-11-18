@@ -287,5 +287,5 @@ export const templateImageCache = new TemplateImageCacheManager();
 
 // Export for debugging
 if (typeof window !== 'undefined') {
-  (window as any).templateImageCache = templateImageCache;
+  (window as Window & { templateImageCache?: TemplateImageCacheManager }).templateImageCache = templateImageCache;
 }

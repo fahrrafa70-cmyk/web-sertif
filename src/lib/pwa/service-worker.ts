@@ -279,7 +279,7 @@ class PWAManager {
   /**
    * Handle service worker messages
    */
-  private handleServiceWorkerMessage(data: any): void {
+  private handleServiceWorkerMessage(data: { type: string; url?: string }): void {
     console.log('📨 Message from Service Worker:', data);
     
     if (data.type === 'CACHE_UPDATED') {
@@ -295,8 +295,9 @@ class PWAManager {
   private async syncOfflineActions(): Promise<void> {
     if (this.registration && 'sync' in this.registration) {
       try {
-        await (this.registration as any).sync.register('certificate-actions');
-        await (this.registration as any).sync.register('member-actions');
+        const syncManager = (this.registration as ServiceWorkerRegistration & { sync: { register: (tag: string) => Promise<void> } }).sync;
+        await syncManager.register('certificate-actions');
+        await syncManager.register('member-actions');
         console.log('🔄 Background sync registered');
       } catch (error) {
         console.error('❌ Background sync registration failed:', error);
@@ -314,7 +315,7 @@ class PWAManager {
     }
     
     // Check if running in PWA mode on iOS
-    if ((window.navigator as any).standalone === true) {
+    if ((window.navigator as Navigator & { standalone?: boolean }).standalone === true) {
       return true;
     }
     
@@ -327,7 +328,7 @@ class PWAManager {
   private trackInstallation(): void {
     // Track PWA installation
     if (typeof window !== 'undefined' && 'gtag' in window) {
-      (window as any).gtag('event', 'pwa_install', {
+      (window as Window & { gtag?: (...args: unknown[]) => void }).gtag?.('event', 'pwa_install', {
         event_category: 'PWA',
         event_label: 'App Installed'
       });

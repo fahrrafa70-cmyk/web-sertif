@@ -141,9 +141,9 @@ function ConfigureLayoutContent() {
         // 🔄 AUTO-MIGRATE: Set description as default text layer if exists
         // ONLY for layer with id === 'description'
         if (existingLayout?.certificate?.textLayers) {
-          const hasDescription = existingLayout.certificate.textLayers.some((layer: any) => layer.id === 'description');
+          const hasDescription = existingLayout.certificate.textLayers.some((layer: TextLayerConfig) => layer.id === 'description');
           
-          existingLayout.certificate.textLayers = existingLayout.certificate.textLayers.map((layer: any) => {
+          existingLayout.certificate.textLayers = existingLayout.certificate.textLayers.map((layer: TextLayerConfig) => {
             // Only migrate if id is exactly 'description'
             if (layer.id === 'description') {
               console.log('🔄 Setting description as default text layer');
@@ -181,14 +181,14 @@ function ConfigureLayoutContent() {
               visible: true,
               defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
               useDefaultText: true,
-            } as any);
+            } as TextLayerConfig);
           }
         }
         
         if (existingLayout?.score?.textLayers) {
-          const hasDescription = existingLayout.score.textLayers.some((layer: any) => layer.id === 'description');
+          const hasDescription = existingLayout.score.textLayers.some((layer: TextLayerConfig) => layer.id === 'description');
           
-          existingLayout.score.textLayers = existingLayout.score.textLayers.map((layer: any) => {
+          existingLayout.score.textLayers = existingLayout.score.textLayers.map((layer: TextLayerConfig) => {
             // Only migrate if id is exactly 'description'
             if (layer.id === 'description') {
               console.log('🔄 Setting score description as default text layer');
@@ -226,7 +226,7 @@ function ConfigureLayoutContent() {
               visible: true,
               defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
               useDefaultText: true,
-            } as any);
+            } as TextLayerConfig);
           }
         }
         
@@ -2112,7 +2112,7 @@ function ConfigureLayoutContent() {
                 )}
                 
                 {/* Text Layers */}
-                {textLayers.filter((layer: any) => layer.visible !== false).map((layer: any) => {
+                {textLayers.filter((layer: TextLayerConfig) => layer.visible !== false).map((layer: TextLayerConfig) => {
                   const plainText = previewTexts[layer.id] || 
                                     layer.defaultText || 
                                     DUMMY_DATA[layer.id as keyof typeof DUMMY_DATA] || 
@@ -2128,7 +2128,7 @@ function ConfigureLayoutContent() {
                       const domScale = isDesktop ? templateScale : templateScale * canvasScale;
 
                       // Render with inline formatting
-                      return layer.richText.map((span: any, idx: any) => {
+                      return layer.richText.map((span: { text: string; fontWeight?: string; fontStyle?: string; fontSize?: number }, idx: number) => {
                         const style = span.fontStyle || layer.fontStyle || 'normal';
                         const isDecoration = style === 'underline' || style === 'line-through' || style === 'overline';
                         

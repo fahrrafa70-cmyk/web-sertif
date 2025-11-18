@@ -30,7 +30,7 @@ interface TemplateCardProps {
   deletingTemplateId: string | null;
   onEdit: (template: Template) => void;
   onDelete: (templateId: string) => void;
-  router: any;
+  router: { push: (path: string) => void };
   t: (key: string) => string;
 }
 

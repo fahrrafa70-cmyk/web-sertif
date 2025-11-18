@@ -6,16 +6,34 @@
 import { Certificate } from '@/lib/supabase/certificates';
 
 // Type definitions for lazy-loaded libraries
-type JsPDF = any;
-type Html2Canvas = any;
+type JsPDFOptions = {
+  orientation?: 'p' | 'l';
+  unit?: 'pt' | 'mm' | 'cm' | 'in';
+  format?: string | [number, number];
+  compress?: boolean;
+};
+
+type JsPDF = {
+  internal: {
+    pageSize: {
+      getWidth(): number;
+      getHeight(): number;
+    };
+  };
+  addImage(imageData: string, format: string, x: number, y: number, width: number, height: number, alias?: string, compression?: string): void;
+  save(filename: string): void;
+  addPage(): void;
+};
+
+type Html2Canvas = (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
 
 /**
  * Lazy load jsPDF library (1.86 MB)
  * Only loads when user actually exports to PDF
  */
-async function loadJsPDF(): Promise<{ jsPDF: new (options?: any) => JsPDF }> {
-  const module = await import('jspdf');
-  return module;
+async function loadJsPDF(): Promise<{ jsPDF: new (options?: JsPDFOptions) => JsPDF }> {
+  const pdfModule = await import('jspdf');
+  return pdfModule;
 }
 
 /**
@@ -23,8 +41,8 @@ async function loadJsPDF(): Promise<{ jsPDF: new (options?: any) => JsPDF }> {
  * Only loads when user needs to convert HTML to canvas
  */
 async function loadHtml2Canvas(): Promise<Html2Canvas> {
-  const module = await import('html2canvas');
-  return module.default;
+  const canvasModule = await import('html2canvas');
+  return canvasModule.default;
 }
 
 /**

@@ -8,7 +8,7 @@ import { memo, useCallback, useMemo, useRef, useEffect } from 'react';
 /**
  * Enhanced memo with custom comparison function
  */
-export function createMemoComponent<T extends Record<string, any>>(
+export function createMemoComponent<T extends Record<string, unknown>>(
   Component: React.ComponentType<T>,
   propsAreEqual?: (prevProps: T, nextProps: T) => boolean
 ) {
@@ -20,7 +20,7 @@ export function createMemoComponent<T extends Record<string, any>>(
 /**
  * Shallow comparison for props (useful for memo)
  */
-export function shallowEqual<T extends Record<string, any>>(
+export function shallowEqual<T extends Record<string, unknown>>(
   prevProps: T,
   nextProps: T,
   ignoreKeys: (keyof T)[] = []
@@ -46,7 +46,7 @@ export function shallowEqual<T extends Record<string, any>>(
 /**
  * Deep comparison for complex objects (use sparingly)
  */
-export function deepEqual(a: any, b: any): boolean {
+export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   
   if (a == null || b == null) return false;
@@ -55,14 +55,14 @@ export function deepEqual(a: any, b: any): boolean {
   
   if (typeof a !== 'object') return false;
   
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
+  const keysA = Object.keys(a as Record<string, unknown>);
+  const keysB = Object.keys(b as Record<string, unknown>);
   
   if (keysA.length !== keysB.length) return false;
   
   for (const key of keysA) {
     if (!keysB.includes(key)) return false;
-    if (!deepEqual(a[key], b[key])) return false;
+    if (!deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false;
   }
   
   return true;
@@ -71,15 +71,14 @@ export function deepEqual(a: any, b: any): boolean {
 /**
  * Stable callback hook - prevents unnecessary re-renders
  */
-export function useStableCallback<T extends (...args: any[]) => any>(
-  callback: T,
-  deps: React.DependencyList
+export function useStableCallback<T extends (...args: unknown[]) => unknown>(
+  callback: T
 ): T {
   const callbackRef = useRef(callback);
   
   useEffect(() => {
     callbackRef.current = callback;
-  }, deps);
+  }, [callback]);
   
   return useCallback((...args: Parameters<T>) => {
     return callbackRef.current(...args);
@@ -89,25 +88,21 @@ export function useStableCallback<T extends (...args: any[]) => any>(
 /**
  * Memoized event handlers factory
  */
-export function useEventHandlers<T extends Record<string, (...args: any[]) => any>>(
+export function useEventHandlers<T extends Record<string, (...args: unknown[]) => unknown>>(
   handlers: T,
-  deps: React.DependencyList
+  _deps?: React.DependencyList
 ): T {
-  return useMemo(() => {
-    const memoizedHandlers = {} as any;
-    
-    for (const [key, handler] of Object.entries(handlers)) {
-      memoizedHandlers[key] = useCallback(handler, deps);
-    }
-    
-    return memoizedHandlers as T;
-  }, deps);
+  // Simply memoize the entire handlers object
+  // Individual handler memoization should be done by the caller
+  // Note: We use a fixed dependency array to avoid spread issues
+  // Callers should ensure handlers are stable references
+  return useMemo(() => handlers, [handlers]);
 }
 
 /**
  * Performance monitoring hook
  */
-export function useRenderTracker(componentName: string, props?: Record<string, any>) {
+export function useRenderTracker(componentName: string, props?: Record<string, unknown>) {
   const renderCount = useRef(0);
   const lastRenderTime = useRef(Date.now());
   
@@ -203,8 +198,8 @@ interface CertificateCardProps {
     issue_date: string;
     certificate_image_url?: string;
   };
-  onClick?: (certificate: any) => void;
-  onExport?: (certificate: any) => void;
+  onClick?: (certificate: CertificateCardProps['certificate']) => void;
+  onExport?: (certificate: CertificateCardProps['certificate']) => void;
   className?: string;
 }
 
@@ -217,12 +212,12 @@ export const MemoizedCertificateCard = memo(function CertificateCard({
   // Memoize event handlers to prevent child re-renders
   const handleClick = useCallback(() => {
     onClick?.(certificate);
-  }, [onClick, certificate.id]);
+  }, [onClick, certificate]);
 
   const handleExport = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onExport?.(certificate);
-  }, [onExport, certificate.id]);
+  }, [onExport, certificate]);
 
   // Memoize formatted date
   const formattedDate = useMemo(() => {

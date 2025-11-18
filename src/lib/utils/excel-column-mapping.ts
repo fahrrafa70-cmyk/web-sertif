@@ -23,7 +23,7 @@ export function normalizeColumnName(name: string): string {
  * Build column mapping from Excel row
  * Maps normalized column names to original column names
  */
-export function buildColumnMapping(excelRow: Record<string, any>): Record<string, string> {
+export function buildColumnMapping(excelRow: Record<string, unknown>): Record<string, string> {
   const mapping: Record<string, string> = {};
   
   Object.keys(excelRow).forEach(columnName => {
@@ -110,7 +110,7 @@ export function findSimilarColumn(
  * Detect extra/unknown columns in Excel
  */
 export function detectExtraColumns(
-  excelRow: Record<string, any>,
+  excelRow: Record<string, unknown>,
   expectedColumns: string[]
 ): { extra: string[]; similar: Record<string, string> } {
   const excelColumns = Object.keys(excelRow).filter(col => !col.startsWith('__EMPTY'));
@@ -146,16 +146,16 @@ export function detectExtraColumns(
  * @param similarityThreshold - Minimum similarity score for fuzzy matching (default: 0.8)
  */
 export function matchExcelRows(
-  certificateData: Array<Record<string, any>>,
-  scoreData: Array<Record<string, any>>,
+  certificateData: Array<Record<string, unknown>>,
+  scoreData: Array<Record<string, unknown>>,
   enableSmartMatching: boolean = true,
   similarityThreshold: number = 0.8
 ): {
-  matched: Array<{ cert: Record<string, any>; score: Record<string, any>; matchType: string }>;
-  unmatched: Array<Record<string, any>>;
+  matched: Array<{ cert: Record<string, unknown>; score: Record<string, unknown>; matchType: string }>;
+  unmatched: Array<Record<string, unknown>>;
 } {
-  const matched: Array<{ cert: Record<string, any>; score: Record<string, any>; matchType: string }> = [];
-  const unmatched: Array<Record<string, any>> = [];
+  const matched: Array<{ cert: Record<string, unknown>; score: Record<string, unknown>; matchType: string }> = [];
+  const unmatched: Array<Record<string, unknown>> = [];
   
   console.log('🔍 Matching Excel Rows (Smart Matching):', {
     certificateCount: certificateData.length,
@@ -260,7 +260,7 @@ export function matchExcelRows(
  * Extract score data from Excel row using column mapping
  */
 export function extractScoreDataWithMapping(
-  scoreRow: Record<string, any>,
+  scoreRow: Record<string, unknown>,
   columnMapping: Record<string, string>
 ): Record<string, string> {
   const scoreData: Record<string, string> = {};

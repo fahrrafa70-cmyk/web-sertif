@@ -133,7 +133,7 @@ export class PositioningDebugger {
   /**
    * Generate recommendation berdasarkan positioning differences
    */
-  private static getRecommendation(maxOffset: number, differences: any): string {
+  private static getRecommendation(maxOffset: number, differences: { x: number; y: number; visualX: number; visualY: number }): string {
     if (maxOffset <= 1) {
       return 'Perfect accuracy! No changes needed.';
     } else if (maxOffset <= 2) {
@@ -223,7 +223,17 @@ export class PositioningDebugger {
  */
 export const logPreviewPositioning = (
   layerId: string,
-  layer: any,
+  layer: {
+    x: number;
+    y: number;
+    xPercent?: number;
+    yPercent?: number;
+    fontSize: number;
+    fontFamily: string;
+    fontWeight: string;
+    textAlign?: string;
+    maxWidth?: number;
+  },
   templateDimensions: { width: number; height: number },
   transform: string
 ) => {
@@ -264,7 +274,16 @@ export const logPreviewPositioning = (
  */
 export const logGenerationPositioning = (
   layerId: string,
-  layer: any,
+  layer: {
+    x?: number;
+    y?: number;
+    xPercent?: number;
+    yPercent?: number;
+    fontSize: number;
+    fontFamily: string;
+    fontWeight: string;
+    textAlign?: string;
+  },
   templateDimensions: { width: number; height: number },
   canvasContext: CanvasRenderingContext2D,
   calculatedX: number,

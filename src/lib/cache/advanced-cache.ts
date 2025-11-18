@@ -8,7 +8,7 @@ interface CacheEntry<T> {
   timestamp: number;
   ttl: number;
   version: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface CacheConfig {
@@ -19,7 +19,7 @@ interface CacheConfig {
 }
 
 class AdvancedCache {
-  private memoryCache = new Map<string, CacheEntry<any>>();
+  private memoryCache = new Map<string, CacheEntry<unknown>>();
   private dbName = 'ECertificateCache';
   private dbVersion = 1;
   private db: IDBDatabase | null = null;
@@ -118,7 +118,7 @@ class AdvancedCache {
     // Try memory cache first (fastest)
     const memoryEntry = this.memoryCache.get(key);
     if (memoryEntry && this.isEntryValid(memoryEntry)) {
-      return memoryEntry.data;
+      return memoryEntry.data as T;
     }
 
     // Try IndexedDB (persistent)
@@ -164,7 +164,7 @@ class AdvancedCache {
       
       if (staleEntry) {
         console.warn('Using stale cache data due to fetch error:', error);
-        return staleEntry.data;
+        return staleEntry.data as T;
       }
       
       throw error;
@@ -245,9 +245,9 @@ class AdvancedCache {
     let totalRequests = 0;
 
     for (const [, entry] of this.memoryCache) {
-      totalSize += entry.metadata?.size || 0;
-      hitCount += entry.metadata?.hits || 0;
-      totalRequests += entry.metadata?.requests || 0;
+      totalSize += (entry.metadata?.size as number) || 0;
+      hitCount += (entry.metadata?.hits as number) || 0;
+      totalRequests += (entry.metadata?.requests as number) || 0;
     }
 
     return {
@@ -261,7 +261,7 @@ class AdvancedCache {
   /**
    * Private helper methods
    */
-  private isEntryValid(entry: CacheEntry<any>): boolean {
+  private isEntryValid(entry: CacheEntry<unknown>): boolean {
     return Date.now() - entry.timestamp < entry.ttl;
   }
 
@@ -392,7 +392,7 @@ class AdvancedCache {
     });
   }
 
-  private calculateSize(data: any): number {
+  private calculateSize(data: unknown): number {
     try {
       return new Blob([JSON.stringify(data)]).size;
     } catch {
