@@ -1021,14 +1021,11 @@ function CertificatesContent() {
     
     // DUAL-FORMAT UPLOAD: PNG master + WebP preview
     console.log('🖼️ Generating thumbnail (WebP preview from PNG master)...');
-<<<<<<< HEAD
     
     // Generate paired XID filenames for certificate and score (same XID prefix)
     const { cert: certFileName, score: scoreFileName, xid } = generatePairedXIDFilenames();
     console.log(`📝 Generated XID: ${xid}`);
-=======
-    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
->>>>>>> 83e2b4f73a9209996df3f040f30298ea58e967a6
+
     
     // Generate WebP thumbnail for web preview (faster loading)
     const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
