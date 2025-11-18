@@ -844,7 +844,14 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
       srcRaw = `/${srcRaw}`;
     }
 
-    // Add cache bust for local paths if updated_at is available
+    // ✅ CRITICAL FIX: Strip existing query parameters from remote URLs (especially Supabase)
+    // This prevents Next.js Image optimization 400 errors
+    const isRemote = /^https?:\/\//i.test(srcRaw);
+    if (isRemote) {
+      srcRaw = srcRaw.split('?')[0]; // Remove any existing query parameters
+    }
+
+    // Add cache bust for local paths ONLY if updated_at is available
     const cacheBust = updatedAt && srcRaw.startsWith('/')
       ? `?v=${new Date(updatedAt).getTime()}`
       : '';
