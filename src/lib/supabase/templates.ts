@@ -194,11 +194,9 @@ export function getTemplateImageUrl(template: Template): string | null {
     return null;
   }
   
-  // ✅ PERFORMANCE FIX: Use version-based cache key instead of timestamp
-  // This enables browser caching while still allowing cache invalidation
-  // Only use template ID for cache versioning - no timestamp
-  const cacheVersion = `?v=${template.id}`;
-  return `${imagePath}${cacheVersion}`;
+  // ✅ FIX: Remove cache-busting parameter to allow Next.js Image optimization
+  // Browser will cache properly, and we can invalidate via redeployment if needed
+  return imagePath;
 }
 
 // Helper function to get template image URL without cache busting (for previews)
@@ -217,8 +215,9 @@ export function getTemplatePreviewUrl(template: Template): string | null {
   
   if (!src) return null;
   
-  // Simple cache versioning using template ID
-  return `${src}?v=${template.id}`;
+  // ✅ FIX: Remove cache-busting parameter to allow Next.js Image optimization
+  // Browser will cache properly, and we can invalidate via redeployment if needed
+  return src;
 }
 
 // Note: Image deletion is handled by the file system cleanup process
