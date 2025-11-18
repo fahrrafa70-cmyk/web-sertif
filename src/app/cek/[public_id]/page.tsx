@@ -21,6 +21,28 @@ export default function PublicCertificatePage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
+  // Remove all spacing to make header stick to top
+  useEffect(() => {
+    // Force remove body margin/padding with !important via setAttribute
+    const bodyStyle = document.body.style;
+    bodyStyle.setProperty('margin', '0', 'important');
+    bodyStyle.setProperty('padding', '0', 'important');
+    bodyStyle.setProperty('padding-top', '0', 'important');
+    
+    // Remove html margin/padding
+    const htmlStyle = document.documentElement.style;
+    htmlStyle.setProperty('margin', '0', 'important');
+    htmlStyle.setProperty('padding', '0', 'important');
+    
+    return () => {
+      bodyStyle.removeProperty('margin');
+      bodyStyle.removeProperty('padding');
+      bodyStyle.removeProperty('padding-top');
+      htmlStyle.removeProperty('margin');
+      htmlStyle.removeProperty('padding');
+    };
+  }, []);
+
   useEffect(() => {
     async function loadCertificate() {
       if (!public_id) {
@@ -236,7 +258,7 @@ export default function PublicCertificatePage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="min-h-screen w-full bg-white flex items-center justify-center" style={{ minHeight: '100vh', width: '100%', backgroundColor: '#ffffff' }}>
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Loading certificate...</p>
@@ -248,7 +270,7 @@ export default function PublicCertificatePage() {
   // Not found state
   if (notFound || !certificate) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center p-4">
+      <div className="min-h-screen w-full bg-white flex items-center justify-center p-4" style={{ minHeight: '100vh', width: '100%', backgroundColor: '#ffffff' }}>
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -274,19 +296,33 @@ export default function PublicCertificatePage() {
 
   // Success state - Display certificate
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex flex-col relative">
-      {/* Floating Back to Home Button */}
-      <Button
-        onClick={() => router.push('/')}
-        className="fixed top-6 right-6 z-50 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-lg hover:shadow-xl transition-all duration-200"
-        size="default"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Home
-      </Button>
+    <div style={{ margin: 0, padding: 0 }}>
+      {/* Header - Follows app theme */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm" style={{ margin: 0, padding: 0, position: 'sticky', top: 0, zIndex: 50 }}>
+        <div className="px-4 sm:px-6 py-4 sm:py-5">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            {/* Logo Icon with gradient background */}
+            <div className="relative flex-shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-xl sm:text-2xl tracking-tight">E</span>
+              </div>
+            </div>
+            
+            {/* Text */}
+            <div className="flex flex-col">
+              <span className="text-base sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                E-Certificate
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-medium text-gray-400 dark:text-gray-500 tracking-wider uppercase hidden sm:block">
+                Certification System
+              </span>
+            </div>
+          </div>
+        </div>
+      </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <div className="w-full max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -302,118 +338,131 @@ export default function PublicCertificatePage() {
             </div>
 
             {/* Certificate Card */}
-            <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-              {/* Left: Certificate Image */}
-              <div className="p-6 bg-gray-50 flex items-center justify-center">
-                {certificate.certificate_image_url ? (
-                  <div className="relative w-full">
-                    <Image
-                      src={certificate.certificate_image_url}
-                      alt="Certificate"
-                      width={800}
-                      height={600}
-                      className="w-full h-auto rounded-lg border-2 border-gray-200 shadow-md"
-                      priority
-                    />
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+              {/* Top: Certificate Images - Centered for single, side by side for double */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-900">
+                {/* Single-sided: Center the certificate image */}
+                {!certificate.score_image_url && certificate.certificate_image_url ? (
+                  <div className="flex justify-center">
+                    <div className="relative w-full max-w-4xl">
+                      <Image
+                        src={certificate.certificate_image_url}
+                        alt="Certificate"
+                        width={1200}
+                        height={900}
+                        className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+                        priority
+                      />
+                    </div>
                   </div>
                 ) : (
-                  <div className="w-full h-64 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 rounded-lg">
-                    <div className="text-center">
-                      <FileText className="w-16 h-16 mx-auto mb-2" />
-                      <p>No preview available</p>
-                    </div>
+                  /* Double-sided: Side by side layout */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Main Certificate Image */}
+                    {certificate.certificate_image_url ? (
+                      <div className="relative w-full">
+                        <Image
+                          src={certificate.certificate_image_url}
+                          alt="Certificate"
+                          width={800}
+                          height={600}
+                          className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+                          priority
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-full h-48 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+                        <div className="text-center">
+                          <FileText className="w-12 h-12 mx-auto mb-2" />
+                          <p className="text-sm">No preview available</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Score Image */}
+                    {certificate.score_image_url && (
+                      <div className="relative w-full">
+                        <Image
+                          src={certificate.score_image_url}
+                          alt="Score"
+                          width={800}
+                          height={600}
+                          className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Right: Certificate Details */}
-              <div className="p-8">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">Certificate Details</h2>
-
-                <div className="space-y-6">
-                  {/* Certificate Number */}
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-5 h-5 text-blue-600" />
+              {/* Bottom: Certificate Details */}
+              <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700">
+                {/* Top Row: Name (Left) and Certificate Number (Right) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {/* Recipient Name - Left */}
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <User className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Recipient</p>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500 mb-1">Certificate Number</p>
-                      <p className="text-lg font-semibold text-gray-900">{certificate.certificate_no}</p>
-                    </div>
-                  </div>
-
-                  {/* Recipient Name */}
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <User className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500 mb-1">Recipient</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {certificate.members?.name || certificate.name}
+                    <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                      {certificate.members?.name || certificate.name}
+                    </p>
+                    {certificate.members?.organization && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                        <Building2 className="w-4 h-4 mr-1 flex-shrink-0" />
+                        {certificate.members.organization}
                       </p>
-                      {certificate.members?.organization && (
-                        <p className="text-sm text-gray-600 mt-1 flex items-center">
-                          <Building2 className="w-4 h-4 mr-1" />
-                          {certificate.members.organization}
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
 
-                  {/* Category */}
-                  {certificate.category && (
-                    <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Tag className="w-5 h-5 text-orange-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-500 mb-1">Category</p>
-                        <p className="text-lg font-semibold text-gray-900">{certificate.category}</p>
-                      </div>
+                  {/* Certificate Number - Right */}
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Certificate Number</p>
                     </div>
-                  )}
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">{certificate.certificate_no}</p>
+                  </div>
+                </div>
 
+                {/* Grid 2 Columns for Dates */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   {/* Issue Date */}
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-5 h-5 text-green-600" />
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Calendar className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Issue Date</p>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500 mb-1">Issue Date</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {formatReadableDate(certificate.issue_date, language)}
-                      </p>
-                    </div>
+                    <p className="text-base font-semibold text-gray-900 dark:text-white">
+                      {formatReadableDate(certificate.issue_date, language)}
+                    </p>
                   </div>
 
                   {/* Expiry Date */}
                   {certificate.expired_date && (
-                    <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Clock className="w-5 h-5 text-red-600" />
+                    <div>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Clock className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Expiry Date</p>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-500 mb-1">Expiry Date</p>
-                        <p className="text-lg font-semibold text-gray-900">
-                          {formatReadableDate(certificate.expired_date, language)}
-                        </p>
-                      </div>
+                      <p className="text-base font-semibold text-gray-900 dark:text-white">
+                        {formatReadableDate(certificate.expired_date, language)}
+                      </p>
                     </div>
                   )}
 
-                  {/* Description */}
+                  {/* Description - Full Width if exists */}
                   {certificate.description && (
-                    <div className="pt-4 border-t border-gray-200">
-                      <p className="text-sm text-gray-500 mb-2">Description</p>
-                      <p className="text-gray-700">{certificate.description}</p>
+                    <div className="md:col-span-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Description</p>
+                      <p className="text-base text-gray-700 dark:text-gray-300">{certificate.description}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Action Buttons */}
-                <div className="mt-8 space-y-3">
+                <div className="mt-4 space-y-2">
                   <div className="grid grid-cols-2 gap-3">
                     <Button
                       onClick={exportToPDF}
@@ -436,23 +485,22 @@ export default function PublicCertificatePage() {
                   <div className="grid grid-cols-2 gap-3">
                     <Button
                       onClick={copyPublicLink}
-                      variant="outline"
-                      className="border-gray-300"
+                      className="bg-white text-gray-900 border border-gray-200 shadow-md hover:shadow-lg transition-shadow"
+                      size="lg"
                     >
                       <Link2 className="w-4 h-4 mr-2" />
                       Copy Link
                     </Button>
                     <Button
                       onClick={shareCertificate}
-                      variant="outline"
-                      className="border-gray-300"
+                      className="bg-white text-gray-900 border border-gray-200 shadow-md hover:shadow-lg transition-shadow"
+                      size="lg"
                     >
                       <Share2 className="w-4 h-4 mr-2" />
                       Share
                     </Button>
                   </div>
                 </div>
-              </div>
               </div>
             </div>
 

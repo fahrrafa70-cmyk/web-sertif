@@ -4,7 +4,11 @@ import { useState, useEffect, useCallback, useRef, Suspense, useMemo, memo } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+<<<<<<< HEAD
 import { ArrowLeft, ArrowRight, Search, Filter, X as XIcon, Download, ChevronDown, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail, ChevronLeft, ChevronRight } from "lucide-react";
+=======
+import { ArrowLeft, ArrowRight, Search, Filter, X as XIcon, Download, ChevronDown, ChevronLeft, ChevronRight, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail } from "lucide-react";
+>>>>>>> 83e2b4f73a9209996df3f040f30298ea58e967a6
 import { useLanguage } from "@/contexts/language-context";
 import { useModal } from "@/contexts/modal-context";
 import { toast } from "sonner";
@@ -786,12 +790,18 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
   }, [sendCert, sendPreviewSrc, sendForm, isSendingEmail, t]);
 
   // Capitalize first letter helper
-  // Pagination calculations
-  const totalItems = searchResults.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentResults = searchResults.slice(startIndex, endIndex);
+  // Pagination calculations - Memoized to prevent re-calculation on every render
+  const paginationData = useMemo(() => {
+    const totalItems = searchResults.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const currentResults = searchResults.slice(startIndex, endIndex);
+    
+    return { totalItems, totalPages, startIndex, endIndex, currentResults };
+  }, [searchResults, currentPage, ITEMS_PER_PAGE]);
+  
+  const { totalItems, totalPages, startIndex, endIndex, currentResults } = paginationData;
 
   // Optimized input handlers to prevent lag
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -913,10 +923,6 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
     index?: number;
     expiredOverlayUrl: string | null;
   }) => {
-    const handleClick = useCallback(() => {
-      onPreview(certificate);
-    }, [certificate, onPreview]);
-
     const formattedDate = useMemo(() => {
       if (!certificate.issue_date) return null;
       return formatReadableDate(certificate.issue_date, language);
@@ -934,8 +940,8 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
 
     return (
       <div
-        onClick={handleClick}
-        className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 ease-in-out cursor-pointer flex flex-row h-[180px] transform will-change-transform relative"
+        onClick={() => onPreview(certificate)}
+        className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-[transform,box-shadow] duration-200 ease-out cursor-pointer flex flex-row h-[180px] will-change-transform relative"
       >
         {/* Certificate Thumbnail - Left Side - Fixed background to prevent flicker */}
         {/* FINAL FIX: Use same approach as template page - Tailwind class directly */}
@@ -1279,7 +1285,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                   onPreview={handlePreview}
                   language={language}
                   t={t}
-                  index={startIndex + index} // Adjust index for pagination
+                  index={index} // Use local index for priority loading (0-8 per page)
                   expiredOverlayUrl={expiredOverlayUrl}
                 />
               ))}
@@ -1426,21 +1432,23 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                     {previewCert.certificate_image_url ? (
                       (() => {
                         const isExpired = isCertificateExpired(previewCert);
+                        // CRITICAL: Use WebP thumbnail for view full image (faster loading), fallback to PNG master
+                        const imageUrl = previewCert.certificate_thumbnail_url || previewCert.certificate_image_url;
                         return (
                           <div
                             className={`relative w-full ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
                             role={isExpired ? undefined : "button"}
                             tabIndex={isExpired ? undefined : 0}
                             onClick={() => {
-                              if (!isExpired && previewCert.certificate_image_url) {
-                                handleOpenImagePreview(previewCert.certificate_image_url, previewCert.updated_at);
+                              if (!isExpired && imageUrl) {
+                                handleOpenImagePreview(imageUrl, previewCert.updated_at);
                               }
                             }}
                             onKeyDown={(e) => {
                               if (!isExpired && (e.key === 'Enter' || e.key === ' ')) {
                                 e.preventDefault();
-                                if (previewCert.certificate_image_url) {
-                                  handleOpenImagePreview(previewCert.certificate_image_url, previewCert.updated_at);
+                                if (imageUrl) {
+                                  handleOpenImagePreview(imageUrl, previewCert.updated_at);
                                 }
                               }
                             }}
