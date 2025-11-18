@@ -1315,12 +1315,12 @@ function CertificatesContent() {
           const scoreReduction = calculateSizeReduction(scoreOriginalSize, scoreThumbnailSize);
           console.log(`✅ Score thumbnail generated: ${Math.round(scoreOriginalSize/1024)}KB → ${Math.round(scoreThumbnailSize/1024)}KB (${scoreReduction} reduction)`);
           
-<<<<<<< HEAD
-=======
+
+
           // Generate unique ID for score image (separate from certificate)
           const scoreUniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
           
->>>>>>> 83e2b4f73a9209996df3f040f30298ea58e967a6
+
           // Upload PNG score master
           console.log('📤 Uploading PNG score master to Supabase Storage...');
           const scorePngFileName = scoreFileName;
