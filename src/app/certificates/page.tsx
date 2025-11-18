@@ -1025,6 +1025,7 @@ function CertificatesContent() {
     // Generate paired XID filenames for certificate and score (same XID prefix)
     const { cert: certFileName, score: scoreFileName, xid } = generatePairedXIDFilenames();
     console.log(`📝 Generated XID: ${xid}`);
+
     
     // Generate WebP thumbnail for web preview (faster loading)
     const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
@@ -1313,8 +1314,13 @@ function CertificatesContent() {
           const scoreThumbnailSize = estimateDataUrlSize(scoreThumbnail);
           const scoreReduction = calculateSizeReduction(scoreOriginalSize, scoreThumbnailSize);
           console.log(`✅ Score thumbnail generated: ${Math.round(scoreOriginalSize/1024)}KB → ${Math.round(scoreThumbnailSize/1024)}KB (${scoreReduction} reduction)`);
+          
+
+
           // Generate unique ID for score image (separate from certificate)
           const scoreUniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+          
+
           // Upload PNG score master
           console.log('📤 Uploading PNG score master to Supabase Storage...');
           const scorePngFileName = scoreFileName;
