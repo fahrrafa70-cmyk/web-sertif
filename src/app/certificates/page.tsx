@@ -2267,7 +2267,18 @@ function CertificatesContent() {
         open={!!isEditOpen}
         onOpenChange={(o) => setIsEditOpen(o ? isEditOpen : null)}
       >
-        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 data-[state=open]:bg-white data-[state=open]:dark:bg-gray-800">
+        <DialogContent 
+          className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 data-[state=open]:bg-white data-[state=open]:dark:bg-gray-800"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              submitEdit();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setIsEditOpen(null);
+            }
+          }}
+        >
           {/* Header */}
           <DialogHeader className="px-5 pt-4 pb-3 pr-12 border-b border-gray-200 dark:border-gray-700">
             <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-100">
@@ -2288,6 +2299,7 @@ function CertificatesContent() {
                   onChange={(e) =>
                     setDraft((d) => (d ? { ...d, name: e.target.value } : d))
                   }
+                  onFocus={(e) => e.target.select()}
                   className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
                   placeholder="Naufal Hafizh Ghani Afandi"
                 />
@@ -2307,6 +2319,7 @@ function CertificatesContent() {
                         d ? { ...d, issue_date: e.target.value } : d,
                       )
                     }
+                    onFocus={(e) => e.target.select()}
                     className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
                   />
                 </div>
@@ -2323,6 +2336,7 @@ function CertificatesContent() {
                         d ? { ...d, expired_date: e.target.value } : d,
                       )
                     }
+                    onFocus={(e) => e.target.select()}
                     className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
                   />
                 </div>
@@ -2994,6 +3008,7 @@ function CertificatesContent() {
                   setSendForm((f) => ({ ...f, email: e.target.value }));
                   if (sendFormErrors.email) setSendFormErrors((e) => ({ ...e, email: undefined }));
                 }}
+                onFocus={(e) => e.target.select()}
                 placeholder=""
                 disabled={isSendingEmail}
                 className={sendFormErrors.email ? 'border-red-500' : ''}
@@ -3016,6 +3031,7 @@ function CertificatesContent() {
                   setSendForm((f) => ({ ...f, subject: e.target.value }));
                   if (sendFormErrors.subject) setSendFormErrors((e) => ({ ...e, subject: undefined }));
                 }}
+                onFocus={(e) => e.target.select()}
                 placeholder={t('hero.emailSubjectPlaceholder')}
                 disabled={isSendingEmail}
                 className={sendFormErrors.subject ? 'border-red-500' : ''}
@@ -3038,6 +3054,7 @@ function CertificatesContent() {
                   setSendForm((f) => ({ ...f, message: e.target.value }));
                   if (sendFormErrors.message) setSendFormErrors((e) => ({ ...e, message: undefined }));
                 }}
+                onFocus={(e) => e.target.select()}
                 rows={4}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${sendFormErrors.message ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                 placeholder={t('hero.emailMessagePlaceholder')}
@@ -3365,7 +3382,18 @@ function CertificatesContent() {
 
       {/* Filter Modal */}
       <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+        <DialogContent 
+          className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              applyFilters();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancelFilters();
+            }
+          }}
+        >
           <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

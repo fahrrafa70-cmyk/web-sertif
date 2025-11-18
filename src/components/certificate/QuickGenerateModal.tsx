@@ -147,6 +147,7 @@ function InputScoreStep({ members, scoreFields, scoreDataMap, setScoreDataMap }:
               type="text"
               value={currentScoreData[field.id] || ''}
               onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              onFocus={(e) => e.target.select()}
               placeholder={t('quickGenerate.enterScore').replace('{field}', formatFieldLabel(field.id))}
               className="w-full"
             />
@@ -425,7 +426,21 @@ export function QuickGenerateModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl min-h-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-3xl min-h-[600px] max-h-[90vh] overflow-y-auto"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey && !generating) {
+            // Only trigger on Enter if not in textarea and not already generating
+            if (!(e.target instanceof HTMLTextAreaElement)) {
+              e.preventDefault();
+              handleGenerate();
+            }
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            onClose();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             {t('quickGenerate.title')} {isDualTemplate && currentStep === 2 && '- Input Data Nilai'}
