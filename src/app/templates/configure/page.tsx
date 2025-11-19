@@ -2601,7 +2601,7 @@ function ConfigureLayoutContent() {
                         : 'hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                   >
-                    Front
+                    {t('configure.front')}
                   </Button>
                   <Button
                     variant={configMode === 'score' ? 'default' : 'ghost'}
@@ -2690,7 +2690,7 @@ function ConfigureLayoutContent() {
                           {/* Show "Required" badge for required fields (same for all modes) */}
                           {isRequired && (
                             <span className="text-[10px] sm:text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-1.5 sm:px-2 py-0.5 rounded flex-shrink-0">
-                              Required
+                              {t('configure.required')}
                             </span>
                           )}
                         </div>
@@ -2844,8 +2844,8 @@ function ConfigureLayoutContent() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="front">Front (above text)</SelectItem>
-                            <SelectItem value="back">Back (behind text)</SelectItem>
+                            <SelectItem value="front">{t('configure.frontAboveText')}</SelectItem>
+                            <SelectItem value="back">{t('configure.backBehindText')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2853,7 +2853,7 @@ function ConfigureLayoutContent() {
                       {/* Position */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-xs">X Position (px)</Label>
+                          <Label className="text-xs">{t('configure.xPosition')} (px)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -2872,7 +2872,7 @@ function ConfigureLayoutContent() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Y Position (px)</Label>
+                          <Label className="text-xs">{t('configure.yPosition')} (px)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -3012,7 +3012,7 @@ function ConfigureLayoutContent() {
                     {!['name', 'certificate_no', 'issue_date'].includes(selectedLayer.id) && (
                       <div className="bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-900/40 rounded-lg p-2 sm:p-3 space-y-2">
                         <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                          <Label className="text-[10px] sm:text-xs font-semibold text-green-900 dark:text-green-300">Default Text</Label>
+                          <Label className="text-[10px] sm:text-xs font-semibold text-green-900 dark:text-green-300">{t('configure.defaultText')}</Label>
                           <label className="flex items-center gap-1 sm:gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
@@ -3020,7 +3020,7 @@ function ConfigureLayoutContent() {
                               onChange={(e) => updateLayer(selectedLayer.id, { useDefaultText: e.target.checked })}
                               className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-600 rounded border-green-300 dark:border-green-500"
                             />
-                            <span className="text-[10px] sm:text-xs text-green-900 dark:text-green-300">Use</span>
+                            <span className="text-[10px] sm:text-xs text-green-900 dark:text-green-300">{t('configure.use')}</span>
                           </label>
                         </div>
                         
@@ -3060,7 +3060,7 @@ function ConfigureLayoutContent() {
                     {/* Position - Compact Grid */}
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">X Position</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.xPosition')}</Label>
                         <Input
                           type="number"
                           value={selectedLayer.x}
@@ -3077,7 +3077,7 @@ function ConfigureLayoutContent() {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Y Position</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.yPosition')}</Label>
                         <Input
                           type="number"
                           value={selectedLayer.y}
@@ -3130,7 +3130,7 @@ function ConfigureLayoutContent() {
                     {/* Font Family & Weight - Side by Side */}
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Family</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.fontFamily')}</Label>
                         <FontFamilySelect
                           value={(() => {
                             const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '');
@@ -3189,7 +3189,7 @@ function ConfigureLayoutContent() {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Weight</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.weight')}</Label>
                         <FontWeightSelect
                           value={(() => {
                             const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '');
@@ -3251,7 +3251,7 @@ function ConfigureLayoutContent() {
                     {/* Font Style & Text Align */}
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       <div>
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Style</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.fontStyle')}</Label>
                         <FontStyleSelect
                           value={selectedLayer.fontStyle || 'normal'}
                           onValueChange={(value) => updateLayer(selectedLayer.id, { fontStyle: value as TextLayer['fontStyle'] })}
@@ -3262,19 +3262,19 @@ function ConfigureLayoutContent() {
                       {/* Hide Text Align only for certificate_no and issue_date */}
                       {!['certificate_no', 'issue_date'].includes(selectedLayer.id) && (
                         <div>
-                          <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Text Align</Label>
+                          <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.textAlign')}</Label>
                           <Select 
                             value={selectedLayer.textAlign || 'left'}
                             onValueChange={(value) => updateLayer(selectedLayer.id, { textAlign: value as TextLayer['textAlign'] })}
                           >
                             <SelectTrigger className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700">
-                              <SelectValue placeholder="Align" />
+                              <SelectValue placeholder={t('configure.textAlign')} />
                             </SelectTrigger>
                             <SelectContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                              <SelectItem value="left">Left</SelectItem>
-                              <SelectItem value="center">Center</SelectItem>
-                              <SelectItem value="right">Right</SelectItem>
-                              <SelectItem value="justify">Justify</SelectItem>
+                              <SelectItem value="left">{t('configure.left')}</SelectItem>
+                              <SelectItem value="center">{t('configure.center')}</SelectItem>
+                              <SelectItem value="right">{t('configure.right')}</SelectItem>
+                              <SelectItem value="justify">{t('configure.justify')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -3283,7 +3283,7 @@ function ConfigureLayoutContent() {
 
                     {/* Line Height */}
                     <div>
-                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Line Height</Label>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.lineHeight')}</Label>
                       <Input
                         type="number"
                         step="0.1"
@@ -3295,7 +3295,7 @@ function ConfigureLayoutContent() {
 
                     {/* Max Width */}
                     <div>
-                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Max Width (px)</Label>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.maxWidth')} (px)</Label>
                       <Input
                         type="number"
                         value={selectedLayer.maxWidth || 0}
@@ -3306,7 +3306,7 @@ function ConfigureLayoutContent() {
 
                     {/* Color Picker */}
                     <div className="space-y-1.5 sm:space-y-2">
-                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Text Color</Label>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.textColor')}</Label>
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <input
                           type="color"

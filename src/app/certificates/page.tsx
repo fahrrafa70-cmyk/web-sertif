@@ -2196,7 +2196,7 @@ function CertificatesContent() {
                   })()}>
                     <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                        Certificate Number
+                        {t('certificates.certificateNumber')}
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.certificate_no}
@@ -2205,7 +2205,7 @@ function CertificatesContent() {
 
                     <div className="space-y-2 sm:space-y-3">
                       <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                        Recipient Name
+                        {t('certificates.recipientName')}
                       </label>
                       <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">
                         {previewCertificate.name}
@@ -2215,7 +2215,7 @@ function CertificatesContent() {
                     {previewCertificate.category && (
                       <div className="space-y-2 sm:space-y-3">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                          Category
+                          {t('certificates.category')}
                         </label>
                         <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#2563eb] text-white text-sm sm:text-base font-medium">
                           {previewCertificate.category}
@@ -2226,7 +2226,7 @@ function CertificatesContent() {
                     {previewCertificate.description && (
                       <div className="space-y-2 sm:space-y-3">
                         <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                          Description
+                          {t('certificates.description')}
                         </label>
                         <div className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words">
                           {previewCertificate.description}
@@ -2273,13 +2273,13 @@ function CertificatesContent() {
                           onClick={() => setPreviewMode('certificate')}
                           className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
-                          Front
+                          {t('certificates.front')}
                         </button>
                         <button
                           onClick={() => setPreviewMode('score')}
                           className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                         >
-                          Back
+                          {t('certificates.back')}
                         </button>
                       </div>
                     )}
@@ -2745,12 +2745,12 @@ function CertificatesContent() {
                         {deletingCertificateId === previewCertificate.id ? (
                           <>
                             <div className="w-4 h-4 mr-1 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Deleting...
+                            {t('certificates.deleting')}
                           </>
                         ) : (
                           <>
                             <Trash2 className="w-4 h-4 mr-1" />
-                            Delete Certificate
+                            {t('certificates.deleteCertificate')}
                           </>
                         )}
                       </button>
@@ -2766,7 +2766,7 @@ function CertificatesContent() {
                           openEdit(previewCertificate);
                         }}
                       >
-                        Edit Certificate
+                        {t('certificates.editCertificate')}
                       </Button>
                     )}
                   </div>

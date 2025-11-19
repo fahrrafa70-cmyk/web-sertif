@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileSpreadsheet, Award, ArrowRight } from "lucide-react";
 import { TextLayerConfig } from "@/types/template-layout";
 import { formatFieldLabel } from "@/lib/utils/excel-mapping";
+import { useLanguage } from "@/contexts/language-context";
 
 interface ColumnMappingStepProps {
   isDualTemplate: boolean;
@@ -32,12 +33,14 @@ function MappingRow({
   layer,
   excelColumns,
   selectedColumn,
-  onSelect
+  onSelect,
+  t
 }: {
   layer: TextLayerConfig;
   excelColumns: string[];
   selectedColumn: string;
   onSelect: (column: string) => void;
+  t: (key: string) => string;
 }) {
   return (
     <div className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -62,10 +65,10 @@ function MappingRow({
           }}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Pilih kolom Excel..." />
+            <SelectValue placeholder={t('quickGenerate.selectExcelColumn')} />
           </SelectTrigger>
           <SelectContent position="popper" className="z-[9999] max-h-[300px]">
-            <SelectItem value="__none__">-- Tidak dipetakan --</SelectItem>
+            <SelectItem value="__none__">{t('quickGenerate.notMapped')}</SelectItem>
             {excelColumns.map(col => (
               <SelectItem key={col} value={col}>
                 <span className="font-medium">{col}</span>
@@ -93,6 +96,7 @@ export function ColumnMappingStep({
   _scorePreviewData = {},
   onScoreMappingChange
 }: ColumnMappingStepProps) {
+  const { t } = useLanguage();
   // For Excel mode, show ALL layers without filtering
   // For Member mode, apply filtering rules
   // Use useMemo to ensure re-computation when dependencies change
@@ -141,6 +145,7 @@ export function ColumnMappingStep({
               onSelect={(col) => {
                 onMainMappingChange({ ...mainMapping, [layer.id]: col });
               }}
+              t={t}
             />
           ))}
         </div>
@@ -148,7 +153,7 @@ export function ColumnMappingStep({
         {/* Preview */}
         {Object.keys(mainMapping).length > 0 && (
           <div className="mt-6 border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
-            <h4 className="font-semibold mb-3">Preview Data (Baris 1):</h4>
+            <h4 className="font-semibold mb-3">{t('quickGenerate.previewData')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
               {Object.entries(mainMapping)
                 .filter(([, col]) => col)
@@ -197,6 +202,7 @@ export function ColumnMappingStep({
                 onSelect={(col) => {
                   onMainMappingChange({ ...mainMapping, [layer.id]: col });
                 }}
+                t={t}
               />
             ))}
           </div>
@@ -215,6 +221,7 @@ export function ColumnMappingStep({
                 onSelect={(col) => {
                   onScoreMappingChange?.({ ...scoreMapping, [layer.id]: col });
                 }}
+                t={t}
               />
             ))}
           </div>

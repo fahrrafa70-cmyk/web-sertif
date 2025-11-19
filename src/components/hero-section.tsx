@@ -28,6 +28,12 @@ import {
 export default function HeroSection() {
   const { t, language } = useLanguage();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [certificateId, setCertificateId] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
@@ -748,8 +754,8 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
         >
           {/* Enhanced Main Title */}
           <motion.div variants={itemVariants} className="mb-4 sm:mb-5">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-gradient mb-2 sm:mb-3 leading-tight">
-              {t('hero.title')}
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-gradient mb-2 sm:mb-3 leading-tight" suppressHydrationWarning>
+              {mounted ? t('hero.title') : 'Search Certificate'}
             </h1>
           </motion.div>
 
@@ -783,8 +789,9 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                           handleSearch();
                         }
                       }}
-                      placeholder={t('search.searchByName')}
+                      placeholder={mounted ? t('search.searchByName') : 'Search by name or number...'}
                       className="h-9 sm:h-10 pl-8 sm:pl-9 bg-transparent border-0 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus-visible:ring-0 text-sm sm:text-base text-gray-900 dark:text-gray-100"
+                      suppressHydrationWarning
                     />
                   </div>
                   <Button
@@ -793,8 +800,8 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
                     disabled={searching}
                     className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex items-center gap-1 sm:gap-2"
                   >
-                    <span className="hidden sm:inline">{t('hero.searchButton')}</span>
-                    <span className="sm:hidden">{t('hero.searchButton')}</span>
+                    <span className="hidden sm:inline" suppressHydrationWarning>{mounted ? t('hero.searchButton') : 'Search'}</span>
+                    <span className="sm:hidden" suppressHydrationWarning>{mounted ? t('hero.searchButton') : 'Search'}</span>
                     {searching ? (
                       <div className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
