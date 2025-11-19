@@ -88,7 +88,7 @@ export function validateMigration(
   // Recalculate pixel values from percentages
   const recalculatedX = (migratedLayer.xPercent / 100) * templateDims.width;
   const recalculatedY = (migratedLayer.yPercent / 100) * templateDims.height;
-  const recalculatedFontSize = (migratedLayer.fontSizePercent / 100) * templateDims.height;
+  const recalculatedFontSize = ((migratedLayer.fontSizePercent || 0) / 100) * templateDims.height;
   
   // Check X position
   const xDiff = Math.abs(originalLayer.x - recalculatedX);
