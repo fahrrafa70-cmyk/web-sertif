@@ -63,6 +63,9 @@ export async function signInWithGoogle() {
       provider: 'google',
       options: {
         redirectTo: redirectUrl,
+        queryParams: {
+          prompt: 'select_account', // Force Google to always show account selection
+        },
       },
     });
 
@@ -112,6 +115,9 @@ export async function signInWithGitHub() {
       provider: 'github',
       options: {
         redirectTo: redirectUrl,
+        queryParams: {
+          prompt: 'select_account', // Force GitHub to always show account selection
+        },
       },
     });
 

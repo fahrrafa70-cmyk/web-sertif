@@ -1849,6 +1849,333 @@ nextjs-portal {
     }
   }
 
+  /* Extra Small Mobile - Samsung S8+ and similar (360px width) */
+  /* Scaling ratio: 360/390 = 0.923 - Scale down from iPhone proportions */
+  @media (max-width: 360px) {
+    /* Base font size */
+    body {
+      font-size: 12px;
+    }
+
+    /* Container padding */
+    .container-responsive {
+      padding: 0 0.625rem; /* ~10px */
+    }
+
+    /* Header - smaller */
+    header {
+      height: 2rem; /* ~32px - lebih kecil lagi */
+      min-height: 2rem;
+      padding-top: 0.25rem !important;
+      padding-bottom: 0.25rem !important;
+    }
+    
+    /* Header content - perkecil semua elemen */
+    header * {
+      font-size: 0.75rem !important; /* 12px */
+    }
+    
+    /* Header icons */
+    header svg {
+      width: 0.875rem !important; /* 14px */
+      height: 0.875rem !important;
+    }
+    
+    /* Header buttons */
+    header button {
+      padding: 0.25rem 0.5rem !important; /* 4px 8px */
+      min-height: 1.5rem !important; /* 24px */
+    }
+
+    /* Typography - scaled from iPhone */
+    h1, .text-4xl { font-size: 1.25rem !important; } /* ~20px - lebih kecil */
+    h2, .text-3xl { font-size: 1.0625rem !important; } /* ~17px */
+    .text-2xl { font-size: 0.9375rem !important; } /* ~15px */
+    .text-xl { font-size: 0.875rem !important; } /* ~14px */
+    .text-lg { font-size: 0.8125rem !important; } /* ~13px */
+    .text-base { font-size: 0.75rem !important; } /* ~12px */
+    .text-sm { font-size: 0.6875rem !important; } /* ~11px */
+    .text-xs { font-size: 0.625rem !important; } /* ~10px */
+
+    /* Search Bar - Fix icon overlap dengan padding lebih besar */
+    input[type="text"], 
+    input[type="search"],
+    input[placeholder*="Search"],
+    input[placeholder*="search"] {
+      font-size: 0.75rem !important; /* ~12px */
+      padding: 0.5rem 0.625rem 0.5rem 2.125rem !important; /* Left padding 34px - text dimulai setelah icon */
+      height: 2.25rem !important; /* ~36px */
+    }
+
+    input::placeholder,
+    input::-webkit-input-placeholder,
+    input::-moz-placeholder {
+      font-size: 0.6875rem !important; /* ~11px - lebih kecil */
+      opacity: 0.5 !important;
+    }
+
+    /* Search icon positioning - ONLY for search input icons */
+    .relative > input + svg,
+    input[type="text"] + svg,
+    input[type="search"] + svg {
+      width: 0.875rem !important; /* ~14px */
+      height: 0.875rem !important;
+      left: 0.625rem !important; /* ~10px from left */
+      position: absolute !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+    }
+
+    /* Form inputs */
+    input, select, textarea {
+      font-size: 0.8125rem !important; /* ~13px */
+      padding: 0.5rem 0.625rem !important;
+      min-height: 2.25rem !important; /* ~36px */
+    }
+
+    /* Cards - Template, Certificate, Member */
+    .card, [class*="card"] {
+      padding: 0.625rem !important; /* ~10px */
+    }
+    
+    /* Jarak antara search bar dan card data */
+    input[placeholder*="Search data"],
+    input[placeholder*="search data"] {
+      margin-bottom: 0.75rem !important; /* 12px jarak ke card */
+    }
+    
+    /* Container search bar di halaman data */
+    .flex.items-center.gap-2:has(input[placeholder*="Search data"]),
+    .flex.items-center.gap-2:has(input[placeholder*="search data"]) {
+      margin-bottom: 0.75rem !important; /* 12px jarak ke card */
+    }
+
+    /* Padding utilities - scaled */
+    .p-6 { padding: 0.875rem !important; } /* ~14px */
+    .p-4 { padding: 0.625rem !important; } /* ~10px */
+    .p-3 { padding: 0.5rem !important; } /* ~8px */
+    .p-2 { padding: 0.375rem !important; } /* ~6px */
+    
+    .px-6 { padding-left: 0.875rem !important; padding-right: 0.875rem !important; }
+    .px-4 { padding-left: 0.625rem !important; padding-right: 0.625rem !important; }
+    .px-3 { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+    .px-2 { padding-left: 0.375rem !important; padding-right: 0.375rem !important; }
+    
+    .py-6 { padding-top: 0.875rem !important; padding-bottom: 0.875rem !important; }
+    .py-4 { padding-top: 0.625rem !important; padding-bottom: 0.625rem !important; }
+    .py-3 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+    .py-2 { padding-top: 0.375rem !important; padding-bottom: 0.375rem !important; }
+
+    /* Gap utilities - scaled */
+    .gap-6 { gap: 0.875rem !important; } /* ~14px */
+    .gap-4 { gap: 0.625rem !important; } /* ~10px */
+    .gap-3 { gap: 0.5rem !important; } /* ~8px */
+    .gap-2 { gap: 0.375rem !important; } /* ~6px */
+    .gap-1 { gap: 0.25rem !important; } /* ~4px */
+
+    /* Margin utilities - scaled */
+    .mb-6 { margin-bottom: 0.875rem !important; }
+    .mb-4 { margin-bottom: 0.625rem !important; }
+    .mb-3 { margin-bottom: 0.5rem !important; }
+    .mb-2 { margin-bottom: 0.375rem !important; }
+    .mt-6 { margin-top: 0.875rem !important; }
+    .mt-4 { margin-top: 0.625rem !important; }
+    .mt-3 { margin-top: 0.5rem !important; }
+    .mt-2 { margin-top: 0.375rem !important; }
+
+    /* Space utilities - scaled */
+    .space-y-6 > * + * { margin-top: 0.875rem !important; }
+    .space-y-4 > * + * { margin-top: 0.625rem !important; }
+    .space-y-3 > * + * { margin-top: 0.5rem !important; }
+    .space-y-2 > * + * { margin-top: 0.375rem !important; }
+
+    /* Badges - smaller */
+    .badge, [class*="badge"], 
+    span[class*="bg-green"], span[class*="bg-blue"], span[class*="bg-gray"] {
+      font-size: 0.625rem !important; /* ~10px */
+      padding: 0.1875rem 0.4375rem !important; /* ~3px 7px */
+    }
+
+    /* Rounded corners - lebih rounded agar tidak kotak */
+    .rounded-xl { border-radius: 0.75rem !important; } /* ~12px - lebih rounded */
+    .rounded-lg { border-radius: 0.625rem !important; } /* ~10px - lebih rounded */
+    .rounded-md { border-radius: 0.5rem !important; } /* ~8px - lebih rounded */
+    .rounded { border-radius: 0.375rem !important; } /* ~6px */
+    .rounded-sm { border-radius: 0.25rem !important; } /* ~4px */
+
+    /* Modal/Dialog - scaled */
+    [data-radix-dialog-content] {
+      max-width: 92vw !important;
+      padding: 0.75rem !important; /* ~12px */
+    }
+
+    /* Pagination - fix chevron terpotong */
+    nav[aria-label*="pagination"],
+    .pagination {
+      padding: 0 0.5rem !important; /* Tambah padding kiri-kanan */
+    }
+    
+    /* Pagination buttons */
+    nav[aria-label*="pagination"] button,
+    .pagination button {
+      min-width: 2rem !important;
+      padding: 0.375rem !important;
+    }
+    
+    /* Template card button "Layout" dan button Create/Generate - KURANGI HEIGHT */
+    button[class*="gradient-primary"]:not(.h-9),
+    button:has(svg):has(span),
+    button:has(svg):not(.h-9) {
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.375rem !important; /* Space antara icon dan text */
+      padding: 0.375rem 0.625rem !important; /* Padding normal - 6px 10px */
+      font-size: 0.75rem !important; /* 12px - lebih besar */
+      height: 2rem !important; /* 32px - height sedikit lebih besar */
+      min-height: 2rem !important;
+    }
+    
+    /* Layout button text */
+    button[class*="gradient-primary"]:not(.h-9) span,
+    button:has(svg) span {
+      font-size: 0.75rem !important; /* 12px - lebih besar */
+      font-weight: 500 !important;
+      white-space: nowrap !important;
+    }
+    
+    /* Layout button icon */
+    button[class*="gradient-primary"]:not(.h-9) svg {
+      width: 0.75rem !important; /* 12px */
+      height: 0.75rem !important;
+      flex-shrink: 0 !important;
+    }
+
+    /* Fix button filter yang menempel dengan card */
+    .mb-4 {
+      margin-bottom: 0.625rem !important; /* ~10px - lebih kecil dari default */
+    }
+    
+    /* Fix tanggal pada card template yang terpotong */
+    /* Pastikan text tidak terpotong dengan line-height dan overflow yang tepat */
+    .text-sm.text-gray-500,
+    .text-sm.text-gray-600,
+    .dark\:text-gray-400 {
+      line-height: 1.2 !important; /* Lebih compact */
+      overflow: visible !important;
+      white-space: nowrap !important; /* Prevent wrapping */
+      font-size: 0.5625rem !important; /* 9px - lebih kecil lagi */
+    }
+    
+    /* Template card metadata area - beri space lebih dan prevent wrap */
+    .flex.items-center.gap-2.text-sm,
+    .flex.items-center.text-sm {
+      margin-top: 0.125rem !important;
+      margin-bottom: 0.125rem !important;
+      flex-wrap: nowrap !important; /* Prevent wrapping */
+      gap: 0.25rem !important; /* Smaller gap - 4px */
+    }
+    
+    /* Template card metadata icon - smaller */
+    .flex.items-center.gap-2.text-sm svg,
+    .flex.items-center.text-sm svg {
+      width: 0.625rem !important; /* 10px - lebih kecil */
+      height: 0.625rem !important;
+      flex-shrink: 0 !important;
+    }
+    
+    /* Template card metadata text - smaller font */
+    .flex.items-center.gap-2.text-sm span,
+    .flex.items-center.text-sm span {
+      font-size: 0.5625rem !important; /* 9px - lebih kecil */
+      white-space: nowrap !important;
+    }
+
+    /* Sidebar header - perkecil */
+    /* Header container */
+    .flex.items-center.justify-between.p-5 {
+      padding: 0.75rem !important; /* ~12px - lebih kecil dari 20px */
+    }
+    
+    /* Logo icon di sidebar */
+    .w-11.h-11.gradient-primary {
+      width: 2.25rem !important; /* ~36px - lebih kecil dari 44px */
+      height: 2.25rem !important;
+    }
+    
+    .w-11.h-11.gradient-primary span {
+      font-size: 1rem !important; /* ~16px - lebih kecil dari 20px */
+    }
+    
+    /* Sidebar title */
+    .text-lg.font-bold.text-gray-900,
+    .text-lg.font-bold.dark\:text-gray-100 {
+      font-size: 0.9375rem !important; /* ~15px - lebih kecil dari 18px */
+    }
+    
+    /* Sidebar subtitle */
+    .text-xs.text-gray-400 {
+      font-size: 0.625rem !important; /* ~10px - lebih kecil dari 12px */
+    }
+    
+    /* Home page search bar - perkecil */
+    /* Search Certificate title - PERBESAR LEBIH LAGI */
+    h1.text-4xl,
+    h1.text-gradient {
+      font-size: 1.625rem !important; /* ~26px - LEBIH BESAR LAGI */
+      margin-bottom: 0.625rem !important; /* 10px */
+      font-weight: 700 !important;
+      letter-spacing: -0.02em !important;
+    }
+    
+    /* Hero section search bar - PERKECIL SEMUA */
+    /* Container search bar */
+    .bg-gray-50.dark\:bg-gray-800.rounded-xl.p-1\.5 {
+      padding: 0.25rem !important; /* 4px */
+    }
+    
+    /* Input search - PERBESAR */
+    .h-9.bg-transparent.border-0 {
+      height: 1.75rem !important; /* 28px */
+      font-size: 0.6875rem !important; /* 11px - lebih besar */
+      padding-left: 1.75rem !important; /* 28px */
+    }
+    
+    /* Search icon - PERBESAR */
+    .absolute.left-2.w-4.h-4 {
+      width: 0.75rem !important; /* 12px - lebih besar */
+      height: 0.75rem !important;
+      left: 0.5rem !important; /* 8px */
+    }
+    
+    /* Search button gradient - PERBESAR */
+    button.h-9.gradient-primary {
+      height: 1.75rem !important; /* 28px - lebih besar */
+      font-size: 0.6875rem !important; /* 11px - lebih besar */
+      padding: 0.375rem 0.75rem !important; /* 6px 12px */
+    }
+    
+    button.h-9.gradient-primary svg {
+      width: 0.75rem !important; /* 12px */
+      height: 0.75rem !important;
+    }
+    
+    /* Filter button - PERBESAR */
+    button.flex-shrink-0.h-9 {
+      width: 1.90rem !important; /* 28px - lebih besar */
+      height: 2.25rem !important;
+    }
+    
+    button.flex-shrink-0.h-9 svg {
+      width: 0.75rem !important; /* 12px */
+      height: 0.75rem !important;
+    }
+
+    /* Line height for better readability */
+    * {
+      line-height: 1.4 !important;
+    }
+  }
+
   /* Remove white background from number input spinner controls */
   /* Hide spinner controls completely to remove white background */
   input[type="number"]::-webkit-inner-spin-button,

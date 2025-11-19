@@ -539,45 +539,44 @@ export default function MembersPage() {
         <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
           <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
             {/* Header */}
-            <div className="mb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 w-full">
-                {/* Title */}
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
-                    <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">{t('members.title')}</h1>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 mb-6">
+              {/* Title */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
+                  <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                
-                {/* Action Buttons */}
-                {(role === "Admin" || role === "Team") && (
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <Button 
-                      onClick={() => setShowExcelInfoModal(true)} 
-                      disabled={importing}
-                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-1 sm:flex-none"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 mr-2" />
-                      {importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}
-                    </Button>
-                    <input
-                      ref={excelInputRef}
-                      type="file"
-                      accept=".xlsx,.xls"
-                      onChange={handleExcelImport}
-                      className="hidden"
-                    />
-                    <Button onClick={() => {
-                      setAddModalOpen(true);
-                      setFormErrors({});
-                    }} className="gradient-primary text-white flex-1 sm:flex-none">
-                      {language === 'id' ? 'Tambah Data' : 'Add Data'}
-                    </Button>
-                  </div>
-                )}
+                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">{t('members.title')}</h1>
               </div>
-              
-              {/* Search Bar and Filter */}
+                
+              {/* Action Buttons */}
+              {(role === "Admin" || role === "Team") && (
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button 
+                    onClick={() => setShowExcelInfoModal(true)} 
+                    disabled={importing}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-1 sm:flex-none"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    {importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}
+                  </Button>
+                  <input
+                    ref={excelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleExcelImport}
+                    className="hidden"
+                  />
+                  <Button onClick={() => {
+                    setAddModalOpen(true);
+                    setFormErrors({});
+                  }} className="gradient-primary text-white flex-1 sm:flex-none">
+                    {language === 'id' ? 'Tambah Data' : 'Add Data'}
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {/* Search Bar and Filter */}
               <div className="flex gap-2 mt-6">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
@@ -605,8 +604,6 @@ export default function MembersPage() {
                   <Filter className="h-5 w-5" />
                 </Button>
               </div>
-            </div>
-
 
             {/* Loading State */}
             {loading && (
@@ -1287,8 +1284,8 @@ export default function MembersPage() {
           </div>
         </section>
 
-      {/* Excel Import Info Modal */}
-      <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
+        {/* Excel Import Info Modal */}
+        <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl text-gray-900 dark:text-gray-100">

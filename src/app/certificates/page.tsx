@@ -1882,7 +1882,7 @@ function CertificatesContent() {
                       onClick={handleOpenQuickGenerate}
                       className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
-                      <span className="text-sm sm:text-base">{t("certificates.generate")}</span>
+                      <span>{t("certificates.generate")}</span>
                     </Button>
                   )}
                 </div>
@@ -2106,7 +2106,7 @@ function CertificatesContent() {
                     <div
                       key={certificate.id}
                       onClick={() => openPreview(certificate)}
-                      className={`rounded-lg border p-3 sm:p-4 shadow-md dark:shadow-lg cursor-pointer transition-colors ${
+                      className={`rounded-lg border p-4 shadow-md dark:shadow-lg cursor-pointer transition-colors ${
                         isExpired 
                           ? 'bg-red-500/30 dark:bg-red-600/30 border-2 border-red-400 dark:border-red-500 hover:bg-red-500/40 dark:hover:bg-red-600/40' 
                           : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-700/50'
@@ -2150,7 +2150,7 @@ function CertificatesContent() {
                             {t("certificates.issuedDate")}
                           </div>
                           <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                            {formatReadableDate(certificate.issue_date, language)}
+                            {formatDateShort(certificate.issue_date)}
                           </div>
                         </div>
 
@@ -2161,7 +2161,7 @@ function CertificatesContent() {
                               {t("certificates.expiryDate")}
                             </div>
                             <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                              {formatReadableDate(certificate.expired_date, language)}
+                              {formatDateShort(certificate.expired_date)}
                             </div>
                           </div>
                         )}
