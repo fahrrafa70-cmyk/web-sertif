@@ -132,7 +132,7 @@ export const LazyImage = memo(function LazyImage({
           } ${className}`}
           loading={priority ? 'eager' : 'lazy'}
           priority={priority}
-          quality={85}
+          quality={75}
           placeholder="empty"
         />
       )}

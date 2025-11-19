@@ -2023,33 +2023,31 @@ nextjs-portal {
     }
     
     /* Template card button "Layout" dan button Create/Generate - KURANGI HEIGHT */
-    button[class*="gradient-primary"]:not(.h-9),
-    button:has(svg):has(span),
-    button:has(svg):not(.h-9) {
+    button[class*="gradient-primary"]:not(.h-9) {
       display: flex !important;
       align-items: center !important;
       gap: 0.375rem !important; /* Space antara icon dan text */
-      padding: 0.375rem 0.625rem !important; /* Padding normal - 6px 10px */
-      font-size: 0.75rem !important; /* 12px - lebih besar */
-      height: 2rem !important; /* 32px - height sedikit lebih besar */
+      padding: 0.375rem 0.75rem !important; /* 6px 12px */
+      font-size: 0.75rem !important; /* 12px */
+      height: 2rem !important; /* 32px */
       min-height: 2rem !important;
+      min-width: 4.5rem !important; /* 72px - cukup untuk "Layout" */
     }
     
-    /* Layout button text */
-    button[class*="gradient-primary"]:not(.h-9) span,
-    button:has(svg) span {
-      font-size: 0.75rem !important; /* 12px - lebih besar */
+    /* Button text */
+    button[class*="gradient-primary"]:not(.h-9) span {
+      font-size: 0.75rem !important; /* 12px */
       font-weight: 500 !important;
       white-space: nowrap !important;
     }
     
-    /* Layout button icon */
+    /* Button icon */
     button[class*="gradient-primary"]:not(.h-9) svg {
       width: 0.75rem !important; /* 12px */
       height: 0.75rem !important;
       flex-shrink: 0 !important;
     }
-
+    
     /* Fix button filter yang menempel dengan card */
     .mb-4 {
       margin-bottom: 0.625rem !important; /* ~10px - lebih kecil dari default */

@@ -3408,17 +3408,9 @@ function CertificatesContent() {
           }}
         >
           <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-blue-500" />
-                <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
-              </div>
-              <button
-                onClick={cancelFilters}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-blue-500" />
+              <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
             </div>
           </DialogHeader>
           

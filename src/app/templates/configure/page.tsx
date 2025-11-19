@@ -1719,7 +1719,7 @@ function ConfigureLayoutContent() {
       
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to upload photo');
+      toast.error(error instanceof Error ? error.message : t('configure.failedToUpload'));
     } finally {
       setUploadingPhoto(false);
       // Reset file input
@@ -1766,7 +1766,7 @@ function ConfigureLayoutContent() {
       
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete photo from storage');
+      toast.error(t('configure.failedToDeletePhoto'));
     }
   };
 
@@ -1912,7 +1912,7 @@ function ConfigureLayoutContent() {
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading template...</p>
+          <p className="text-gray-600 dark:text-gray-300">{t('configure.loading')}</p>
         </div>
       </div>
     );
@@ -1947,13 +1947,13 @@ function ConfigureLayoutContent() {
               <LoadingButton
                 onClick={handleSave}
                 isLoading={saving}
-                loadingText="Saving..."
+                loadingText={t('configure.saving')}
                 variant="primary"
                 className="gradient-primary text-white h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
               >
                 <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Save</span>
-                <span className="sm:hidden">Save</span>
+                <span className="hidden sm:inline">{t('configure.save')}</span>
+                <span className="sm:hidden">{t('configure.save')}</span>
               </LoadingButton>
             </div>
           </div>
@@ -2658,7 +2658,7 @@ function ConfigureLayoutContent() {
                         : 'hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                   >
-                    Back
+                    {t('configure.back')}
                   </Button>
                 </div>
               )}
@@ -2667,7 +2667,7 @@ function ConfigureLayoutContent() {
               <div>
                 <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
                   <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Text Layers ({textLayers.length})
+                    {t('configure.textLayers')} ({textLayers.length})
                   </h2>
                   <Button
                     variant="outline"
@@ -2676,7 +2676,7 @@ function ConfigureLayoutContent() {
                     className="h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm"
                   >
                     <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Add Layer</span>
+                    <span className="hidden sm:inline">{t('configure.addLayer')}</span>
                   </Button>
                 </div>
                 <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
@@ -2788,7 +2788,7 @@ function ConfigureLayoutContent() {
               <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
                 <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
                   <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Photo Layers ({photoLayers.length})
+                    {t('configure.photoLayers')} ({photoLayers.length})
                   </h2>
                   <label htmlFor="photo-upload">
                     <Button
@@ -2800,7 +2800,7 @@ function ConfigureLayoutContent() {
                     >
                       <span>
                         <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">{uploadingPhoto ? 'Uploading...' : 'Upload'}</span>
+                        <span className="hidden sm:inline">{uploadingPhoto ? t('configure.uploadingPhoto') : t('configure.upload')}</span>
                       </span>
                     </Button>
                   </label>
@@ -3143,7 +3143,7 @@ function ConfigureLayoutContent() {
                     {/* Font Size */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">Font Size (px)</Label>
+                        <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.fontSize')} (px)</Label>
                       </div>
                       <Input
                         type="number"
