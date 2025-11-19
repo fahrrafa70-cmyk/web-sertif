@@ -38,7 +38,7 @@ interface TemplateCardProps {
   onConfigure: (templateId: string) => void;
   onDelete: (templateId: string) => void;
   getTemplateUrl: (template: Template) => string | null;
-  isConfiguring: boolean; // Loading state for configure button
+  isConfiguring: boolean;
   canDelete: boolean;
   templateUsageMap: Map<string, number>;
   deletingTemplateId: string | null;
