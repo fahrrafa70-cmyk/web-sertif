@@ -32,7 +32,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    console.log('🔄 API: Updating template...', { id, name, category, orientation });
 
     // Check if service role key is available
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -40,7 +39,6 @@ export async function PUT(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl) {
-      console.error('❌ NEXT_PUBLIC_SUPABASE_URL not set');
       return NextResponse.json(
         { error: 'Supabase URL not configured' },
         { status: 500 }
@@ -51,16 +49,12 @@ export async function PUT(request: NextRequest) {
     const keyToUse = supabaseServiceKey || supabaseAnonKey;
     
     if (!keyToUse) {
-      console.error('❌ No Supabase key available');
       return NextResponse.json(
         { error: 'Supabase key not configured' },
         { status: 500 }
       );
     }
 
-    if (!supabaseServiceKey) {
-      console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY not set, using anon key (may fail due to RLS)');
-    }
 
     // Create client (admin if service key available, otherwise regular)
     const supabase = createClient(supabaseUrl, keyToUse, {
@@ -99,16 +93,13 @@ export async function PUT(request: NextRequest) {
     if (status !== undefined && status !== null) {
       if (status === 'ready' || status === 'draft') {
         updateData.status = status;
-        console.log('✅ Including status in update:', status);
       } else {
-        console.warn('⚠️ Invalid status value:', status, 'Skipping status update');
+        // Invalid status value, skip update
       }
     } else {
-      console.log('ℹ️ No status provided in request body');
+      // No status provided
     }
 
-    console.log('💾 API: Updating template data in database:', updateData);
-    console.log('💾 API: Status value being sent:', status, 'type:', typeof status);
 
     // Update template
     // Explicitly select all fields including status to ensure it's returned
@@ -120,11 +111,7 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('❌ API: Initial update error:', error);
-      console.error('❌ API: Error message:', error.message);
-      console.error('❌ API: Error code:', error.code);
-      console.error('❌ API: Error details:', error.details);
-      console.error('❌ API: Error hint:', error.hint);
+      // Database update error
       
       // Check if error is related to status column
       const statusColumnError = typeof error.message === 'string' && (
@@ -136,7 +123,7 @@ export async function PUT(request: NextRequest) {
       // Backward compatibility: retry without preview_image_path if column doesn't exist
       const previewColumnMissing = typeof error.message === 'string' && error.message.includes('preview_image_path');
       if (previewColumnMissing && preview_image_path) {
-        console.warn('⚠️ preview_image_path column missing. Retrying update without it.');
+        // Preview column missing, retry without it
         delete updateData.preview_image_path;
         ({ data, error } = await supabase
           .from('templates')
@@ -148,7 +135,7 @@ export async function PUT(request: NextRequest) {
 
       // If status column is missing, try update without status first, then add status separately
       if (error && statusColumnError && updateData.status) {
-        console.warn('⚠️ Status column may be missing. Attempting update without status first...');
+        // Status column may be missing, retry without status
         delete updateData.status;
         
         // Try update without status
@@ -160,8 +147,7 @@ export async function PUT(request: NextRequest) {
           .single());
         
         if (!error && data) {
-          console.warn('⚠️ Update succeeded without status. Status column may not exist in database.');
-          console.warn('⚠️ Please add status column to templates table: ALTER TABLE templates ADD COLUMN status TEXT DEFAULT \'draft\';');
+          // Update succeeded without status field
           // Return data without status - client will handle it
           return NextResponse.json({
             success: true,
@@ -174,8 +160,6 @@ export async function PUT(request: NextRequest) {
 
       // If still error, return detailed error
       if (error) {
-        console.error('❌ API: Database update error (final):', error);
-        console.error('❌ API: Full error object:', JSON.stringify(error, null, 2));
         return NextResponse.json(
           { 
             error: 'Failed to update template',
@@ -190,25 +174,17 @@ export async function PUT(request: NextRequest) {
 
     // Verify the data was actually updated
     if (!data || !data.id) {
-      console.error('❌ API: Template was not updated - no data returned from database');
       return NextResponse.json(
         { error: 'Template was not updated - no data returned from database' },
         { status: 500 }
       );
     }
 
-    console.log('✅ API: Template updated successfully', data);
-    console.log('✅ API: Updated template status from database:', data?.status);
-    console.log('✅ API: Full data object keys:', Object.keys(data || {}));
-    console.log('✅ API: Full data object:', JSON.stringify(data, null, 2));
     
     // CRITICAL: If status was in updateData but not in response, this is a problem
     // We should verify the update actually worked by checking the database
     if (updateData.status && !data.status) {
-      console.error('❌ CRITICAL: Status was in updateData but missing from response!');
-      console.error('❌ updateData.status:', updateData.status);
-      console.error('❌ data.status:', data.status);
-      console.error('❌ This means status was NOT updated in database!');
+      // Status was in updateData but missing from response
       
       // Try to fetch the template again to verify
       const { data: verifyData, error: verifyError } = await supabase
@@ -218,29 +194,26 @@ export async function PUT(request: NextRequest) {
         .single();
       
       if (!verifyError && verifyData) {
-        console.log('🔍 Verification fetch - status:', verifyData.status);
         if (verifyData.status) {
           data.status = verifyData.status;
-          console.log('✅ Using status from verification fetch:', data.status);
         } else {
           // Status still missing - manually add it but log as error
           data.status = updateData.status as string;
-          console.error('❌ Status still missing after verification, manually adding:', data.status);
+          // Status still missing after verification
         }
       } else {
         // Verification failed, manually add status
         data.status = updateData.status as string;
-        console.error('❌ Verification fetch failed, manually adding status:', data.status);
+        // Verification failed, manually add status
       }
     }
 
     // Final verification - ensure status is in response
     if (!data.status && updateData.status) {
-      console.error('❌ FINAL CHECK: Status still missing, forcing it:', updateData.status);
+      // Status still missing, force it
       data.status = updateData.status as string;
     }
 
-    console.log('✅ API: Final response data status:', data?.status);
 
     return NextResponse.json({
       success: true,
@@ -249,7 +222,6 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('💥 API: Template update failed:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error',

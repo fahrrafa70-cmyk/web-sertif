@@ -537,8 +537,7 @@ export default function TemplatesPage() {
       }
       // Small delay to ensure database is updated before refresh
       await new Promise(resolve => setTimeout(resolve, 500));
-      // IMPORTANT: Use bypassCache=true to force fresh data from database
-      await refresh(true);
+      await refresh();
       
       setIsEditOpen(null);
       setDraft(null);

@@ -6,15 +6,12 @@ export function useTemplates() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🚀 PERFORMANCE: Optimized templates loading
-  const loadTemplates = useCallback(async (bypassCache: boolean = false) => {
+  const loadTemplates = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // 🚀 CRITICAL: Direct fetch without cache complexity
-      const data = await getTemplates(false); // Always bypass cache for consistent performance
-      console.log('📥 Templates loaded:', data.length);
+      const data = await getTemplates();
       setTemplates(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load templates');
@@ -42,13 +39,7 @@ export function useTemplates() {
     try {
       setError(null);
       const updatedTemplate = await updateTemplate(id, templateData);
-      console.log('🔄 useTemplates update - returned template:', updatedTemplate, 'with status:', updatedTemplate?.status);
-      // Update local state with the returned template (which should include status)
-      setTemplates(prev => {
-        const updated = prev.map(t => t.id === id ? updatedTemplate : t);
-        console.log('🔄 Updated templates state, status for updated template:', updated.find(t => t.id === id)?.status);
-        return updated;
-      });
+      setTemplates(prev => prev.map(t => t.id === id ? updatedTemplate : t));
       return updatedTemplate;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update template';
@@ -70,11 +61,10 @@ export function useTemplates() {
     }
   }, []);
 
-  // 🚀 PERFORMANCE: Load templates immediately on mount
   useEffect(() => {
-    // Start loading immediately without delay
     loadTemplates();
-  }, []); // Remove loadTemplates dependency to prevent reloads
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     templates,

@@ -44,7 +44,7 @@ function MappingRow({
       {/* Text Layer */}
       <div className="w-1/3">
         <Label className="font-medium text-sm">
-          {formatFieldLabel(layer.id)}
+          {formatFieldLabel(layer.id, layer)}
           <span className="text-red-500 ml-1">*</span>
         </Label>
       </div>
@@ -176,15 +176,15 @@ export function ColumnMappingStep({
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="main" className="flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4" />
-            Data Utama ({mappedMainCount}/{mappableMainLayers.length})
+            Front Side ({mappedMainCount}/{mappableMainLayers.length})
           </TabsTrigger>
           <TabsTrigger value="score" className="flex items-center gap-2">
             <Award className="w-4 h-4" />
-            Data Nilai ({mappedScoreCount}/{scoreLayers.length})
+            Back Side ({mappedScoreCount}/{scoreLayers.length})
           </TabsTrigger>
         </TabsList>
 
-        {/* Main Data Mapping */}
+        {/* Front Side Data Mapping */}
         <TabsContent value="main" className="space-y-4 mt-4">
 
           <div className="space-y-3">
@@ -202,7 +202,7 @@ export function ColumnMappingStep({
           </div>
         </TabsContent>
 
-        {/* Score Data Mapping */}
+        {/* Back Side Data Mapping */}
         <TabsContent value="score" className="space-y-4 mt-4">
 
           <div className="space-y-3">

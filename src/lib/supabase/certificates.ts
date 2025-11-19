@@ -321,7 +321,6 @@ export async function generateCertificateNumber(date?: Date): Promise<string> {
     .limit(1);
   
   if (error) {
-    console.error("Error fetching certificates for number generation:", error);
     // If error, start with 001
     return `${prefix}001`;
   }
@@ -358,7 +357,6 @@ export async function isCertificateNumberAvailable(certificateNo: string): Promi
 export async function createCertificate(
   certificateData: CreateCertificateData,
 ): Promise<Certificate> {
-  console.log("🚀 Starting certificate creation process...", certificateData);
 
   try {
     // Validate required fields (name and issue_date are required, certificate_no will be auto-generated if not provided)
@@ -374,10 +372,8 @@ export async function createCertificate(
     // Auto-generate certificate number if not provided or empty
     let certificateNo = certificateData.certificate_no?.trim();
     if (!certificateNo) {
-      console.log("📝 Auto-generating certificate number...");
       const issueDate = new Date(certificateData.issue_date);
       certificateNo = await generateCertificateNumber(issueDate);
-      console.log("✨ Generated certificate number:", certificateNo);
     } else {
       // Check if certificate number already exists
       const existingCertificate = await getCertificateByNumber(certificateNo);
@@ -390,7 +386,6 @@ export async function createCertificate(
 
     // Generate unique public_id for the certificate
     const publicId = generatePublicId();
-    console.log("🔑 Generated public_id:", publicId);
 
     const insertData = {
       certificate_no: certificateNo,
@@ -415,7 +410,6 @@ export async function createCertificate(
       is_public: true, // Default to public
     };
 
-    console.log("💾 Inserting certificate data to database:", insertData);
 
     // Insert data into certificates table
     const { data, error } = await supabaseClient
@@ -436,11 +430,9 @@ export async function createCertificate(
       .single();
 
     if (error) {
-      console.error("❌ Database insert error:", error);
       throw new Error(`Failed to create certificate: ${error.message}`);
     }
 
-    console.log("✅ Certificate created successfully in database:", data);
     
     // Invalidate cache after successful creation
     if (typeof window !== 'undefined') {
@@ -454,7 +446,6 @@ export async function createCertificate(
     
     return data;
   } catch (error) {
-    console.error("💥 Certificate creation process failed:", error);
     throw error;
   }
 }
@@ -545,9 +536,6 @@ export async function updateCertificate(
 
 // Delete certificate
 export async function deleteCertificate(id: string): Promise<void> {
-  console.log("🗑️ Starting certificate deletion process...", {
-    certificateId: id,
-  });
 
   try {
     // Check if certificate exists
@@ -556,22 +544,11 @@ export async function deleteCertificate(id: string): Promise<void> {
       throw new Error("Certificate not found");
     }
 
-    console.log("📋 Certificate found:", {
-      certificate_no: certificate.certificate_no,
-      name: certificate.name,
-    });
 
     // Check current user session
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-    console.log("🔐 Current session:", { 
-      hasSession: !!session, 
-      userId: session?.user?.id,
-      email: session?.user?.email,
-      sessionError 
-    });
 
     if (sessionError) {
-      console.error("❌ Session error:", sessionError);
       throw new Error(`Authentication error: ${sessionError.message}`);
     }
 
@@ -579,8 +556,7 @@ export async function deleteCertificate(id: string): Promise<void> {
       throw new Error("No active session. Please sign in again.");
     }
 
-    // CRITICAL FIX: Delete images from Supabase Storage BEFORE deleting from database
-    console.log("🗑️ Deleting certificate images from Supabase Storage...");
+    // Delete images from Supabase Storage BEFORE deleting from database
     
     // Extract filenames from URLs
     const deleteStorageFiles = async () => {
@@ -591,7 +567,6 @@ export async function deleteCertificate(id: string): Promise<void> {
         const certMatch = certificate.certificate_image_url.match(/certificates\/([^?]+)/);
         if (certMatch && certMatch[1]) {
           filesToDelete.push(certMatch[1]);
-          console.log("📄 Certificate image to delete:", certMatch[1]);
         }
       }
       
@@ -600,49 +575,33 @@ export async function deleteCertificate(id: string): Promise<void> {
         const scoreMatch = certificate.score_image_url.match(/certificates\/([^?]+)/);
         if (scoreMatch && scoreMatch[1]) {
           filesToDelete.push(scoreMatch[1]);
-          console.log("📄 Score image to delete:", scoreMatch[1]);
         }
       }
       
       // Delete files from storage
       if (filesToDelete.length > 0) {
-        console.log(`🗑️ Deleting ${filesToDelete.length} file(s) from storage...`);
         const { error: storageError } = await supabaseClient.storage
           .from('certificates')
           .remove(filesToDelete);
         
         if (storageError) {
-          console.warn("⚠️ Failed to delete some files from storage:", storageError);
           // Don't throw - continue with database deletion even if storage deletion fails
-        } else {
-          console.log("✅ Files deleted from storage successfully");
         }
-      } else {
-        console.log("ℹ️ No storage files to delete");
       }
     };
     
     await deleteStorageFiles();
 
     // Delete certificate from database
-    console.log("🗃️ Deleting certificate from database...");
     const { error } = await supabaseClient
       .from("certificates")
       .delete()
       .eq("id", id);
 
     if (error) {
-      console.error("❌ Database deletion error:", error);
-      console.error("❌ Error details:", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
       throw new Error(`Failed to delete certificate: ${error.message}`);
     }
 
-    console.log("✅ Certificate deleted successfully from database");
     
     // Invalidate cache after successful deletion
     if (typeof window !== 'undefined') {
@@ -654,7 +613,6 @@ export async function deleteCertificate(id: string): Promise<void> {
       }
     }
   } catch (error) {
-    console.error("💥 Certificate deletion process failed:", error);
     throw error;
   }
 }
@@ -760,14 +718,12 @@ export async function advancedSearchCertificates(
     const { data, error } = await query;
 
     if (error) {
-      console.error('Search error details:', error);
       // Return empty array instead of throwing to prevent crashes
       return [];
     }
 
     // Validate data
     if (!data || !Array.isArray(data)) {
-      console.error('Invalid search response:', data);
       return [];
     }
 
@@ -785,7 +741,6 @@ export async function advancedSearchCertificates(
                  certName.includes(keywordLower) || 
                  memberName.includes(keywordLower);
         } catch (filterError) {
-          console.error('Error filtering certificate:', filterError);
           return false;
         }
       });
@@ -793,7 +748,6 @@ export async function advancedSearchCertificates(
 
     return results;
   } catch (error) {
-    console.error('Advanced search certificates error:', error);
     // Return empty array instead of throwing to prevent crashes
     return [];
   }
@@ -812,7 +766,6 @@ export async function getCertificateCategories(): Promise<string[]> {
       .limit(1000);
 
     if (certError) {
-      console.error('Failed to fetch certificate categories:', certError);
     } else if (certData && Array.isArray(certData)) {
       certData.forEach((item) => {
         if (item && item.category && typeof item.category === 'string' && item.category.trim()) {
@@ -829,7 +782,6 @@ export async function getCertificateCategories(): Promise<string[]> {
       .limit(1000);
 
     if (templateError) {
-      console.error('Failed to fetch template categories:', templateError);
     } else if (templateData && Array.isArray(templateData)) {
       templateData.forEach((item) => {
         if (item && item.category && typeof item.category === 'string' && item.category.trim()) {
@@ -840,7 +792,6 @@ export async function getCertificateCategories(): Promise<string[]> {
 
     return Array.from(categoriesSet).sort();
   } catch (error) {
-    console.error('Error fetching categories:', error);
     return [];
   }
 }

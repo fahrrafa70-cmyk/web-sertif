@@ -203,9 +203,27 @@ export function mergeExcelData(
 
 /**
  * Format layer ID to readable label
- * e.g., "nilai_teori" -> "Nilai Teori"
+ * For pure dynamic variables (extracted variables), show with brackets
+ * For regular text layers (even if they contain variables), show as title case
  */
-export function formatFieldLabel(layerId: string): string {
+export function formatFieldLabel(layerId: string, field?: { defaultText?: string }): string {
+  // Already has brackets, keep as-is
+  if (layerId.includes('{') || layerId.includes('}')) {
+    return layerId;
+  }
+  
+  // Check if this is a PURE dynamic variable field (created by createVariableFields)
+  // Pure variable: defaultText is exactly "{varName}" (nothing else)
+  // NOT pure variable: defaultText contains text with variables like "Siswa dari {perusahaan}"
+  if (field?.defaultText) {
+    const trimmed = field.defaultText.trim();
+    // Check if defaultText is EXACTLY "{layerId}" - this is a pure variable field
+    if (trimmed === `{${layerId}}`) {
+      return `{${layerId}}`;
+    }
+  }
+  
+  // Convert to title case for regular text layers
   return layerId
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, FileText, CheckCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { TextLayerConfig } from "@/types/template-layout";
+import { formatFieldLabel } from "@/lib/utils/excel-mapping";
 
 interface ExcelUploadStepProps {
   isDualTemplate: boolean;
@@ -15,6 +17,8 @@ interface ExcelUploadStepProps {
   scoreData: Array<Record<string, unknown>>;
   onMainUpload: (data: Array<Record<string, unknown>>) => void;
   onScoreUpload: (data: Array<Record<string, unknown>>) => void;
+  mainFields?: TextLayerConfig[]; // Required fields for front side
+  scoreFields?: TextLayerConfig[]; // Required fields for back side (if dual template)
 }
 
 export function ExcelUploadStep({
@@ -22,7 +26,9 @@ export function ExcelUploadStep({
   mainData,
   scoreData,
   onMainUpload,
-  onScoreUpload
+  onScoreUpload,
+  mainFields = [],
+  scoreFields = []
 }: ExcelUploadStepProps) {
   const mainInputRef = useRef<HTMLInputElement>(null);
   const scoreInputRef = useRef<HTMLInputElement>(null);
@@ -66,17 +72,58 @@ export function ExcelUploadStep({
   if (mainData.length === 0) {
     return (
       <div className="space-y-4">
-        {/* Info Box */}
-        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-2">
-            📋 Penting: Pastikan Field Excel Sesuai Template
-          </p>
-          <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-            Jika template memiliki <span className="font-semibold">custom data</span> (text layer tambahan), 
-            pastikan kolom/field pada file Excel Anda sudah sesuai dengan data yang dibutuhkan template. 
-            Periksa nama kolom Excel agar cocok dengan field yang ada di template.
-          </p>
-        </div>
+        {/* Info Box - Only show if template is selected */}
+        {(mainFields.length > 0 || scoreFields.length > 0) && (
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-2">
+              Kolom Excel yang Dibutuhkan :
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+              Pastikan file Excel Anda memiliki kolom dibawah ini
+            </p>
+            {mainFields.length > 0 && (
+            <div className="space-y-2">
+              {!isDualTemplate && (
+                <div className="text-xs text-blue-800 dark:text-blue-200">
+                  <div className="flex flex-wrap gap-1.5">
+                    {mainFields.map((field) => (
+                      <span key={field.id} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 rounded text-blue-900 dark:text-blue-100 font-mono">
+                        {formatFieldLabel(field.id, field)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {isDualTemplate && (
+                <>
+                  <div className="text-xs text-blue-800 dark:text-blue-200">
+                    <span className="font-semibold">Front Side:</span>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {mainFields.map((field) => (
+                        <span key={field.id} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 rounded text-blue-900 dark:text-blue-100 font-mono">
+                          {formatFieldLabel(field.id, field)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {scoreFields.length > 0 && (
+                    <div className="text-xs text-blue-800 dark:text-blue-200">
+                      <span className="font-semibold">Back Side:</span>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {scoreFields.map((field) => (
+                          <span key={field.id} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/50 rounded text-purple-900 dark:text-purple-100 font-mono">
+                            {formatFieldLabel(field.id, field)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          </div>
+        )}
 
         {/* Upload Area */}
         <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">

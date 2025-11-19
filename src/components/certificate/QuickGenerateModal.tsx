@@ -1,25 +1,37 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { LoadingButton } from "@/components/ui/loading-button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { FileSpreadsheet, Users, Calendar, ArrowRight, ArrowLeft } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Template } from '@/lib/supabase/templates';
+import { Member } from '@/lib/supabase/members';
+import { Users, FileSpreadsheet, Calendar as CalendarIcon, ArrowLeft, ArrowRight } from 'lucide-react';
+import { DateFormat, DATE_FORMATS } from '@/types/certificate-generator';
+import { TextLayerConfig } from '@/types/template-layout';
+import { useLanguage } from '@/contexts/language-context';
+import { toast } from 'sonner';
+import { LoadingButton } from '@/components/ui/loading-button';
+import { ExcelUploadStep } from './ExcelUploadStep';
+import { ColumnMappingStep } from './ColumnMappingStep';
+import { 
+  extractVariablesFromLayer
+} from '@/lib/utils/variable-parser';
+import { 
+  autoMapColumns, 
+  validateMapping, 
+  mergeExcelData 
+} from '@/lib/utils/excel-mapping';
 import { batchAutoPopulatePrestasi } from '@/lib/utils/score-predicates';
-import { Template } from "@/lib/supabase/templates";
-import { Member } from "@/lib/supabase/members";
-import { DateFormat, DATE_FORMATS } from "@/types/certificate-generator";
-import { TextLayerConfig } from "@/types/template-layout";
-import { toast } from "sonner";
-import { useLanguage } from "@/contexts/language-context";
-import { ExcelUploadStep } from "./ExcelUploadStep";
-import { ColumnMappingStep } from "./ColumnMappingStep";
-import { autoMapColumns, validateMapping, mergeExcelData } from "@/lib/utils/excel-mapping";
 
 interface QuickGenerateModalProps {
   open: boolean;
@@ -51,26 +63,88 @@ export interface QuickGenerateParams {
   excelScoreMapping?: Record<string, string>; // layerId -> excelColumn (for dual template)
 }
 
-// Helper function to format layer ID to readable label
-function formatFieldLabel(layerId: string): string {
-  // nilai_teori → Nilai Teori
-  // total_score → Total Score
-  // grade_akhir → Grade Akhir
+/**
+ * Format layer ID to readable label
+ * For pure dynamic variables (extracted variables), show with brackets
+ * For regular text layers (even if they contain variables), show as title case
+ */
+function formatFieldLabel(layerId: string, field?: TextLayerConfig): string {
+  // Already has brackets, keep as-is
+  if (layerId.includes('{') || layerId.includes('}')) {
+    return layerId;
+  }
+  
+  // Check if this is a PURE dynamic variable field (created by createVariableFields)
+  // Pure variable: defaultText is exactly "{varName}" (nothing else)
+  // NOT pure variable: defaultText contains text with variables like "Siswa dari {perusahaan}"
+  if (field?.defaultText) {
+    const trimmed = field.defaultText.trim();
+    // Check if defaultText is EXACTLY "{layerId}" - this is a pure variable field
+    if (trimmed === `{${layerId}}`) {
+      return `{${layerId}}`;
+    }
+  }
+  
+  // Convert to title case for regular text layers
   return layerId
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 }
 
+/**
+ * Extract all unique variables from text layers
+ * Scans both defaultText and richText for {variable} patterns
+ */
+function extractVariablesFromLayers(layers: TextLayerConfig[]): string[] {
+  const allVariables: string[] = [];
+  
+  for (const layer of layers) {
+    const layerVars = extractVariablesFromLayer(layer);
+    for (const varName of layerVars) {
+      if (!allVariables.includes(varName)) {
+        allVariables.push(varName);
+      }
+    }
+  }
+  
+  return allVariables;
+}
+
+/**
+ * Create virtual field configs for dynamic variables
+ * These represent {variable} placeholders found in text layers
+ * Note: ID uses varName without brackets for data mapping compatibility
+ */
+function createVariableFields(variables: string[]): TextLayerConfig[] {
+  return variables.map(varName => {
+    const field: TextLayerConfig = {
+      id: varName, // Use plain varName for data mapping
+      x: 0,
+      y: 0,
+      xPercent: 0,
+      yPercent: 0,
+      defaultText: `{${varName}}`, // Store bracket format in defaultText for UI display hint
+      useDefaultText: false,
+      fontSize: 16,
+      color: '#000000',
+      fontWeight: '400',
+      fontFamily: 'Arial',
+    };
+    return field;
+  });
+}
+
 // Input Score Step Component
 interface InputScoreStepProps {
   members: Member[];
-  scoreFields: TextLayerConfig[]; // TextLayerConfig from layout_config.score.textLayers
+  frontFields: TextLayerConfig[]; // Front side text layers that need user input
+  backFields: TextLayerConfig[]; // Back side text layers that need user input
   scoreDataMap: Record<string, Record<string, string>>;
   setScoreDataMap: React.Dispatch<React.SetStateAction<Record<string, Record<string, string>>>>;
 }
 
-function InputScoreStep({ members, scoreFields, scoreDataMap, setScoreDataMap }: InputScoreStepProps) {
+function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setScoreDataMap }: InputScoreStepProps) {
   const { t } = useLanguage();
   const [selectedMemberId, setSelectedMemberId] = useState(members[0]?.id || '');
   
@@ -88,12 +162,13 @@ function InputScoreStep({ members, scoreFields, scoreDataMap, setScoreDataMap }:
     }));
   };
   
-  // Check if member has completed all fields
+  // Check if member has completed all fields (both front and back)
   const isMemberComplete = (memberId: string) => {
     const memberData = scoreDataMap[memberId];
     if (!memberData) return false;
-    // Check if all score fields have values
-    return scoreFields.every(field => memberData[field.id]?.trim());
+    // Check if all front and back fields have values
+    const allFields = [...frontFields, ...backFields];
+    return allFields.every(field => memberData[field.id]?.trim());
   };
   
   // Count completed members
@@ -134,26 +209,73 @@ function InputScoreStep({ members, scoreFields, scoreDataMap, setScoreDataMap }:
         </div>
       )}
       
-      {/* Score Input Fields (Auto-generated from scoreFields) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {scoreFields.map(field => (
-          <div key={field.id} className="space-y-2">
-            <Label htmlFor={field.id} className="text-sm font-medium">
-              {formatFieldLabel(field.id)}
-              <span className="text-red-500 ml-1">*</span>
-            </Label>
-            <Input
-              id={field.id}
-              type="text"
-              value={currentScoreData[field.id] || ''}
-              onChange={(e) => handleFieldChange(field.id, e.target.value)}
-              onFocus={(e) => e.target.select()}
-              placeholder={t('quickGenerate.enterScore').replace('{field}', formatFieldLabel(field.id))}
-              className="w-full"
-            />
+      {/* Front Side Input Fields */}
+      {frontFields.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-px bg-gradient-to-r from-blue-500 to-blue-300 flex-1"></div>
+            <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide px-2">Front Side</h3>
+            <div className="h-px bg-gradient-to-l from-blue-500 to-blue-300 flex-1"></div>
           </div>
-        ))}
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {frontFields.map(field => {
+              const displayLabel = formatFieldLabel(field.id, field);
+              
+              return (
+                <div key={field.id} className="space-y-2">
+                  <Label htmlFor={`front-${field.id}`} className="text-sm font-medium">
+                    {displayLabel}
+                    <span className="text-red-500 ml-1">*</span>
+                  </Label>
+                  <Input
+                    id={`front-${field.id}`}
+                    type="text"
+                    value={currentScoreData[field.id] || ''}
+                    onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    placeholder={`Masukkan ${displayLabel}`}
+                    className="w-full"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Back Side Input Fields */}
+      {backFields.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-px bg-gradient-to-r from-purple-500 to-purple-300 flex-1"></div>
+            <h3 className="text-sm font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide px-2">Back Side</h3>
+            <div className="h-px bg-gradient-to-l from-purple-500 to-purple-300 flex-1"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {backFields.map(field => {
+              const displayLabel = formatFieldLabel(field.id, field);
+              
+              return (
+                <div key={field.id} className="space-y-2">
+                  <Label htmlFor={`back-${field.id}`} className="text-sm font-medium">
+                    {displayLabel}
+                    <span className="text-red-500 ml-1">*</span>
+                  </Label>
+                  <Input
+                    id={`back-${field.id}`}
+                    type="text"
+                    value={currentScoreData[field.id] || ''}
+                    onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    placeholder={t('quickGenerate.enterScore').replace('{field}', displayLabel)}
+                    className="w-full"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -220,8 +342,34 @@ export function QuickGenerateModal({
     }
   }, [open, templates, members]);
   
-  // Detect if template is dual (has score layout)
-  // Filter out layers that have useDefaultText=true (like score_date) or are default certificate layers (like issue_date)
+  // Get ALL back side fields for Excel mapping (includes all fields)
+  const getAllScoreFields = React.useCallback((): TextLayerConfig[] => {
+    if (!selectedTemplate?.layout_config?.score?.textLayers) return [];
+    
+    const scoreConfig = selectedTemplate.layout_config.score;
+    if (!scoreConfig?.textLayers) return [];
+    
+    const allLayers = scoreConfig.textLayers;
+    
+    // 1. Get ALL regular fields (don't skip any for Excel)
+    const regularFields = allLayers.filter((layer) => {
+      // Skip ONLY layers with useDefaultText flag
+      if (layer.useDefaultText) return false;
+      return true;
+    });
+    
+    // 2. Extract dynamic variables from ALL back side layers
+    const variables = extractVariablesFromLayers(allLayers);
+    const variableFields = createVariableFields(variables);
+    
+    // 3. Combine and deduplicate
+    const regularFieldIds = new Set(regularFields.map(f => f.id));
+    const uniqueVariableFields = variableFields.filter(v => !regularFieldIds.has(v.id));
+    
+    return [...regularFields, ...uniqueVariableFields];
+  }, [selectedTemplate]);
+  
+  // Get back side fields for manual input (excludes front side fields)
   const getScoreTextLayers = React.useCallback((): TextLayerConfig[] => {
     if (!selectedTemplate?.layout_config) return [];
     
@@ -233,15 +381,82 @@ export function QuickGenerateModal({
     
     const allLayers = scoreConfig.textLayers;
     
-    // Only return layers that need user input
-    // Exclude: layers with useDefaultText=true OR default certificate layers (issue_date, certificate_no, name)
-    return allLayers.filter((layer) => {
+    // 1. Get regular fields that need user input
+    const regularFields = allLayers.filter((layer) => {
       // Skip layers with useDefaultText flag
       if (layer.useDefaultText) return false;
-      // Skip default certificate layers that shouldn't need input in score mode
+      // Skip default front side layers that shouldn't need input in back side mode
       if (layer.id === 'issue_date' || layer.id === 'certificate_no' || layer.id === 'name') return false;
       return true;
     });
+    
+    // 2. Extract dynamic variables from ALL back side layers
+    const variables = extractVariablesFromLayers(allLayers);
+    const variableFields = createVariableFields(variables);
+    
+    // 3. Combine regular fields + variable fields
+    // Filter out variables that already exist as regular field IDs
+    const regularFieldIds = new Set(regularFields.map(f => f.id));
+    const uniqueVariableFields = variableFields.filter(v => !regularFieldIds.has(v.id));
+    
+    return [...regularFields, ...uniqueVariableFields];
+  }, [selectedTemplate]);
+  
+  // Get front side (certificate) text layers that need user input
+  // Get all required fields for Excel mapping (includes auto-generated fields)
+  const getAllFrontSideFields = React.useCallback((): TextLayerConfig[] => {
+    if (!selectedTemplate?.layout_config) return [];
+    
+    const config = selectedTemplate.layout_config;
+    if (!config.certificate?.textLayers) return [];
+    
+    const allLayers = config.certificate.textLayers;
+    
+    // 1. Get ALL regular fields (don't skip auto-generated ones for Excel)
+    const regularFields = allLayers.filter((layer) => {
+      // Skip ONLY layers with useDefaultText flag
+      if (layer.useDefaultText) return false;
+      return true;
+    });
+    
+    // 2. Extract dynamic variables from ALL layers
+    const variables = extractVariablesFromLayers(allLayers);
+    const variableFields = createVariableFields(variables);
+    
+    // 3. Combine and deduplicate
+    const regularFieldIds = new Set(regularFields.map(f => f.id));
+    const uniqueVariableFields = variableFields.filter(v => !regularFieldIds.has(v.id));
+    
+    return [...regularFields, ...uniqueVariableFields];
+  }, [selectedTemplate]);
+
+  // Get fields for manual input (excludes auto-generated fields)
+  const getFrontSideTextLayers = React.useCallback((): TextLayerConfig[] => {
+    if (!selectedTemplate?.layout_config) return [];
+    
+    const config = selectedTemplate.layout_config;
+    if (!config.certificate?.textLayers) return [];
+    
+    const allLayers = config.certificate.textLayers;
+    
+    // 1. Get regular fields that need MANUAL input
+    const regularFields = allLayers.filter((layer) => {
+      // Skip layers with useDefaultText flag
+      if (layer.useDefaultText) return false;
+      // Skip auto-generated fields (for manual input only)
+      if (layer.id === 'certificate_no' || layer.id === 'issue_date' || layer.id === 'expired_date' || layer.id === 'name') return false;
+      return true;
+    });
+    
+    // 2. Extract dynamic variables from ALL layers
+    const variables = extractVariablesFromLayers(allLayers);
+    const variableFields = createVariableFields(variables);
+    
+    // 3. Combine and deduplicate
+    const regularFieldIds = new Set(regularFields.map(f => f.id));
+    const uniqueVariableFields = variableFields.filter(v => !regularFieldIds.has(v.id));
+    
+    return [...regularFields, ...uniqueVariableFields];
   }, [selectedTemplate]);
   
   const isDualTemplate = React.useMemo(() => {
@@ -251,11 +466,13 @@ export function QuickGenerateModal({
   // Check if all members have completed score data (for step 2 validation)
   const isAllScoreDataComplete = () => {
     if (currentStep !== 2) return true; // Only validate on step 2
-    const scoreFields = getScoreTextLayers();
+    const frontFields = getFrontSideTextLayers();
+    const backFields = getScoreTextLayers();
+    const allFields = [...frontFields, ...backFields];
     return selectedMembers.every(memberId => {
       const memberData = scoreDataMap[memberId];
       if (!memberData) return false;
-      return scoreFields.every((field: TextLayerConfig) => memberData[field.id]?.trim());
+      return allFields.every((field: TextLayerConfig) => memberData[field.id]?.trim());
     });
   };
   
@@ -270,14 +487,24 @@ export function QuickGenerateModal({
     }
   }, [issueDate]);
   
-  // Get text layers from template that need mapping
+  // Get text layers from template that need mapping (including dynamic variables)
   const getMainTextLayers = React.useCallback((): TextLayerConfig[] => {
     if (!selectedTemplate?.layout_config) return [];
     const config = selectedTemplate.layout_config;
     
     // config.certificate.textLayers (standard template structure)
     if (config.certificate?.textLayers && Array.isArray(config.certificate.textLayers)) {
-      return config.certificate.textLayers;
+      const allLayers = config.certificate.textLayers;
+      
+      // Extract dynamic variables from ALL layers
+      const variables = extractVariablesFromLayers(allLayers);
+      const variableFields = createVariableFields(variables);
+      
+      // Combine original layers + variable fields for complete mapping
+      const existingIds = new Set(allLayers.map(l => l.id));
+      const uniqueVariableFields = variableFields.filter(v => !existingIds.has(v.id));
+      
+      return [...allLayers, ...uniqueVariableFields];
     }
     
     return [];
@@ -341,6 +568,15 @@ export function QuickGenerateModal({
           ? batchAutoPopulatePrestasi(scoreDataMap)
           : scoreDataMap;
 
+        console.log('🔍 DEBUG QuickGenerateModal - Before Generate:', {
+          isDualTemplate,
+          hasScoreDataMap: !!scoreDataMap,
+          scoreDataMapKeys: scoreDataMap ? Object.keys(scoreDataMap) : [],
+          scoreDataMapSample: scoreDataMap ? Object.entries(scoreDataMap).slice(0, 2) : [],
+          finalScoreDataMapKeys: finalScoreDataMap ? Object.keys(finalScoreDataMap) : [],
+          selectedMemberIds: selectedMembers
+        });
+
         const params: QuickGenerateParams = {
           template: selectedTemplate,
           dataSource: 'member',
@@ -354,6 +590,12 @@ export function QuickGenerateModal({
           },
           scoreDataMap: isDualTemplate ? finalScoreDataMap : undefined // Pass score data with auto-populated prestasi
         };
+
+        console.log('📦 DEBUG Params to onGenerate:', {
+          hasScoreDataMap: !!params.scoreDataMap,
+          scoreDataMapKeys: params.scoreDataMap ? Object.keys(params.scoreDataMap) : [],
+          membersCount: params.members?.length
+        });
 
         await onGenerate(params);
       } else {
@@ -569,13 +811,13 @@ export function QuickGenerateModal({
 
                 <div className="space-y-3">
                   <Label className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
+                    <CalendarIcon className="w-4 h-4" />
                     {t('quickGenerate.dateFormat')}
                   </Label>
                   <Select value={dateFormat} onValueChange={(value) => setDateFormat(value as DateFormat)}>
                     <SelectTrigger>
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <CalendarIcon className="w-4 h-4 text-gray-500" />
                         <SelectValue />
                       </div>
                     </SelectTrigger>
@@ -614,13 +856,13 @@ export function QuickGenerateModal({
                 {/* Date Format Selection for Excel */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
+                    <CalendarIcon className="w-4 h-4" />
                     Date Format
                   </Label>
                   <Select value={dateFormat} onValueChange={(value) => setDateFormat(value as DateFormat)}>
                     <SelectTrigger>
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <CalendarIcon className="w-4 h-4 text-gray-500" />
                         <SelectValue />
                       </div>
                     </SelectTrigger>
@@ -640,6 +882,8 @@ export function QuickGenerateModal({
                   scoreData={excelScoreData}
                   onMainUpload={setExcelMainData}
                   onScoreUpload={setExcelScoreData}
+                  mainFields={getAllFrontSideFields()}
+                  scoreFields={getAllScoreFields()}
                 />
               </TabsContent>
             </Tabs>
@@ -667,12 +911,13 @@ export function QuickGenerateModal({
           </div>
         )}
 
-        {/* Step 2/3: Input Score Data (Member only, dual template) */}
+        {/* Step 2/3: Input Data Front Side & Back Side (Member only, dual template) */}
         {currentStep >= 2 && dataSource === 'member' && isDualTemplate && (
           <div className="space-y-6 py-4">
             <InputScoreStep
               members={members.filter(m => selectedMembers.includes(m.id))}
-              scoreFields={getScoreTextLayers()}
+              frontFields={getFrontSideTextLayers()}
+              backFields={getScoreTextLayers()}
               scoreDataMap={scoreDataMap}
               setScoreDataMap={setScoreDataMap}
             />
