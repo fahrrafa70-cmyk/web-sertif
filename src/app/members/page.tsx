@@ -663,7 +663,7 @@ export default function MembersPage() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
                   <Input
                     placeholder="Search data by name, email, organization..."
-                    className="h-10 pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center"
+                    className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
