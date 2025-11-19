@@ -282,7 +282,7 @@ function ConfigureLayoutContent() {
                 const x = Math.round(xPercent * dimensions.width);
                 const y = Math.round(yPercent * dimensions.height);
                 
-                return {
+                return ensureFontSizePercent({
                   ...layer,
                   x,
                   y,
@@ -290,7 +290,7 @@ function ConfigureLayoutContent() {
                   yPercent,
                   maxWidth: layer.maxWidth || 300,
                   lineHeight: layer.lineHeight || 1.2,
-                };
+                }, dimensions.height);
               });
               
               const migratedLayers = normalizedLayers.map(layer => {
@@ -422,7 +422,7 @@ function ConfigureLayoutContent() {
                 const x = Math.round(xPercent * dimensions.width);
                 const y = Math.round(yPercent * dimensions.height);
                 
-                return {
+                return ensureFontSizePercent({
                   ...layer,
                   x,
                   y,
@@ -430,7 +430,7 @@ function ConfigureLayoutContent() {
                   yPercent,
                   maxWidth: layer.maxWidth || 300,
                   lineHeight: layer.lineHeight || 1.2,
-                };
+                }, dimensions.height);
               });
               
               const migratedLayers = normalizedLayers.map(layer => {
