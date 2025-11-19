@@ -112,7 +112,6 @@ function ConfigureLayoutContent() {
     async function loadTemplate() {
       // Set a timeout to prevent infinite loading
       timeoutId = setTimeout(() => {
-        console.warn('⚠️ Template loading timeout - setting loading to false');
         setLoading(false);
       }, 10000); // 10 second timeout
       if (!templateId) {
@@ -146,7 +145,6 @@ function ConfigureLayoutContent() {
           existingLayout.certificate.textLayers = existingLayout.certificate.textLayers.map((layer: TextLayerConfig) => {
             // Only migrate if id is exactly 'description'
             if (layer.id === 'description') {
-              console.log('🔄 Setting description as default text layer');
               return {
                 ...layer,
                 defaultText: layer.defaultText || 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
@@ -164,7 +162,6 @@ function ConfigureLayoutContent() {
           
           // Add description layer if not exists
           if (!hasDescription) {
-            console.log('➕ Adding missing description layer to certificate');
             existingLayout.certificate.textLayers.push({
               id: 'description',
               x: 400,
@@ -191,7 +188,6 @@ function ConfigureLayoutContent() {
           existingLayout.score.textLayers = existingLayout.score.textLayers.map((layer: TextLayerConfig) => {
             // Only migrate if id is exactly 'description'
             if (layer.id === 'description') {
-              console.log('🔄 Setting score description as default text layer');
               return {
                 ...layer,
                 defaultText: layer.defaultText || 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
@@ -209,7 +205,6 @@ function ConfigureLayoutContent() {
           
           // Add description layer if not exists
           if (!hasDescription) {
-            console.log('➕ Adding missing description layer to score');
             existingLayout.score.textLayers.push({
               id: 'description',
               x: 400,
@@ -231,18 +226,14 @@ function ConfigureLayoutContent() {
         }
         
         existingLayoutRef.current = existingLayout;
-        console.log('📋 Existing layout loaded and migrated:', existingLayout);
         
         // Load CERTIFICATE image dimensions for dynamic aspect ratio
         const certificateImageUrl = (tpl.certificate_image_url || tpl.image_path) as string;
         if (certificateImageUrl) {
-          console.log('🖼️ Loading certificate image:', certificateImageUrl);
           const certImg = new window.Image();
           certImg.crossOrigin = 'anonymous'; // Enable CORS
           
-          certImg.onerror = (error) => {
-            console.error('❌ Failed to load certificate image:', error);
-            console.error('Image URL:', certificateImageUrl);
+          certImg.onerror = () => {
             // Set loading to false even if image fails to load
             clearTimeout(timeoutId);
             setLoading(false);
@@ -251,15 +242,12 @@ function ConfigureLayoutContent() {
           certImg.onload = () => {
             const dimensions = { width: certImg.naturalWidth, height: certImg.naturalHeight };
             setCertificateImageDimensions(dimensions);
-            console.log('📐 Certificate dimensions:', certImg.naturalWidth, 'x', certImg.naturalHeight);
-            console.log('📊 Existing layout:', existingLayoutRef.current);
             
             // CRITICAL: Normalize coordinates when dimensions are loaded
             // This ensures coordinates are correct even if template image was replaced with different size
             const layout = existingLayoutRef.current;
             if (layout && layout.certificate && layout.certificate.textLayers && layout.certificate.textLayers.length > 0) {
               const normalizedLayers = (layout.certificate.textLayers as TextLayer[]).map(layer => {
-                // Use xPercent/yPercent if available (resolution-independent), otherwise calculate from x/y
                 const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
                   ? layer.xPercent
                   : (layer.x || 0) / (dimensions.width || STANDARD_CANVAS_WIDTH);
@@ -267,7 +255,6 @@ function ConfigureLayoutContent() {
                   ? layer.yPercent
                   : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
                 
-                // Recalculate x/y based on actual template dimensions
                 const x = Math.round(xPercent * dimensions.width);
                 const y = Math.round(yPercent * dimensions.height);
                 
@@ -282,8 +269,6 @@ function ConfigureLayoutContent() {
                 };
               });
               
-              // Remove textAlign for certificate_no and issue_date
-              // AND set description as default text layer (ONLY for id === 'description')
               const migratedLayers = normalizedLayers.map(layer => {
                 if (layer.id === 'certificate_no' || layer.id === 'issue_date') {
                   const { textAlign, ...rest } = layer;
@@ -307,22 +292,13 @@ function ConfigureLayoutContent() {
               });
               
               setCertificateTextLayers(migratedLayers);
-              console.log('✅ Normalized certificate layers to template dimensions:', dimensions);
               
               // Load photo layers for certificate mode
               if (layout.certificate.photoLayers && layout.certificate.photoLayers.length > 0) {
                 setCertificatePhotoLayers(layout.certificate.photoLayers);
-                console.log('📸 Loaded', layout.certificate.photoLayers.length, 'certificate photo layers');
               }
             } else {
               // No existing layout - initialize default layers with actual dimensions
-              console.log('🆕 Initializing default certificate text layers with actual dimensions');
-              console.log('   Layout check:', {
-                hasLayout: !!layout,
-                hasCertificate: layout?.certificate,
-                hasTextLayers: layout?.certificate?.textLayers,
-                textLayersLength: layout?.certificate?.textLayers?.length
-              });
               const defaultLayers: TextLayerConfig[] = [
                 {
                   id: 'name',
@@ -338,7 +314,6 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.15),
                   lineHeight: 1.2,
                   visible: true,
-                  fontStyle: 'normal',
                 },
                 {
                   id: 'certificate_no',
@@ -353,7 +328,6 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.1),
                   lineHeight: 1.2,
                   visible: true,
-                  fontStyle: 'normal',
                 },
                 {
                   id: 'issue_date',
@@ -368,7 +342,6 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.1),
                   lineHeight: 1.2,
                   visible: true,
-                  fontStyle: 'normal',
                 },
                 {
                   id: 'description',
@@ -384,17 +357,14 @@ function ConfigureLayoutContent() {
                   maxWidth: Math.round(dimensions.width * 0.2),
                   lineHeight: 1.4,
                   visible: true,
-                  fontStyle: 'normal',
                   defaultText: 'Penghargaan diberikan kepada yang bersangkutan atas dedikasi dan kontribusinya',
                   useDefaultText: true,
                 },
               ];
-              console.log('✅ Created default layers:', defaultLayers.map(l => ({ id: l.id, x: l.x, y: l.y })));
               setCertificateTextLayers(defaultLayers);
               if (defaultLayers.length > 0) {
                 setSelectedLayerId(defaultLayers[0].id);
               }
-              console.log('✅ Default certificate layers set successfully');
             }
             // Set loading to false after processing certificate image
             clearTimeout(timeoutId);
@@ -410,7 +380,6 @@ function ConfigureLayoutContent() {
             // Image already loaded from cache, trigger callback manually
             const dimensions = { width: certImg.naturalWidth, height: certImg.naturalHeight };
             setCertificateImageDimensions(dimensions);
-            console.log('📐 Certificate dimensions (cached):', certImg.naturalWidth, 'x', certImg.naturalHeight);
             
             const layout = existingLayoutRef.current;
             if (layout && layout.certificate && layout.certificate.textLayers && layout.certificate.textLayers.length > 0) {
@@ -459,16 +428,13 @@ function ConfigureLayoutContent() {
               });
               
               setCertificateTextLayers(migratedLayers);
-              console.log('✅ Normalized certificate layers (cached image)');
               
               // Load photo layers for certificate mode (cached)
               if (layout.certificate.photoLayers && layout.certificate.photoLayers.length > 0) {
                 setCertificatePhotoLayers(layout.certificate.photoLayers);
-                console.log('📸 Loaded', layout.certificate.photoLayers.length, 'certificate photo layers (cached)');
               }
             } else {
               // No existing layout - initialize default layers with actual dimensions (cached)
-              console.log('🆕 Initializing default certificate text layers with actual dimensions (cached)');
               const defaultLayers: TextLayerConfig[] = [
                 {
                   id: 'name',
@@ -542,7 +508,6 @@ function ConfigureLayoutContent() {
           }
         } else {
           // No certificate image URL - set loading to false and use default dimensions
-          console.log('⚠️ No certificate image URL found, using default dimensions');
           setCertificateImageDimensions({ width: STANDARD_CANVAS_WIDTH, height: STANDARD_CANVAS_HEIGHT });
           
           // Initialize default certificate text layers since we have no image to load
@@ -620,14 +585,11 @@ function ConfigureLayoutContent() {
         // Load SCORE image dimensions if dual template
         if (tpl.is_dual_template && tpl.score_image_url) {
           const scoreImg = new window.Image();
-          scoreImg.onerror = (error) => {
-            console.error('❌ Failed to load score image:', error);
-            console.error('Score Image URL:', tpl.score_image_url);
+          scoreImg.onerror = () => {
           };
           scoreImg.onload = () => {
             const dimensions = { width: scoreImg.naturalWidth, height: scoreImg.naturalHeight };
             setScoreImageDimensions(dimensions);
-            console.log('📊 Score dimensions:', scoreImg.naturalWidth, 'x', scoreImg.naturalHeight);
             
             // CRITICAL: Normalize coordinates when dimensions are loaded
             const layout = existingLayoutRef.current;
@@ -641,7 +603,6 @@ function ConfigureLayoutContent() {
                   ? layer.yPercent
                   : (layer.y || 0) / (dimensions.height || STANDARD_CANVAS_HEIGHT);
                 
-                // Recalculate x/y based on actual template dimensions
                 const x = Math.round(xPercent * dimensions.width);
                 const y = Math.round(yPercent * dimensions.height);
                 
@@ -657,17 +618,14 @@ function ConfigureLayoutContent() {
               });
               
               setScoreTextLayers(normalizedLayers);
-              console.log('✅ Normalized score layers to template dimensions:', dimensions);
               
               // Load photo layers for score mode
               if (layout.score.photoLayers && layout.score.photoLayers.length > 0) {
                 setScorePhotoLayers(layout.score.photoLayers);
-                console.log('📸 Loaded', layout.score.photoLayers.length, 'score photo layers');
               }
             } else {
-              // No existing layout - initialize default score layers with actual dimensions
-              console.log('🆕 Initializing default score text layers with actual dimensions');
-              const defaultScoreLayers: TextLayerConfig[] = [
+              // No existing layout for score - initialize default layers
+              const defaultLayers: TextLayerConfig[] = [
                 {
                   id: 'name',
                   x: Math.round(dimensions.width * 0.5),
@@ -679,53 +637,21 @@ function ConfigureLayoutContent() {
                   fontWeight: 'bold',
                   fontFamily: 'Arial',
                   textAlign: 'center',
-                  maxWidth: Math.round(dimensions.width * 0.15),
-                  lineHeight: 1.2,
-                  visible: true,
-                },
-                {
-                  id: 'certificate_no',
-                  x: Math.round(dimensions.width * 0.1),
-                  y: Math.round(dimensions.height * 0.1),
-                  xPercent: 0.1,
-                  yPercent: 0.1,
-                  fontSize: 26,
-                  color: '#000000',
-                  fontWeight: 'normal',
-                  fontFamily: 'Arial',
-                  maxWidth: Math.round(dimensions.width * 0.1),
-                  lineHeight: 1.2,
-                  visible: true,
-                },
-                {
-                  id: 'issue_date',
-                  x: Math.round(dimensions.width * 0.7),
-                  y: Math.round(dimensions.height * 0.85),
-                  xPercent: 0.7,
-                  yPercent: 0.85,
-                  fontSize: 26,
-                  color: '#000000',
-                  fontWeight: 'normal',
-                  fontFamily: 'Arial',
-                  maxWidth: Math.round(dimensions.width * 0.1),
+                  maxWidth: Math.round(dimensions.width * 0.8),
                   lineHeight: 1.2,
                   visible: true,
                 },
               ];
-              setScoreTextLayers(defaultScoreLayers);
+              setScoreTextLayers(defaultLayers);
             }
           };
           
-          // Set src and check if already cached
           scoreImg.src = tpl.score_image_url;
           
-          // Handle case where image is already cached (onload may not fire)
-          // Check after setting src, as cached images will have complete=true immediately
+          // Handle cached score image
           if (scoreImg.complete) {
-            // Image already loaded from cache, trigger callback manually
             const dimensions = { width: scoreImg.naturalWidth, height: scoreImg.naturalHeight };
             setScoreImageDimensions(dimensions);
-            console.log('📊 Score dimensions (cached):', scoreImg.naturalWidth, 'x', scoreImg.naturalHeight);
             
             const layout = existingLayoutRef.current;
             if (layout && layout.score && layout.score.textLayers && layout.score.textLayers.length > 0) {
@@ -752,17 +678,14 @@ function ConfigureLayoutContent() {
               });
               
               setScoreTextLayers(normalizedLayers);
-              console.log('✅ Normalized score layers (cached image)');
               
               // Load photo layers for score mode (cached)
               if (layout.score.photoLayers && layout.score.photoLayers.length > 0) {
                 setScorePhotoLayers(layout.score.photoLayers);
-                console.log('📸 Loaded', layout.score.photoLayers.length, 'score photo layers (cached)');
               }
             } else {
-              // No existing layout - initialize default score layers with actual dimensions (cached)
-              console.log('🆕 Initializing default score text layers with actual dimensions (cached)');
-              const defaultScoreLayers: TextLayerConfig[] = [
+              // No existing layout for score - initialize default layers (cached)
+              const defaultLayers: TextLayerConfig[] = [
                 {
                   id: 'name',
                   x: Math.round(dimensions.width * 0.5),
@@ -774,52 +697,23 @@ function ConfigureLayoutContent() {
                   fontWeight: 'bold',
                   fontFamily: 'Arial',
                   textAlign: 'center',
-                  maxWidth: Math.round(dimensions.width * 0.15),
-                  lineHeight: 1.2,
-                  visible: true,
-                },
-                {
-                  id: 'certificate_no',
-                  x: Math.round(dimensions.width * 0.1),
-                  y: Math.round(dimensions.height * 0.1),
-                  xPercent: 0.1,
-                  yPercent: 0.1,
-                  fontSize: 26,
-                  color: '#000000',
-                  fontWeight: 'normal',
-                  fontFamily: 'Arial',
-                  maxWidth: Math.round(dimensions.width * 0.1),
-                  lineHeight: 1.2,
-                  visible: true,
-                },
-                {
-                  id: 'issue_date',
-                  x: Math.round(dimensions.width * 0.7),
-                  y: Math.round(dimensions.height * 0.85),
-                  xPercent: 0.7,
-                  yPercent: 0.85,
-                  fontSize: 26,
-                  color: '#000000',
-                  fontWeight: 'normal',
-                  fontFamily: 'Arial',
-                  maxWidth: Math.round(dimensions.width * 0.1),
+                  maxWidth: Math.round(dimensions.width * 0.8),
                   lineHeight: 1.2,
                   visible: true,
                 },
               ];
-              setScoreTextLayers(defaultScoreLayers);
+              setScoreTextLayers(defaultLayers);
             }
           }
+        } else if (tpl.is_dual_template) {
+          // No score image URL but is dual template
         }
-        
-        // setLoading(false) is now handled in image loading callbacks above
-      } catch (error) {
-        console.error("Failed to load template:", error);
+      } catch {
         toast.error(t('configure.failedToLoad'));
-        router.push("/templates");
+        clearTimeout(timeoutId);
       }
     }
-
+    
     loadTemplate();
     
     // Cleanup timeout on unmount
@@ -838,10 +732,8 @@ function ConfigureLayoutContent() {
       const img = new window.Image();
       img.onload = () => {
         setImagesLoaded(prev => ({ ...prev, [type]: true }));
-        console.log(`✅ Preloaded ${type} image:`, src);
       };
       img.onerror = () => {
-        console.warn(`⚠️ Failed to preload ${type} image:`, src);
         setImagesLoaded(prev => ({ ...prev, [type]: true })); // Mark as loaded to prevent blocking
       };
       img.src = src;

@@ -1,6 +1,5 @@
 /**
  * Utility functions for automatically determining score predicates
- * Based on score ranges: 90-100 = SANGAT BAIK, 75-89 = BAIK, 0-74 = KURANG BAIK
  */
 
 export interface ScorePredicateConfig {
@@ -9,7 +8,6 @@ export interface ScorePredicateConfig {
   predicate: string;
 }
 
-// Default predicate configuration based on the image
 export const DEFAULT_PREDICATE_CONFIG: ScorePredicateConfig[] = [
   { minScore: 90, maxScore: 100, predicate: 'SANGAT BAIK' },
   { minScore: 75, maxScore: 89, predicate: 'BAIK' },
@@ -26,28 +24,23 @@ export function getScorePredicate(
   score: number | string | null | undefined,
   config: ScorePredicateConfig[] = DEFAULT_PREDICATE_CONFIG
 ): string {
-  // Handle null/undefined
   if (score === null || score === undefined || score === '') {
     return '';
   }
 
-  // Convert to number
   const numericScore = typeof score === 'string' ? parseFloat(score) : score;
 
-  // Validate number (silently return empty for non-numeric values - they're valid text)
+  // Silently return empty for non-numeric values - they're valid text
   if (isNaN(numericScore)) {
     return '';
   }
 
-  // Find matching predicate
   for (const range of config) {
     if (numericScore >= range.minScore && numericScore <= range.maxScore) {
       return range.predicate;
     }
   }
 
-  // If no match found, return empty string
-  console.warn(`Score ${numericScore} does not match any predicate range`);
   return '';
 }
 
@@ -68,19 +61,16 @@ export function autoPopulatePrestasi(
 
   const result = { ...scoreData };
 
-  // Check if 'nilai' exists and 'prestasi' is empty or not set
   // Only process if 'nilai' is actually a numeric field
   if (result.nilai && (!result.prestasi || result.prestasi.trim() === '')) {
-    // Check if nilai is numeric before processing
     const numericNilai = parseFloat(result.nilai);
     if (!isNaN(numericNilai)) {
       const predicate = getScorePredicate(result.nilai);
       if (predicate) {
         result.prestasi = predicate;
-        console.log(`✨ Auto-populated prestasi: ${result.nilai} → ${predicate}`);
       }
     }
-    // Silently ignore non-numeric nilai values (they're likely text variables)
+    // Silently ignore non-numeric nilai values
   }
 
   return result;

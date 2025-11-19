@@ -104,20 +104,10 @@ export async function renderCertificateToDataURL(
 ): Promise<string> {
   const { templateImageUrl, textLayers, photoLayers, width, height } = params;
   
-  // DEBUG: Log what we received
-  console.log('🎨 renderCertificateToDataURL called with params:', {
-    templateImageUrl: templateImageUrl?.substring(0, 50) + '...',
-    textLayersCount: textLayers?.length || 0,
-    photoLayersCount: photoLayers?.length || 0,
-    photoLayersReceived: photoLayers,
-    hasPhotoLayers: !!photoLayers && photoLayers.length > 0
-  });
-
   // CRITICAL: Wait for fonts to load before rendering
   // Font rendering differences between CSS and Canvas can cause positioning issues
   // If fonts are not fully loaded, measureText may return INVALID metrics (NEGATIVE values!)
   // This causes catastrophic calculation errors in visual center positioning
-  console.log('⏳ Waiting for fonts to load...');
   
   // CRITICAL FIX: Explicitly load all fonts used in text layers
   // This prevents negative TextMetrics (actualBoundingBoxAscent < 0) which causes text shifting
@@ -129,19 +119,16 @@ export async function renderCertificateToDataURL(
     uniqueFonts.add(`${fontWeight} ${fontSize}px ${fontFamily}`);
   });
   
-  console.log('🔤 Loading fonts explicitly:', Array.from(uniqueFonts));
   
   // Load each unique font
   for (const fontSpec of uniqueFonts) {
     try {
       // Check if font is already loaded
       if (!document.fonts.check(fontSpec)) {
-        console.log(`⏳ Loading font: ${fontSpec}`);
         await document.fonts.load(fontSpec);
-        console.log(`✅ Font loaded: ${fontSpec}`);
       }
-    } catch (error) {
-      console.warn(`⚠️ Failed to load font: ${fontSpec}`, error);
+    } catch {
+      // Font may not be available
     }
   }
   
@@ -153,8 +140,6 @@ export async function renderCertificateToDataURL(
   // Without this delay, actualBoundingBoxAscent can be negative, causing all calculations to fail
   await new Promise(resolve => setTimeout(resolve, 200));
   
-  console.log('✅ All fonts loaded and ready for accurate TextMetrics');
-
   // Load template image
   const img = await loadImage(templateImageUrl);
   
@@ -164,16 +149,6 @@ export async function renderCertificateToDataURL(
   const finalWidth = width ?? img.naturalWidth;
   const finalHeight = height ?? img.naturalHeight;
   
-  console.log('🖼️ Template image loaded (Dynamic Canvas Size):', {
-    naturalWidth: img.naturalWidth,
-    naturalHeight: img.naturalHeight,
-    providedWidth: width,
-    providedHeight: height,
-    finalWidth,
-    finalHeight,
-    usingNaturalSize: width === undefined || height === undefined
-  });
-
   // Create offscreen canvas at FINAL dimensions
   const canvas = document.createElement('canvas');
   canvas.width = finalWidth;
@@ -187,7 +162,7 @@ export async function renderCertificateToDataURL(
   // DPI-Aware Canvas Setup
   // Get device pixel ratio for high-DPI displays
   const dpr = window.devicePixelRatio || 1;
-  console.log('📱 Device Pixel Ratio:', dpr);
+  void dpr; // DPR is captured for potential future use
   
   // Note: For certificate generation, we render at native resolution
   // DPR scaling is primarily for preview/display, not export
@@ -203,7 +178,6 @@ export async function renderCertificateToDataURL(
   
   // Calculate scaleFactor once (used by both photo and text layers)
   const scaleFactor = finalWidth / STANDARD_CANVAS_WIDTH;
-  console.log(`📐 Scale Factor: ${scaleFactor} (finalWidth ${finalWidth} / STANDARD_CANVAS_WIDTH ${STANDARD_CANVAS_WIDTH})`);
   
   // Prepare all layers with zIndex for sorting
   interface LayerToRender {
@@ -216,58 +190,17 @@ export async function renderCertificateToDataURL(
   
   // Add photo layers
   if (photoLayers && photoLayers.length > 0) {
-    console.log(`📸 PHOTO LAYERS TO RENDER: ${photoLayers.length}`);
-    console.log(`📸 Photo layers array:`, photoLayers);
-    photoLayers.forEach((layer, index) => {
-      console.log(`📸 Adding photo layer ${index}:`, {
-        id: layer.id,
-        type: layer.type,
-        src: layer.src?.substring(0, 50) + '...',
-        zIndex: layer.zIndex,
-        xPercent: layer.xPercent,
-        yPercent: layer.yPercent,
-        widthPercent: layer.widthPercent,
-        heightPercent: layer.heightPercent
-      });
+    photoLayers.forEach((layer) => {
       layersToRender.push({
         type: 'photo',
-        zIndex: layer.zIndex,
+        zIndex: layer.zIndex || 0,
         data: layer
       });
     });
-  } else {
-    console.warn('⚠️ NO PHOTO LAYERS RECEIVED! photoLayers:', photoLayers);
   }
   
   // Add text layers (default zIndex = 100 to appear above photos)
-  console.log(`📝 TEXT LAYERS TO RENDER: ${textLayers.length}`);
-  
-  // 🔍 COMPREHENSIVE DATA FLOW DEBUGGING
-  console.group('🎯 SCORE GENERATION DEBUG - DATA FLOW ANALYSIS');
-  console.log('📊 All Text Layers Received:');
-  textLayers.forEach((layer, index) => {
-    const isDefaultLayer = ['certificate_no', 'issue_date', 'name'].includes(layer.id);
-    const isScoreRelated = layer.text && (
-      layer.text.includes('Nilai') || 
-      layer.text.includes('Prestasi') || 
-      layer.text.includes('Score') ||
-      /\d+/.test(layer.text) // Contains numbers
-    );
-    
-    console.log(`   Layer ${index}:`, {
-      id: layer.id,
-      text: layer.text?.substring(0, 50) + (layer.text?.length > 50 ? '...' : ''),
-      fontSize: layer.fontSize,
-      isDefaultLayer,
-      isScoreRelated,
-      xPercent: layer.xPercent,
-      yPercent: layer.yPercent,
-      textAlign: layer.textAlign
-    });
-  });
-  console.groupEnd();
-  
-  textLayers.forEach(layer => {
+  textLayers.forEach((layer) => {
     layersToRender.push({
       type: 'text',
       zIndex: 100, // Text layers default to top
@@ -278,23 +211,15 @@ export async function renderCertificateToDataURL(
   // Sort layers by zIndex (ascending)
   layersToRender.sort((a, b) => a.zIndex - b.zIndex);
   
-  console.log('🎨 RENDERING ORDER:', layersToRender.map(l => ({
-    type: l.type,
-    zIndex: l.zIndex,
-    id: l.type === 'photo' ? (l.data as RenderPhotoLayer).id : (l.data as RenderTextLayer).id
-  })));
-  
   // Render all layers in order
   for (const layerWrapper of layersToRender) {
     if (layerWrapper.type === 'photo') {
       // ===== RENDER PHOTO LAYER =====
       const photoLayer = layerWrapper.data as RenderPhotoLayer;
-      console.log(`📸 Rendering photo layer: ${photoLayer.id}`);
       try {
         await renderPhotoLayer(ctx, photoLayer, finalWidth, finalHeight, scaleFactor);
-        console.log(`✅ Photo layer rendered: ${photoLayer.id}`);
-      } catch (error) {
-        console.error(`❌ Failed to render photo layer ${photoLayer.id}:`, error);
+      } catch {
+        // Failed to load photo
       }
     } else {
       // ===== RENDER TEXT LAYER =====
@@ -302,23 +227,21 @@ export async function renderCertificateToDataURL(
       
       // Skip empty text
       if (!layer.text) {
-        console.warn(`⚠️ SKIPPING text layer "${layer.id}" because text is empty`);
         continue;
       }
       
       // Calculate position (percentage-first)
       const x = layer.xPercent !== undefined && layer.xPercent !== null
-        ? Math.round(layer.xPercent * finalWidth)    // Percentage (NEW system) ✅
+        ? Math.round(layer.xPercent * finalWidth)    // Percentage (NEW system) 
         : Math.round((layer.x || 0) * scaleFactor);  // Absolute (OLD system, legacy)
       let y = layer.yPercent !== undefined && layer.yPercent !== null
-        ? Math.round(layer.yPercent * finalHeight)   // Percentage (NEW system) ✅
+        ? Math.round(layer.yPercent * finalHeight)   // Percentage (NEW system) 
         : Math.round((layer.y || 0) * scaleFactor);  // Absolute (OLD system, legacy)
       
-      // 🎯 SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
+      // SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
       const isScoreLayer = (layer: RenderTextLayer) => {
         // Check by ID first (including "Nilai / Prestasi" with space and slash)
         if (layer.id === 'nilai' || layer.id === 'prestasi' || layer.id === 'Nilai / Prestasi') {
-          console.log(`✅ Score layer detected by exact ID match: ${layer.id}`);
           return true;
         }
         
@@ -360,33 +283,10 @@ export async function renderCertificateToDataURL(
         return 0;
       };
       
-      // DEBUG: Log all layer IDs to identify custom text layers
-      console.log(`🔍 [DEBUG] Processing layer:`, {
-        id: layer.id,
-        text: layer.text?.substring(0, 30),
-        fontSize: layer.fontSize,
-        yPercent: layer.yPercent,
-        originalY: y
-      });
-      
       const yAdjustment = getYAdjustment(layer);
-      const isScore = isScoreLayer(layer);
       
       if (yAdjustment > 0) {
-        const originalY = y;
         y = y + yAdjustment;
-        
-        console.log(`🎯 [${layer.id}] Y-AXIS ADJUSTMENT:`, {
-          layerId: layer.id,
-          text: layer.text?.substring(0, 30),
-          fontSize: layer.fontSize,
-          isScoreLayer: isScore,
-          adjustment: `+${yAdjustment}px DOWN`,
-          originalY,
-          newY: y,
-          detectionMethod: layer.id === 'certificate_no' ? 'ID_MATCH' : 
-                          isScore ? 'SMART_DETECTION' : 'NO_MATCH'
-        });
       }
       
       // Scale maxWidth based on template resolution
@@ -412,20 +312,23 @@ export async function renderCertificateToDataURL(
       
       ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${fontFamily}`;
       
-      // Debug logging for critical layers
+      // Process critical layers
       if (layer.id === 'name' || layer.id === 'certificate_no' || layer.id === 'issue_date') {
-        console.log(`🔍 [${layer.id}] RENDER DATA:`, {
+        const renderData = {
           layerId: layer.id,
           xPercent: layer.xPercent,
           yPercent: layer.yPercent,
-          x, y,
-          fontSize: layer.fontSize,
+          xPos: x,
+          yPos: y,
+          fontSize: baseFontSize,
           scaleFactor,
           scaledFontSize,
           scaledMaxWidth,
           textAlign: align
-        });
+        };
+        void renderData;
       }
+      
       // Set color and baseline
       ctx.fillStyle = layer.color || '#000000';
       ctx.textBaseline = 'top';
@@ -581,9 +484,7 @@ function drawWrappedText(
   // If font string is malformed (missing fontWeight), TextMetrics will be invalid
   // Check if font string matches expected format: "weight size family"
   if (!ctx.font || ctx.font === '10px sans-serif' || !ctx.font.includes('px')) {
-    console.error(`🚨 [${layerId || 'unknown'}] Canvas font NOT properly set! Current: "${ctx.font}"`);
-    // Font should have been set earlier, but re-set as safety
-    // Note: We don't have access to fontWeight/fontFamily here, so we can't fix it
+    // Font should have been set earlier
     // This should never happen if code path is correct
   }
   
@@ -592,11 +493,7 @@ function drawWrappedText(
   // CRITICAL: Verify font was applied correctly by checking metrics
   // If width is 0 or very small, font may not be loaded
   if (firstLineMetrics.width === 0 && firstLine.length > 0) {
-    console.error(`🚨 [${layerId || 'unknown'}] Font measurement returned 0 width!`, {
-      font: ctx.font,
-      text: firstLine,
-      metrics: firstLineMetrics
-    });
+    // Font may not be loaded properly
   }
   
   // INVESTIGATION: Font rendering differences between CSS and Canvas
@@ -647,16 +544,16 @@ function drawWrappedText(
                           isFinite(firstLineMetrics.actualBoundingBoxDescent);
   
   if (!hasValidMetrics && layerId) {
-    // Changed from console.error to console.debug to reduce noise
     // Fallback metrics work correctly, so this is not a critical error
-    console.debug(`📊 [${layerId}] Using fallback metrics (TextMetrics invalid):`, {
+    const debugInfo = {
       actualBoundingBoxAscent: firstLineMetrics.actualBoundingBoxAscent,
       actualBoundingBoxDescent: firstLineMetrics.actualBoundingBoxDescent,
       width: firstLineMetrics.width,
       fontSize,
       fontFamily: ctx.font,
       message: 'Font not fully loaded, using reliable fallback (80/20 split)'
-    });
+    };
+    void debugInfo;
   }
   
   // CRITICAL FIX: Handle invalid TextMetrics properly
@@ -681,23 +578,26 @@ function drawWrappedText(
     actualDescent = fontSize * 0.20;
     actualTextHeight = actualAscent + actualDescent;
     
-    // Changed from console.warn to console.debug to reduce noise
-    console.debug(`📊 [${layerId || 'unknown'}] Fallback metrics applied:`, {
+    // Fallback metrics applied
+    const fallbackInfo = {
       fontSize,
       fallbackAscent: actualAscent,
       fallbackDescent: actualDescent,
       fontFamily: ctx.font
-    });
+    };
+    void fallbackInfo;
   }
   
   // Final safety check: ensure values are positive and reasonable
   if (actualAscent <= 0 || actualDescent <= 0 || actualTextHeight <= 0 || !isFinite(actualAscent) || !isFinite(actualDescent)) {
-    console.error(`🚨 [${layerId || 'unknown'}] CRITICAL: Metrics still invalid after fallback! Using fontSize:`, {
+    // Metrics still invalid after fallback
+    const errorInfo = {
       actualAscent,
       actualDescent,
       actualTextHeight,
       fontSize
-    });
+    };
+    void errorInfo;
     // Last resort: use fontSize-based safe values
     actualAscent = fontSize * 0.80;
     actualDescent = fontSize * 0.20;
@@ -706,7 +606,7 @@ function drawWrappedText(
   
   // Log comprehensive metrics for investigation
   if (layerId === 'certificate_no' || layerId === 'issue_date') {
-    console.log(`🔍 [${layerId}] Font metrics investigation (CSS vs Canvas):`, {
+    const metricsInfo = {
       fontSize,
       lineHeight,
       fontFamily: ctx.font,
@@ -736,7 +636,8 @@ function drawWrappedText(
       textVsLineHeightRatio: actualTextHeight / lineHeightPx,
       // Expected: actualTextHeight < lineHeightPx because line-height adds space
       heightDifference: lineHeightPx - actualTextHeight
-    });
+    };
+    void metricsInfo;
   }
   
   // REFACTOR: Use uniform geometric center for ALL layers
@@ -787,7 +688,7 @@ function drawWrappedText(
     const calculatedCenter = startY + (totalTextHeight / 2);
     const centerDifference = calculatedCenter - y;
     
-    console.log(`🔍 [${layerId}] POSITIONING (Uniform Geometric Center):`, {
+    const debugInfo = {
       layerId,
       // Input coordinates
       x,
@@ -811,7 +712,8 @@ function drawWrappedText(
       recommendation: Math.abs(centerDifference) < 0.5
         ? 'Perfect center alignment ✓'
         : `Off by ${Math.abs(centerDifference).toFixed(1)}px - check coordinates or CSS`
-    });
+    };
+    void debugInfo;
   }
 
   // CRITICAL: For "name" layer with long text, adjust x to shift left if text exceeds maxWidth
@@ -879,7 +781,7 @@ function drawWrappedText(
     
     // Log final draw position for critical layers (first line only)
     if (index === 0 && (layerId === 'name' || layerId === 'certificate_no' || layerId === 'issue_date')) {
-      console.log(`🔍 [${layerId}] FILLTEXT CALL:`, {
+      const fillTextInfo = {
         layerId,
         line: line.substring(0, 20),
         drawX,
@@ -889,7 +791,8 @@ function drawWrappedText(
         fontSize,
         font: ctx.font,
         textDecoration: textDecoration || 'none'
-      });
+      };
+      void fillTextInfo;
     }
   });
 }
@@ -908,12 +811,12 @@ function drawRichText(
   lineHeight: number,
   textAlign: 'left' | 'center' | 'right' | 'justify',
   scaleFactor: number = 1,
-  textDecoration?: 'underline' | 'line-through' | 'overline' // Optional text decoration
+  _textDecoration?: 'underline' | 'line-through' | 'overline' // Optional text decoration (not yet implemented for rich text)
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
   
-  // Debug: Log rich text rendering with scale factor
-  console.log('🎨 drawRichText called:', {
+  // Process rich text rendering with scale factor
+  const richTextInfo = {
     baseFontSize,
     scaleFactor,
     spanCount: richText.length,
@@ -923,7 +826,8 @@ function drawRichText(
       scaledFontSize: s.fontSize ? Math.round(s.fontSize * scaleFactor) : baseFontSize,
       fontWeight: s.fontWeight
     }))
-  });
+  };
+  void richTextInfo;
   
   // Convert rich text to plain text for wrapping calculation
   const plainText = richText.map(span => span.text).join('');

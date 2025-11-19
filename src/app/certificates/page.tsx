@@ -56,7 +56,7 @@ import { QuickGenerateModal, QuickGenerateParams } from "@/components/certificat
 import { getTemplates } from "@/lib/supabase/templates";
 import { getMembers } from "@/lib/supabase/members";
 import { renderCertificateToDataURL, RenderTextLayer } from "@/lib/render/certificate-render";
-import { generateThumbnail, estimateDataUrlSize, calculateSizeReduction } from "@/lib/utils/thumbnail";
+import { generateThumbnail } from "@/lib/utils/thumbnail";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
@@ -90,8 +90,7 @@ function CertificatesContent() {
       today.setHours(0, 0, 0, 0);
       expiredDate.setHours(0, 0, 0, 0);
       return expiredDate < today;
-    } catch (error: unknown) {
-      console.error('Error checking expired date:', error, certificate.expired_date);
+    } catch {
       return false;
     }
   }, []);
@@ -103,14 +102,8 @@ function CertificatesContent() {
         .from('templates')
         .getPublicUrl('expired.png');
       const url = data?.publicUrl || null;
-      if (url) {
-        console.log('Expired overlay URL:', url);
-      } else {
-        console.warn('Expired overlay URL not found');
-      }
       return url;
-    } catch (error: unknown) {
-      console.error('Error getting expired overlay URL:', error);
+    } catch {
       return null;
     }
   }, []);
@@ -211,13 +204,10 @@ function CertificatesContent() {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem("ecert-role") || "";
-      console.log("🔍 Checking role from localStorage:", raw);
       const normalized = raw.toLowerCase();
       const mapped = normalized === "admin" ? "Admin" : normalized === "team" ? "Team" : normalized === "public" ? "Public" : "Public";
       setRole(mapped);
-      console.log("✅ Role set to:", mapped);
-    } catch (error: unknown) {
-      console.error("❌ Error reading role from localStorage:", error);
+    } catch {
       setRole("Public");
     }
   }, []);
@@ -238,7 +228,6 @@ function CertificatesContent() {
       const mod = (await import("jspdf").catch(() => null)) as null | typeof import("jspdf");
       if (!mod || !("jsPDF" in mod)) {
         toast.error("PDF library missing. Please install 'jspdf' dependency.");
-        console.error("jspdf not found. Run: npm i jspdf");
         return;
       }
       const { jsPDF } = mod;
@@ -301,7 +290,6 @@ function CertificatesContent() {
       doc.save(fileName);
       toast.success("PDF exported");
     } catch (err: unknown) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PDF");
     } finally {
       setExportingPDF(null);
@@ -349,7 +337,6 @@ function CertificatesContent() {
 
       toast.success("PNGs downloaded successfully");
     } catch (err: unknown) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to export PNG");
     } finally {
       setExportingPNG(null);
@@ -398,10 +385,7 @@ function CertificatesContent() {
         document.body.removeChild(textArea);
         toast.success(t('hero.linkCopied'), { duration: 2000 });
       }
-      
-      console.log('Generated public certificate link:', certificateLink);
-    } catch (err: unknown) {
-      console.error('Failed to generate certificate link:', err);
+    } catch {
       toast.error(t('hero.linkGenerateFailed'), { duration: 2000 });
     } finally {
       setGeneratingLink(null);
@@ -447,7 +431,6 @@ function CertificatesContent() {
       });
       setSendModalOpen(true);
     } catch (err: unknown) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'Failed to prepare email');
     }
   }
@@ -527,7 +510,6 @@ function CertificatesContent() {
       setSendPreviewSrcs({ cert: null, score: null });
       setSendForm({ email: '', subject: '', message: '' });
     } catch (err: unknown) {
-      console.error('Email send error:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to send email. Please try again.');
     } finally {
       setIsSendingEmail(false);
@@ -537,11 +519,9 @@ function CertificatesContent() {
 
   // Quick Generate: Load templates and members when modal opens
   const handleOpenQuickGenerate = async () => {
-    console.log('Opening Generate Modal...');
     setQuickGenerateOpen(true);
     
     if (templates.length === 0 || members.length === 0) {
-      console.log('📥 Loading templates and members...');
       const loadingToast = toast.loading('Loading templates and members...');
       
       try {
@@ -554,28 +534,15 @@ function CertificatesContent() {
         // Filter out draft templates - only show ready templates for certificate generation
         const readyTemplates = templatesData.filter(t => t.status === 'ready' || !t.status);
         
-        console.log('✅ Data loaded:', {
-          allTemplates: templatesData.length,
-          readyTemplates: readyTemplates.length,
-          draftTemplates: templatesData.length - readyTemplates.length,
-          members: membersData.length
-        });
-        
         setTemplates(readyTemplates);
         setMembers(membersData);
         toast.dismiss(loadingToast);
-      } catch (error: unknown) {
-        console.error('❌ Failed to load Generate data:', error);
+      } catch {
         toast.dismiss(loadingToast);
         toast.error('Failed to load templates and members');
       } finally {
         setLoadingQuickGenData(false);
       }
-    } else {
-      console.log('✅ Using cached data:', {
-        templates: templates.length,
-        members: members.length
-      });
     }
   };
 
@@ -584,15 +551,11 @@ function CertificatesContent() {
     const loadingToast = toast.loading(t('quickGenerate.generatingCertificates'));
     
     try {
-      // PRIORITY 1: Try to load layout from database (NEW)
-      console.log('📊 Checking template layout configuration...');
       const layoutConfig = await getTemplateLayout(params.template.id);
       
       let defaults: TemplateDefaults | null = null;
       
       if (layoutConfig && layoutConfig.certificate) {
-        // Use database layout (NEW METHOD)
-        console.log('✅ Using layout from database');
         
         // Migrate old data: ensure all layers have dual coordinates and defaults
         const migratedLayers = layoutConfig.certificate.textLayers.map(layer => ({
@@ -643,34 +606,17 @@ function CertificatesContent() {
           photoLayers: photoLayersFromConfig, // Use extracted photo layers
           savedAt: layoutConfig.lastSavedAt
         };
-        console.log('✅ Migrated certificate layers with dual coordinates');
-        if (photoLayersFromConfig && photoLayersFromConfig.length > 0) {
-          console.log('📸 Loaded', photoLayersFromConfig.length, 'photo layers for generation');
-          console.log('📸 Photo layers data:', JSON.stringify(photoLayersFromConfig, null, 2));
-        } else {
-          console.warn('⚠️ No photo layers found in layout config');
-          console.warn('⚠️ Layout structure:', Object.keys(layoutConfig));
-          console.warn('⚠️ Certificate keys:', Object.keys(layoutConfig.certificate || {}));
-        }
       } else {
-        // FALLBACK: Try localStorage (OLD METHOD - deprecated)
-        console.warn('⚠️ No database layout found, trying localStorage fallback...');
         const templateId = params.template.is_dual_template 
           ? `${params.template.id}_certificate` 
           : params.template.id;
         defaults = getTemplateDefaults(templateId);
-        
-        if (defaults) {
-          console.warn('⚠️ Using localStorage layout - please migrate to database');
-        }
       }
       
       // Validate we have layout configuration
       if (!defaults || !defaults.textLayers || defaults.textLayers.length === 0) {
         throw new Error('Template layout not configured. Please configure the template layout first in Templates page.');
       }
-      
-      console.log(`✅ Layout loaded: ${defaults.textLayers.length} text layers`);
 
       if (params.dataSource === 'member') {
         // Member-based generation (single or multiple)
@@ -685,14 +631,6 @@ function CertificatesContent() {
               // Get score data for this member (if dual template)
               const memberScoreData = params.scoreDataMap?.[member.id];
               
-              console.log('🔄 Processing member in batch:', {
-                memberName: member.name,
-                memberID: member.id,
-                hasScoreData: !!memberScoreData,
-                scoreDataKeys: memberScoreData ? Object.keys(memberScoreData) : [],
-                scoreDataSample: memberScoreData
-              });
-              
               await generateSingleCertificate(
                 params.template,
                 member,
@@ -706,18 +644,14 @@ function CertificatesContent() {
               generated++;
               // Update the same toast instead of creating new ones
               toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
-            } catch (error: unknown) {
-              console.error('Failed to generate certificate for member:', member.name, error);
+            } catch {
             }
           }
           
           toast.dismiss(currentToast);
           toast.success(`${t('quickGenerate.successMultiple')} ${generated}/${total} ${t('quickGenerate.certificatesGenerated')}`, { duration: 3000 });
         } else if (params.member && params.certificateData) {
-          // Single certificate generation from member (manual input)
-          console.log('🎯 Single certificate generation - Manual input');
-          
-          // Extract score data from scoreDataMap (for manual input)
+          // Extract score data from scoreDataMap
           let memberScoreData: Record<string, string> | undefined;
           if (params.template.score_image_url && layoutConfig?.score && params.scoreDataMap && params.member.id) {
             // Get score data for this specific member from scoreDataMap
@@ -725,9 +659,6 @@ function CertificatesContent() {
             
             if (memberScoreFromMap) {
               memberScoreData = memberScoreFromMap;
-              console.log(`✅ Manual input score data for member ${params.member.name}:`, memberScoreData);
-            } else {
-              console.warn(`⚠️ No score data found for member ${params.member.id} in scoreDataMap`);
             }
           }
           
@@ -763,10 +694,7 @@ function CertificatesContent() {
               issueDate = new Date().toISOString().split('T')[0];
             }
             
-            // CRITICAL: certificate_no will be auto-generated in generateSingleCertificate if empty
             const certNo = String(row.certificate_no || row.cert_no || '');
-            
-            // CRITICAL: expired_date will be auto-generated in generateSingleCertificate if empty
             const expiredDate = String(row.expired_date || row.expiry || '');
             
             // Create temporary member object from Excel data
@@ -789,8 +717,6 @@ function CertificatesContent() {
             let excelScoreData: Record<string, string> | undefined;
             if (params.template.score_image_url && layoutConfig?.score) {
               excelScoreData = {};
-              
-              // CRITICAL FIX: Extract ALL Excel data regardless of useDefaultText flag
               // The row data comes from mergeExcelData() which maps Excel columns to layer IDs
               const scoreTextLayers = layoutConfig.score.textLayers || [];
               for (const layer of scoreTextLayers) {
@@ -806,21 +732,8 @@ function CertificatesContent() {
                 // Extract Excel data for ALL other layers (including those with useDefaultText)
                 if (row[layer.id] !== undefined && row[layer.id] !== null && row[layer.id] !== '') {
                   excelScoreData[layer.id] = String(row[layer.id]);
-                  console.log(`✅ Extracted Excel data for layer '${layer.id}': ${row[layer.id]}`);
                 }
               }
-              
-              console.log('📊 Extracted score data from Excel row (FIXED):', {
-                rowIndex: generated + 1,
-                memberName: name,
-                scoreData: excelScoreData,
-                scoreDataFull: JSON.stringify(excelScoreData, null, 2),
-                scoreFields: Object.keys(excelScoreData),
-                rawRowData: Object.keys(row),
-                rawRowFull: JSON.stringify(row, null, 2),
-                availableScoreFields: Object.keys(row).filter(k => scoreTextLayers.some(l => l.id === k)),
-                scoreLayerIds: scoreTextLayers.map(l => l.id)
-              });
             }
             
             // generateSingleCertificate will auto-generate certificate_no and expired_date if empty
@@ -837,8 +750,7 @@ function CertificatesContent() {
             generated++;
             // Update the same toast instead of creating new ones
             toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
-          } catch (error: unknown) {
-            console.error('Failed to generate certificate for row:', row, error);
+          } catch {
           }
         }
         
@@ -850,7 +762,6 @@ function CertificatesContent() {
       await refresh();
     } catch (error: unknown) {
       toast.dismiss(loadingToast);
-      console.error('Quick Generate error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to generate certificate', { duration: 3000 });
     }
   };
@@ -862,56 +773,36 @@ function CertificatesContent() {
     certData: { certificate_no: string; description: string; issue_date: string; expired_date: string },
     defaults: TemplateDefaults,
     dateFormat: string,
-    scoreData?: Record<string, string>, // Score data for dual template: { field_id -> value }
-    layoutConfig?: TemplateLayoutConfig | null // Layout config for score generation
+    scoreData?: Record<string, string>,
+    layoutConfig?: TemplateLayoutConfig | null
   ) => {
-    console.log('🎨 Generating certificate:', { 
-      template: template.name, 
-      member: member.name, 
-      memberID: member.id,
-      certData 
-    });
-    console.log('🗓️ Using date format:', dateFormat);
-    console.log('🎯 Score data received:', scoreData ? Object.keys(scoreData).length + ' fields' : 'none', scoreData);
-    
-    // CRITICAL: Auto-populate prestasi based on nilai
     if (scoreData) {
       scoreData = autoPopulatePrestasi(scoreData);
-      console.log('✨ Score data after auto-populate prestasi:', scoreData);
     }
     
     // CRITICAL: Auto-generate certificate_no if empty
     let finalCertificateNo = certData.certificate_no?.trim();
     if (!finalCertificateNo && certData.issue_date) {
-      console.log('📝 Auto-generating certificate number...');
       try {
         const issueDate = new Date(certData.issue_date);
         finalCertificateNo = await generateCertificateNumber(issueDate);
-        console.log('✨ Auto-generated certificate number:', finalCertificateNo);
-      } catch (error: unknown) {
-        console.error('❌ Failed to auto-generate certificate number:', error);
+      } catch {
         // Fallback: use timestamp-based number
         finalCertificateNo = `CERT-${Date.now()}`;
       }
     }
     
-    // CRITICAL: Auto-generate expired_date if empty (3 years from issue_date)
     let finalExpiredDate = certData.expired_date?.trim();
     if (!finalExpiredDate && certData.issue_date) {
-      console.log('📅 Auto-generating expired date...');
       const issue = new Date(certData.issue_date);
       const expiry = new Date(issue);
       expiry.setFullYear(expiry.getFullYear() + 3);
       finalExpiredDate = expiry.toISOString().split('T')[0];
-      console.log('✨ Auto-generated expired date:', finalExpiredDate);
     }
     
-    // CRITICAL: Ensure issue_date is set (use current date if empty)
     let finalIssueDate = certData.issue_date?.trim();
     if (!finalIssueDate) {
-      console.log('📅 Setting default issue date (today)...');
       finalIssueDate = new Date().toISOString().split('T')[0];
-      console.log('✨ Default issue date:', finalIssueDate);
     }
     
     // Use final values for rendering
@@ -921,10 +812,6 @@ function CertificatesContent() {
       issue_date: finalIssueDate,
       expired_date: finalExpiredDate || certData.expired_date
     };
-    
-    console.log('✅ Final certificate data for rendering:', finalCertData);
-    
-    // Get template image URL
     const templateImageUrl = await getTemplateImageUrl(template);
     
     if (!templateImageUrl) {
@@ -932,14 +819,11 @@ function CertificatesContent() {
     }
     
     // Prepare text layers with member data
-    // CRITICAL: Filter out layers with visible=false (hidden in configure page)
     const textLayers: RenderTextLayer[] = defaults.textLayers
       .filter(layer => layer.visible !== false)
       .map((layer) => {
       let text = '';
       let processedRichText = layer.richText;
-      
-      // Build data context for variable replacement
       const variableData: Record<string, string> = {
         // Common certificate fields
         name: member.name || '',
@@ -950,70 +834,34 @@ function CertificatesContent() {
         // Score data (manual input or Excel)
         ...(scoreData || {})
       };
-      
-      console.log(`🔍 DEBUG Layer '${layer.id}':`, {
-        layerId: layer.id,
-        defaultText: layer.defaultText,
-        useDefaultText: layer.useDefaultText,
-        hasScoreData: !!scoreData,
-        scoreDataForThisLayer: scoreData?.[layer.id],
-        variableDataKeys: Object.keys(variableData),
-        variableDataSample: Object.entries(variableData).slice(0, 5)
-      });
-      
-      // PRIORITY 1: Manual Input/Excel data from scoreData ALWAYS takes precedence (even if useDefaultText=true)
       if (scoreData && 
           scoreData[layer.id] !== undefined && 
           scoreData[layer.id] !== null && 
           scoreData[layer.id] !== '' &&
           String(scoreData[layer.id]).trim() !== '') {
         text = String(scoreData[layer.id]).trim();
-        console.log(`✅ Front side layer '${layer.id}': Using input data = "${text}"`);
       }
-      // PRIORITY 2: Check if layer uses default text
       else if (layer.useDefaultText && layer.defaultText) {
         text = layer.defaultText;
       } else {
-        // PRIORITY 3: Map common field IDs to certificate data (use finalCertData which has auto-generated values)
         if (layer.id === 'name') text = member.name;
         else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
         else if (layer.id === 'description') text = finalCertData.description || '';
         else if (layer.id === 'issue_date') {
-          // CRITICAL FIX: Apply date format to issue_date
           text = formatDateString(finalCertData.issue_date, dateFormat);
         } else if (layer.id === 'expired_date') {
-          // CRITICAL FIX: Apply date format to expired_date if available
           text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
         }
-        // For custom layers without mapping, use defaultText if available
         else if (layer.defaultText) text = layer.defaultText;
       }
-      
-      // DYNAMIC VARIABLES: Replace {variable} placeholders with actual data
-      // CRITICAL: Process richText FIRST if it exists, otherwise process plain text
       if (processedRichText && processedRichText.length > 0) {
         const hasVars = processedRichText.some(span => span.text.includes('{'));
         if (hasVars) {
-          const beforeRichReplace = processedRichText.map(span => span.text).join('');
           processedRichText = replaceVariablesInRichText(processedRichText, variableData);
-          // Update text to reflect rich text content
           text = processedRichText.map(span => span.text).join('');
-          console.log(`🔄 Rich text variables replacement in layer '${layer.id}':`, {
-            before: beforeRichReplace,
-            after: text,
-            spansCount: processedRichText.length
-          });
         }
       } else if (text && text.includes('{')) {
-        // Only process plain text if no richText (to avoid double processing)
-        const beforeReplace = text;
         text = replaceVariables(text, variableData);
-        console.log(`🔄 Dynamic variables replacement in layer '${layer.id}':`, {
-          before: beforeReplace,
-          after: text,
-          variableDataAvailable: Object.keys(variableData),
-          variableDataSample: Object.entries(variableData).slice(0, 10)
-        });
       }
       
       return {
@@ -1034,22 +882,6 @@ function CertificatesContent() {
         richText: processedRichText,
         hasInlineFormatting: layer.hasInlineFormatting};
     });
-    
-    // Render certificate to WebP DataURL
-    console.log('🖼️ Rendering certificate image...');
-    console.log('📊 Text layers to render:', textLayers.map(l => ({
-      id: l.id,
-      text: l.text?.substring(0, 20) + '...',
-      xPercent: l.xPercent,
-      yPercent: l.yPercent,
-      textAlign: l.textAlign,
-      maxWidth: l.maxWidth,
-      hasRichText: !!l.richText,
-      richTextSpans: l.richText?.length || 0,
-      hasInlineFormatting: l.hasInlineFormatting
-    })));
-    
-    // Prepare photo layers (convert PhotoLayerDefault → RenderPhotoLayer)
     const photoLayersForRender = defaults.photoLayers?.map(layer => ({
       id: layer.id,
       type: layer.type,
@@ -1069,42 +901,17 @@ function CertificatesContent() {
       crop: layer.crop,
       mask: layer.mask
     })) || [];
-    
-    console.log('📸 Photo layers for rendering:', photoLayersForRender.length);
-    
-    // DYNAMIC CANVAS SIZE: Let renderer use template's natural dimensions
-    // No width/height specified → uses template.naturalWidth × template.naturalHeight
-    // Result: Output matches template resolution exactly (no scaling/distortion)
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,
-      photoLayers: photoLayersForRender, // Add photo layers to rendering
-      // width & height omitted → auto-detect from template
+      photoLayers: photoLayersForRender,
     });
-    
-    // DUAL-FORMAT UPLOAD: PNG master + WebP preview
-    console.log('🖼️ Generating thumbnail (WebP preview from PNG master)...');
-    
-    // Generate paired XID filenames for certificate and score (same XID prefix)
     const { cert: certFileName, score: scoreFileName, xid } = generatePairedXIDFilenames();
-    console.log(`📝 Generated XID: ${xid}`);
-
-    
-    // Generate WebP thumbnail for web preview (faster loading)
     const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
       format: 'webp',
       quality: 0.85,
-      maxWidth: 1200 // Optimize for web preview
+      maxWidth: 1200
     });
-    
-    // Calculate size reduction
-    const originalSize = estimateDataUrlSize(certificateImageDataUrl);
-    const thumbnailSize = estimateDataUrlSize(certificateThumbnail);
-    const reduction = calculateSizeReduction(originalSize, thumbnailSize);
-    console.log(`✅ Thumbnail generated: ${Math.round(originalSize/1024)}KB → ${Math.round(thumbnailSize/1024)}KB (${reduction} reduction)`);
-    
-    // Upload PNG master file (high quality for download/PDF/email)
-    console.log('📤 Uploading PNG master to Supabase Storage...');
     const pngFileName = certFileName;
     const pngUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
@@ -1125,9 +932,6 @@ function CertificatesContent() {
     if (!pngUploadResult.success) {
       throw new Error(`PNG upload failed: ${pngUploadResult.error}`);
     }
-    
-    // Upload WebP preview to preview/ subfolder (optimized for web)
-    console.log('📤 Uploading WebP preview to Supabase Storage...');
     const webpFileName = `preview/${xid}_cert.webp`;
     const webpUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
@@ -1149,13 +953,8 @@ function CertificatesContent() {
       throw new Error(`WebP upload failed: ${webpUploadResult.error}`);
     }
     
-    const finalCertificateImageUrl = pngUploadResult.url; // PNG master
-    const finalCertificateThumbnailUrl = webpUploadResult.url; // WebP preview
-    console.log('✅ PNG master uploaded:', finalCertificateImageUrl);
-    console.log('✅ WebP preview uploaded:', finalCertificateThumbnailUrl);
-    
-    // Prepare certificate text layers for database (includes text data)
-    // Remove textAlign for certificate_no and issue_date (they always use left alignment)
+    const finalCertificateImageUrl = pngUploadResult.url;
+    const finalCertificateThumbnailUrl = webpUploadResult.url;
     const certificateTextLayers: CertificateTextLayer[] = textLayers.map(layer => {
       const baseLayer = {
         id: layer.id,
@@ -1187,37 +986,20 @@ function CertificatesContent() {
       expired_date: finalCertData.expired_date || undefined,
       category: template.category || undefined,
       template_id: template.id,
-      member_id: member.id.startsWith('temp-') ? undefined : member.id, // Don't save temp IDs from Excel
+      member_id: member.id.startsWith('temp-') ? undefined : member.id,
       text_layers: certificateTextLayers,
-      merged_image: finalCertificateImageUrl, // PNG master for backward compatibility
-      certificate_image_url: finalCertificateImageUrl, // PNG master (high quality for download/PDF/email)
-      certificate_thumbnail_url: finalCertificateThumbnailUrl, // WebP preview (fast web loading)
+      merged_image: finalCertificateImageUrl,
+      certificate_image_url: finalCertificateImageUrl,
+      certificate_thumbnail_url: finalCertificateThumbnailUrl,
     };
     
-    // Save certificate to database
-    console.log('💾 Saving certificate to database...');
     const savedCertificate = await createCertificate(certificateDataToSave);
-    console.log('✅ Certificate created successfully:', savedCertificate.certificate_no);
-    
-    // DUAL TEMPLATE: Generate score certificate if template has score image and scoreData
     if (template.score_image_url && scoreData && Object.keys(scoreData).length > 0) {
-      console.log('🎯 Generating score certificate for dual template...');
-      console.log('👤 CRITICAL: Using member data:', {
-        memberName: member.name,
-        memberID: member.id,
-        certificateNo: finalCertData.certificate_no
-      });
-      
       try {
         // Load score layout from database
         const scoreLayoutConfig = layoutConfig?.score;
         
         if (scoreLayoutConfig && scoreLayoutConfig.textLayers) {
-          console.log('✅ Score layout found, generating score certificate...');
-          console.log('📋 Score text layers to process:', scoreLayoutConfig.textLayers.length);
-          
-          // Migrate score layers: ensure dual coordinates
-          // CRITICAL: Filter out layers with visible=false (hidden in configure page)
           const migratedScoreLayers = scoreLayoutConfig.textLayers
             .filter(layer => layer.visible !== false)
             .map(layer => ({
@@ -1231,9 +1013,6 @@ function CertificatesContent() {
             maxWidth: layer.maxWidth || 300,
             lineHeight: layer.lineHeight || 1.2,
           }));
-          console.log('✅ Migrated score layers with dual coordinates');
-          
-          // Load score photo layers from layout config
           const scorePhotoLayersRaw = scoreLayoutConfig.photoLayers || [];
           const scorePhotoLayersForRender = scorePhotoLayersRaw.map(layer => ({
             id: layer.id,
@@ -1255,65 +1034,30 @@ function CertificatesContent() {
             mask: layer.mask
           }));
           
-          // Prepare score text layers with scoreData
-          console.log('🎯 CRITICAL DEBUG - Score Data Mapping:', {
-            scoreDataReceived: !!scoreData,
-            scoreDataKeys: scoreData ? Object.keys(scoreData) : [],
-            scoreDataValues: scoreData,
-            totalScoreLayers: migratedScoreLayers.length,
-            scoreLayerIds: migratedScoreLayers.map(l => l.id)
-          });
-          
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
-            let dataSource = 'none';
-            
-            console.log(`\n🔍 Processing layer '${layer.id}':`);
-            console.log(`  - useDefaultText: ${layer.useDefaultText}`);
-            console.log(`  - defaultText: "${layer.defaultText}"`);
-            console.log(`  - scoreData[layer.id]: ${scoreData ? scoreData[layer.id] : 'NO SCORE DATA'}`);
-            
-            // PRIORITY 1: Excel/Input data ALWAYS takes precedence (even if useDefaultText=true)
             if (scoreData && 
                 scoreData[layer.id] !== undefined && 
                 scoreData[layer.id] !== null && 
                 scoreData[layer.id] !== '' &&
                 String(scoreData[layer.id]).trim() !== '') {
               text = String(scoreData[layer.id]).trim();
-              dataSource = 'excel';
-              console.log(`  ✅ DECISION: Using Excel data = "${text}"`);
-            } 
-            // PRIORITY 2: Common fields mapping (name, certificate_no, dates)
+            }
             else if (layer.id === 'name') {
               text = member.name;
-              dataSource = 'member';
-              console.log(`📝 Layer '${layer.id}': Using member name = "${text}"`);
             }
             else if (layer.id === 'certificate_no') {
               text = finalCertData.certificate_no || '';
-              dataSource = 'certificate';
-              console.log(`📝 Layer '${layer.id}': Using certificate number = "${text}"`);
             }
             else if (layer.id === 'issue_date' || layer.id === 'score_date') {
               text = formatDateString(finalCertData.issue_date, dateFormat);
-              dataSource = 'date';
-              console.log(`📅 Layer '${layer.id}': Using formatted date = "${text}"`);
             }
             else if (layer.id === 'expired_date' || layer.id === 'expiry_date') {
               text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
-              dataSource = 'date';
-              console.log(`📅 Layer '${layer.id}': Using expiry date = "${text}"`);
             }
-            // PRIORITY 3: Default text ONLY if useDefaultText flag is TRUE
             else if (layer.useDefaultText && layer.defaultText) {
               text = layer.defaultText;
-              dataSource = 'default';
-              console.log(`⚠️ Layer '${layer.id}': Using default text (flag=true) = "${text}"`);
             }
-            // NO FALLBACK - Jika tidak ada data, render kosong (empty string)
-            // This prevents Excel defaultText from appearing when no input data provided
-            
-            // Build data context for dynamic variable replacement
             const variableData: Record<string, string> = {
               // Common certificate fields
               name: member.name || '',
@@ -1325,44 +1069,22 @@ function CertificatesContent() {
               ...(scoreData || {})
             };
             
-            // DYNAMIC VARIABLES: Replace {variable} placeholders with actual data
-            // CRITICAL: Process richText FIRST if it exists, otherwise process plain text
             let processedRichText = layer.richText;
             if (processedRichText && processedRichText.length > 0) {
               const hasVars = processedRichText.some(span => span.text.includes('{'));
               if (hasVars) {
-                const beforeRichReplace = processedRichText.map(span => span.text).join('');
                 processedRichText = replaceVariablesInRichText(processedRichText, variableData);
-                // Update text to reflect rich text content
                 text = processedRichText.map(span => span.text).join('');
-                console.log(`🔄 Rich text variables replaced in back side layer '${layer.id}':`, {
-                  before: beforeRichReplace,
-                  after: text
-                });
               }
             } else if (text && text.includes('{')) {
-              // Only process plain text if no richText
               text = replaceVariables(text, variableData);
-              console.log(`🔄 Dynamic variables replaced in back side layer '${layer.id}': "${text}"`);
             }
             
-            // Debug: Log the final mapping for this layer
-            console.log(`📝 Score Layer Mapping: ${layer.id} = "${text}" (source: ${dataSource})`);
-            
-            // Skip rendering if useDefaultText=false and no data available
-            if (!layer.useDefaultText && !text && dataSource === 'none') {
-              console.log(`❌ Layer '${layer.id}': Skipped - no data and useDefaultText=false`);
-            }
-            
-            // CRITICAL FIX: If text changed from layer config, clear richText to prevent override
-            // richText contains Excel defaultText spans that may override our replaced text
-            // Only keep richText if we processed it for variables
             const textChanged = text !== layer.defaultText;
             const hasProcessedRichText = processedRichText && processedRichText !== layer.richText;
             const shouldClearRichText = textChanged && layer.richText && !hasProcessedRichText;
             
             if (shouldClearRichText) {
-              console.log(`🔧 Clearing richText for layer '${layer.id}' because text changed from "${layer.defaultText}" to "${text}"`);
               processedRichText = undefined;
             }
             
@@ -1386,36 +1108,16 @@ function CertificatesContent() {
               hasInlineFormatting: layer.hasInlineFormatting,
             };
           });
-          
-          console.log('📊 Score text layers:', scoreTextLayers.map(l => ({ id: l.id, text: l.text })));
-          
-          // Render score certificate with DYNAMIC CANVAS SIZE
-          // Uses score template's natural dimensions (no scaling)
           const scoreImageDataUrl = await renderCertificateToDataURL({
             templateImageUrl: template.score_image_url,
             textLayers: scoreTextLayers,
             photoLayers: scorePhotoLayersForRender,
-            // width & height omitted → auto-detect from template
           });
-          
-          // DUAL-FORMAT SCORE UPLOAD: PNG master + WebP preview
-          console.log('🖼️ Generating score thumbnail (WebP preview from PNG master)...');
-          
-          // Generate WebP score thumbnail for web preview
           const scoreThumbnail = await generateThumbnail(scoreImageDataUrl, {
             format: 'webp',
             quality: 0.85,
-            maxWidth: 1200 // Optimize for web preview
+            maxWidth: 1200
           });
-          
-          // Calculate score size reduction
-          const scoreOriginalSize = estimateDataUrlSize(scoreImageDataUrl);
-          const scoreThumbnailSize = estimateDataUrlSize(scoreThumbnail);
-          const scoreReduction = calculateSizeReduction(scoreOriginalSize, scoreThumbnailSize);
-          console.log(`✅ Score thumbnail generated: ${Math.round(scoreOriginalSize/1024)}KB → ${Math.round(scoreThumbnailSize/1024)}KB (${scoreReduction} reduction)`);
-          
-          // Upload PNG score master
-          console.log('📤 Uploading PNG score master to Supabase Storage...');
           const scorePngFileName = scoreFileName;
           const scorePngUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
@@ -1436,9 +1138,6 @@ function CertificatesContent() {
           if (!scorePngUploadResult.success) {
             throw new Error(`PNG score upload failed: ${scorePngUploadResult.error}`);
           }
-          
-          // Upload WebP score preview to preview/ subfolder
-          console.log('📤 Uploading WebP score preview to Supabase Storage...');
           const scoreWebpFileName = `preview/${xid}_score.webp`;
           const scoreWebpUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
@@ -1460,19 +1159,8 @@ function CertificatesContent() {
             throw new Error(`WebP score upload failed: ${scoreWebpUploadResult.error}`);
           }
           
-          const finalScoreImageUrl = scorePngUploadResult.url; // PNG master
-          const finalScoreThumbnailUrl = scoreWebpUploadResult.url; // WebP preview
-          console.log('✅ PNG score master uploaded:', finalScoreImageUrl);
-          console.log('✅ WebP score preview uploaded:', finalScoreThumbnailUrl);
-          
-          // Update certificate with score URLs (both PNG master and WebP preview)
-          console.log('💾 Updating certificate with score URLs:', {
-            certificateID: savedCertificate.id,
-            certificateNo: savedCertificate.certificate_no,
-            memberName: member.name,
-            scoreImageUrl: finalScoreImageUrl,
-            scoreThumbnailUrl: finalScoreThumbnailUrl
-          });
+          const finalScoreImageUrl = scorePngUploadResult.url;
+          const finalScoreThumbnailUrl = scoreWebpUploadResult.url;
           
           const { error: updateError } = await supabaseClient
             .from('certificates')
@@ -1484,14 +1172,9 @@ function CertificatesContent() {
           
           if (updateError) {
             console.error('❌ Failed to update score certificate:', updateError);
-          } else {
-            console.log('✅ Score certificate saved successfully');
           }
-        } else {
-          console.warn('⚠️ Score layout not configured, skipping score generation');
         }
-      } catch (error: unknown) {
-        console.error('❌ Failed to generate score certificate:', error);
+      } catch {
         // Don't throw - main certificate is already saved
       }
     }

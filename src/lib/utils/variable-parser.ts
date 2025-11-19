@@ -4,7 +4,7 @@
  * Format: {variable_name} will be replaced with actual data
  */
 
-import { RichText, TextSpan } from '@/types/rich-text';
+import { RichText } from '@/types/rich-text';
 
 /**
  * Extract all variable names from text
@@ -68,16 +68,13 @@ export function replaceVariables(
   try {
     return text.replace(/\{(\w+)\}/g, (match, key) => {
       const value = data[key];
-      // Only replace if data exists and is not empty
       if (value !== undefined && value !== null && String(value).trim() !== '') {
         return String(value);
       }
-      // Keep original variable placeholder if no data
       return match;
     });
-  } catch (error) {
-    console.error('Variable replacement error:', error);
-    return text; // Return original text on error
+  } catch {
+    return text;
   }
 }
 
@@ -90,26 +87,22 @@ export function replaceVariablesInRichText(
   data: Record<string, string | undefined>
 ): RichText {
   try {
-    // Deep clone to avoid mutating original
     const clonedRichText: RichText = JSON.parse(JSON.stringify(richText));
     
     return clonedRichText.map(span => {
-      // Check if span contains variables
       if (!hasVariables(span.text)) {
         return span;
       }
       
-      // Replace variables while preserving all formatting
       const newText = replaceVariables(span.text, data);
       
       return {
-        ...span,  // Preserve all formatting (color, fontWeight, fontSize, etc.)
-        text: newText  // Only replace the text content
+        ...span,
+        text: newText
       };
     });
-  } catch (error) {
-    console.error('Rich text variable replacement error:', error);
-    return richText; // Return original rich text on error
+  } catch {
+    return richText;
   }
 }
 
@@ -120,7 +113,6 @@ export function generateSampleData(variables: string[]): Record<string, string> 
   const sampleData: Record<string, string> = {};
   
   for (const variable of variables) {
-    // Generate contextual sample data based on variable name
     const lowerVar = variable.toLowerCase();
     
     if (lowerVar.includes('name') || lowerVar.includes('nama')) {
@@ -140,7 +132,6 @@ export function generateSampleData(variables: string[]): Record<string, string> 
     } else if (lowerVar.includes('inisiatif')) {
       sampleData[variable] = 'Cukup';
     } else {
-      // Generic sample
       sampleData[variable] = `[${variable}]`;
     }
   }
@@ -165,19 +156,15 @@ export function processTextWithVariables(
   data: Record<string, string | undefined>,
   useRichText: boolean = false
 ): { processedText: string; processedRichText?: RichText } {
-  // If no text provided, return empty
   if (!text && (!richText || richText.length === 0)) {
     return { processedText: '' };
   }
   
-  // Process based on text type
   if (useRichText && richText && richText.length > 0) {
-    // Rich text processing
     const processedRichText = replaceVariablesInRichText(richText, data);
     const processedText = processedRichText.map(span => span.text).join('');
     return { processedText, processedRichText };
   } else if (text) {
-    // Plain text processing
     const processedText = replaceVariables(text, data);
     return { processedText };
   }
@@ -194,7 +181,6 @@ export function mergeVariableData(
 ): Record<string, string | undefined> {
   const merged: Record<string, string | undefined> = {};
   
-  // Merge in reverse order so first sources have priority
   for (let i = dataSources.length - 1; i >= 0; i--) {
     const source = dataSources[i];
     if (source) {
@@ -207,7 +193,6 @@ export function mergeVariableData(
 
 /**
  * Extract variables from text layer config
- * Checks both defaultText and richText
  */
 export function extractVariablesFromLayer(layer: {
   defaultText?: string;
@@ -215,7 +200,6 @@ export function extractVariablesFromLayer(layer: {
 }): string[] {
   const variables: string[] = [];
   
-  // Extract from defaultText
   if (layer.defaultText) {
     const textVars = extractVariables(layer.defaultText);
     for (const v of textVars) {
@@ -225,7 +209,6 @@ export function extractVariablesFromLayer(layer: {
     }
   }
   
-  // Extract from richText
   if (layer.richText) {
     const richVars = extractVariablesFromRichText(layer.richText);
     for (const v of richVars) {

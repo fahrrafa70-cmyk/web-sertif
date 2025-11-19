@@ -4,25 +4,19 @@ import type { TemplateLayoutConfig, LayoutValidationResult } from '@/types/templ
 // Test Supabase connection
 export async function testSupabaseConnection(): Promise<boolean> {
   try {
-    console.log('Testing Supabase connection...');
-    
     // Test database connection
     const { error } = await supabaseClient
       .from('templates')
-      .select('count')
+      .select('id')
       .limit(1);
     
     if (error) {
-      console.error('Database connection failed:', error);
       return false;
     }
     
-    console.log('Database connection successful');
-    console.log('✅ Using local file storage (public/template) instead of Supabase Storage');
     return true;
     
-  } catch (error) {
-    console.error('Connection test failed:', error);
+  } catch {
     return false;
   }
 }
@@ -79,8 +73,6 @@ export interface UpdateTemplateData {
 
 // Upload image to local storage (simplified version)
 export async function uploadTemplateImage(file: File): Promise<string> {
-  console.log('📤 Starting template image upload...', { fileName: file.name, fileSize: file.size });
-  
   try {
     // Validate file
     if (!file || file.size === 0) {
@@ -95,8 +87,6 @@ export async function uploadTemplateImage(file: File): Promise<string> {
     const fileName = `template-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     
     // Upload to local storage
-    console.log('📁 Uploading to local storage...');
-    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', fileName);
@@ -116,11 +106,9 @@ export async function uploadTemplateImage(file: File): Promise<string> {
       throw new Error(result.error || 'Upload failed');
     }
 
-    console.log('✅ Image uploaded successfully:', result.url);
     return result.url;
 
   } catch (error) {
-    console.error('💥 Image upload failed:', error);
     throw error;
   }
 }
@@ -129,8 +117,6 @@ export async function uploadTemplateImage(file: File): Promise<string> {
 async function uploadOriginalImage(file: File, fileName: string): Promise<{ originalUrl: string; thumbnailUrl: string }> {
   // Try Supabase Storage first
   try {
-    console.log('☁️ Attempting upload to Supabase Storage...');
-    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', fileName);
@@ -144,19 +130,14 @@ async function uploadOriginalImage(file: File, fileName: string): Promise<{ orig
     if (response.ok) {
       const result = await response.json();
       if (result.success && result.url) {
-        console.log('✅ Storage upload successful:', result.url);
         return { originalUrl: result.url, thumbnailUrl: result.url };
       }
     }
-    
-    console.warn('⚠️ Storage upload failed, falling back to local...');
-  } catch (storageError) {
-    console.warn('⚠️ Storage upload error, falling back to local:', storageError);
+  } catch {
+    // Fall through to local storage
   }
 
   // Fallback to local storage
-  console.log('📁 Falling back to local upload...');
-  
   const formData = new FormData();
   formData.append('file', file);
   formData.append('fileName', fileName);
@@ -176,9 +157,6 @@ async function uploadOriginalImage(file: File, fileName: string): Promise<{ orig
   if (!result.success) {
     throw new Error(`Upload failed: ${result.error}`);
   }
-
-  console.log('✅ Local upload successful:', result);
-  console.log('🔗 Local URL generated:', result.url);
 
   return { originalUrl: result.url, thumbnailUrl: result.url };
 }
@@ -235,10 +213,8 @@ export function getTemplatePreviewUrl(template: Template): string | null {
 // Note: Image deletion is handled by the file system cleanup process
 
 // 🚀 PERFORMANCE: Simplified templates fetching without dynamic imports
-export async function getTemplates(useCache: boolean = true): Promise<Template[]> {
-  console.log('📥 Fetching templates directly (no cache delay)');
-  
-  // 🚀 CRITICAL: Direct fetch without dynamic imports to eliminate delay
+export async function getTemplates(): Promise<Template[]> {
+  // Direct fetch without dynamic imports to eliminate delay
   const { data, error } = await supabaseClient
     .from('templates')
     .select('*')
@@ -248,7 +224,6 @@ export async function getTemplates(useCache: boolean = true): Promise<Template[]
     throw new Error(`Failed to fetch templates: ${error.message}`);
   }
 
-  console.log('📥 Fetched templates:', data?.length || 0);
   return data || [];
 }
 
@@ -272,20 +247,12 @@ export async function getTemplate(id: string): Promise<Template | null> {
 
 // Create new template
 export async function createTemplate(templateData: CreateTemplateData): Promise<Template> {
-  console.log('🚀 Starting template creation process...', templateData);
-  
   try {
     // Validate required fields
     if (!templateData.name?.trim() || !templateData.category?.trim() || !templateData.orientation?.trim()) {
       throw new Error('Missing required fields: name, category, and orientation are required');
     }
 
-    // Check authentication status
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    console.log('👤 Current user:', user);
-    if (authError) {
-      console.error('❌ Auth error:', authError);
-    }
     
     let imagePath: string | undefined;
     let previewImagePath: string | undefined;
@@ -298,17 +265,13 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
     
     // Handle dual template uploads
     if (templateData.is_dual_template) {
-      console.log('📤 Dual template mode - uploading certificate and score images...');
-      
       // Upload certificate image (required for dual template)
       if (templateData.certificate_image_file) {
         try {
           const uploadResult = await uploadTemplateImage(templateData.certificate_image_file);
           certificateImagePath = uploadResult;
           certificateThumbnailPath = uploadResult; // Use same URL for thumbnail
-          console.log('✅ Certificate image upload completed, path:', certificateImagePath);
         } catch (uploadError) {
-          console.error('❌ Certificate image upload failed:', uploadError);
           throw new Error(`Certificate image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
         }
       } else {
@@ -321,9 +284,7 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
           const uploadResult = await uploadTemplateImage(templateData.score_image_file);
           scoreImagePath = uploadResult;
           scoreThumbnailPath = uploadResult; // Use same URL for thumbnail
-          console.log('✅ Score image upload completed, path:', scoreImagePath);
         } catch (uploadError) {
-          console.error('❌ Score image upload failed:', uploadError);
           throw new Error(`Score image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
         }
       } else {
@@ -336,9 +297,7 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
           const uploadResult = await uploadTemplateImage(templateData.preview_image_file);
           previewImagePath = uploadResult;
           previewThumbnailPath = uploadResult; // Use same URL for thumbnail
-          console.log('✅ Preview image upload completed, path:', previewImagePath);
-        } catch (uploadError) {
-          console.error('❌ Preview image upload failed:', uploadError);
+        } catch {
           // Do not block creation if preview upload fails
         }
       }
@@ -346,18 +305,13 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       // Single template mode - use existing logic
       // Upload image if provided
       if (templateData.image_file) {
-        console.log('📤 Image file provided, starting upload...');
         try {
           const uploadResult = await uploadTemplateImage(templateData.image_file);
           imagePath = uploadResult;
           thumbnailImagePath = uploadResult; // Use same URL for thumbnail
-          console.log('✅ Image upload completed, path:', imagePath);
         } catch (uploadError) {
-          console.error('❌ Image upload failed:', uploadError);
           throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
         }
-      } else {
-        console.log('ℹ️ No image file provided');
       }
 
       // Upload preview image if provided
@@ -366,9 +320,7 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
           const uploadResult = await uploadTemplateImage(templateData.preview_image_file);
           previewImagePath = uploadResult;
           previewThumbnailPath = uploadResult; // Use same URL for thumbnail
-          console.log('✅ Preview image upload completed, path:', previewImagePath);
-        } catch (uploadError) {
-          console.error('❌ Preview image upload failed:', uploadError);
+        } catch {
           // Do not block creation if preview upload fails
         }
       }
@@ -421,7 +373,6 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       insertData.preview_thumbnail_path = previewThumbnailPath;
     }
 
-    console.log('💾 Inserting template data via API:', insertData);
 
     // Insert data into templates table via API route (bypasses RLS)
     const response = await fetch('/api/templates/create', {
@@ -434,7 +385,6 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('❌ API creation error:', errorData);
       throw new Error(errorData.error || errorData.details || 'Failed to create template');
     }
 
