@@ -12,6 +12,7 @@ export interface TextLayerConfig {
   xPercent: number;
   yPercent: number;
   fontSize: number;
+  fontSizePercent: number; // Font size as percentage of template height (0-100)
   color: string;
   fontWeight: string;
   fontFamily: string;
