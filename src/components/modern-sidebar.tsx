@@ -27,6 +27,12 @@ const ModernSidebar = memo(function ModernSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const navItems: NavItem[] = useMemo(() => [
     {
@@ -129,8 +135,9 @@ const ModernSidebar = memo(function ModernSidebar() {
                 <Link
                   href={item.href}
                   className="relative flex items-center justify-center w-full h-14 group"
-                  aria-label={item.label}
+                  aria-label={mounted ? item.label : (item.href === '/' ? 'Home' : item.href === '/about' ? 'About' : 'Navigation')}
                   style={{ minWidth: "44px", minHeight: "44px" }}
+                  suppressHydrationWarning
                 >
                   <div
                     className={`
@@ -156,7 +163,9 @@ const ModernSidebar = memo(function ModernSidebar() {
                       transform: 'translateY(-50%)'
                     }}
                   >
-                    {item.label}
+                    <span suppressHydrationWarning>
+                      {mounted ? item.label : (item.href === '/' ? 'Home' : item.href === '/about' ? 'About' : 'Navigation')}
+                    </span>
                   </div>
                 )}
               </div>

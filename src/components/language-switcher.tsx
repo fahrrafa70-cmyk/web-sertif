@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, memo } from 'react';
+import { useState, memo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useLanguage } from '@/contexts/language-context';
-import { Globe, Check, ChevronDown } from 'lucide-react';
+import { Globe, Check, ChevronUp } from 'lucide-react';
 
 interface LanguageSwitcherProps {
   variant?: 'default' | 'compact' | 'icon-only';
@@ -19,6 +19,12 @@ interface LanguageSwitcherProps {
 export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'default', className }: LanguageSwitcherProps) {
   const { language, setLanguage, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering language-dependent content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const languages = [
     { code: 'en' as const, name: t('language.english'), flag: '🇺🇸' },
@@ -40,7 +46,7 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
             <Globe className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40 z-[100]" side="bottom" sideOffset={8}>
+        <DropdownMenuContent align="center" className="w-40 z-[100]" side="bottom" sideOffset={8}>
           {languages.map((lang) => (
             <DropdownMenuItem
               key={lang.code}
@@ -70,13 +76,16 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
             variant="outline"
             size="sm"
             className={`flex items-center gap-2 ${className}`}
+            suppressHydrationWarning
           >
             <Globe className="w-4 h-4" />
-            <span className="hidden sm:inline">{currentLanguage?.flag}</span>
-            <ChevronDown className="w-3 h-3" />
+            <span className="hidden sm:inline" suppressHydrationWarning>
+              {mounted ? currentLanguage?.flag : '🌐'}
+            </span>
+            <ChevronUp className="w-3 h-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40 z-[100]" side="bottom" sideOffset={8}>
+        <DropdownMenuContent align="center" className="w-40 z-[100]" side="bottom" sideOffset={8}>
           {languages.map((lang) => (
             <DropdownMenuItem
               key={lang.code}
@@ -104,14 +113,17 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
         <Button
           variant="outline"
           className={`flex items-center gap-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${className}`}
+          suppressHydrationWarning
         >
           <Globe className="w-4 h-4" />
           <span className="hidden sm:inline">{t('language.switch')}:</span>
-          <span>{currentLanguage?.flag} {currentLanguage?.name}</span>
-          <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          <span suppressHydrationWarning>
+            {mounted ? `${currentLanguage?.flag} ${currentLanguage?.name}` : '🌐 Language'}
+          </span>
+          <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 z-[100]" side="bottom" sideOffset={8}>
+      <DropdownMenuContent align="center" className="w-48 z-[100]" side="bottom" sideOffset={8}>
         {languages.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
