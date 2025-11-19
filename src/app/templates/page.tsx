@@ -38,7 +38,7 @@ interface TemplateCardProps {
   onConfigure: (templateId: string) => void;
   onDelete: (templateId: string) => void;
   getTemplateUrl: (template: Template) => string | null;
-  isConfiguring: boolean; // Loading state for configure button
+  isConfiguring: boolean;
   canDelete: boolean;
   templateUsageMap: Map<string, number>;
   deletingTemplateId: string | null;
@@ -185,14 +185,42 @@ export default function TemplatesPage() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 100); // Optimized for INP performance
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
 
   // Use templates hook for Supabase integration
   const { templates, loading, error, create, update, delete: deleteTemplate, refresh } = useTemplates();
   
-  // Simplified without heavy caching
-
+  // Fetch certificate counts for each template to populate usage map
+  useEffect(() => {
+    async function fetchTemplateCertificateCounts() {
+      if (!templates.length) return;
+      
+      try {
+        const usageMap = new Map<string, number>();
+        
+        // Fetch certificate counts for all templates in parallel
+        await Promise.all(
+          templates.map(async (template) => {
+            try {
+              const certificates = await getCertificatesByTemplate(template.id);
+              if (certificates.length > 0) {
+                usageMap.set(template.id, certificates.length);
+              }
+            } catch (err) {
+              console.error(`Failed to fetch certificates for template ${template.id}:`, err);
+            }
+          })
+        );
+        
+        setTemplateUsageMap(usageMap);
+      } catch (err) {
+        console.error('Failed to fetch template certificate counts:', err);
+      }
+    }
+    
+    fetchTemplateCertificateCounts();
+  }, [templates]);
+  
   // Optimized filtering with early returns and better performance
   const filtered = useMemo(() => {
     // Early return if no templates
@@ -219,20 +247,6 @@ export default function TemplatesPage() {
     
     return list;
   }, [templates, debouncedQuery, categoryFilter]);
-  
-  // ✅ PHASE 2: Smart preloader for next page templates - TEMPORARILY DISABLED
-  // const { preloadTemplate, preloadOnHover, preloadNextPage, getStats } = useSmartPreloader({
-  //   templates: filtered,
-  //   itemsPerPage: 12, // Assuming 12 templates per page
-  //   preloadDistance: 6, // Preload 6 templates ahead
-  //   maxConcurrentPreloads: 3 // Max 3 concurrent preloads
-  // });
-  
-  // Simplified without heavy preloading
-
-  // 🚀 PERFORMANCE: Removed initial load delay logic
-
-  // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("ecert-role");
