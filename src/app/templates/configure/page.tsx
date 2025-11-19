@@ -26,6 +26,12 @@ import {
 import { useLanguage } from "@/contexts/language-context";
 import { logPreviewPositioning } from "@/lib/debug/positioning-debug";
 import { UnifiedPositioning } from "@/lib/utils/unified-positioning";
+import { 
+  getDisplayDimensions, 
+  getActualPosition,
+  type TemplateDimensions 
+} from "@/lib/utils/percentage-positioning";
+import { migrateTextLayer } from "@/lib/utils/layer-migration";
 
 // Dummy data for preview
 const DUMMY_DATA = {
@@ -35,6 +41,24 @@ const DUMMY_DATA = {
   expired_date: "30 October 2028",
   description: "For outstanding achievement"
 };
+
+/**
+ * Helper function to ensure layer has fontSizePercent
+ * Auto-calculates from fontSize if missing
+ */
+function ensureFontSizePercent(
+  layer: Partial<TextLayerConfig>, 
+  templateHeight: number
+): TextLayerConfig {
+  const fontSizePercent = layer.fontSizePercent !== undefined 
+    ? layer.fontSizePercent 
+    : ((layer.fontSize || 24) / templateHeight) * 100;
+  
+  return {
+    ...layer,
+    fontSizePercent
+  } as TextLayerConfig;
+}
 
 interface TextLayer extends TextLayerConfig {
   isEditing?: boolean;
@@ -258,7 +282,7 @@ function ConfigureLayoutContent() {
                 const x = Math.round(xPercent * dimensions.width);
                 const y = Math.round(yPercent * dimensions.height);
                 
-                return {
+                return ensureFontSizePercent({
                   ...layer,
                   x,
                   y,
@@ -266,7 +290,7 @@ function ConfigureLayoutContent() {
                   yPercent,
                   maxWidth: layer.maxWidth || 300,
                   lineHeight: layer.lineHeight || 1.2,
-                };
+                }, dimensions.height);
               });
               
               const migratedLayers = normalizedLayers.map(layer => {
@@ -307,6 +331,7 @@ function ConfigureLayoutContent() {
                   xPercent: 0.5,
                   yPercent: 0.5,
                   fontSize: 48,
+                  fontSizePercent: (48 / dimensions.height) * 100,
                   color: '#000000',
                   fontWeight: 'bold',
                   fontFamily: 'Arial',
@@ -322,6 +347,7 @@ function ConfigureLayoutContent() {
                   xPercent: 0.1,
                   yPercent: 0.1,
                   fontSize: 26,
+                  fontSizePercent: (26 / dimensions.height) * 100,
                   color: '#000000',
                   fontWeight: 'normal',
                   fontFamily: 'Arial',
@@ -336,6 +362,7 @@ function ConfigureLayoutContent() {
                   xPercent: 0.7,
                   yPercent: 0.85,
                   fontSize: 26,
+                  fontSizePercent: (26 / dimensions.height) * 100,
                   color: '#000000',
                   fontWeight: 'normal',
                   fontFamily: 'Arial',
@@ -350,6 +377,7 @@ function ConfigureLayoutContent() {
                   xPercent: 0.5,
                   yPercent: 0.65,
                   fontSize: 30,
+                  fontSizePercent: (30 / dimensions.height) * 100,
                   color: '#000000',
                   fontWeight: 'normal',
                   fontFamily: 'Arial',
@@ -394,7 +422,7 @@ function ConfigureLayoutContent() {
                 const x = Math.round(xPercent * dimensions.width);
                 const y = Math.round(yPercent * dimensions.height);
                 
-                return {
+                return ensureFontSizePercent({
                   ...layer,
                   x,
                   y,
@@ -402,7 +430,7 @@ function ConfigureLayoutContent() {
                   yPercent,
                   maxWidth: layer.maxWidth || 300,
                   lineHeight: layer.lineHeight || 1.2,
-                };
+                }, dimensions.height);
               });
               
               const migratedLayers = normalizedLayers.map(layer => {
@@ -606,7 +634,7 @@ function ConfigureLayoutContent() {
                 const x = Math.round(xPercent * dimensions.width);
                 const y = Math.round(yPercent * dimensions.height);
                 
-                return {
+                return ensureFontSizePercent({
                   ...layer,
                   x,
                   y,
@@ -614,7 +642,7 @@ function ConfigureLayoutContent() {
                   yPercent,
                   maxWidth: layer.maxWidth || 300,
                   lineHeight: layer.lineHeight || 1.2,
-                };
+                }, dimensions.height);
               });
               
               setScoreTextLayers(normalizedLayers);

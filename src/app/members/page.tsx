@@ -631,14 +631,14 @@ export default function MembersPage() {
                 
               {/* Action Buttons */}
               {(role === "Admin" || role === "Team") && (
-                <div className="flex gap-2 w-full sm:w-auto">
+                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
                   <Button 
                     onClick={() => setShowExcelInfoModal(true)} 
                     disabled={importing}
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex-1 sm:flex-none"
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                   >
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    {importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}
+                    <FileSpreadsheet className="w-4 h-4 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}</span>
                   </Button>
                   <input
                     ref={excelInputRef}
@@ -650,8 +650,8 @@ export default function MembersPage() {
                   <Button onClick={() => {
                     setAddModalOpen(true);
                     setFormErrors({});
-                  }} className="gradient-primary text-white flex-1 sm:flex-none">
-                    {language === 'id' ? 'Tambah Data' : 'Add Data'}
+                  }} className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                    <span className="whitespace-nowrap">{language === 'id' ? 'Tambah Data' : 'Add Data'}</span>
                   </Button>
                 </div>
               )}
