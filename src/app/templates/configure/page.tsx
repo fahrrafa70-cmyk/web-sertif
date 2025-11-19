@@ -2239,17 +2239,17 @@ function ConfigureLayoutContent() {
                           
                           // 🎯 DIFFERENT ADJUSTMENT FOR EACH LAYER AND MODE
                           if (layer.id === 'issue_date' && configMode === 'certificate') {
-                            // issue_date in CERTIFICATE mode
-                            mobileVerticalOffset = -50 - (scaleDifference * 3);
+                            // issue_date in CERTIFICATE mode - turun 1px lagi (lower 1px more)
+                            mobileVerticalOffset = -50 + (scaleDifference * 2.5); // Turun lebih banyak
                             mobileHorizontalOffset = -(scaleDifference * 2);
                           } else if (layer.id === 'issue_date' && configMode === 'score') {
                             // issue_date in SCORE mode - different offset
-                            mobileVerticalOffset = -50 - (scaleDifference * 3);
+                            mobileVerticalOffset = -50 + (scaleDifference * 2.5); // Turun lebih banyak
                             mobileHorizontalOffset = -(scaleDifference * 5);
                           } else if (layer.id === 'certificate_no') {
-                            // certificate_no: only in certificate mode
-                            mobileVerticalOffset = -43 - (scaleDifference * 1); // More down movement
-                            mobileHorizontalOffset = -2 -(scaleDifference * 1); // Less left movement (more right)
+                            // certificate_no: fine-tuned position (naik 1px dari original -43)
+                            mobileVerticalOffset = -44 - (scaleDifference * 1); // Naik 1px dari -43
+                            mobileHorizontalOffset = -2 - (scaleDifference * 1); // Previous value - slight left
                           } else if (isNilaiPrestasiLayer) {
                             // ONLY nilai/prestasi layers - NOT aspek teknis or other layers
                             mobileVerticalOffset = -10 - (scaleDifference * 40);
@@ -2335,7 +2335,7 @@ function ConfigureLayoutContent() {
                       {/* Text content */}
                       <div
                         className={`relative cursor-move transition-all ${
-                          isSelected ? 'bg-blue-50/30' : ''
+                          isSelected ? 'bg-blue-50/30' : 'before:content-[""] before:absolute before:inset-[-12px] before:z-[-1]'
                         }`}
                         style={{
                           // ✅ CRITICAL: Scale font size to match generation output
@@ -2346,12 +2346,16 @@ function ConfigureLayoutContent() {
                           ...( (() => {
                             const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
                             const domScale = isDesktop ? templateScale : templateScale * canvasScale;
+                            
+                            // Small compensation for mobile to slightly widen text box for better word wrapping
+                            // This helps match desktop word wrapping without breaking layout
+                            const widthCompensation = (!isDesktop && layer.maxWidth) ? 1.05 : 1; // 5% wider on mobile
 
                             return {
                               fontSize: `${layer.fontSize * domScale}px`,
-                              // Scale width-related properties with the same domScale
-                              width: layer.maxWidth ? `${layer.maxWidth * domScale}px` : 'auto',
-                              maxWidth: layer.maxWidth ? `${layer.maxWidth * domScale}px` : 'none',
+                              // Scale width-related properties with small compensation on mobile
+                              width: layer.maxWidth ? `${layer.maxWidth * domScale * widthCompensation}px` : 'auto',
+                              maxWidth: layer.maxWidth ? `${layer.maxWidth * domScale * widthCompensation}px` : 'none',
                               minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * domScale}px`,
                             };
                           })() ),
@@ -2379,10 +2383,8 @@ function ConfigureLayoutContent() {
                           wordWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'normal' : 'break-word',
                           overflowWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'normal' : 'break-word',
                           userSelect: 'none',
-                          // Larger padding for better touch target when not selected (min 44x44px for accessibility)
-                          // When selected, use no padding to match PNG generation
-                          padding: isSelected ? '0px' : '12px',
-                          margin: isSelected ? '0px' : '-12px',
+                          // Remove all padding to match PNG generation (text starts from border edge)
+                          padding: '0px',
                           // Show border only when selected for visual feedback
                           border: isSelected ? '5px dashed #3b82f6' : '5px dashed transparent',
                           borderRadius: '4px',
@@ -2392,7 +2394,9 @@ function ConfigureLayoutContent() {
                           touchAction: 'none',
                           WebkitTouchCallout: 'none',
                           WebkitUserSelect: 'none',
-                          cursor: isSelected ? 'move' : 'pointer'
+                          cursor: isSelected ? 'move' : 'pointer',
+                          // Larger hit area using pseudo-element (doesn't affect layout)
+                          position: 'relative'
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
