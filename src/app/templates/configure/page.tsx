@@ -1907,10 +1907,10 @@ function ConfigureLayoutContent() {
       <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 pt-14 sm:pt-16">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 sm:gap-4">
-          {/* Compact Canvas for Editing */}
-          <div className="lg:col-span-4 order-1 lg:order-1">
+          {/* Compact Canvas for Editing - Sticky on Mobile */}
+          <div className="lg:col-span-4 order-1 lg:order-1 sticky top-14 sm:top-16 lg:static z-20 lg:z-auto bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 lg:bg-transparent pb-2 lg:pb-0 shadow-md lg:shadow-none max-h-[45vh] lg:max-h-none overflow-hidden lg:overflow-visible">
             <div 
-              className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6 ${
+              className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6 h-full ${
                 !templateImageDimensions || (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width)
                   ? 'w-full lg:max-w-[650px] lg:mx-auto' 
                   : 'w-full'
@@ -1943,7 +1943,8 @@ function ConfigureLayoutContent() {
                   aspectRatio: templateImageDimensions 
                     ? `${templateImageDimensions.width}/${templateImageDimensions.height}`
                     : `${STANDARD_CANVAS_WIDTH}/${STANDARD_CANVAS_HEIGHT}`,
-                  // Mobile: full width, Desktop: limit height for portrait templates
+                  // Mobile: full width with natural aspect ratio (no maxHeight to avoid scale calculation issues)
+                  // Desktop: limit height for portrait templates
                   maxHeight: isDesktop && templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
                     ? '800px'  // Desktop Portrait: larger max height
                     : 'none',
@@ -2239,12 +2240,12 @@ function ConfigureLayoutContent() {
                           
                           // 🎯 DIFFERENT ADJUSTMENT FOR EACH LAYER AND MODE
                           if (layer.id === 'issue_date' && configMode === 'certificate') {
-                            // issue_date in CERTIFICATE mode - turun 1px lagi (lower 1px more)
-                            mobileVerticalOffset = -50 + (scaleDifference * 2.5); // Turun lebih banyak
+                            // issue_date in CERTIFICATE mode - turun 2px lebih (lower 2px more)
+                            mobileVerticalOffset = -48 + (scaleDifference * 2.5); // -48 = turun 2px dari -50
                             mobileHorizontalOffset = -(scaleDifference * 2);
                           } else if (layer.id === 'issue_date' && configMode === 'score') {
-                            // issue_date in SCORE mode - different offset
-                            mobileVerticalOffset = -50 + (scaleDifference * 2.5); // Turun lebih banyak
+                            // issue_date in SCORE mode - turun 2px lebih (lower 2px more)
+                            mobileVerticalOffset = -48 + (scaleDifference * 2.5); // -48 = turun 2px dari -50
                             mobileHorizontalOffset = -(scaleDifference * 5);
                           } else if (layer.id === 'certificate_no') {
                             // certificate_no: fine-tuned position (naik 1px dari original -43)
@@ -2585,7 +2586,7 @@ function ConfigureLayoutContent() {
           </div>
 
           {/* Configuration Panel */}
-          <div className="lg:col-span-2 order-2 lg:order-2">
+          <div className="lg:col-span-2 order-2 lg:order-2 mt-2 lg:mt-0">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 lg:sticky lg:top-24 max-h-[calc(100vh-10rem)] sm:max-h-[calc(100vh-8rem)] overflow-y-auto">
               {/* Mode Switcher - Only for dual templates */}
               {template.is_dual_template && (
