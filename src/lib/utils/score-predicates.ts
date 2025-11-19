@@ -34,9 +34,8 @@ export function getScorePredicate(
   // Convert to number
   const numericScore = typeof score === 'string' ? parseFloat(score) : score;
 
-  // Validate number
+  // Validate number (silently return empty for non-numeric values - they're valid text)
   if (isNaN(numericScore)) {
-    console.warn(`Invalid score value: ${score}`);
     return '';
   }
 
@@ -57,6 +56,8 @@ export function getScorePredicate(
  * This function looks for 'nilai' field in scoreData and automatically
  * sets the 'prestasi' field based on the score
  * 
+ * IMPORTANT: Only processes numeric 'nilai' field. Ignores text values from dynamic variables.
+ * 
  * @param scoreData - The score data object
  * @returns Updated score data with auto-populated prestasi
  */
@@ -68,12 +69,18 @@ export function autoPopulatePrestasi(
   const result = { ...scoreData };
 
   // Check if 'nilai' exists and 'prestasi' is empty or not set
+  // Only process if 'nilai' is actually a numeric field
   if (result.nilai && (!result.prestasi || result.prestasi.trim() === '')) {
-    const predicate = getScorePredicate(result.nilai);
-    if (predicate) {
-      result.prestasi = predicate;
-      console.log(`✨ Auto-populated prestasi: ${result.nilai} → ${predicate}`);
+    // Check if nilai is numeric before processing
+    const numericNilai = parseFloat(result.nilai);
+    if (!isNaN(numericNilai)) {
+      const predicate = getScorePredicate(result.nilai);
+      if (predicate) {
+        result.prestasi = predicate;
+        console.log(`✨ Auto-populated prestasi: ${result.nilai} → ${predicate}`);
+      }
     }
+    // Silently ignore non-numeric nilai values (they're likely text variables)
   }
 
   return result;

@@ -63,6 +63,10 @@ import { generateCertificateNumber } from "@/lib/supabase/certificates";
 import { CertificatesPageSkeleton } from "@/components/ui/certificates-skeleton";
 import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
 import { autoPopulatePrestasi } from "@/lib/utils/score-predicates";
+import { 
+  replaceVariables, 
+  replaceVariablesInRichText
+} from '@/lib/utils/variable-parser';
 
 function CertificatesContent() {
   const { t, language } = useLanguage();
@@ -933,13 +937,44 @@ function CertificatesContent() {
       .filter(layer => layer.visible !== false)
       .map((layer) => {
       let text = '';
+      let processedRichText = layer.richText;
       
-      // Check if layer uses default text
-      if (layer.useDefaultText && layer.defaultText) {
-
+      // Build data context for variable replacement
+      const variableData: Record<string, string> = {
+        // Common certificate fields
+        name: member.name || '',
+        certificate_no: finalCertData.certificate_no || '',
+        description: finalCertData.description || '',
+        issue_date: formatDateString(finalCertData.issue_date, dateFormat),
+        expired_date: finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '',
+        // Score data (manual input or Excel)
+        ...(scoreData || {})
+      };
+      
+      console.log(`🔍 DEBUG Layer '${layer.id}':`, {
+        layerId: layer.id,
+        defaultText: layer.defaultText,
+        useDefaultText: layer.useDefaultText,
+        hasScoreData: !!scoreData,
+        scoreDataForThisLayer: scoreData?.[layer.id],
+        variableDataKeys: Object.keys(variableData),
+        variableDataSample: Object.entries(variableData).slice(0, 5)
+      });
+      
+      // PRIORITY 1: Manual Input/Excel data from scoreData ALWAYS takes precedence (even if useDefaultText=true)
+      if (scoreData && 
+          scoreData[layer.id] !== undefined && 
+          scoreData[layer.id] !== null && 
+          scoreData[layer.id] !== '' &&
+          String(scoreData[layer.id]).trim() !== '') {
+        text = String(scoreData[layer.id]).trim();
+        console.log(`✅ Front side layer '${layer.id}': Using input data = "${text}"`);
+      }
+      // PRIORITY 2: Check if layer uses default text
+      else if (layer.useDefaultText && layer.defaultText) {
         text = layer.defaultText;
       } else {
-        // Map common field IDs to certificate data (use finalCertData which has auto-generated values)
+        // PRIORITY 3: Map common field IDs to certificate data (use finalCertData which has auto-generated values)
         if (layer.id === 'name') text = member.name;
         else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
         else if (layer.id === 'description') text = finalCertData.description || '';
@@ -952,6 +987,33 @@ function CertificatesContent() {
         }
         // For custom layers without mapping, use defaultText if available
         else if (layer.defaultText) text = layer.defaultText;
+      }
+      
+      // DYNAMIC VARIABLES: Replace {variable} placeholders with actual data
+      // CRITICAL: Process richText FIRST if it exists, otherwise process plain text
+      if (processedRichText && processedRichText.length > 0) {
+        const hasVars = processedRichText.some(span => span.text.includes('{'));
+        if (hasVars) {
+          const beforeRichReplace = processedRichText.map(span => span.text).join('');
+          processedRichText = replaceVariablesInRichText(processedRichText, variableData);
+          // Update text to reflect rich text content
+          text = processedRichText.map(span => span.text).join('');
+          console.log(`🔄 Rich text variables replacement in layer '${layer.id}':`, {
+            before: beforeRichReplace,
+            after: text,
+            spansCount: processedRichText.length
+          });
+        }
+      } else if (text && text.includes('{')) {
+        // Only process plain text if no richText (to avoid double processing)
+        const beforeReplace = text;
+        text = replaceVariables(text, variableData);
+        console.log(`🔄 Dynamic variables replacement in layer '${layer.id}':`, {
+          before: beforeReplace,
+          after: text,
+          variableDataAvailable: Object.keys(variableData),
+          variableDataSample: Object.entries(variableData).slice(0, 10)
+        });
       }
       
       return {
@@ -969,7 +1031,7 @@ function CertificatesContent() {
         textAlign: layer.textAlign,
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
-        richText: layer.richText,
+        richText: processedRichText,
         hasInlineFormatting: layer.hasInlineFormatting};
     });
     
@@ -1251,6 +1313,39 @@ function CertificatesContent() {
             // NO FALLBACK - Jika tidak ada data, render kosong (empty string)
             // This prevents Excel defaultText from appearing when no input data provided
             
+            // Build data context for dynamic variable replacement
+            const variableData: Record<string, string> = {
+              // Common certificate fields
+              name: member.name || '',
+              certificate_no: finalCertData.certificate_no || '',
+              description: finalCertData.description || '',
+              issue_date: formatDateString(finalCertData.issue_date, dateFormat),
+              expired_date: finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '',
+              // All score data
+              ...(scoreData || {})
+            };
+            
+            // DYNAMIC VARIABLES: Replace {variable} placeholders with actual data
+            // CRITICAL: Process richText FIRST if it exists, otherwise process plain text
+            let processedRichText = layer.richText;
+            if (processedRichText && processedRichText.length > 0) {
+              const hasVars = processedRichText.some(span => span.text.includes('{'));
+              if (hasVars) {
+                const beforeRichReplace = processedRichText.map(span => span.text).join('');
+                processedRichText = replaceVariablesInRichText(processedRichText, variableData);
+                // Update text to reflect rich text content
+                text = processedRichText.map(span => span.text).join('');
+                console.log(`🔄 Rich text variables replaced in back side layer '${layer.id}':`, {
+                  before: beforeRichReplace,
+                  after: text
+                });
+              }
+            } else if (text && text.includes('{')) {
+              // Only process plain text if no richText
+              text = replaceVariables(text, variableData);
+              console.log(`🔄 Dynamic variables replaced in back side layer '${layer.id}': "${text}"`);
+            }
+            
             // Debug: Log the final mapping for this layer
             console.log(`📝 Score Layer Mapping: ${layer.id} = "${text}" (source: ${dataSource})`);
             
@@ -1259,14 +1354,16 @@ function CertificatesContent() {
               console.log(`❌ Layer '${layer.id}': Skipped - no data and useDefaultText=false`);
             }
             
-            // CRITICAL FIX: If text changed from layer config, clear richText
-            // richText contains Excel defaultText spans that override layer.text
-            // Only use richText if text matches (no data override happened)
+            // CRITICAL FIX: If text changed from layer config, clear richText to prevent override
+            // richText contains Excel defaultText spans that may override our replaced text
+            // Only keep richText if we processed it for variables
             const textChanged = text !== layer.defaultText;
-            const shouldClearRichText = textChanged && layer.richText;
+            const hasProcessedRichText = processedRichText && processedRichText !== layer.richText;
+            const shouldClearRichText = textChanged && layer.richText && !hasProcessedRichText;
             
             if (shouldClearRichText) {
               console.log(`🔧 Clearing richText for layer '${layer.id}' because text changed from "${layer.defaultText}" to "${text}"`);
+              processedRichText = undefined;
             }
             
             return {
@@ -1280,13 +1377,13 @@ function CertificatesContent() {
               fontSize: layer.fontSize,
               color: layer.color,
               fontWeight: layer.fontWeight,
-              fontStyle: layer.fontStyle, // ✅ ADD fontStyle
+              fontStyle: layer.fontStyle,
               fontFamily: layer.fontFamily,
               textAlign: layer.textAlign,
               maxWidth: layer.maxWidth,
               lineHeight: layer.lineHeight,
-              richText: shouldClearRichText ? undefined : layer.richText,
-              hasInlineFormatting: shouldClearRichText ? false : layer.hasInlineFormatting,
+              richText: processedRichText,
+              hasInlineFormatting: layer.hasInlineFormatting,
             };
           });
           
@@ -1317,12 +1414,6 @@ function CertificatesContent() {
           const scoreReduction = calculateSizeReduction(scoreOriginalSize, scoreThumbnailSize);
           console.log(`✅ Score thumbnail generated: ${Math.round(scoreOriginalSize/1024)}KB → ${Math.round(scoreThumbnailSize/1024)}KB (${scoreReduction} reduction)`);
           
-
-
-          // Generate unique ID for score image (separate from certificate)
-          const scoreUniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-          
-
           // Upload PNG score master
           console.log('📤 Uploading PNG score master to Supabase Storage...');
           const scorePngFileName = scoreFileName;
