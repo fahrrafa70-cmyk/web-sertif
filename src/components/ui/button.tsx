@@ -5,19 +5,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-300 ease-out disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:scale-[1.02] active:scale-[0.98] transform-gpu will-change-transform",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:opacity-80",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:shadow-md hover:-translate-y-0.5",
+        default: "bg-primary text-primary-foreground shadow-sm hover:shadow-md",
         destructive:
-          "bg-destructive text-white focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 shadow-sm hover:shadow-md hover:-translate-y-0.5",
+          "bg-destructive text-white focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 shadow-sm hover:shadow-md",
         outline:
-          "border bg-background shadow-sm dark:bg-input/30 dark:border-input hover:shadow-md hover:-translate-y-0.5",
+          "border bg-background shadow-sm dark:bg-input/30 dark:border-input hover:shadow-md",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:shadow-md hover:-translate-y-0.5",
+          "bg-secondary text-secondary-foreground shadow-sm hover:shadow-md",
         ghost:
-          "hover:shadow-sm hover:-translate-y-0.5",
+          "hover:shadow-sm",
         link: "text-primary underline-offset-4 hover:underline",
         gradient: "gradient-primary text-primary-foreground shadow-sm",
       },

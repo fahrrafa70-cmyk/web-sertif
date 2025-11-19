@@ -21,9 +21,9 @@ export function ThemeScript() {
             root.classList.add(theme);
           }
         } else {
-          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          isDark = prefersDark;
-          const defaultTheme = prefersDark ? 'dark' : 'light';
+          // Default to light theme (ignore system preference)
+          isDark = false;
+          const defaultTheme = 'light';
           if (!root.classList.contains(defaultTheme)) {
             root.classList.remove('light', 'dark');
             root.classList.add(defaultTheme);

@@ -18,10 +18,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       try {
         const saved = window.localStorage.getItem('ecert-theme');
         if (saved === 'light' || saved === 'dark') return saved;
-        // Check system preference
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          return 'dark';
-        }
+        // Default to light theme (ignore system preference)
       } catch {}
     }
     return 'light';

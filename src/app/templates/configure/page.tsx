@@ -1907,10 +1907,15 @@ function ConfigureLayoutContent() {
       <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 pt-14 sm:pt-16">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 sm:gap-4">
-          {/* Compact Canvas for Editing - Sticky on Mobile */}
-          <div className="lg:col-span-4 order-1 lg:order-1 sticky top-14 sm:top-16 lg:static z-20 lg:z-auto bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 lg:bg-transparent pb-2 lg:pb-0 shadow-md lg:shadow-none max-h-[45vh] lg:max-h-none overflow-hidden lg:overflow-visible">
+          {/* Compact Canvas for Editing - Fixed on Mobile for stable positioning */}
+          <div 
+            className="lg:col-span-4 order-1 lg:order-1 fixed lg:static top-20 sm:top-24 left-0 right-0 lg:left-auto lg:right-auto z-20 lg:z-auto bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 lg:bg-transparent pb-3 lg:pb-0 shadow-md lg:shadow-none overflow-hidden lg:overflow-visible px-3 sm:px-4 md:px-6 lg:px-0 pt-2 lg:pt-0 rounded-b-2xl lg:rounded-none"
+            style={{
+              maxHeight: isDesktop ? 'none' : (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width ? '55vh' : '38vh')
+            }}
+          >
             <div 
-              className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6 h-full ${
+              className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6 h-full overflow-visible ${
                 !templateImageDimensions || (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width)
                   ? 'w-full lg:max-w-[650px] lg:mx-auto' 
                   : 'w-full'
@@ -1951,6 +1956,11 @@ function ConfigureLayoutContent() {
                   width: isDesktop && templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
                     ? 'auto'   // Desktop Portrait: width auto-adjusts based on height and aspect ratio
                     : '100%',  // Mobile: full width, Desktop Landscape: full width
+                  // Scale down portrait on mobile to fit better
+                  transform: !isDesktop && templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                    ? 'scale(0.92)' 
+                    : 'none',
+                  transformOrigin: 'top center'
                 }}
               >
                 {/* Inner canvas at natural size on desktop, full wrapper on mobile */}
@@ -2240,12 +2250,12 @@ function ConfigureLayoutContent() {
                           
                           // 🎯 DIFFERENT ADJUSTMENT FOR EACH LAYER AND MODE
                           if (layer.id === 'issue_date' && configMode === 'certificate') {
-                            // issue_date in CERTIFICATE mode - turun 2px lebih (lower 2px more)
-                            mobileVerticalOffset = -48 + (scaleDifference * 2.5); // -48 = turun 2px dari -50
+                            // issue_date in CERTIFICATE mode - turun 0.5px (lower 0.5px)
+                            mobileVerticalOffset = -49.5 + (scaleDifference * 2.5); // -49.5 = turun 0.5px dari -50
                             mobileHorizontalOffset = -(scaleDifference * 2);
                           } else if (layer.id === 'issue_date' && configMode === 'score') {
-                            // issue_date in SCORE mode - turun 2px lebih (lower 2px more)
-                            mobileVerticalOffset = -48 + (scaleDifference * 2.5); // -48 = turun 2px dari -50
+                            // issue_date in SCORE mode - turun 0.5px (lower 0.5px)
+                            mobileVerticalOffset = -49.5 + (scaleDifference * 2.5); // -49.5 = turun 0.5px dari -50
                             mobileHorizontalOffset = -(scaleDifference * 5);
                           } else if (layer.id === 'certificate_no') {
                             // certificate_no: fine-tuned position (naik 1px dari original -43)
@@ -2348,9 +2358,8 @@ function ConfigureLayoutContent() {
                             const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
                             const domScale = isDesktop ? templateScale : templateScale * canvasScale;
                             
-                            // Small compensation for mobile to slightly widen text box for better word wrapping
-                            // This helps match desktop word wrapping without breaking layout
-                            const widthCompensation = (!isDesktop && layer.maxWidth) ? 1.05 : 1; // 5% wider on mobile
+                            // Small compensation for mobile (3.5% wider) for better readability
+                            const widthCompensation = (!isDesktop && layer.maxWidth) ? 1.035 : 1; // 3.5% wider on mobile
 
                             return {
                               fontSize: `${layer.fontSize * domScale}px`,
@@ -2586,8 +2595,22 @@ function ConfigureLayoutContent() {
           </div>
 
           {/* Configuration Panel */}
-          <div className="lg:col-span-2 order-2 lg:order-2 mt-2 lg:mt-0">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 lg:sticky lg:top-24 max-h-[calc(100vh-10rem)] sm:max-h-[calc(100vh-8rem)] overflow-y-auto">
+          <div 
+            className="lg:col-span-2 order-2 lg:order-2 fixed lg:static lg:top-auto left-0 right-0 lg:left-auto lg:right-auto bottom-0 lg:bottom-auto z-10 lg:z-auto px-3 sm:px-4 md:px-6 lg:px-0"
+            style={{
+              top: isDesktop ? 'auto' : (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                ? 'calc(55vh + 6.5rem)' 
+                : 'calc(38vh + 5.5rem)')
+            }}
+          >
+            <div 
+              className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 pt-3 sm:pt-4 md:pt-6 px-3 sm:px-4 md:px-6 pb-3 space-y-4 sm:space-y-6 lg:sticky lg:top-24 lg:h-auto lg:p-6 lg:space-y-6 h-auto lg:max-h-[calc(100vh-8rem)] overflow-y-auto"
+              style={{
+                maxHeight: isDesktop ? 'calc(100vh - 8rem)' : (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                  ? 'calc(100vh - 55vh - 6.5rem)' 
+                  : 'calc(100vh - 38vh - 5.5rem)')
+              }}
+            >
               {/* Mode Switcher - Only for dual templates */}
               {template.is_dual_template && (
                 <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 mb-4">
