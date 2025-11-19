@@ -48,7 +48,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 p-1 shadow-lg transition-all duration-200 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 data-[state=closed]:scale-95 data-[state=open]:scale-100 backdrop-blur-sm",
+          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 p-1 shadow-lg transition-all duration-200 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 data-[state=closed]:scale-95 data-[state=open]:scale-100",
           className
         )}
         {...props}
@@ -236,7 +236,7 @@ function DropdownMenuSubContent({
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
         className={cn(
-          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 p-1 shadow-lg transition-all duration-200 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 data-[state=closed]:scale-95 data-[state=open]:scale-100 backdrop-blur-sm",
+          "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 p-1 shadow-lg transition-all duration-200 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 data-[state=closed]:scale-95 data-[state=open]:scale-100",
           className
         )}
       {...props}

@@ -2185,6 +2185,31 @@ nextjs-portal {
     * {
       line-height: 1.4 !important;
     }
+
+    /* Members Page - Fix Import Excel button to match Tambah Data button */
+    /* Target ONLY the green Import Excel button on members page */
+    button[class*="from-green-500"][class*="to-green-600"] {
+      height: 2rem !important; /* 32px - same as Tambah Data */
+      padding: 0.375rem 0.75rem !important; /* 6px 12px - same as Tambah Data */
+      min-height: 2rem !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.5rem !important;
+    }
+
+    /* Import Excel button text */
+    button[class*="from-green-500"][class*="to-green-600"] span {
+      font-size: 0.75rem !important; /* 12px */
+      white-space: nowrap !important;
+    }
+
+    /* Import Excel button icon */
+    button[class*="from-green-500"][class*="to-green-600"] svg {
+      width: 1rem !important; /* 16px */
+      height: 1rem !important;
+      flex-shrink: 0 !important;
+    }
   }
 
   /* Remove white background from number input spinner controls */
@@ -2371,4 +2396,49 @@ nextjs-portal {
 /* Ensure select content has proper stacking */
 [data-radix-select-content] {
   z-index: 100 !important;
+}
+
+/* Ensure dropdown menus are always visible and not clipped */
+[data-slot="dropdown-menu-content"] {
+  z-index: 100 !important;
+}
+
+/* Prevent dropdown from being clipped by overflow containers */
+[data-radix-popper-content-wrapper] {
+  z-index: 100 !important;
+}
+
+/* Prevent blur effect on dropdown menu - CRITICAL for mobile */
+[data-slot="dropdown-menu-trigger"],
+[data-slot="dropdown-menu-trigger"] *,
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-content"] *,
+[data-slot="dropdown-menu-item"],
+[data-slot="dropdown-menu-item"] * {
+  -webkit-filter: none !important;
+  filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Ensure dropdown trigger stays sharp when open */
+[data-state="open"][data-slot="dropdown-menu-trigger"],
+[data-state="open"][data-slot="dropdown-menu-trigger"] * {
+  opacity: 1 !important;
+  -webkit-filter: none !important;
+  filter: none !important;
+}
+
+/* Prevent any parent container from applying blur to dropdown */
+body:has([data-state="open"][data-slot="dropdown-menu-trigger"]) {
+  -webkit-filter: none !important;
+  filter: none !important;
+}
+
+/* Ensure crisp text rendering on mobile */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-item"] {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
 }

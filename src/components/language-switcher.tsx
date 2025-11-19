@@ -40,7 +40,7 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
             <Globe className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40 z-[70]">
+        <DropdownMenuContent align="end" className="w-40 z-[100]" side="bottom" sideOffset={8}>
           {languages.map((lang) => (
             <DropdownMenuItem
               key={lang.code}
@@ -76,7 +76,7 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
             <ChevronDown className="w-3 h-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40 z-[70]">
+        <DropdownMenuContent align="end" className="w-40 z-[100]" side="bottom" sideOffset={8}>
           {languages.map((lang) => (
             <DropdownMenuItem
               key={lang.code}
@@ -111,11 +111,7 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
           <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 z-[70]">
-        <div className="px-2 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-300">
-          {t('language.switch')}
-        </div>
-        <div className="border-t border-gray-100 dark:border-gray-700" />
+      <DropdownMenuContent align="end" className="w-48 z-[100]" side="bottom" sideOffset={8}>
         {languages.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
