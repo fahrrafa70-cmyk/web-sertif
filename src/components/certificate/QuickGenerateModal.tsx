@@ -214,7 +214,7 @@ function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setSco
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="h-px bg-gradient-to-r from-blue-500 to-blue-300 flex-1"></div>
-            <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide px-2">Front Side</h3>
+            <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide px-2">{t('quickGenerate.frontSide')}</h3>
             <div className="h-px bg-gradient-to-l from-blue-500 to-blue-300 flex-1"></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -248,7 +248,7 @@ function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setSco
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="h-px bg-gradient-to-r from-purple-500 to-purple-300 flex-1"></div>
-            <h3 className="text-sm font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide px-2">Back Side</h3>
+            <h3 className="text-sm font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide px-2">{t('quickGenerate.backSide')}</h3>
             <div className="h-px bg-gradient-to-l from-purple-500 to-purple-300 flex-1"></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -685,7 +685,7 @@ export function QuickGenerateModal({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
-            {t('quickGenerate.title')} {isDualTemplate && currentStep === 2 && '- Input Data Nilai'}
+            {t('quickGenerate.title')} {isDualTemplate && currentStep === 2 && `- ${t('quickGenerate.inputScoreData')}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -929,7 +929,7 @@ export function QuickGenerateModal({
           {currentStep > 1 ? (
             <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)} disabled={generating}>
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Kembali
+              {t('quickGenerate.back')}
             </Button>
           ) : (
             <div></div>
@@ -971,7 +971,7 @@ export function QuickGenerateModal({
               (dataSource === 'member' && isDualTemplate)
             ) ? (
               <>
-                Selanjutnya
+                {t('quickGenerate.next')}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             ) : (

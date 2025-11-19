@@ -10,6 +10,7 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { TextLayerConfig } from "@/types/template-layout";
 import { formatFieldLabel } from "@/lib/utils/excel-mapping";
+import { useLanguage } from "@/contexts/language-context";
 
 interface ExcelUploadStepProps {
   isDualTemplate: boolean;
@@ -30,6 +31,7 @@ export function ExcelUploadStep({
   mainFields = [],
   scoreFields = []
 }: ExcelUploadStepProps) {
+  const { t } = useLanguage();
   const mainInputRef = useRef<HTMLInputElement>(null);
   const scoreInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,10 +49,10 @@ export function ExcelUploadStep({
     try {
       const data = await parseExcelFile(file);
       onMainUpload(data);
-      toast.success(`✓ ${data.length} baris data dimuat`);
+      toast.success(`✓ ${data.length} ${t('quickGenerate.dataLoadedSuccess')}`);
     } catch (error) {
       console.error('Excel parse error:', error);
-      toast.error('Gagal membaca file Excel');
+      toast.error(t('quickGenerate.failedReadExcel'));
     }
   };
 
@@ -61,10 +63,10 @@ export function ExcelUploadStep({
     try {
       const data = await parseExcelFile(file);
       onScoreUpload(data);
-      toast.success(`✓ ${data.length} baris data back side dimuat`);
+      toast.success(`✓ ${data.length} ${t('quickGenerate.backSideDataLoaded')}`);
     } catch (error) {
       console.error('Excel parse error:', error);
-      toast.error('Gagal membaca file Excel back side');
+      toast.error(t('quickGenerate.failedReadBackSide'));
     }
   };
 
@@ -76,18 +78,25 @@ export function ExcelUploadStep({
         {(mainFields.length > 0 || scoreFields.length > 0) && (
           <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-2">
-              Kolom Excel yang Dibutuhkan :
+              {t('quickGenerate.requiredColumns')}
             </p>
             <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
-              Pastikan file Excel Anda memiliki kolom dibawah ini
+              {t('quickGenerate.ensureColumns')}
             </p>
             {mainFields.length > 0 && (
             <div className="space-y-2">
               {!isDualTemplate && (
                 <div className="text-xs text-blue-800 dark:text-blue-200">
-                  <div className="flex flex-wrap gap-1.5">
+                  <div 
+                    className="grid gap-1.5" 
+                    style={{ 
+                      gridTemplateColumns: 'repeat(4, 1fr)',
+                      gridAutoFlow: 'column',
+                      gridTemplateRows: `repeat(${Math.ceil(mainFields.length / 4)}, minmax(0, auto))`
+                    }}
+                  >
                     {mainFields.map((field) => (
-                      <span key={field.id} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 rounded text-blue-900 dark:text-blue-100 font-mono">
+                      <span key={field.id} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 rounded text-blue-900 dark:text-blue-100 font-mono text-center">
                         {formatFieldLabel(field.id, field)}
                       </span>
                     ))}
@@ -97,10 +106,17 @@ export function ExcelUploadStep({
               {isDualTemplate && (
                 <>
                   <div className="text-xs text-blue-800 dark:text-blue-200">
-                    <span className="font-semibold">Front Side:</span>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
+                    <span className="font-semibold">{t('quickGenerate.frontSide')}:</span>
+                    <div 
+                      className="grid gap-1.5 mt-1" 
+                      style={{ 
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        gridAutoFlow: 'column',
+                        gridTemplateRows: `repeat(${Math.ceil(mainFields.length / 4)}, minmax(0, auto))`
+                      }}
+                    >
                       {mainFields.map((field) => (
-                        <span key={field.id} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 rounded text-blue-900 dark:text-blue-100 font-mono">
+                        <span key={field.id} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 rounded text-blue-900 dark:text-blue-100 font-mono text-center">
                           {formatFieldLabel(field.id, field)}
                         </span>
                       ))}
@@ -108,10 +124,17 @@ export function ExcelUploadStep({
                   </div>
                   {scoreFields.length > 0 && (
                     <div className="text-xs text-blue-800 dark:text-blue-200">
-                      <span className="font-semibold">Back Side:</span>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
+                      <span className="font-semibold">{t('quickGenerate.backSide')}:</span>
+                      <div 
+                        className="grid gap-1.5 mt-1" 
+                        style={{ 
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gridAutoFlow: 'column',
+                          gridTemplateRows: `repeat(${Math.ceil(scoreFields.length / 4)}, minmax(0, auto))`
+                        }}
+                      >
                         {scoreFields.map((field) => (
-                          <span key={field.id} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/50 rounded text-purple-900 dark:text-purple-100 font-mono">
+                          <span key={field.id} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/50 rounded text-purple-900 dark:text-purple-100 font-mono text-center">
                             {formatFieldLabel(field.id, field)}
                           </span>
                         ))}
@@ -140,10 +163,10 @@ export function ExcelUploadStep({
             onClick={() => mainInputRef.current?.click()}
             className="mb-2"
           >
-            Pilih File Excel
+            {t('quickGenerate.chooseExcelFile')}
           </Button>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Unggah file .xlsx atau .xls
+            {t('quickGenerate.uploadExcelHint')}
           </p>
         </div>
       </div>
@@ -161,10 +184,10 @@ export function ExcelUploadStep({
           </div>
           <div>
             <p className="font-medium text-blue-900 dark:text-blue-100">
-              {isDualTemplate ? 'Front Side' : 'Excel Data Berhasil Dimuat'}
+              {isDualTemplate ? t('quickGenerate.frontSide') : t('quickGenerate.excelDataLoaded')}
             </p>
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              {mainData.length} baris data
+              {mainData.length} {t('quickGenerate.rowsData')}
             </p>
           </div>
         </div>
@@ -186,10 +209,10 @@ export function ExcelUploadStep({
             onClick={() => scoreInputRef.current?.click()}
             className="mb-2 border-yellow-500 text-yellow-700 hover:bg-yellow-50"
           >
-            Pilih File Excel Back Side
+            {t('quickGenerate.chooseExcelFile')} Back Side
           </Button>
           <p className="text-sm text-gray-500">
-            Unggah file .xlsx atau .xls untuk back side
+            {t('quickGenerate.uploadExcelHint')}
           </p>
         </div>
       )}
@@ -203,10 +226,10 @@ export function ExcelUploadStep({
             </div>
             <div>
               <p className="font-medium text-blue-900 dark:text-blue-100">
-                Back Side
+                {t('quickGenerate.backSide')}
               </p>
               <p className="text-sm text-blue-700 dark:text-blue-300">
-                {scoreData.length} baris data
+                {scoreData.length} {t('quickGenerate.rowsData')}
               </p>
             </div>
           </div>
