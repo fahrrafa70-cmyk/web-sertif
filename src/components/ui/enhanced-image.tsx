@@ -126,7 +126,7 @@ export const EnhancedImage = memo(function EnhancedImage({
             isLoading ? 'opacity-0' : 'opacity-100'
           }`}
           loading="lazy"
-          quality={85}
+          quality={75}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
       )}

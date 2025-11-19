@@ -31,6 +31,15 @@ export default function MembersPage() {
   const [itemsPerPage] = useState<number>(10);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  // Filter modal state
+  const [filterModalOpen, setFilterModalOpen] = useState<boolean>(false);
+  const [organizationFilter, setOrganizationFilter] = useState<string>("");
+  const [cityFilter, setCityFilter] = useState<string>("");
+  const [jobFilter, setJobFilter] = useState<string>("");
+  const [tempOrganizationFilter, setTempOrganizationFilter] = useState<string>("");
+  const [tempCityFilter, setTempCityFilter] = useState<string>("");
+  const [tempJobFilter, setTempJobFilter] = useState<string>("");
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -457,15 +466,87 @@ export default function MembersPage() {
     }
   }
 
-  // Filter members based on search query
+  // Get unique values for filters
+  const uniqueOrganizations = useMemo(() => {
+    const orgs = new Set<string>();
+    membersData.forEach(member => {
+      if (member.organization) orgs.add(member.organization);
+    });
+    return Array.from(orgs).sort();
+  }, [membersData]);
+
+  const uniqueCities = useMemo(() => {
+    const cities = new Set<string>();
+    membersData.forEach(member => {
+      if (member.city) cities.add(member.city);
+    });
+    return Array.from(cities).sort();
+  }, [membersData]);
+
+  const uniqueJobs = useMemo(() => {
+    const jobs = new Set<string>();
+    membersData.forEach(member => {
+      if (member.job) jobs.add(member.job);
+    });
+    return Array.from(jobs).sort();
+  }, [membersData]);
+
+  // Filter modal handlers
+  const openFilterModal = () => {
+    setTempOrganizationFilter(organizationFilter);
+    setTempCityFilter(cityFilter);
+    setTempJobFilter(jobFilter);
+    setFilterModalOpen(true);
+  };
+
+  const applyFilters = () => {
+    setOrganizationFilter(tempOrganizationFilter);
+    setCityFilter(tempCityFilter);
+    setJobFilter(tempJobFilter);
+    setFilterModalOpen(false);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const cancelFilters = () => {
+    setTempOrganizationFilter(organizationFilter);
+    setTempCityFilter(cityFilter);
+    setTempJobFilter(jobFilter);
+    setFilterModalOpen(false);
+  };
+
+  // Filter members based on search query and filters
   // Use debounced search query for filtering
   const filteredMembers = useMemo(() => {
+    let filtered = membersData;
+    
+    // Apply organization filter
+    if (organizationFilter) {
+      filtered = filtered.filter(member => 
+        member.organization === organizationFilter
+      );
+    }
+    
+    // Apply city filter
+    if (cityFilter) {
+      filtered = filtered.filter(member => 
+        member.city === cityFilter
+      );
+    }
+    
+    // Apply job filter
+    if (jobFilter) {
+      filtered = filtered.filter(member => 
+        member.job === jobFilter
+      );
+    }
+    
+    // Apply search query
     if (!debouncedSearchQuery.trim()) {
-      return membersData;
+      return filtered;
     }
     
     const query = debouncedSearchQuery.toLowerCase();
-    return membersData.filter(member => 
+    return filtered.filter(member => 
       member.name.toLowerCase().includes(query) ||
       (member.email && member.email.toLowerCase().includes(query)) ||
       (member.organization && member.organization.toLowerCase().includes(query)) ||
@@ -473,7 +554,7 @@ export default function MembersPage() {
       (member.job && member.job.toLowerCase().includes(query)) ||
       (member.city && member.city.toLowerCase().includes(query))
     );
-  }, [membersData, debouncedSearchQuery]);
+  }, [membersData, debouncedSearchQuery, organizationFilter, cityFilter, jobFilter]);
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -577,31 +658,34 @@ export default function MembersPage() {
             </div>
             
             {/* Search Bar and Filter */}
-              <div className="flex gap-2 mt-6">
+              <div className="flex items-center gap-2 mt-6">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
                   <Input
                     placeholder="Search data by name, email, organization..."
-                    className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                    className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   )}
                 </div>
                 <Button
-                  onClick={() => {/* TODO: Add filter functionality */}}
-                  variant="outline"
+                  onClick={openFilterModal}
+                  variant={organizationFilter || cityFilter || jobFilter ? "default" : "outline"}
                   size="icon"
-                  className="flex-shrink-0 h-10 w-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                  className="flex-shrink-0 h-10 w-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex items-center justify-center relative"
                 >
                   <Filter className="h-5 w-5" />
+                  {(organizationFilter || cityFilter || jobFilter) && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full" />
+                  )}
                 </Button>
               </div>
 
@@ -656,7 +740,7 @@ export default function MembersPage() {
               whileInView={{ opacity: 1, y: 0 }} 
               viewport={{ once: true }} 
               transition={{ duration: 0.4 }} 
-              className="hidden xl:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden"
+              className="hidden xl:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden mt-4"
             >
               <div className="overflow-x-auto">
                 <Table>
@@ -759,7 +843,7 @@ export default function MembersPage() {
 
             {/* Mobile & Tablet Card View */}
             {!loading && !error && (
-              <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+              <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-4">
                 {currentMembers.map((m) => (
                   <div
                     key={m.id}
@@ -1367,6 +1451,109 @@ export default function MembersPage() {
                 {t('members.excel.chooseFile')}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Filter Modal */}
+      <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
+        <DialogContent 
+          className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-[80vh] overflow-visible"
+          style={{ 
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            maxHeight: '80vh'
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              applyFilters();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancelFilters();
+            }
+          }}
+        >
+          <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-blue-500" />
+              <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4 overflow-y-auto max-h-[50vh]">
+            {/* Organization Filter */}
+            <div className="space-y-2 relative">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Organization</label>
+              <select
+                value={tempOrganizationFilter}
+                onChange={(e) => setTempOrganizationFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                style={{ position: 'relative', zIndex: 1 }}
+              >
+                <option value="">All</option>
+                {uniqueOrganizations.map((org) => (
+                  <option key={org} value={org}>
+                    {org}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* City Filter */}
+            <div className="space-y-2 relative">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">City</label>
+              <select
+                value={tempCityFilter}
+                onChange={(e) => setTempCityFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                style={{ position: 'relative', zIndex: 1 }}
+              >
+                <option value="">All</option>
+                {uniqueCities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Job Filter */}
+            <div className="space-y-2 relative">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Job</label>
+              <select
+                value={tempJobFilter}
+                onChange={(e) => setTempJobFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                style={{ position: 'relative', zIndex: 1 }}
+              >
+                <option value="">All</option>
+                {uniqueJobs.map((job) => (
+                  <option key={job} value={job}>
+                    {job}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-4">
+            <Button
+              onClick={cancelFilters}
+              variant="outline"
+              className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={applyFilters}
+              className="flex-1 gradient-primary text-white"
+            >
+              Apply
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

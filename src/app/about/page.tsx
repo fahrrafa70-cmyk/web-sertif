@@ -182,17 +182,17 @@ export default function AboutPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                   viewport={{ once: true }}
-                  className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-md sm:shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 dark:border-gray-700"
+                  className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 lg:p-8 shadow-md sm:shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 dark:border-gray-700"
                 >
-                  <div className="flex items-start space-x-3 sm:space-x-4">
-                    <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-lg flex items-center justify-center text-white">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 md:w-12 md:h-12 gradient-primary rounded-lg flex items-center justify-center text-white">
                       {feature.icon}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    <div className="flex-1 min-w-0 pr-1">
+                      <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1.5 sm:mb-2 leading-snug break-words">
                         {feature.title}
                       </h3>
-                      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">
+                      <p className="text-xs sm:text-sm md:text-base text-gray-600 dark:text-gray-300 leading-relaxed break-words">
                         {feature.description}
                       </p>
                     </div>

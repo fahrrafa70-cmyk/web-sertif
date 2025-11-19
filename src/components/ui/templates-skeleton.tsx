@@ -43,10 +43,10 @@ const TemplatesPageSkeleton = memo(() => {
           <div className="mb-4">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
                 <Input 
                   placeholder={t('templates.search')} 
-                  className="pl-10 h-10 rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 text-sm bg-white dark:bg-gray-800" 
+                  className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center" 
                   disabled
                 />
               </div>

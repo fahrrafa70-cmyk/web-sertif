@@ -35,8 +35,8 @@ export const metadata: Metadata = {
   title: "Eeasy Certificate",
   description: "Create, manage, and verify certificates for trainings, internships, MoUs, and industrial visits with our multilingual platform.",
   icons: {
-    icon: "/next.svg",
-    apple: "/next.svg",
+    icon: "/favicon.png",
+    apple: "/favicon.png",
   },
 };
 

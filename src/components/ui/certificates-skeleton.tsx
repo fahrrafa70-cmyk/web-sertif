@@ -2,8 +2,10 @@
 
 import { memo } from "react";
 import { Skeleton } from "./skeleton";
-import { FileText } from "lucide-react";
+import { FileText, Search, Filter } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { Input } from "./input";
+import { Button } from "./button";
 
 // 🎨 Certificates skeleton yang sesuai dengan layout asli
 const CertificatesPageSkeleton = memo(() => {
@@ -36,13 +38,24 @@ const CertificatesPageSkeleton = memo(() => {
 
         {/* Main Content */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg p-4 sm:p-6">
-          {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <Skeleton className="h-10 flex-1 rounded-lg" />
-            <div className="flex gap-2">
-              <Skeleton className="h-10 w-24 rounded-lg" />
-              <Skeleton className="h-10 w-10 rounded-lg" />
+          {/* Search Bar ASLI */}
+          <div className="flex gap-2 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+              <Input
+                placeholder={t("certificates.search")}
+                className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center"
+                disabled
+              />
             </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="flex-shrink-0 h-10 w-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+              disabled
+            >
+              <Filter className="h-5 w-5" />
+            </Button>
           </div>
 
           {/* Table Header */}

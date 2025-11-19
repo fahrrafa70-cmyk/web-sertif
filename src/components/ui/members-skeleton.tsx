@@ -2,7 +2,9 @@
 
 import { memo } from "react";
 import { Skeleton } from "./skeleton";
-import { Users } from "lucide-react";
+import { Users, Search, Filter } from "lucide-react";
+import { Input } from "./input";
+import { Button } from "./button";
 
 // 🎨 Members skeleton yang sesuai dengan layout asli
 const MembersPageSkeleton = memo(() => {
@@ -32,13 +34,24 @@ const MembersPageSkeleton = memo(() => {
 
         {/* Main Content Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg p-4 sm:p-6 max-w-full">
-          {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <Skeleton className="h-10 flex-1 rounded-lg" />
-            <div className="flex gap-2">
-              <Skeleton className="h-10 w-24 rounded-lg" />
-              <Skeleton className="h-10 w-10 rounded-lg" />
+          {/* Search Bar ASLI */}
+          <div className="flex items-center gap-2 mt-6 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+              <Input
+                placeholder="Search data by name, email, organization..."
+                className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center"
+                disabled
+              />
             </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="flex-shrink-0 h-10 w-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex items-center justify-center relative"
+              disabled
+            >
+              <Filter className="h-5 w-5" />
+            </Button>
           </div>
 
           {/* Table */}

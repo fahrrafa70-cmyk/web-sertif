@@ -1573,13 +1573,21 @@ function CertificatesContent() {
                 {/* Search and Filter Row */}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
                     <Input
                       placeholder={t("certificates.search")}
-                      className="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                      className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center"
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
                     />
+                    {searchInput && (
+                      <button
+                        onClick={() => setSearchInput("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                   <Button
                     onClick={openFilterModal}
@@ -3182,17 +3190,9 @@ function CertificatesContent() {
           }}
         >
           <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-blue-500" />
-                <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
-              </div>
-              <button
-                onClick={cancelFilters}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-blue-500" />
+              <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
             </div>
           </DialogHeader>
           

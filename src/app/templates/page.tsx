@@ -65,7 +65,7 @@ const TemplateCard = memo(({ template, onEdit, onPreview, onConfigure, onDelete,
             sizes="160px"
             priority={false}
             loading="lazy"
-            quality={85}
+            quality={75}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -185,42 +185,41 @@ export default function TemplatesPage() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 100); // Optimized for INP performance
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
+  const [orientationFilter, setOrientationFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [tempCategoryFilter, setTempCategoryFilter] = useState("");
+  const [tempOrientationFilter, setTempOrientationFilter] = useState("");
+  const [tempStatusFilter, setTempStatusFilter] = useState("");
 
   // Use templates hook for Supabase integration
   const { templates, loading, error, create, update, delete: deleteTemplate, refresh } = useTemplates();
   
-  // Fetch certificate counts for each template to populate usage map
-  useEffect(() => {
-    async function fetchTemplateCertificateCounts() {
-      if (!templates.length) return;
-      
-      try {
-        const usageMap = new Map<string, number>();
-        
-        // Fetch certificate counts for all templates in parallel
-        await Promise.all(
-          templates.map(async (template) => {
-            try {
-              const certificates = await getCertificatesByTemplate(template.id);
-              if (certificates.length > 0) {
-                usageMap.set(template.id, certificates.length);
-              }
-            } catch (err) {
-              console.error(`Failed to fetch certificates for template ${template.id}:`, err);
-            }
-          })
-        );
-        
-        setTemplateUsageMap(usageMap);
-      } catch (err) {
-        console.error('Failed to fetch template certificate counts:', err);
-      }
-    }
-    
-    fetchTemplateCertificateCounts();
-  }, [templates]);
-  
+  // Simplified without heavy caching
+
+  // Filter modal handlers
+  const openFilterModal = () => {
+    setTempCategoryFilter(categoryFilter);
+    setTempOrientationFilter(orientationFilter);
+    setTempStatusFilter(statusFilter);
+    setFilterModalOpen(true);
+  };
+
+  const applyFilters = () => {
+    setCategoryFilter(tempCategoryFilter);
+    setOrientationFilter(tempOrientationFilter);
+    setStatusFilter(tempStatusFilter);
+    setFilterModalOpen(false);
+  };
+
+  const cancelFilters = () => {
+    setTempCategoryFilter(categoryFilter);
+    setTempOrientationFilter(orientationFilter);
+    setTempStatusFilter(statusFilter);
+    setFilterModalOpen(false);
+  };
+
   // Optimized filtering with early returns and better performance
   const filtered = useMemo(() => {
     // Early return if no templates
@@ -232,6 +231,22 @@ export default function TemplatesPage() {
     if (categoryFilter) {
       list = list.filter((template) => template.category === categoryFilter);
       if (!list.length) return []; // Early return if no matches
+    }
+    
+    // Apply orientation filter
+    if (orientationFilter) {
+      list = list.filter((template) => template.orientation === orientationFilter);
+      if (!list.length) return [];
+    }
+    
+    // Apply status filter
+    if (statusFilter) {
+      if (statusFilter === "ready") {
+        list = list.filter((template) => template.is_layout_configured);
+      } else if (statusFilter === "draft") {
+        list = list.filter((template) => !template.is_layout_configured);
+      }
+      if (!list.length) return [];
     }
     
     // Apply search query filter
@@ -246,7 +261,21 @@ export default function TemplatesPage() {
     }
     
     return list;
-  }, [templates, debouncedQuery, categoryFilter]);
+  }, [templates, debouncedQuery, categoryFilter, orientationFilter, statusFilter]);
+  
+  // ✅ PHASE 2: Smart preloader for next page templates - TEMPORARILY DISABLED
+  // const { preloadTemplate, preloadOnHover, preloadNextPage, getStats } = useSmartPreloader({
+  //   templates: filtered,
+  //   itemsPerPage: 12, // Assuming 12 templates per page
+  //   preloadDistance: 6, // Preload 6 templates ahead
+  //   maxConcurrentPreloads: 3 // Max 3 concurrent preloads
+  // });
+  
+  // Simplified without heavy preloading
+
+  // 🚀 PERFORMANCE: Removed initial load delay logic
+
+  // derive role from localStorage to match header behavior without changing layout
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("ecert-role");
@@ -717,30 +746,38 @@ export default function TemplatesPage() {
             <div className="mb-4">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
                   <Input 
                     placeholder={t('templates.search')} 
-                    className="pl-10 h-10 rounded-lg border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500/20 text-sm bg-white dark:bg-gray-800" 
+                    className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center" 
                     value={query} 
                     onChange={(e) => setQuery(e.target.value)} 
                   />
+                  {query && (
+                    <button
+                      onClick={() => setQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 <Button
                   type="button"
-                  variant={categoryFilter ? "default" : "outline"}
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="h-10 w-10 p-0 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0"
+                  variant={categoryFilter || orientationFilter || statusFilter ? "default" : "outline"}
+                  onClick={openFilterModal}
+                  className="h-10 w-10 p-0 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0 relative"
                   aria-label="Toggle filters"
                 >
                   <Filter className="w-4 h-4" />
-                  {categoryFilter && (
+                  {(categoryFilter || orientationFilter || statusFilter) && (
                     <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full" />
                   )}
                 </Button>
               </div>
 
-              {/* Filter Panel */}
-              {showFilters && (
+              {/* Filter Panel - REMOVED, now using modal */}
+              {false && (
                 <div className="mt-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
@@ -1701,6 +1738,95 @@ export default function TemplatesPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+      {/* Filter Modal */}
+      <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
+        <DialogContent 
+          className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              applyFilters();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancelFilters();
+            }
+          }}
+        >
+          <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-blue-500" />
+              <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Category Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+              <select
+                value={tempCategoryFilter}
+                onChange={(e) => setTempCategoryFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All</option>
+                <option value="MoU">MoU</option>
+                <option value="Magang">Magang</option>
+                <option value="Pelatihan">Pelatihan</option>
+                <option value="Kunjungan Industri">Kunjungan Industri</option>
+                <option value="Sertifikat">Sertifikat</option>
+                <option value="Surat">Surat</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+
+            {/* Orientation Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Orientation</label>
+              <select
+                value={tempOrientationFilter}
+                onChange={(e) => setTempOrientationFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All</option>
+                <option value="Landscape">Landscape</option>
+                <option value="Portrait">Portrait</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+              <select
+                value={tempStatusFilter}
+                onChange={(e) => setTempStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All</option>
+                <option value="ready">Ready</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-4">
+            <Button
+              onClick={cancelFilters}
+              variant="outline"
+              className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={applyFilters}
+              className="flex-1 gradient-primary text-white"
+            >
+              Apply
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     {/* Toast Notifications */}
     <Toaster position="top-right" richColors />
