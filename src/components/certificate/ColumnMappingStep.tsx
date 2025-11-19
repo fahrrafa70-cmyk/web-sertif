@@ -44,7 +44,7 @@ function MappingRow({
       {/* Text Layer */}
       <div className="w-1/3">
         <Label className="font-medium text-sm">
-          {formatFieldLabel(layer.id)}
+          {formatFieldLabel(layer.id, layer)}
           <span className="text-red-500 ml-1">*</span>
         </Label>
       </div>

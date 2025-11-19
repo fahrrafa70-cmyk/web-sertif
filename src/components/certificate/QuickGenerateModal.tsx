@@ -63,11 +63,29 @@ export interface QuickGenerateParams {
   excelScoreMapping?: Record<string, string>; // layerId -> excelColumn (for dual template)
 }
 
-// Helper function to format layer ID to readable label
-function formatFieldLabel(layerId: string): string {
-  // nilai_teori → Nilai Teori
-  // total_score → Total Score
-  // grade_akhir → Grade Akhir
+/**
+ * Format layer ID to readable label
+ * For pure dynamic variables (extracted variables), show with brackets
+ * For regular text layers (even if they contain variables), show as title case
+ */
+function formatFieldLabel(layerId: string, field?: TextLayerConfig): string {
+  // Already has brackets, keep as-is
+  if (layerId.includes('{') || layerId.includes('}')) {
+    return layerId;
+  }
+  
+  // Check if this is a PURE dynamic variable field (created by createVariableFields)
+  // Pure variable: defaultText is exactly "{varName}" (nothing else)
+  // NOT pure variable: defaultText contains text with variables like "Siswa dari {perusahaan}"
+  if (field?.defaultText) {
+    const trimmed = field.defaultText.trim();
+    // Check if defaultText is EXACTLY "{layerId}" - this is a pure variable field
+    if (trimmed === `{${layerId}}`) {
+      return `{${layerId}}`;
+    }
+  }
+  
+  // Convert to title case for regular text layers
   return layerId
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -96,16 +114,17 @@ function extractVariablesFromLayers(layers: TextLayerConfig[]): string[] {
 /**
  * Create virtual field configs for dynamic variables
  * These represent {variable} placeholders found in text layers
+ * Note: ID uses varName without brackets for data mapping compatibility
  */
 function createVariableFields(variables: string[]): TextLayerConfig[] {
   return variables.map(varName => {
     const field: TextLayerConfig = {
-      id: varName,
+      id: varName, // Use plain varName for data mapping
       x: 0,
       y: 0,
       xPercent: 0,
       yPercent: 0,
-      defaultText: '',
+      defaultText: `{${varName}}`, // Store bracket format in defaultText for UI display hint
       useDefaultText: false,
       fontSize: 16,
       color: '#000000',
@@ -123,11 +142,9 @@ interface InputScoreStepProps {
   backFields: TextLayerConfig[]; // Back side text layers that need user input
   scoreDataMap: Record<string, Record<string, string>>;
   setScoreDataMap: React.Dispatch<React.SetStateAction<Record<string, Record<string, string>>>>;
-  frontVariables?: string[]; // List of variable names detected in front side
-  backVariables?: string[]; // List of variable names detected in back side
 }
 
-function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setScoreDataMap, frontVariables = [], backVariables = [] }: InputScoreStepProps) {
+function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setScoreDataMap }: InputScoreStepProps) {
   const { t } = useLanguage();
   const [selectedMemberId, setSelectedMemberId] = useState(members[0]?.id || '');
   
@@ -202,19 +219,13 @@ function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setSco
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {frontFields.map(field => {
-              // Check if this field is a detected variable (from curly bracket extraction)
-              const isVariable = frontVariables.includes(field.id);
+              const displayLabel = formatFieldLabel(field.id, field);
               
               return (
                 <div key={field.id} className="space-y-2">
-                  <Label htmlFor={`front-${field.id}`} className="text-sm font-medium flex items-center gap-2">
-                    {formatFieldLabel(field.id)}
-                    <span className="text-red-500">*</span>
-                    {isVariable && (
-                      <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded">
-                        {'{' + field.id + '}'}
-                      </span>
-                    )}
+                  <Label htmlFor={`front-${field.id}`} className="text-sm font-medium">
+                    {displayLabel}
+                    <span className="text-red-500 ml-1">*</span>
                   </Label>
                   <Input
                     id={`front-${field.id}`}
@@ -222,7 +233,7 @@ function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setSco
                     value={currentScoreData[field.id] || ''}
                     onChange={(e) => handleFieldChange(field.id, e.target.value)}
                     onFocus={(e) => e.target.select()}
-                    placeholder={`Masukkan ${formatFieldLabel(field.id)}`}
+                    placeholder={`Masukkan ${displayLabel}`}
                     className="w-full"
                   />
                 </div>
@@ -242,19 +253,13 @@ function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setSco
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {backFields.map(field => {
-              // Check if this field is a detected variable (from curly bracket extraction)
-              const isVariable = backVariables.includes(field.id);
+              const displayLabel = formatFieldLabel(field.id, field);
               
               return (
                 <div key={field.id} className="space-y-2">
-                  <Label htmlFor={`back-${field.id}`} className="text-sm font-medium flex items-center gap-2">
-                    {formatFieldLabel(field.id)}
-                    <span className="text-red-500">*</span>
-                    {isVariable && (
-                      <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded">
-                        {'{' + field.id + '}'}
-                      </span>
-                    )}
+                  <Label htmlFor={`back-${field.id}`} className="text-sm font-medium">
+                    {displayLabel}
+                    <span className="text-red-500 ml-1">*</span>
                   </Label>
                   <Input
                     id={`back-${field.id}`}
@@ -262,7 +267,7 @@ function InputScoreStep({ members, frontFields, backFields, scoreDataMap, setSco
                     value={currentScoreData[field.id] || ''}
                     onChange={(e) => handleFieldChange(field.id, e.target.value)}
                     onFocus={(e) => e.target.select()}
-                    placeholder={t('quickGenerate.enterScore').replace('{field}', formatFieldLabel(field.id))}
+                    placeholder={t('quickGenerate.enterScore').replace('{field}', displayLabel)}
                     className="w-full"
                   />
                 </div>
@@ -337,8 +342,34 @@ export function QuickGenerateModal({
     }
   }, [open, templates, members]);
   
-  // Detect if template is dual (has back side layout)
-  // Filter out layers that have useDefaultText=true (like score_date) or are default front side layers (like issue_date)
+  // Get ALL back side fields for Excel mapping (includes all fields)
+  const getAllScoreFields = React.useCallback((): TextLayerConfig[] => {
+    if (!selectedTemplate?.layout_config?.score?.textLayers) return [];
+    
+    const scoreConfig = selectedTemplate.layout_config.score;
+    if (!scoreConfig?.textLayers) return [];
+    
+    const allLayers = scoreConfig.textLayers;
+    
+    // 1. Get ALL regular fields (don't skip any for Excel)
+    const regularFields = allLayers.filter((layer) => {
+      // Skip ONLY layers with useDefaultText flag
+      if (layer.useDefaultText) return false;
+      return true;
+    });
+    
+    // 2. Extract dynamic variables from ALL back side layers
+    const variables = extractVariablesFromLayers(allLayers);
+    const variableFields = createVariableFields(variables);
+    
+    // 3. Combine and deduplicate
+    const regularFieldIds = new Set(regularFields.map(f => f.id));
+    const uniqueVariableFields = variableFields.filter(v => !regularFieldIds.has(v.id));
+    
+    return [...regularFields, ...uniqueVariableFields];
+  }, [selectedTemplate]);
+  
+  // Get back side fields for manual input (excludes front side fields)
   const getScoreTextLayers = React.useCallback((): TextLayerConfig[] => {
     if (!selectedTemplate?.layout_config) return [];
     
@@ -372,6 +403,34 @@ export function QuickGenerateModal({
   }, [selectedTemplate]);
   
   // Get front side (certificate) text layers that need user input
+  // Get all required fields for Excel mapping (includes auto-generated fields)
+  const getAllFrontSideFields = React.useCallback((): TextLayerConfig[] => {
+    if (!selectedTemplate?.layout_config) return [];
+    
+    const config = selectedTemplate.layout_config;
+    if (!config.certificate?.textLayers) return [];
+    
+    const allLayers = config.certificate.textLayers;
+    
+    // 1. Get ALL regular fields (don't skip auto-generated ones for Excel)
+    const regularFields = allLayers.filter((layer) => {
+      // Skip ONLY layers with useDefaultText flag
+      if (layer.useDefaultText) return false;
+      return true;
+    });
+    
+    // 2. Extract dynamic variables from ALL layers
+    const variables = extractVariablesFromLayers(allLayers);
+    const variableFields = createVariableFields(variables);
+    
+    // 3. Combine and deduplicate
+    const regularFieldIds = new Set(regularFields.map(f => f.id));
+    const uniqueVariableFields = variableFields.filter(v => !regularFieldIds.has(v.id));
+    
+    return [...regularFields, ...uniqueVariableFields];
+  }, [selectedTemplate]);
+
+  // Get fields for manual input (excludes auto-generated fields)
   const getFrontSideTextLayers = React.useCallback((): TextLayerConfig[] => {
     if (!selectedTemplate?.layout_config) return [];
     
@@ -380,21 +439,20 @@ export function QuickGenerateModal({
     
     const allLayers = config.certificate.textLayers;
     
-    // 1. Get regular fields that need input
+    // 1. Get regular fields that need MANUAL input
     const regularFields = allLayers.filter((layer) => {
       // Skip layers with useDefaultText flag
       if (layer.useDefaultText) return false;
-      // Skip auto-generated fields
+      // Skip auto-generated fields (for manual input only)
       if (layer.id === 'certificate_no' || layer.id === 'issue_date' || layer.id === 'expired_date' || layer.id === 'name') return false;
       return true;
     });
     
-    // 2. Extract dynamic variables from ALL layers (including those with useDefaultText)
+    // 2. Extract dynamic variables from ALL layers
     const variables = extractVariablesFromLayers(allLayers);
     const variableFields = createVariableFields(variables);
     
-    // 3. Combine regular fields + variable fields
-    // Filter out variables that already exist as regular field IDs
+    // 3. Combine and deduplicate
     const regularFieldIds = new Set(regularFields.map(f => f.id));
     const uniqueVariableFields = variableFields.filter(v => !regularFieldIds.has(v.id));
     
@@ -404,19 +462,6 @@ export function QuickGenerateModal({
   const isDualTemplate = React.useMemo(() => {
     return !!(selectedTemplate?.score_image_url && getScoreTextLayers().length > 0);
   }, [selectedTemplate, getScoreTextLayers]);
-  
-  // Get list of variable names (not fields) for badge display
-  const getFrontSideVariables = React.useCallback((): string[] => {
-    if (!selectedTemplate?.layout_config?.certificate?.textLayers) return [];
-    const allLayers = selectedTemplate.layout_config.certificate.textLayers;
-    return extractVariablesFromLayers(allLayers);
-  }, [selectedTemplate]);
-  
-  const getBackSideVariables = React.useCallback((): string[] => {
-    if (!selectedTemplate?.layout_config?.score?.textLayers) return [];
-    const allLayers = selectedTemplate.layout_config.score.textLayers;
-    return extractVariablesFromLayers(allLayers);
-  }, [selectedTemplate]);
   
   // Check if all members have completed score data (for step 2 validation)
   const isAllScoreDataComplete = () => {
@@ -837,6 +882,8 @@ export function QuickGenerateModal({
                   scoreData={excelScoreData}
                   onMainUpload={setExcelMainData}
                   onScoreUpload={setExcelScoreData}
+                  mainFields={getAllFrontSideFields()}
+                  scoreFields={getAllScoreFields()}
                 />
               </TabsContent>
             </Tabs>
@@ -873,8 +920,6 @@ export function QuickGenerateModal({
               backFields={getScoreTextLayers()}
               scoreDataMap={scoreDataMap}
               setScoreDataMap={setScoreDataMap}
-              frontVariables={getFrontSideVariables()}
-              backVariables={getBackSideVariables()}
             />
           </div>
         )}
