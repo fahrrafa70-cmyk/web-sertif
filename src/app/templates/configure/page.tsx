@@ -1179,19 +1179,23 @@ function ConfigureLayoutContent() {
     };
   }, [template, templateImageUrl, textLayers.length, templateImageDimensions]); // Update saat data berubah
 
-  // Handle text layer drag
-  const handleLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
+  // Handle text layer drag with unified pointer events (mouse + touch)
+  const handleLayerPointerDown = (layerId: string, e: React.PointerEvent) => {
     e.stopPropagation();
+    e.preventDefault(); // Prevent text selection and scrolling
     setSelectedLayerId(layerId);
     
     const layer = textLayers.find(l => l.id === layerId);
     if (!layer || !canvasRef.current) return;
 
+    // Capture pointer for consistent tracking across the entire document
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
     // Get actual container dimensions and calculate scale
     const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
     const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
     
-    // ✅ CRITICAL: Use canvasScale (already calculated) for mouse coordinate conversion
+    // ✅ CRITICAL: Use canvasScale (already calculated) for pointer coordinate conversion
     // canvasScale = containerWidth / templateNaturalWidth
     const actualScale = canvasScale;
     
@@ -1200,8 +1204,8 @@ function ConfigureLayoutContent() {
     const startLayerX = layer.x;
     const startLayerY = layer.y;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      // Convert mouse delta to template coordinates using actual scale
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      // Convert pointer delta to template coordinates using actual scale
       const deltaX = (moveEvent.clientX - startX) / actualScale;
       const deltaY = (moveEvent.clientY - startY) / actualScale;
       
@@ -1223,35 +1227,47 @@ function ConfigureLayoutContent() {
       ));
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = (upEvent: PointerEvent) => {
       const setter = configMode === 'certificate' ? setCertificateTextLayers : setScoreTextLayers;
       setter(prev => prev.map(l => ({ ...l, isDragging: false })));
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      
+      // Release pointer capture
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch (err) {
+        // Ignore if already released
+      }
+      
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
   };
 
-  // Handle resize handle drag
-  const handleResizeMouseDown = (layerId: string, e: React.MouseEvent, direction: 'right' | 'left' | 'top' | 'bottom' | 'corner' = 'right') => {
+  // Handle resize handle drag with unified pointer events (mouse + touch)
+  const handleResizePointerDown = (layerId: string, e: React.PointerEvent, direction: 'right' | 'left' | 'top' | 'bottom' | 'corner' = 'right') => {
     e.stopPropagation();
+    e.preventDefault();
     
     const layer = textLayers.find(l => l.id === layerId);
     if (!layer || !canvasRef.current) return;
+
+    // Capture pointer for consistent tracking
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
     const startX = e.clientX;
     const startY = e.clientY;
     const startWidth = layer.maxWidth || 300;
     const startHeight = layer.fontSize * (layer.lineHeight || 1.2);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       // Get actual container dimensions and calculate scale
       const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
       const actualScale = canvasScale;
       
-      // Convert mouse delta to template coordinates using actual scale
+      // Convert pointer delta to template coordinates using actual scale
       const deltaX = (moveEvent.clientX - startX) / actualScale;
       const deltaY = (moveEvent.clientY - startY) / actualScale;
       
@@ -1283,13 +1299,20 @@ function ConfigureLayoutContent() {
       ));
     };
 
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      // Release pointer capture
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch (err) {
+        // Ignore if already released
+      }
+      
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
   };
 
   // Handle photo layer drag
@@ -2356,26 +2379,33 @@ function ConfigureLayoutContent() {
                           wordWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'normal' : 'break-word',
                           overflowWrap: (layer.id === 'certificate_no' || layer.id === 'issue_date' || (configMode === 'score' && layer.id === 'Nilai / Prestasi')) ? 'normal' : 'break-word',
                           userSelect: 'none',
-                          // Remove all padding to match PNG generation (text starts from border edge)
-                          padding: '0px',
+                          // Larger padding for better touch target when not selected (min 44x44px for accessibility)
+                          // When selected, use no padding to match PNG generation
+                          padding: isSelected ? '0px' : '12px',
+                          margin: isSelected ? '0px' : '-12px',
                           // Show border only when selected for visual feedback
                           border: isSelected ? '5px dashed #3b82f6' : '5px dashed transparent',
                           borderRadius: '4px',
                           boxSizing: 'border-box',
-                          boxShadow: isSelected ? '0 0 0 1px rgba(59, 130, 246, 0.2)' : 'none'
+                          boxShadow: isSelected ? '0 0 0 1px rgba(59, 130, 246, 0.2)' : 'none',
+                          // Critical for touch: prevent scroll and enable drag
+                          touchAction: 'none',
+                          WebkitTouchCallout: 'none',
+                          WebkitUserSelect: 'none',
+                          cursor: isSelected ? 'move' : 'pointer'
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedLayerId(layer.id);
                           setSelectedPhotoLayerId(null);
                         }}
-                        onMouseDown={(e) => {
+                        onPointerDown={(e) => {
                           if (!isSelected) {
                             e.stopPropagation();
                             setSelectedLayerId(layer.id);
                             setSelectedPhotoLayerId(null);
                           } else {
-                            handleLayerMouseDown(layer.id, e);
+                            handleLayerPointerDown(layer.id, e);
                           }
                         }}
                       >
@@ -2388,24 +2418,24 @@ function ConfigureLayoutContent() {
                           {/* Resize handle (right edge) - Invisible, only cursor change */}
                           <div
                             className="absolute top-0 -right-2 w-4 h-full cursor-ew-resize"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'right')}
+                            style={{ userSelect: 'none', touchAction: 'none' }}
+                            onPointerDown={(e) => handleResizePointerDown(layer.id, e, 'right')}
                             title="Drag to resize width"
                           />
                           
                           {/* Resize handle (bottom edge) - Invisible, only cursor change */}
                           <div
                             className="absolute -bottom-2 left-0 h-4 w-full cursor-ns-resize"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'bottom')}
+                            style={{ userSelect: 'none', touchAction: 'none' }}
+                            onPointerDown={(e) => handleResizePointerDown(layer.id, e, 'bottom')}
                             title="Drag to resize height"
                           />
                           
                           {/* Resize handle (bottom-right corner) - Small visible circle on hover */}
                           <div
                             className="absolute -bottom-2 -right-2 w-4 h-4 cursor-nwse-resize group"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
+                            style={{ userSelect: 'none', touchAction: 'none' }}
+                            onPointerDown={(e) => handleResizePointerDown(layer.id, e, 'corner')}
                             title="Drag to resize width and height"
                           >
                             <div className="w-2 h-2 bg-blue-500 rounded-full absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ userSelect: 'none' }}></div>
@@ -2414,8 +2444,8 @@ function ConfigureLayoutContent() {
                           {/* Resize handle (bottom-left corner) */}
                           <div
                             className="absolute -bottom-2 -left-2 w-4 h-4 cursor-nesw-resize group"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
+                            style={{ userSelect: 'none', touchAction: 'none' }}
+                            onPointerDown={(e) => handleResizePointerDown(layer.id, e, 'corner')}
                           >
                             <div className="w-2 h-2 bg-blue-500 rounded-full absolute bottom-0 left-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ userSelect: 'none' }}></div>
                           </div>
@@ -2423,8 +2453,8 @@ function ConfigureLayoutContent() {
                           {/* Resize handle (top-right corner) */}
                           <div
                             className="absolute -top-2 -right-2 w-4 h-4 cursor-nesw-resize group"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
+                            style={{ userSelect: 'none', touchAction: 'none' }}
+                            onPointerDown={(e) => handleResizePointerDown(layer.id, e, 'corner')}
                           >
                             <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ userSelect: 'none' }}></div>
                           </div>
@@ -2432,8 +2462,8 @@ function ConfigureLayoutContent() {
                           {/* Resize handle (top-left corner) */}
                           <div
                             className="absolute -top-2 -left-2 w-4 h-4 cursor-nwse-resize group"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'corner')}
+                            style={{ userSelect: 'none', touchAction: 'none' }}
+                            onPointerDown={(e) => handleResizePointerDown(layer.id, e, 'corner')}
                           >
                             <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-0 left-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ userSelect: 'none' }}></div>
                           </div>
@@ -2441,15 +2471,15 @@ function ConfigureLayoutContent() {
                           {/* Resize handle (left edge) */}
                           <div
                             className="absolute top-0 -left-2 w-4 h-full cursor-ew-resize"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'left')}
+                            style={{ userSelect: 'none', touchAction: 'none' }}
+                            onPointerDown={(e) => handleResizePointerDown(layer.id, e, 'left')}
                           />
                           
                           {/* Resize handle (top edge) */}
                           <div
                             className="absolute -top-2 left-0 h-4 w-full cursor-ns-resize"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={(e) => handleResizeMouseDown(layer.id, e, 'top')}
+                            style={{ userSelect: 'none', touchAction: 'none' }}
+                            onPointerDown={(e) => handleResizePointerDown(layer.id, e, 'top')}
                           />
                         </>
                       )}
