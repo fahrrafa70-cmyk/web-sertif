@@ -2213,21 +2213,6 @@ function ConfigureLayoutContent() {
                           tabletHorizontalOffset = scaleDifference * 1; // Slight right shift
                         }
                         
-                        console.log(`📱 [${layer.id}] Tablet Dynamic Adjustment:`, {
-                          layerId: layer.id,
-                          canvasScale: canvasScale,
-                          scaleDifference: Math.abs(canvasScale - 1.0),
-                          iPadProScale: 0.948,
-                          relativeScaleDiff: canvasScale < 1.0 ? (0.948 - canvasScale) : 0,
-                          baseOffset: canvasScale < 1.0 ? -0.1 : 0,
-                          additionalOffset: canvasScale < 1.0 ? -((0.948 - canvasScale) * 2) : 0,
-                          horizontalOffset: tabletHorizontalOffset,
-                          verticalOffset: tabletVerticalOffset,
-                          device: 'Tablet (Dynamic)',
-                          windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'N/A',
-                          templateWidth: templateImageDimensions?.width || STANDARD_CANVAS_WIDTH,
-                          containerWidth: canvasRef.current?.offsetWidth || 0
-                        });
                         return `translate(${tabletHorizontalOffset}%, ${tabletVerticalOffset}%)`;
                       }
                       
@@ -2265,24 +2250,10 @@ function ConfigureLayoutContent() {
                             // ONLY nilai/prestasi layers - NOT aspek teknis or other layers
                             mobileVerticalOffset = -10 - (scaleDifference * 40);
                             mobileHorizontalOffset = 10 - (scaleDifference * 15);
-                            console.log(`🎯 [${layer.id}] NILAI/PRESTASI OFFSET APPLIED:`, {
-                              layerId: layer.id,
-                              scaleDifference: scaleDifference,
-                              verticalOffset: mobileVerticalOffset,
-                              horizontalOffset: mobileHorizontalOffset,
-                              canvasScale: canvasScale
-                            });
                           } else if (isKompetensiLayer) {
                             // ONLY kompetensi layer - geser sedikit ke kiri
                             mobileVerticalOffset = -50 - (scaleDifference * 3);
                             mobileHorizontalOffset = -1 - (scaleDifference * 1); // -1 = geser 1px ke kiri
-                            console.log(`🎯 [${layer.id}] KOMPETENSI OFFSET APPLIED:`, {
-                              layerId: layer.id,
-                              scaleDifference: scaleDifference,
-                              verticalOffset: mobileVerticalOffset,
-                              horizontalOffset: mobileHorizontalOffset,
-                              canvasScale: canvasScale
-                            });
                           }
                         } else if (canvasScale > 1.0) {
                           // Scale is larger than 1, adjust accordingly
@@ -2290,21 +2261,6 @@ function ConfigureLayoutContent() {
                           mobileVerticalOffset = -50 + (scaleDifference * 10);
                           mobileHorizontalOffset = scaleDifference * 5; // Move right slightly
                         }
-                      
-
-                        console.log(`🎯 [${layer.id}] Mobile Transform Calculation:`, {
-                          layerId: layer.id,
-                          configMode,
-                          canvasScale,
-                          verticalOffset: mobileVerticalOffset,
-                          horizontalOffset: mobileHorizontalOffset,
-                          scaleDifference: Math.abs(canvasScale - 1.0),
-                          adjustmentType: (layer.id === 'issue_date' && configMode === 'certificate') ? 'ISSUE_DATE_CERTIFICATE' : 
-                                         (layer.id === 'issue_date' && configMode === 'score') ? 'ISSUE_DATE_SCORE' :
-                                         layer.id === 'certificate_no' ? 'CERTIFICATE_NO' : 
-                                         isNilaiPrestasiLayer ? 'NILAI_PRESTASI_ONLY' : 
-                                         isKompetensiLayer ? 'KOMPETENSI_ONLY' : 'DEFAULT'
-                        });
                         
                         return `translate(${mobileHorizontalOffset}%, ${mobileVerticalOffset}%)`;
                       }

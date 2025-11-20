@@ -60,25 +60,20 @@ const ModernHeader = memo(function ModernHeader() {
 
           {/* Logo - Responsive positioning */}
           <div className="flex-1 lg:flex-initial flex items-center justify-center lg:justify-start min-w-0 overflow-hidden">
-            <Link href="/" className="flex items-center space-x-2 sm:space-x-2 md:space-x-3 group max-w-full">
+            <Link href="/" className="flex items-center space-x-2 sm:space-x-2.5 md:space-x-3 group max-w-full">
               {/* Icon with gradient background */}
               <div className="relative flex-shrink-0">
-                <div className="w-10 h-10 sm:w-10 sm:h-10 md:w-12 md:h-12 gradient-primary rounded-xl sm:rounded-xl md:rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
-                  <span className="text-white font-bold text-xl sm:text-xl md:text-2xl tracking-tight">E</span>
+                <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 gradient-primary rounded-xl sm:rounded-xl md:rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+                  <span className="text-white font-bold text-xl sm:text-2xl md:text-2xl tracking-tight">C</span>
                 </div>
                 {/* Subtle glow effect on hover */}
                 <div className="absolute inset-0 gradient-primary rounded-lg sm:rounded-xl md:rounded-2xl blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 -z-10"></div>
               </div>
               
-              {/* Text - Simple and clean */}
-              <div className="flex flex-col min-w-0 overflow-hidden">
-                <span className="text-base sm:text-base md:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors truncate">
-                  E-Certificate
-                </span>
-                <span className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-gray-400 dark:text-gray-500 tracking-wider uppercase hidden sm:block truncate">
-                  Certification System
-                </span>
-              </div>
+              {/* Text - Bold and prominent */}
+              <span className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                Certify
+              </span>
             </Link>
           </div>
 
