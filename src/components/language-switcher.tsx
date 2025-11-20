@@ -78,9 +78,10 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
             className={`flex items-center gap-2 ${className}`}
             suppressHydrationWarning
           >
+            {/* CRITICAL FIX: Only show Globe icon, remove emoji to prevent double icon during hydration */}
             <Globe className="w-4 h-4" />
             <span className="hidden sm:inline" suppressHydrationWarning>
-              {mounted ? currentLanguage?.flag : '🌐'}
+              {mounted ? currentLanguage?.flag : ''}
             </span>
             <ChevronUp className="w-3 h-3" />
           </Button>
@@ -115,10 +116,11 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
           className={`flex items-center gap-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${className}`}
           suppressHydrationWarning
         >
+          {/* CRITICAL FIX: Only show Globe icon, remove emoji to prevent double icon during hydration */}
           <Globe className="w-4 h-4" />
           <span className="hidden sm:inline">{t('language.switch')}:</span>
           <span suppressHydrationWarning>
-            {mounted ? `${currentLanguage?.flag} ${currentLanguage?.name}` : '🌐 Language'}
+            {mounted ? `${currentLanguage?.flag} ${currentLanguage?.name}` : 'Language'}
           </span>
           <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </Button>
