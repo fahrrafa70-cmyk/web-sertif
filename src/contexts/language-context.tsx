@@ -28,7 +28,7 @@ const translations: Translations = {
     
     // Auth
     'auth.login': 'Login',
-    'auth.logout': 'Log Out',
+    'auth.logout': 'Logout',
     'auth.admin': 'Admin',
     'auth.team': 'Team',
     'auth.public': 'Public',
@@ -533,18 +533,18 @@ const translations: Translations = {
     
     // Login Modal
     'login.welcomeBack': 'Welcome Back',
-    'login.signInMessage': 'Sign in to your account to continue',
+    'login.signInMessage': 'Login to your account to continue',
     'login.emailAddress': 'Email Address',
     'login.password': 'Password',
     'login.enterEmail': 'Enter your email',
     'login.enterPassword': 'Enter your password',
-    'login.signIn': 'Sign In',
-    'login.signingIn': 'Signing in...',
-    'login.orContinueWith': 'Or continue with',
+    'login.signIn': 'Login',
+    'login.signingIn': 'Logging in...',
+    'login.orContinueWith': 'Or continue with email',
     
     // Auth Callback
-    'auth.callback.finishingSignIn': 'Finishing sign in…',
-    'auth.callback.signingYouIn': 'Signing you in…',
+    'auth.callback.finishingSignIn': 'Finishing login…',
+    'auth.callback.signingYouIn': 'Logging you in…',
     'auth.callback.finalisingSession': 'Finalising session…',
     'auth.callback.settingUpAccount': 'Setting up your account…',
     'auth.callback.almostDone': 'Almost done…',
@@ -1110,7 +1110,7 @@ const translations: Translations = {
     'login.enterPassword': 'Masukkan kata sandi Anda',
     'login.signIn': 'Masuk',
     'login.signingIn': 'Sedang masuk...',
-    'login.orContinueWith': 'Atau lanjutkan dengan',
+    'login.orContinueWith': 'Atau lanjutkan dengan email',
     
     // Auth Callback
     'auth.callback.finishingSignIn': 'Menyelesaikan masuk…',
