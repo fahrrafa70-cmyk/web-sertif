@@ -673,18 +673,16 @@ function SearchResultsContent() {
         : srcRaw;
       setSendCert(certificate);
       setSendPreviewSrc(src);
-      const issueDate = formatReadableDate(certificate.issue_date || certificate.created_at || new Date(), language);
       const subject = certificate.certificate_no 
         ? t('hero.emailDefaultSubject').replace('{number}', certificate.certificate_no)
         : t('hero.emailDefaultSubjectNoNumber');
-      const message = `${t('hero.emailDefaultGreeting')} ${certificate.name || t('hero.emailDefaultNA')},
+      const message = `Certificate Information:
 
-${t('hero.emailDefaultInfo')}
-- ${t('hero.emailDefaultCertNumber')}: ${certificate.certificate_no || t('hero.emailDefaultNA')}
-- ${t('hero.emailDefaultRecipient')}: ${certificate.name || t('hero.emailDefaultNA')}
-- ${t('hero.emailDefaultIssueDate')}: ${issueDate}
-${certificate.category ? `- ${t('hero.emailDefaultCategory')}: ${certificate.category}` : ''}
-${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certificate.description}` : ''}`;
+• Certificate Number: ${certificate.certificate_no || "N/A"}
+• Recipient Name: ${certificate.name || "N/A"}
+• Issue Date: ${new Date(certificate.issue_date || certificate.created_at || new Date()).toLocaleDateString()}${certificate.expired_date ? `
+• Expiry Date: ${new Date(certificate.expired_date).toLocaleDateString()}` : ""}${certificate.category ? `
+• Category: ${certificate.category}` : ""}`;
       
       setSendForm({
         email: "",
@@ -700,7 +698,7 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
       console.error(err);
       toast.error(err instanceof Error ? err.message : t('hero.emailPrepareFailed'));
     }
-  }, [t, language]);
+  }, [t]);
 
   // Confirm and send from modal
   const confirmSendEmail = useCallback(async () => {
