@@ -1312,7 +1312,7 @@ function SearchResultsContent() {
                     {language === 'id' ? 'Sebelumnya' : 'Previous'}
                   </Button>
                   <div className="text-sm text-gray-600 px-2 whitespace-nowrap">
-                    Page {currentPage} of {totalPages}
+                    {language === 'id' ? `Halaman ${currentPage} dari ${totalPages}` : `Page ${currentPage} of ${totalPages}`}
                   </div>
                   <Button
                     variant="outline"
