@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { getCertificateByNumber, getCertificateByPublicId, Certificate, advancedSearchCertificates, getCertificateCategories, SearchFilters } from "@/lib/supabase/certificates";
+import { Certificate, advancedSearchCertificates, getCertificateCategories, SearchFilters } from "@/lib/supabase/certificates";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -599,58 +599,26 @@ ${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certifica
       return;
     }
     
-    // Check if it's a direct link/ID search
-    const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
-    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
-    const isCertId = q.match(/^CERT-/i);
+    // Keyword search - redirect to search results page with smooth transition
+    setSearching(true); // Show loading state during redirect
+    setSearchError("");
     
-    if (publicLinkMatch || oldLinkMatch || isCertId) {
-      // Direct search by ID/link
-      setSearching(true);
-      setSearchError("");
-      try {
-        let cert: Certificate | null = null;
-        if (publicLinkMatch) {
-          cert = await getCertificateByPublicId(publicLinkMatch[1]);
-        } else {
-          const certNo = oldLinkMatch ? oldLinkMatch[1] : q;
-          cert = await getCertificateByNumber(certNo);
-        }
-        
-        if (!cert) {
-          setSearchError(t('error.search.notFound'));
-        } else {
-          setPreviewCert(cert);
-          setPreviewOpen(true);
-        }
-      } catch (err) {
-        console.error(err);
-        setSearchError(t('error.search.failed'));
-      } finally {
-        setSearching(false);
-      }
-    } else {
-      // Keyword search - redirect to search results page with smooth transition
-      setSearching(true); // Show loading state during redirect
-      setSearchError("");
-      
-      const params = new URLSearchParams();
-      params.set('q', q);
-      if (filters.category) params.set('category', filters.category);
-      if (filters.startDate) params.set('startDate', filters.startDate);
-      if (filters.endDate) params.set('endDate', filters.endDate);
-      
-      // Smooth transition: scroll to top first, then navigate
-      if (typeof window !== 'undefined') {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        // Small delay for smooth transition before navigation
-        setTimeout(() => {
-          router.push(`/search?${params.toString()}`);
-          // Note: searching state will persist until page navigation completes
-        }, 150);
-      } else {
+    const params = new URLSearchParams();
+    params.set('q', q);
+    if (filters.category) params.set('category', filters.category);
+    if (filters.startDate) params.set('startDate', filters.startDate);
+    if (filters.endDate) params.set('endDate', filters.endDate);
+    
+    // Smooth transition: scroll to top first, then navigate
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Small delay for smooth transition before navigation
+      setTimeout(() => {
         router.push(`/search?${params.toString()}`);
-      }
+        // Note: searching state will persist until page navigation completes
+      }, 150);
+    } else {
+      router.push(`/search?${params.toString()}`);
     }
   }, [certificateId, filters, router, t]);
 
