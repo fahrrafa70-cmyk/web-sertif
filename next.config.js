@@ -28,6 +28,16 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     unoptimized: process.env.NODE_ENV === 'development',
   },
+  // Redirect /members to /data for backward compatibility
+  async redirects() {
+    return [
+      {
+        source: '/members',
+        destination: '/data',
+        permanent: true, // 301 redirect
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
