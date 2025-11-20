@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLanguage } from "@/contexts/language-context";
 import { FolderOpen } from "lucide-react";
+import { useEffect } from "react";
 
 const CATEGORIES = [
   { name: "Training", template: "General Training" },
@@ -15,6 +16,30 @@ const CATEGORIES = [
 
 export default function CategoriesPage() {
   const { t } = useLanguage();
+  
+  // Set document title robust untuk categories page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Categories | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
+  
   return (
     <ModernLayout>
       <section className="relative -mt-2 pb-6 sm:-mt-3 sm:pb-8 bg-gray-50 dark:bg-gray-900 min-h-screen">

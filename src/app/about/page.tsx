@@ -17,6 +17,29 @@ export default function AboutPage() {
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
+  // Set document title robust untuk about page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "About | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
+
   // Load real statistics from database
   useEffect(() => {
     const loadStats = async () => {

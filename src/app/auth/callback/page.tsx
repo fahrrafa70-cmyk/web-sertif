@@ -13,6 +13,29 @@ function AuthCallbackContent() {
   const [status, setStatus] = useState('');
   const [, setHasError] = useState<string | null>(null);
 
+  // Set document title robust untuk auth callback page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Signing In | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     

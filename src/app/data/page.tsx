@@ -20,6 +20,29 @@ import { confirmToast } from "@/lib/ui/confirm";
 export default function MembersPage() {
   const { t, language } = useLanguage();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+
+  // Set document title robust untuk data/members page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Data | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
   const [membersData, setMembersData] = useState<Member[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);

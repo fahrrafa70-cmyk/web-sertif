@@ -41,6 +41,29 @@ function SearchResultsContent() {
   const { t, language } = useLanguage();
   const { setIsModalOpen } = useModal();
   
+  // Set document title robust untuk search page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Search | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
+  
   // Local date formatter to ensure format like "2 Nov 2025"
   const formatDateShort = useCallback((input?: string | null) => {
     if (!input) return "—";

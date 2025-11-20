@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
-import { LayoutStability } from "@/components/layout-stability";
 import { LanguageProvider } from "@/contexts/language-context";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -10,7 +8,6 @@ import { ModalProvider } from "@/contexts/modal-context";
 import { LoginModal } from "@/components/ui/login-modal";
 import { ThemeScript } from "@/components/theme-script";
 import { ErrorBoundaryWrapper } from "@/components/error-boundary-wrapper";
-import { ScrollbarVisibility } from "@/components/scrollbar-visibility";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,8 +29,11 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Eeasy Certificate",
-  description: "Create, manage, and verify certificates for trainings, internships, MoUs, and industrial visits with our multilingual platform.",
+  title: {
+    template: "%s | Certify - Certificate Platform",
+    default: "Certify - Certificate Platform"
+  },
+  description: "Digital certificate platform for seamless certificate management and verification",
   icons: {
     icon: "/favicon.png",
     apple: "/favicon.png",
