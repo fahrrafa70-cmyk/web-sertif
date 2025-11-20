@@ -346,18 +346,16 @@ export default function HeroSection() {
         : srcRaw;
       setSendCert(certificate);
       setSendPreviewSrc(src);
-      const issueDate = formatReadableDate(certificate.created_at || new Date(), language);
       const subject = certificate.certificate_no 
         ? t('hero.emailDefaultSubject').replace('{number}', certificate.certificate_no)
         : t('hero.emailDefaultSubjectNoNumber');
-      const message = `${t('hero.emailDefaultGreeting')} ${certificate.name || t('hero.emailDefaultNA')},
+      const message = `Certificate Information:
 
-${t('hero.emailDefaultInfo')}
-- ${t('hero.emailDefaultCertNumber')}: ${certificate.certificate_no || t('hero.emailDefaultNA')}\n
-- ${t('hero.emailDefaultRecipient')}: ${certificate.name || t('hero.emailDefaultNA')}\n
-- ${t('hero.emailDefaultIssueDate')}: ${issueDate}\n
-${certificate.category ? `- ${t('hero.emailDefaultCategory')}: ${certificate.category}` : ""}\n
-${certificate.description ? `- ${t('hero.emailDefaultDescription')}: ${certificate.description}` : ""}`;
+• Certificate Number: ${certificate.certificate_no || "N/A"}
+• Recipient Name: ${certificate.name || "N/A"}
+• Issue Date: ${new Date(certificate.issue_date || certificate.created_at || new Date()).toLocaleDateString()}${certificate.expired_date ? `
+• Expiry Date: ${new Date(certificate.expired_date).toLocaleDateString()}` : ""}${certificate.category ? `
+• Category: ${certificate.category}` : ""}`;
       
       setSendForm({
         email: "",
