@@ -2253,7 +2253,7 @@ function ConfigureLayoutContent() {
                           // 🎯 DIFFERENT ADJUSTMENT FOR EACH LAYER AND MODE
                           if (layer.id === 'issue_date' && configMode === 'certificate') {
                             // issue_date in CERTIFICATE mode - turun 0.5px (lower 0.5px)
-                            mobileVerticalOffset = -49.5 + (scaleDifference * 2.5); // -49.5 = turun 0.5px dari -50
+                            mobileVerticalOffset = -45 + (scaleDifference * 2.5); // -49.5 = turun 0.5px dari -50
                             mobileHorizontalOffset = -(scaleDifference * 2);
                           } else if (layer.id === 'issue_date' && configMode === 'score') {
                             // issue_date in SCORE mode - turun 0.5px (lower 0.5px)
@@ -2261,7 +2261,7 @@ function ConfigureLayoutContent() {
                             mobileHorizontalOffset = -(scaleDifference * 5);
                           } else if (layer.id === 'certificate_no') {
                             // certificate_no: fine-tuned position (naik 1px dari original -43)
-                            mobileVerticalOffset = -44 - (scaleDifference * 1); // Naik 1px dari -43
+                            mobileVerticalOffset = -40 - (scaleDifference * 1); // Naik 1px dari -43
                             mobileHorizontalOffset = -2 - (scaleDifference * 1); // Previous value - slight left
                           } else if (isNilaiPrestasiLayer) {
                             // ONLY nilai/prestasi layers - NOT aspek teknis or other layers
@@ -2331,12 +2331,20 @@ function ConfigureLayoutContent() {
                             const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
                             const domScale = isDesktop ? templateScale : templateScale * canvasScale;
                             
-                            // Small compensation for mobile (3.5% wider) for better readability
-                            const widthCompensation = (!isDesktop && layer.maxWidth) ? 1.035 : 1; // 3.5% wider on mobile
+                            // Mobile width compensation: description gets more width for better readability
+                            let widthCompensation = 1;
+                            if (!isDesktop && layer.maxWidth) {
+                              // Description layer gets 7% wider on mobile
+                              if (layer.id === 'description') {
+                                widthCompensation = 1.06; // 7% wider
+                              } else {
+                                widthCompensation = 1.035; // 3.5% wider for other layers
+                              }
+                            }
 
                             return {
                               fontSize: `${layer.fontSize * domScale}px`,
-                              // Scale width-related properties with small compensation on mobile
+                              // Scale width-related properties with compensation on mobile
                               width: layer.maxWidth ? `${layer.maxWidth * domScale * widthCompensation}px` : 'auto',
                               maxWidth: layer.maxWidth ? `${layer.maxWidth * domScale * widthCompensation}px` : 'none',
                               minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * domScale}px`,

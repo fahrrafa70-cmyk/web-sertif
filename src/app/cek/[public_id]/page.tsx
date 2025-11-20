@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
 import { Button } from "@/components/ui/button";
 import { Link2, Share2, FileText, Calendar, Building2, User, Clock, CheckCircle2, Image as ImageIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/contexts/language-context";
@@ -338,17 +338,14 @@ export default function PublicCertificatePage() {
             {/* Logo Icon with gradient background */}
             <div className="relative flex-shrink-0">
               <div className="w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-xl sm:text-2xl tracking-tight">E</span>
+                <span className="text-white font-bold text-xl sm:text-2xl tracking-tight">C</span>
               </div>
             </div>
             
             {/* Text */}
             <div className="flex flex-col">
               <span className="text-base sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                E-Certificate
-              </span>
-              <span className="text-[9px] sm:text-[10px] font-medium text-gray-400 dark:text-gray-500 tracking-wider uppercase hidden sm:block">
-                Certification System
+                Certify
               </span>
             </div>
           </div>
@@ -537,15 +534,12 @@ export default function PublicCertificatePage() {
                 </div>
               </div>
             </div>
-
-            {/* Footer Info */}
-            <div className="mt-8 text-center text-sm text-gray-500">
-              <p>This is an official certificate issued by E-Certificate Platform</p>
-              <p className="mt-1">Certificate ID: {certificate.public_id}</p>
-            </div>
           </motion.div>
         </div>
       </main>
+
+      {/* Toast Notifications */}
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

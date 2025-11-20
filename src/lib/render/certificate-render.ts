@@ -329,6 +329,7 @@ export async function renderCertificateToDataURL(
           layer.lineHeight || 1.2,
           align,
           scaleFactor,
+          layer.id, // Pass layer ID for Y-adjustment
           isDecoration ? style : undefined // Pass decoration style
         );
       } else {
@@ -813,6 +814,7 @@ function drawRichText(
   lineHeight: number,
   textAlign: 'left' | 'center' | 'right' | 'justify',
   scaleFactor: number = 1,
+  layerId?: string, // Optional layer ID for Y-adjustment
   _textDecoration?: 'underline' | 'line-through' | 'overline' // Optional text decoration (not yet implemented for rich text)
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
@@ -870,9 +872,25 @@ function drawRichText(
   const totalTextHeight = lines.length * lineHeightPx;
   const startY = y - (totalTextHeight / 2);
   
+  // Y-ADJUSTMENT: Apply same adjustment as drawWrappedText for score layers
+  const isScoreLayerForAdjustment = layerId && (
+    layerId === 'nilai' || 
+    layerId === 'prestasi' || 
+    layerId === 'Nilai / Prestasi' ||
+    layerId.toLowerCase().includes('nilai') ||
+    layerId.toLowerCase().includes('prestasi')
+  );
+  
+  let microYAdjustment = 0;
+  if (layerId === 'certificate_no' || layerId === 'issue_date') {
+    microYAdjustment = baseFontSize * 0.10;
+  } else if (isScoreLayerForAdjustment) {
+    microYAdjustment = baseFontSize * 0.087;
+  }
+  
   // Draw each line with its spans
   lines.forEach((line, lineIndex) => {
-    const lineY = startY + (lineIndex * lineHeightPx);
+    const lineY = startY + (lineIndex * lineHeightPx) + microYAdjustment;
     let currentX = x;
     
     // Calculate line width for alignment
