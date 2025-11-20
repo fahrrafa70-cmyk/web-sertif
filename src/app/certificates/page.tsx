@@ -2266,23 +2266,25 @@ function CertificatesContent() {
                     <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                       {t('hero.certificate')}
                     </label>
-                    {/* Toggle for dual templates - only show if score image exists */}
-                    {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url && (
-                      <div className="flex gap-2 mb-2">
-                        <button
-                          onClick={() => setPreviewMode('certificate')}
-                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
-                        >
-                          {t('certificates.front')}
-                        </button>
-                        <button
-                          onClick={() => setPreviewMode('score')}
-                          className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
-                        >
-                          {t('certificates.back')}
-                        </button>
-                      </div>
-                    )}
+                    {/* Toggle for dual templates - CRITICAL FIX: Reserve space to prevent layout shift */}
+                    <div className="min-h-[32px] mb-2">
+                      {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setPreviewMode('certificate')}
+                            className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'certificate' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+                          >
+                            {t('certificates.front')}
+                          </button>
+                          <button
+                            onClick={() => setPreviewMode('score')}
+                            className={`px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none ${previewMode === 'score' ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+                          >
+                            {t('certificates.back')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <div className={(() => {
                       const isPortrait = previewTemplate?.orientation === 'portrait';
                       // Portrait: smaller padding for tighter fit, Landscape: normal padding
@@ -2295,9 +2297,10 @@ function CertificatesContent() {
                         className={(() => {
                           const isPortrait = previewTemplate?.orientation === 'portrait';
                           // Portrait: optimized size to fit modal at 100% zoom with buttons visible, Landscape: full width
+                          // CRITICAL FIX: Add aspect-ratio to prevent layout shift during image load
                           return isPortrait 
-                            ? "w-full max-w-[300px] max-h-[380px] rounded-lg sm:rounded-xl overflow-hidden" 
-                            : "w-full rounded-lg sm:rounded-xl overflow-hidden";
+                            ? "w-full max-w-[300px] max-h-[380px] rounded-lg sm:rounded-xl overflow-hidden aspect-[4/3]" 
+                            : "w-full rounded-lg sm:rounded-xl overflow-hidden aspect-[4/3]";
                         })()}
                       >
                         {/* FIX: Show merged certificate or score image with consistent aspect ratio */}
@@ -2340,7 +2343,7 @@ function CertificatesContent() {
                               : (previewCertificate.certificate_thumbnail_url || previewCertificate.certificate_image_url);
                             return (
                               <div 
-                                className={`relative w-full aspect-auto ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
+                                className={`relative w-full h-full ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
                                 role={isExpired ? undefined : "button"}
                                 tabIndex={isExpired ? undefined : 0}
                                 onClick={() => {
@@ -2360,9 +2363,9 @@ function CertificatesContent() {
                                 <Image
                                   src={src}
                                   alt={previewMode === 'score' ? "Score" : "Certificate"}
-                                  width={800}
-                                  height={600}
-                                  className={`w-full h-auto max-h-[380px] object-contain rounded-lg transition-transform duration-200 ${isExpired ? '' : 'group-hover:scale-[1.01]'}`}
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw"
+                                  className={`object-contain rounded-lg transition-transform duration-200 ${isExpired ? '' : 'group-hover:scale-[1.01]'}`}
                                   onError={() => {
                                     console.warn('Preview image failed to load', src);
                                   }}
@@ -2409,23 +2412,23 @@ function CertificatesContent() {
                             );
                           })()
                         ) : (
-                          <div className="relative w-full">
+                          <div className="relative w-full h-full">
                             {/* FIX: Template Image with consistent aspect ratio - same as /search */}
                             {previewMode === 'score' && previewTemplate && previewTemplate.score_image_url ? (
                               <Image
                                 src={previewTemplate.score_image_url}
                                 alt="Score Template"
-                                width={800}
-                                height={600}
-                                className="w-full h-auto max-h-[380px] object-contain rounded-lg"
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw"
+                                className="object-contain rounded-lg"
                               />
                             ) : previewTemplate && getTemplateImageUrl(previewTemplate) ? (
                               <Image
                                 src={getTemplateImageUrl(previewTemplate)!}
                                 alt="Certificate Template"
-                                width={800}
-                                height={600}
-                                className="w-full h-auto max-h-[380px] object-contain rounded-lg"
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw"
+                                className="object-contain rounded-lg"
                               />
                             ) : (
                               <div className="relative w-full aspect-[4/3]">

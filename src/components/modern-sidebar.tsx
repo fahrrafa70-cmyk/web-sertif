@@ -55,7 +55,7 @@ const ModernSidebar = memo(function ModernSidebar() {
     {
       icon: <Users className="w-5 h-5" />,
       label: "Data",
-      href: "/members",
+      href: "/data",
       roles: ["admin", "team"],
     },
     {
@@ -92,7 +92,7 @@ const ModernSidebar = memo(function ModernSidebar() {
   // 🚀 PERFORMANCE: Aggressive prefetching for instant navigation
   useEffect(() => {
     // Prefetch common routes immediately after sidebar loads
-    const commonRoutes = ['/templates', '/certificates', '/members'];
+    const commonRoutes = ['/templates', '/certificates', '/data'];
     const timeout = setTimeout(() => {
       commonRoutes.forEach(route => {
         if (route !== pathname) {

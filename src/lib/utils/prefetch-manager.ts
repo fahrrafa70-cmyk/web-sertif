@@ -185,7 +185,7 @@ function getPrefetchConfigForPath(path: string): PrefetchConfig {
   // Homepage - prefetch main sections
   if (path === '/') {
     return {
-      routes: ['/search', '/certificates', '/members', '/templates'],
+      routes: ['/search', '/certificates', '/data', '/templates'],
       delay: 2000, // Wait 2 seconds after page load
       priority: 'low',
     };
@@ -194,7 +194,7 @@ function getPrefetchConfigForPath(path: string): PrefetchConfig {
   // Search page - prefetch certificate details
   if (path.startsWith('/search')) {
     return {
-      routes: ['/certificates', '/members'],
+      routes: ['/certificates', '/data'],
       delay: 1000,
       priority: 'low',
     };
@@ -203,14 +203,14 @@ function getPrefetchConfigForPath(path: string): PrefetchConfig {
   // Certificates page - prefetch related pages
   if (path.startsWith('/certificates')) {
     return {
-      routes: ['/members', '/templates', '/search'],
+      routes: ['/data', '/templates', '/search'],
       delay: 1500,
       priority: 'low',
     };
   }
 
-  // Members page - prefetch certificates
-  if (path.startsWith('/members')) {
+  // Data page - prefetch certificates
+  if (path.startsWith('/data')) {
     return {
       routes: ['/certificates', '/templates'],
       delay: 1500,
@@ -221,7 +221,7 @@ function getPrefetchConfigForPath(path: string): PrefetchConfig {
   // Templates page - prefetch certificates
   if (path.startsWith('/templates')) {
     return {
-      routes: ['/certificates', '/members'],
+      routes: ['/certificates', '/data'],
       delay: 1500,
       priority: 'low',
     };
