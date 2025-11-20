@@ -94,12 +94,10 @@ function SearchResultsContent() {
   
   // Virtualization with pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 9; // Show 9 items per page (3x3 grid) for optimal performance
+  const ITEMS_PER_PAGE = 9;
   
   // Input optimization refs
   const inputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // CRITICAL FIX: Use ref to store searchResults to prevent unmount/mount flicker
-  // Only update state if results actually changed (by ID comparison)
   const searchResultsRef = useRef<Certificate[]>([]);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
