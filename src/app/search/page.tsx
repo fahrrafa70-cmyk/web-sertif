@@ -1295,67 +1295,105 @@ function SearchResultsContent() {
             {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center gap-2 mt-8">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setCurrentPage(prev => Math.max(1, prev - 1));
-                    // Scroll to top smoothly when changing page
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  disabled={currentPage === 1}
-                  className="flex items-center gap-1"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  {language === 'id' ? 'Sebelumnya' : 'Previous'}
-                </Button>
-                
-                {/* Page numbers */}
-                <div className="flex gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => {
-                          setCurrentPage(pageNum);
-                          // Scroll to top smoothly when changing page
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className="w-10"
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
+                {/* Mobile: Compact pagination with chevron and text */}
+                <div className="flex items-center gap-2 sm:hidden">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCurrentPage(prev => Math.max(1, prev - 1));
+                      // Scroll to top smoothly when changing page
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={currentPage === 1}
+                    className="flex items-center gap-1"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                    {language === 'id' ? 'Sebelumnya' : 'Previous'}
+                  </Button>
+                  <div className="text-sm text-gray-600 px-2 whitespace-nowrap">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                      // Scroll to top smoothly when changing page
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center gap-1"
+                  >
+                    {language === 'id' ? 'Selanjutnya' : 'Next'}
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
                 </div>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
-                    // Scroll to top smoothly when changing page
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  disabled={currentPage === totalPages}
-                  className="flex items-center gap-1"
-                >
-                  {language === 'id' ? 'Selanjutnya' : 'Next'}
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+
+                {/* Desktop: Full pagination with Previous/Next text and page numbers */}
+                <div className="hidden sm:flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCurrentPage(prev => Math.max(1, prev - 1));
+                      // Scroll to top smoothly when changing page
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={currentPage === 1}
+                    className="flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    {language === 'id' ? 'Sebelumnya' : 'Previous'}
+                  </Button>
+                  
+                  {/* Page numbers */}
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setCurrentPage(pageNum);
+                            // Scroll to top smoothly when changing page
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="w-10"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                      // Scroll to top smoothly when changing page
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center gap-1"
+                  >
+                    {language === 'id' ? 'Selanjutnya' : 'Next'}
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </>
