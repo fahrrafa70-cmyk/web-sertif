@@ -97,28 +97,45 @@ export function ColumnMappingStep({
   onScoreMappingChange
 }: ColumnMappingStepProps) {
   const { t } = useLanguage();
-  // For Excel mode, show ALL layers without filtering
-  // For Member mode, apply filtering rules
+  // Filter mappable layers based on data source
   // Use useMemo to ensure re-computation when dependencies change
   const mappableMainLayers = useMemo(() => {
-    if (dataSource === 'excel') {
-      return mainLayers;
-    }
-    
     return mainLayers.filter(layer => {
-      // Exclude auto-generated fields
-      if (['certificate_no', 'issue_date', 'expired_date'].includes(layer.id)) {
-        return false;
-      }
-      
-      // Exclude layers with useDefaultText=true
+      // ALWAYS exclude layers with useDefaultText=true (both Excel and Member mode)
       if (layer.useDefaultText === true) {
         return false;
       }
       
+      // For Member mode: also exclude auto-generated fields
+      if (dataSource === 'member') {
+        if (['certificate_no', 'issue_date', 'expired_date'].includes(layer.id)) {
+          return false;
+        }
+      }
+      
+      // For Excel mode: include all other layers (auto-generated fields can be mapped from Excel)
       return true;
     });
   }, [dataSource, mainLayers]);
+
+  // Filter mappable score layers (same logic as main layers)
+  const mappableScoreLayers = useMemo(() => {
+    return scoreLayers.filter(layer => {
+      // ALWAYS exclude layers with useDefaultText=true
+      if (layer.useDefaultText === true) {
+        return false;
+      }
+      
+      // For Member mode: also exclude auto-generated fields
+      if (dataSource === 'member') {
+        if (['certificate_no', 'issue_date', 'expired_date', 'score_date'].includes(layer.id)) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [dataSource, scoreLayers]);
 
   const mappedMainCount = Object.keys(mainMapping).filter(k => mainMapping[k]).length;
   const mappedScoreCount = Object.keys(scoreMapping).filter(k => scoreMapping[k]).length;
@@ -185,7 +202,7 @@ export function ColumnMappingStep({
           </TabsTrigger>
           <TabsTrigger value="score" className="flex items-center gap-2">
             <Award className="w-4 h-4" />
-            Back Side ({mappedScoreCount}/{scoreLayers.length})
+            Back Side ({mappedScoreCount}/{mappableScoreLayers.length})
           </TabsTrigger>
         </TabsList>
 
@@ -212,7 +229,7 @@ export function ColumnMappingStep({
         <TabsContent value="score" className="space-y-4 mt-4">
 
           <div className="space-y-3">
-            {scoreLayers.map(layer => (
+            {mappableScoreLayers.map(layer => (
               <MappingRow
                 key={layer.id}
                 layer={layer}

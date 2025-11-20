@@ -713,6 +713,17 @@ function CertificatesContent() {
               updated_at: new Date().toISOString()
             };
             
+            // Extract ALL Excel data for variable replacement (including {perusahaan}, etc.)
+            const excelRowData: Record<string, string> = {};
+            for (const [key, value] of Object.entries(row)) {
+              // Skip standard fields that are handled separately
+              if (!['name', 'certificate_no', 'issue_date', 'expired_date', 'description', 'email', 'organization', 'phone', 'job', 'address', 'city'].includes(key)) {
+                if (value !== undefined && value !== null && value !== '') {
+                  excelRowData[key] = String(value);
+                }
+              }
+            }
+            
             // DUAL TEMPLATE: Extract score data from Excel row for score certificate
             let excelScoreData: Record<string, string> | undefined;
             if (params.template.score_image_url && layoutConfig?.score) {
@@ -744,7 +755,8 @@ function CertificatesContent() {
               defaults,
               params.dateFormat,
               excelScoreData, // Pass extracted score data for dual template
-              layoutConfig // Pass layout config for score generation
+              layoutConfig, // Pass layout config for score generation
+              excelRowData // CRITICAL FIX: Pass ALL Excel row data for variable replacement
             );
             
             generated++;
@@ -774,7 +786,8 @@ function CertificatesContent() {
     defaults: TemplateDefaults,
     dateFormat: string,
     scoreData?: Record<string, string>,
-    layoutConfig?: TemplateLayoutConfig | null
+    layoutConfig?: TemplateLayoutConfig | null,
+    excelRowData?: Record<string, string> // CRITICAL FIX: Add parameter for ALL Excel data
   ) => {
     if (scoreData) {
       scoreData = autoPopulatePrestasi(scoreData);
@@ -831,7 +844,9 @@ function CertificatesContent() {
         description: finalCertData.description || '',
         issue_date: formatDateString(finalCertData.issue_date, dateFormat),
         expired_date: finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '',
-        // Score data (manual input or Excel)
+        // CRITICAL FIX: Include ALL Excel row data for variables like {perusahaan}
+        ...(excelRowData || {}),
+        // Score data (manual input or Excel) - spread last to override if needed
         ...(scoreData || {})
       };
       if (scoreData && 
