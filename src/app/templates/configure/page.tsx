@@ -154,6 +154,23 @@ function ConfigureLayoutContent() {
 
         setTemplate(tpl);
         
+        // Set document title robust berdasarkan template name
+        const setTitle = (title: string) => {
+          if (typeof document !== 'undefined') {
+            document.title = title;
+          }
+        };
+        
+        const titleToSet = `Configure ${tpl.name} | Certify - Certificate Platform`;
+        
+        // Set immediately
+        setTitle(titleToSet);
+        
+        // Set with multiple delays to ensure override
+        setTimeout(() => setTitle(titleToSet), 50);
+        setTimeout(() => setTitle(titleToSet), 200);
+        setTimeout(() => setTitle(titleToSet), 500);
+        
         // Load template image
         const imgUrl = await getTemplateImageUrl(tpl);
         setTemplateImageUrl(imgUrl);

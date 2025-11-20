@@ -50,6 +50,40 @@ export default function CertificatePage() {
     loadCertificate();
   }, [certificateNo]);
 
+  // Set document title dinamis robust berdasarkan certificate
+  useEffect(() => {
+    const setTitle = (title: string) => {
+      if (typeof document !== 'undefined') {
+        document.title = title;
+      }
+    };
+    
+    let titleToSet: string;
+    if (certificate?.name && certificate?.certificate_no) {
+      titleToSet = `${certificate.certificate_no} - ${certificate.name} | Certify - Certificate Platform`;
+    } else if (certificate?.certificate_no) {
+      titleToSet = `${certificate.certificate_no} | Certify - Certificate Platform`;
+    } else if (loading) {
+      titleToSet = "Loading Certificate | Certify - Certificate Platform";
+    } else {
+      titleToSet = "Certificate Not Found | Certify - Certificate Platform";
+    }
+    
+    // Set immediately
+    setTitle(titleToSet);
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(() => setTitle(titleToSet), 50),
+      setTimeout(() => setTitle(titleToSet), 200),
+      setTimeout(() => setTitle(titleToSet), 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, [certificate, loading]);
+
   // Handle keyboard events for image preview modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

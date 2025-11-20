@@ -71,6 +71,40 @@ export default function PublicCertificatePage() {
     loadCertificate();
   }, [public_id]);
 
+  // Set document title dinamis robust berdasarkan certificate
+  useEffect(() => {
+    const setTitle = (title: string) => {
+      if (typeof document !== 'undefined') {
+        document.title = title;
+      }
+    };
+    
+    let titleToSet: string;
+    if (certificate?.name) {
+      titleToSet = `Certificate - ${certificate.name} | Certify - Certificate Platform`;
+    } else if (loading) {
+      titleToSet = "Loading Certificate | Certify - Certificate Platform";
+    } else if (notFound) {
+      titleToSet = "Certificate Not Found | Certify - Certificate Platform";
+    } else {
+      titleToSet = "Certificate Verification | Certify - Certificate Platform";
+    }
+    
+    // Set immediately
+    setTitle(titleToSet);
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(() => setTitle(titleToSet), 50),
+      setTimeout(() => setTitle(titleToSet), 200),
+      setTimeout(() => setTitle(titleToSet), 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, [certificate, loading, notFound]);
+
   // Export both certificate and score images to a single PDF
   async function exportToPDF() {
     if (!certificate?.certificate_image_url) {

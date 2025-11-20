@@ -70,6 +70,30 @@ import {
 
 function CertificatesContent() {
   const { t, language } = useLanguage();
+  
+  // Set document title robust untuk certificates page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Certificates | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
+  
   // Format: 2 Nov 2025
   const formatDateShort = useCallback((input?: string | null) => {
     if (!input) return "—";

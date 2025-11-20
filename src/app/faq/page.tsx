@@ -3,12 +3,35 @@
 import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
 import { HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/language-context";
 
 export default function FAQPage() {
   const { t } = useLanguage();
   const [openItems, setOpenItems] = useState<number[]>([]);
+
+  // Set document title robust untuk FAQ page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "FAQ | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
 
   const toggleItem = (index: number) => {
     setOpenItems(prev => 

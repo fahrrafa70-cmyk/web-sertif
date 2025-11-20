@@ -9,6 +9,29 @@ export default function Home() {
   const [viewportH, setViewportH] = useState<number>(0);
   const [isMounted, setIsMounted] = useState(false);
 
+  // Set document title robust untuk home page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Home | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
+
   // Optimized resize handler with useCallback to prevent unnecessary re-renders 
   const measure = useCallback(() => {
     try {

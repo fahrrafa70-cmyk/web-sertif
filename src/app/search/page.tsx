@@ -41,6 +41,29 @@ function SearchResultsContent() {
   const { t, language } = useLanguage();
   const { setIsModalOpen } = useModal();
   
+  // Set document title robust untuk search page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Search | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
+  
   // Local date formatter to ensure format like "2 Nov 2025"
   const formatDateShort = useCallback((input?: string | null) => {
     if (!input) return "—";
@@ -71,12 +94,10 @@ function SearchResultsContent() {
   
   // Virtualization with pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 9; // Show 9 items per page (3x3 grid) for optimal performance
+  const ITEMS_PER_PAGE = 9;
   
   // Input optimization refs
   const inputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // CRITICAL FIX: Use ref to store searchResults to prevent unmount/mount flicker
-  // Only update state if results actually changed (by ID comparison)
   const searchResultsRef = useRef<Certificate[]>([]);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);

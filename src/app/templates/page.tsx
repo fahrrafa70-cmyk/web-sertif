@@ -182,6 +182,29 @@ export default function TemplatesPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+
+  // Set document title robust untuk templates page
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Templates | Certify - Certificate Platform";
+      }
+    };
+    
+    // Set immediately
+    setTitle();
+    
+    // Set with multiple delays to ensure override
+    const timeouts = [
+      setTimeout(setTitle, 50),
+      setTimeout(setTitle, 200),
+      setTimeout(setTitle, 500)
+    ];
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, []);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 100); // Optimized for INP performance
   const [categoryFilter, setCategoryFilter] = useState("");
