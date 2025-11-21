@@ -850,6 +850,27 @@ function SearchResultsContent() {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }, []);
 
+  // Helper function to generate thumbnail URL from master URL
+  const getThumbnailUrl = useCallback((masterUrl: string | null | undefined): string | null => {
+    if (!masterUrl) return null;
+    
+    // If it's a Supabase Storage URL, convert certificates/xxx.png to preview/xxx.webp
+    if (/supabase\.(co|in)\/storage/i.test(masterUrl)) {
+      // Extract the file path and convert
+      // Example: https://xxx.supabase.co/storage/v1/object/public/certificates/abc123_cert.png
+      // To: https://xxx.supabase.co/storage/v1/object/public/certificates/preview/abc123_cert.webp
+      
+      const match = masterUrl.match(/(.*\/certificates\/)([^/]+)\.png/i);
+      if (match) {
+        const basePath = match[1]; // https://xxx.supabase.co/storage/v1/object/public/certificates/
+        const fileName = match[2]; // abc123_cert
+        return `${basePath}preview/${fileName}.webp`;
+      }
+    }
+    
+    return null;
+  }, []);
+
   // Helper function to normalize image URL and determine optimization strategy
   const normalizeImageUrl = useCallback((url: string | null | undefined, updatedAt?: string | null): { src: string; shouldOptimize: boolean } => {
     if (!url) {
@@ -951,8 +972,13 @@ function SearchResultsContent() {
     }, [certificate.issue_date, language]);
 
     const imageConfig = useMemo(() => {
-      return normalizeImageUrl(certificate.certificate_image_url, certificate.updated_at);
-    }, [certificate.certificate_image_url, certificate.updated_at]);
+      // ✅ PERFORMANCE FIX: Use compressed WebP thumbnail for card display, fallback to PNG master
+      // Thumbnail is much smaller (50KB vs 500KB+) for faster loading
+      // Priority: 1) certificate_thumbnail_url from DB, 2) Auto-generated from master URL, 3) PNG master
+      const thumbnailUrl = certificate.certificate_thumbnail_url || getThumbnailUrl(certificate.certificate_image_url);
+      const imageUrl = thumbnailUrl || certificate.certificate_image_url;
+      return normalizeImageUrl(imageUrl, certificate.updated_at);
+    }, [certificate.certificate_thumbnail_url, certificate.certificate_image_url, certificate.updated_at, getThumbnailUrl, normalizeImageUrl]);
 
     const isExpired = useMemo(() => isCertificateExpired(certificate), [certificate]);
 
@@ -1076,6 +1102,7 @@ function SearchResultsContent() {
     // Return true if props are equal (should NOT re-render), false if different (should re-render)
     if (prevProps.certificate.id !== nextProps.certificate.id) return false;
     if (prevProps.certificate.certificate_image_url !== nextProps.certificate.certificate_image_url) return false;
+    if (prevProps.certificate.certificate_thumbnail_url !== nextProps.certificate.certificate_thumbnail_url) return false;
     if (prevProps.certificate.updated_at !== nextProps.certificate.updated_at) return false;
     if (prevProps.certificate.expired_date !== nextProps.certificate.expired_date) return false;
     if (prevProps.certificate.issue_date !== nextProps.certificate.issue_date) return false;
@@ -1493,7 +1520,9 @@ function SearchResultsContent() {
                       (() => {
                         const isExpired = isCertificateExpired(previewCert);
                         // CRITICAL: Use WebP thumbnail for view full image (faster loading), fallback to PNG master
-                        const imageUrl = previewCert.certificate_thumbnail_url || previewCert.certificate_image_url;
+                        // Priority: 1) certificate_thumbnail_url from DB, 2) Auto-generated from master URL, 3) PNG master
+                        const thumbnailUrl = previewCert.certificate_thumbnail_url || getThumbnailUrl(previewCert.certificate_image_url);
+                        const imageUrl = thumbnailUrl || previewCert.certificate_image_url;
                         return (
                           <div
                             className={`relative w-full ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
@@ -1514,7 +1543,8 @@ function SearchResultsContent() {
                             }}
                           >
                             {(() => {
-                              const { src, shouldOptimize } = normalizeImageUrl(previewCert.certificate_image_url, previewCert.updated_at);
+                              // ✅ Use thumbnail URL (already calculated above) instead of master URL
+                              const { src, shouldOptimize } = normalizeImageUrl(imageUrl, previewCert.updated_at);
                               return (
                                 <div className="relative w-full aspect-auto">
                                   <Image
