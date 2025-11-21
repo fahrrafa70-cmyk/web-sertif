@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Search, Filter, X as XIcon, Download, ChevronDown, ChevronLeft, ChevronRight, FileText as FileTextIcon, Image as ImageIcon, Link as LinkIcon, Mail } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { useModal } from "@/contexts/modal-context";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import ModernHeader from "@/components/modern-header";
 import { 
@@ -672,12 +672,15 @@ function SearchResultsContent() {
   // Generate certificate link
   const generateCertificateLink = useCallback(async (certificate: Certificate) => {
     try {
-      if (!certificate.public_id) {
+      // Prefer XID for compact URLs, fallback to public_id for older certificates
+      const identifier = certificate.xid || certificate.public_id;
+      
+      if (!identifier) {
         toast.error(t('hero.noPublicLink'));
         return;
       }
 
-      const link = `${window.location.origin}/cek/${certificate.public_id}`;
+      const link = `${window.location.origin}/c/${identifier}`;
       await navigator.clipboard.writeText(link);
       toast.success(t('hero.linkCopied'));
     } catch (err) {
@@ -1934,16 +1937,23 @@ function SearchResultsContent() {
 
 export default function SearchResultsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+    <>
+      <Suspense fallback={
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          </div>
         </div>
-      </div>
-    }>
-      <SearchResultsContent />
-    </Suspense>
+      }>
+        <SearchResultsContent />
+      </Suspense>
+      <Toaster 
+        position="top-right"
+        expand={true}
+        richColors={true}
+      />
+    </>
   );
 }
 

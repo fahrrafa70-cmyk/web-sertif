@@ -66,9 +66,9 @@ const ModernHeader = memo(function ModernHeader() {
                 <Image
                   src="/favicon.png"
                   alt="Certify Logo"
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 object-contain transition-all duration-300 group-hover:scale-105"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain transition-all duration-300 group-hover:scale-105"
                   priority
                 />
               </div>

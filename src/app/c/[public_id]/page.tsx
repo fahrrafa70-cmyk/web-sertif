@@ -239,14 +239,17 @@ export default function PublicCertificatePage() {
   // Copy public link to clipboard
   async function copyPublicLink() {
     if (!certificate) return;
-    
+
     // Use environment variable for production URL, fallback to window.location.origin
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
                     (typeof window !== 'undefined' ? window.location.origin : '');
-    const publicUrl = `${baseUrl}/cek/${certificate.public_id}`;
+    
+    // Prefer XID for compact URLs, fallback to public_id for older certificates
+    const identifier = certificate.xid || certificate.public_id;
+    const publicUrl = `${baseUrl}/c/${identifier}`;
 
     try {
-      if (navigator.clipboard) {
+      if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(publicUrl);
         toast.success("Link copied to clipboard!");
       } else {
@@ -271,7 +274,10 @@ export default function PublicCertificatePage() {
     // Use environment variable for production URL, fallback to window.location.origin
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
                     (typeof window !== 'undefined' ? window.location.origin : '');
-    const publicUrl = `${baseUrl}/cek/${certificate.public_id}`;
+    
+    // Prefer XID for compact URLs, fallback to public_id for older certificates
+    const identifier = certificate.xid || certificate.public_id;
+    const publicUrl = `${baseUrl}/c/${identifier}`;
 
     const shareData = {
       title: `Certificate - ${certificate.certificate_no}`,
@@ -341,10 +347,17 @@ export default function PublicCertificatePage() {
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm" style={{ margin: 0, padding: 0, position: 'sticky', top: 0, zIndex: 50 }}>
         <div className="px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* Logo Icon with gradient background */}
+            {/* Logo Icon with header.png */}
             <div className="relative flex-shrink-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-xl sm:text-2xl tracking-tight">C</span>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md overflow-hidden">
+                <Image
+                  src="/header.png"
+                  alt="Certify Logo"
+                  width={32}
+                  height={32}
+                  className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
+                  priority
+                />
               </div>
             </div>
             
