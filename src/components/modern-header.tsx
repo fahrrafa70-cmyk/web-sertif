@@ -2,6 +2,7 @@
 
 import { useState, memo, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,13 +62,15 @@ const ModernHeader = memo(function ModernHeader() {
           {/* Logo - Responsive positioning */}
           <div className="flex-1 lg:flex-initial flex items-center justify-center lg:justify-start min-w-0 overflow-hidden">
             <Link href="/" className="flex items-center space-x-2 sm:space-x-2.5 md:space-x-3 group max-w-full">
-              {/* Icon with gradient background */}
               <div className="relative flex-shrink-0">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 gradient-primary rounded-xl sm:rounded-xl md:rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
-                  <span className="text-white font-bold text-xl sm:text-2xl md:text-2xl tracking-tight">C</span>
-                </div>
-                {/* Subtle glow effect on hover */}
-                <div className="absolute inset-0 gradient-primary rounded-lg sm:rounded-xl md:rounded-2xl blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 -z-10"></div>
+                <Image
+                  src="/favicon.png"
+                  alt="Certify Logo"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 object-contain transition-all duration-300 group-hover:scale-105"
+                  priority
+                />
               </div>
               
               {/* Text - Bold and prominent */}

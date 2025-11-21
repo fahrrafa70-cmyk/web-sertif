@@ -1,4 +1,5 @@
 import { supabaseClient } from "./client";
+import { generateXID } from "@/lib/utils/generate-xid";
 
 export interface Certificate {
   id: string;
@@ -19,6 +20,7 @@ export interface Certificate {
   updated_at: string;
   created_by: string | null;
   public_id: string;
+  xid?: string | null; // NEW: Short XID for compact URLs (/c/{xid})
   is_public: boolean;
   // Optional joined relations
   members?: {
@@ -286,6 +288,38 @@ export async function getCertificateByPublicId(
   return data;
 }
 
+// Get certificate by XID (for compact URL access)
+export async function getCertificateByXID(
+  xid: string,
+): Promise<Certificate | null> {
+  const { data, error } = await supabaseClient
+    .from("certificates")
+    .select(
+      `
+      *,
+      templates (
+        id,
+        name,
+        category,
+        orientation
+      ),
+      members:members(*)
+    `,
+    )
+    .eq("xid", xid)
+    .eq("is_public", true)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      return null; // Certificate not found or not public
+    }
+    throw new Error(`Failed to fetch certificate by XID: ${error.message}`);
+  }
+
+  return data;
+}
+
 // Generate unique public_id using crypto
 export function generatePublicId(): string {
   // Use crypto.randomUUID if available (modern browsers and Node 16+)
@@ -386,6 +420,9 @@ export async function createCertificate(
 
     // Generate unique public_id for the certificate
     const publicId = generatePublicId();
+    
+    // Generate unique XID for compact URLs
+    const xid = generateXID();
 
     const insertData = {
       certificate_no: certificateNo,
@@ -407,6 +444,7 @@ export async function createCertificate(
       score_thumbnail_url: certificateData.score_thumbnail_url || null,
       text_layers: certificateData.text_layers || [],
       public_id: publicId,
+      xid: xid, // NEW: Short XID for compact URLs
       is_public: true, // Default to public
     };
 

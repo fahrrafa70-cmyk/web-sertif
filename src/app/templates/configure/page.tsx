@@ -6,12 +6,13 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Eye, EyeOff, Pencil } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Type, Upload, Eye, EyeOff, Pencil, QrCode } from "lucide-react";
 import { getTemplate, getTemplateImageUrl, saveTemplateLayout, getTemplateLayout } from "@/lib/supabase/templates";
 import { uploadTemplatePhoto, deleteTemplatePhoto, validateImageFile } from "@/lib/supabase/photo-storage";
 import { Template } from "@/lib/supabase/templates";
+import { supabaseClient } from "@/lib/supabase/client";
 import { toast, Toaster } from "sonner";
-import type { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
+import type { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig, QRCodeLayerConfig } from "@/types/template-layout";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -41,6 +42,15 @@ const DUMMY_DATA = {
   expired_date: "30 October 2028",
   description: "For outstanding achievement"
 };
+
+// Get QR preview image URL from storage
+function getQRPreviewUrl(): string {
+  const { data } = supabaseClient.storage
+    .from('templates')
+    .getPublicUrl('qr/QR.png');
+  
+  return data.publicUrl;
+}
 
 /**
  * Helper function to ensure layer has fontSizePercent
@@ -102,6 +112,14 @@ function ConfigureLayoutContent() {
   
   // Current photo layers based on mode (read-only computed value)
   const photoLayers = configMode === 'certificate' ? certificatePhotoLayers : scorePhotoLayers;
+  
+  // QR code layers state - separate for certificate and score
+  const [certificateQRLayers, setCertificateQRLayers] = useState<QRCodeLayerConfig[]>([]);
+  const [scoreQRLayers, setScoreQRLayers] = useState<QRCodeLayerConfig[]>([]);
+  const [selectedQRLayerId, setSelectedQRLayerId] = useState<string | null>(null);
+  
+  // Current QR layers based on mode (read-only computed value)
+  const qrLayers = configMode === 'certificate' ? certificateQRLayers : scoreQRLayers;
   
   // Preview text state (for testing display only, not saved)
   const [previewTexts, setPreviewTexts] = useState<Record<string, string>>({});
@@ -338,6 +356,11 @@ function ConfigureLayoutContent() {
               if (layout.certificate.photoLayers && layout.certificate.photoLayers.length > 0) {
                 setCertificatePhotoLayers(layout.certificate.photoLayers);
               }
+              
+              // Load QR layers for certificate mode
+              if (layout.certificate.qrLayers && layout.certificate.qrLayers.length > 0) {
+                setCertificateQRLayers(layout.certificate.qrLayers);
+              }
             } else {
               // No existing layout - initialize default layers with actual dimensions
               const defaultLayers: TextLayerConfig[] = [
@@ -477,6 +500,11 @@ function ConfigureLayoutContent() {
               // Load photo layers for certificate mode (cached)
               if (layout.certificate.photoLayers && layout.certificate.photoLayers.length > 0) {
                 setCertificatePhotoLayers(layout.certificate.photoLayers);
+              }
+              
+              // Load QR layers for certificate mode (cached)
+              if (layout.certificate.qrLayers && layout.certificate.qrLayers.length > 0) {
+                setCertificateQRLayers(layout.certificate.qrLayers);
               }
             } else {
               // No existing layout - initialize default layers with actual dimensions (cached)
@@ -668,6 +696,11 @@ function ConfigureLayoutContent() {
               if (layout.score.photoLayers && layout.score.photoLayers.length > 0) {
                 setScorePhotoLayers(layout.score.photoLayers);
               }
+              
+              // Load QR layers for score mode
+              if (layout.score.qrLayers && layout.score.qrLayers.length > 0) {
+                setScoreQRLayers(layout.score.qrLayers);
+              }
             } else {
               // No existing layout for score - initialize default layers
               const defaultLayers: TextLayerConfig[] = [
@@ -727,6 +760,11 @@ function ConfigureLayoutContent() {
               // Load photo layers for score mode (cached)
               if (layout.score.photoLayers && layout.score.photoLayers.length > 0) {
                 setScorePhotoLayers(layout.score.photoLayers);
+              }
+              
+              // Load QR layers for score mode (cached)
+              if (layout.score.qrLayers && layout.score.qrLayers.length > 0) {
+                setScoreQRLayers(layout.score.qrLayers);
               }
             } else {
               // No existing layout for score - initialize default layers (cached)
@@ -909,6 +947,30 @@ function ConfigureLayoutContent() {
             : l
         ));
       }
+
+      // Handle QR code layer movement
+      if (selectedQRLayerId) {
+        const selectedQR = qrLayers.find(l => l.id === selectedQRLayerId);
+        if (!selectedQR) return;
+
+        const currentX = selectedQR.xPercent * templateWidth;
+        const currentY = selectedQR.yPercent * templateHeight;
+        const newX = Math.max(0, Math.min(templateWidth, currentX + deltaX));
+        const newY = Math.max(0, Math.min(templateHeight, currentY + deltaY));
+
+        const setter = configMode === 'certificate' ? setCertificateQRLayers : setScoreQRLayers;
+        setter(prev => prev.map(l => 
+          l.id === selectedQRLayerId 
+            ? { 
+                ...l, 
+                x: Math.round(newX * 10) / 10,
+                y: Math.round(newY * 10) / 10,
+                xPercent: newX / templateWidth,
+                yPercent: newY / templateHeight
+              }
+            : l
+        ));
+      }
     };
 
     // Add event listener
@@ -918,7 +980,7 @@ function ConfigureLayoutContent() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedLayerId, selectedPhotoLayerId, renamingLayerId, textLayers, photoLayers, configMode, templateImageDimensions]);
+  }, [selectedLayerId, selectedPhotoLayerId, selectedQRLayerId, renamingLayerId, textLayers, photoLayers, qrLayers, configMode, templateImageDimensions]);
 
   // CRITICAL: Normalize coordinates when template dimensions change
   // This handles the case when template image is replaced with different size
@@ -1384,6 +1446,58 @@ function ConfigureLayoutContent() {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Handle QR layer drag
+  const handleQRLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedQRLayerId(layerId);
+    
+    const layer = qrLayers.find(l => l.id === layerId);
+    if (!layer || !canvasRef.current) return;
+
+    // Get actual container dimensions and calculate scale
+    const containerRect = canvasRef.current.getBoundingClientRect();
+    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+    
+    // Use canvasScale for mouse coordinate conversion
+    const actualScale = canvasScale;
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLayerX = layer.x;
+    const startLayerY = layer.y;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      // Convert mouse delta to template coordinates using actual scale
+      const deltaX = (moveEvent.clientX - startX) / actualScale;
+      const deltaY = (moveEvent.clientY - startY) / actualScale;
+      
+      const newX = Math.max(0, Math.min(templateWidth, startLayerX + deltaX));
+      const newY = Math.max(0, Math.min(templateHeight, startLayerY + deltaY));
+
+      const setter = configMode === 'certificate' ? setCertificateQRLayers : setScoreQRLayers;
+      setter(prev => prev.map(l => 
+        l.id === layerId 
+          ? { 
+              ...l, 
+              x: Math.round(newX), 
+              y: Math.round(newY),
+              xPercent: newX / templateWidth,
+              yPercent: newY / templateHeight
+            }
+          : l
+      ));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   // Helper: Measure text width using temporary canvas
   // Uses absolute pixel measurements (not scaled) to match coordinate system
   const measureTextWidth = (text: string, fontSize: number, fontFamily: string, fontWeight: string, maxWidth?: number): number => {
@@ -1730,6 +1844,141 @@ function ConfigureLayoutContent() {
     }
   };
 
+  // Add QR code layer
+  const addQRCodeLayer = () => {
+    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+    
+    // Calculate optimal QR size (10% of template width) - ALWAYS SQUARE IN PIXELS
+    const qrSize = Math.round(templateWidth * 0.1);
+    
+    // Default position: bottom right corner
+    const defaultX = Math.round(templateWidth * 0.85);
+    const defaultY = Math.round(templateHeight * 0.85);
+    
+    // CRITICAL: Calculate percentages to maintain SQUARE in pixels
+    // widthPercent based on template width
+    // heightPercent MUST produce same pixel size based on template height
+    const widthPercent = qrSize / templateWidth;
+    const heightPercent = qrSize / templateHeight; // NOT same as widthPercent if template not square!
+    
+    const newQRLayer: QRCodeLayerConfig = {
+      id: `qr_${Date.now()}`,
+      type: 'qr_code',
+      qrData: '{{CERTIFICATE_URL}}', // Placeholder akan diganti saat generation
+      errorCorrectionLevel: 'M',
+      
+      // Position
+      x: defaultX,
+      y: defaultY,
+      xPercent: 0.85,
+      yPercent: 0.85,
+      
+      // Size (ALWAYS SQUARE IN PIXELS!)
+      width: qrSize,
+      height: qrSize,
+      widthPercent: widthPercent,
+      heightPercent: heightPercent,
+      
+      // Appearance
+      foregroundColor: '#000000',
+      backgroundColor: '#FFFFFF',
+      
+      // Layer order (above background, below text)
+      zIndex: 50,
+      
+      // Effects
+      opacity: 1,
+      rotation: 0,
+      
+      // Always maintain aspect ratio for QR codes
+      maintainAspectRatio: true,
+      
+      // Margin
+      margin: 4,
+      
+      // Visibility
+      visible: true,
+    };
+    
+    // Update state based on mode
+    if (configMode === 'certificate') {
+      setCertificateQRLayers(prev => [...prev, newQRLayer]);
+    } else {
+      setScoreQRLayers(prev => [...prev, newQRLayer]);
+    }
+    
+    // Select the new layer
+    setSelectedQRLayerId(newQRLayer.id);
+    setSelectedLayerId(null);
+    setSelectedPhotoLayerId(null);
+    
+    toast.success('QR code layer added. Remember to save.');
+  };
+  
+  // Update QR code layer properties
+  const updateQRLayer = (layerId: string, updates: Partial<QRCodeLayerConfig>) => {
+    console.log(`🔄 Updating QR layer ${layerId}:`, updates);
+    
+    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+    
+    // CRITICAL: QR code MUST be square in PIXELS
+    // If width is updated, calculate height to maintain square in pixels
+    if (updates.width !== undefined) {
+      updates.height = updates.width; // Same pixel size
+      
+      // Recalculate percentages to maintain square
+      updates.widthPercent = updates.width / templateWidth;
+      updates.heightPercent = updates.width / templateHeight; // Use same pixel width!
+    }
+    
+    // If only widthPercent is updated (from size input), maintain square in pixels
+    if (updates.widthPercent !== undefined && updates.width === undefined) {
+      const pixelWidth = Math.round(updates.widthPercent * templateWidth);
+      updates.width = pixelWidth;
+      updates.height = pixelWidth; // Same pixels
+      updates.heightPercent = pixelWidth / templateHeight;
+    }
+    
+    if (configMode === 'certificate') {
+      setCertificateQRLayers(prev => 
+        prev.map(layer => 
+          layer.id === layerId 
+            ? { ...layer, ...updates }
+            : layer
+        )
+      );
+    } else {
+      setScoreQRLayers(prev => 
+        prev.map(layer => 
+          layer.id === layerId 
+            ? { ...layer, ...updates }
+            : layer
+        )
+      );
+    }
+  };
+  
+  // Delete QR code layer
+  const deleteQRLayer = (layerId: string) => {
+    console.log(`🗑️ Deleting QR layer: ${layerId}`);
+    
+    // Remove from state based on mode
+    if (configMode === 'certificate') {
+      setCertificateQRLayers(prev => prev.filter(l => l.id !== layerId));
+    } else {
+      setScoreQRLayers(prev => prev.filter(l => l.id !== layerId));
+    }
+    
+    // Deselect if was selected
+    if (selectedQRLayerId === layerId) {
+      setSelectedQRLayerId(null);
+    }
+    
+    toast.success('QR code layer deleted. Remember to save.');
+  };
+
   // Save layout configuration
   const handleSave = async () => {
     if (!template) return;
@@ -1775,7 +2024,9 @@ function ConfigureLayoutContent() {
             return rest;
           }),
           // Add photo layers (always save, even if empty)
-          photoLayers: certificatePhotoLayers
+          photoLayers: certificatePhotoLayers,
+          // Add QR code layers (always save, even if empty)
+          qrLayers: certificateQRLayers
         },
         canvas: {
           width: STANDARD_CANVAS_WIDTH,
@@ -1802,7 +2053,9 @@ function ConfigureLayoutContent() {
             return rest;
           }),
           // Add photo layers for score mode (always save, even if empty)
-          photoLayers: scorePhotoLayers
+          photoLayers: scorePhotoLayers,
+          // Add QR code layers for score mode (always save, even if empty)
+          qrLayers: scoreQRLayers
         };
       }
 
@@ -2005,6 +2258,7 @@ function ConfigureLayoutContent() {
                   onClick={() => {
                     setSelectedLayerId(null);
                     setSelectedPhotoLayerId(null);
+                    setSelectedQRLayerId(null);
                   }}
                 >
                 {/* Template Background - Separate images for smooth transitions */}
@@ -2569,6 +2823,107 @@ function ConfigureLayoutContent() {
                       </div>
                     );
                   })}
+
+                {/* QR Code Layers - Rendered with z-index sorting */}
+                {qrLayers
+                  .sort((a, b) => a.zIndex - b.zIndex)
+                  .map(layer => {
+                    const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                    const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                    
+                    // Calculate position (percentage-based)
+                    const leftPercent = layer.xPercent * 100;
+                    const topPercent = layer.yPercent * 100;
+                    
+                    // Calculate size (percentage-based)
+                    const widthPercent = layer.widthPercent * 100;
+                    const heightPercent = layer.heightPercent * 100;
+                    
+                    const isSelected = selectedQRLayerId === layer.id;
+                    
+                    return (
+                      <div
+                        key={layer.id}
+                        className="absolute flex items-center justify-center"
+                        style={{
+                          left: `${leftPercent}%`,
+                          top: `${topPercent}%`,
+                          width: `${widthPercent}%`,
+                          height: `${heightPercent}%`,
+                          transform: `rotate(${layer.rotation}deg)`,
+                          opacity: layer.opacity,
+                          zIndex: layer.zIndex,
+                          cursor: isSelected ? 'move' : 'pointer',
+                          backgroundColor: layer.backgroundColor || '#FFFFFF',
+                          border: isSelected ? '3px solid #3b82f6' : '1px solid #e5e7eb'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedQRLayerId(layer.id);
+                          setSelectedLayerId(null);
+                          setSelectedPhotoLayerId(null);
+                        }}
+                        onMouseDown={(e) => {
+                          if (!isSelected) {
+                            e.stopPropagation();
+                            setSelectedQRLayerId(layer.id);
+                            setSelectedLayerId(null);
+                            setSelectedPhotoLayerId(null);
+                          } else {
+                            handleQRLayerMouseDown(layer.id, e);
+                          }
+                        }}
+                      >
+                        {/* QR Code Preview Image from Storage */}
+                        <img 
+                          src={getQRPreviewUrl()}
+                          alt="QR Code Preview"
+                          className="w-full h-full object-contain p-1"
+                          style={{
+                            opacity: layer.opacity,
+                            transform: `rotate(${layer.rotation}deg)`,
+                            filter: layer.foregroundColor !== '#000000' 
+                              ? `brightness(0) saturate(100%) invert(${layer.foregroundColor === '#FFFFFF' ? '100%' : '0%'})`
+                              : 'none'
+                          }}
+                          onError={(e) => {
+                            // Fallback to icon if image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        
+                        {/* Fallback icon (hidden by default, shown if image fails) */}
+                        <div className="flex flex-col items-center justify-center w-full h-full p-2" style={{ display: 'none' }}>
+                          <QrCode 
+                            className="w-1/2 h-1/2" 
+                            style={{ color: layer.foregroundColor || '#000000' }}
+                          />
+                          <span 
+                            className="text-[8px] mt-1 font-mono"
+                            style={{ color: layer.foregroundColor || '#000000' }}
+                          >
+                            QR Code
+                          </span>
+                        </div>
+                        
+                        {/* Selection ring (blue for QR codes) */}
+                        {isSelected && (
+                          <div 
+                            style={{
+                              position: 'absolute',
+                              inset: -2,
+                              border: '2px dashed #3b82f6',
+                              borderRadius: '4px',
+                              pointerEvents: 'none'
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               )}
@@ -2996,6 +3351,214 @@ function ConfigureLayoutContent() {
                           })}
                           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
                         />
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* QR Code Layers Section */}
+              <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
+                <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+                  <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    QR Code Layers ({qrLayers.length})
+                  </h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addQRCodeLayer}
+                    className="h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm"
+                  >
+                    <QrCode className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Add QR Code</span>
+                  </Button>
+                </div>
+
+                {/* QR Layers List */}
+                <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
+                  {qrLayers.length === 0 ? null : (
+                    qrLayers.map(layer => {
+                      const isSelected = selectedQRLayerId === layer.id;
+                      
+                      return (
+                        <div
+                          key={layer.id}
+                          className={`flex items-center justify-between p-2 sm:p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            isSelected 
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' 
+                              : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
+                          }`}
+                          onClick={() => {
+                            setSelectedQRLayerId(layer.id);
+                            setSelectedLayerId(null);
+                            setSelectedPhotoLayerId(null);
+                          }}
+                        >
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                            <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
+                                {layer.id}
+                              </div>
+                              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {Math.round(layer.width)}x{Math.round(layer.height)}px
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteQRLayer(layer.id);
+                            }}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 h-7 w-7 sm:h-8 sm:w-auto sm:px-2 p-0 flex-shrink-0"
+                          >
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* QR Code Layer Properties */}
+              {selectedQRLayerId && qrLayers.find(l => l.id === selectedQRLayerId) && (() => {
+                const selectedQR = qrLayers.find(l => l.id === selectedQRLayerId)!;
+                
+                return (
+                  <div className="border-t border-gray-200 dark:border-gray-800 pt-3 sm:pt-4">
+                    <div className="flex items-center justify-between mb-2 sm:mb-3">
+                      <h3 className="text-[10px] sm:text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide truncate">
+                        QR Code Settings
+                      </h3>
+                    </div>
+                    <div className="space-y-3">
+                      {/* Position */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">{t('configure.xPosition')} (px)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max={templateImageDimensions?.width || STANDARD_CANVAS_WIDTH}
+                            step="1"
+                            value={Math.round(selectedQR.x)}
+                            onChange={(e) => {
+                              const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                              const xPx = Number(e.target.value);
+                              updateQRLayer(selectedQR.id, { 
+                                x: xPx,
+                                xPercent: xPx / templateWidth
+                              });
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">{t('configure.yPosition')} (px)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max={templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT}
+                            step="1"
+                            value={Math.round(selectedQR.y)}
+                            onChange={(e) => {
+                              const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                              const yPx = Number(e.target.value);
+                              updateQRLayer(selectedQR.id, { 
+                                y: yPx,
+                                yPercent: yPx / templateHeight
+                              });
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Size */}
+                      <div>
+                        <Label className="text-xs">Size (px) - Square Only</Label>
+                        <Input
+                          type="number"
+                          min="50"
+                          max={Math.min(templateImageDimensions?.width || STANDARD_CANVAS_WIDTH, templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT)}
+                          step="1"
+                          value={Math.round(selectedQR.width)}
+                          onChange={(e) => {
+                            const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+                            const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+                            const size = Number(e.target.value);
+                            updateQRLayer(selectedQR.id, { 
+                              width: size,
+                              height: size, // Always square
+                              widthPercent: size / templateWidth,
+                              heightPercent: size / templateHeight
+                            });
+                          }}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Colors */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Foreground Color</Label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={selectedQR.foregroundColor || '#000000'}
+                              onChange={(e) => updateQRLayer(selectedQR.id, { foregroundColor: e.target.value })}
+                              className="h-8 w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
+                            />
+                            <Input
+                              type="text"
+                              value={selectedQR.foregroundColor || '#000000'}
+                              onChange={(e) => updateQRLayer(selectedQR.id, { foregroundColor: e.target.value })}
+                              className="h-8 text-xs flex-1"
+                              placeholder="#000000"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Background Color</Label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={selectedQR.backgroundColor || '#FFFFFF'}
+                              onChange={(e) => updateQRLayer(selectedQR.id, { backgroundColor: e.target.value })}
+                              className="h-8 w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
+                            />
+                            <Input
+                              type="text"
+                              value={selectedQR.backgroundColor || '#FFFFFF'}
+                              onChange={(e) => updateQRLayer(selectedQR.id, { backgroundColor: e.target.value })}
+                              className="h-8 text-xs flex-1"
+                              placeholder="#FFFFFF"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Layer Order */}
+                      <div>
+                        <Label className="text-xs">Layer Order</Label>
+                        <Select
+                          value={selectedQR.zIndex >= 100 ? 'front' : 'back'}
+                          onValueChange={(value) => updateQRLayer(selectedQR.id, { 
+                            zIndex: value === 'front' ? 101 : 50
+                          })}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="front">Front (Above Text)</SelectItem>
+                            <SelectItem value="back">Back (Below Text)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                     </div>
