@@ -2380,9 +2380,9 @@ function CertificatesContent() {
                     <label className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                       {t('hero.certificate')}
                     </label>
-                    {/* Toggle for dual templates - CRITICAL FIX: Reserve space to prevent layout shift */}
-                    <div className="min-h-[32px] mb-2">
-                      {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url && (
+                    {/* Toggle for dual templates - Only show and reserve space if dual template */}
+                    {previewTemplate && (previewTemplate.is_dual_template) && previewCertificate?.score_image_url ? (
+                      <div className="min-h-[32px] mb-2">
                         <div className="flex gap-2">
                           <button
                             onClick={() => setPreviewMode('certificate')}
@@ -2397,8 +2397,10 @@ function CertificatesContent() {
                             {t('certificates.back')}
                           </button>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="mb-2"></div>
+                    )}
                     <div className={(() => {
                       const isPortrait = previewTemplate?.orientation === 'portrait';
                       // Portrait: smaller padding for tighter fit, Landscape: normal padding
