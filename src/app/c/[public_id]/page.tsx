@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getCertificateByPublicId, Certificate } from "@/lib/supabase/certificates";
+import { getCertificateByPublicId, getCertificateByXID, Certificate } from "@/lib/supabase/certificates";
 import { Button } from "@/components/ui/button";
 import { Link2, Share2, FileText, Calendar, Building2, User, Clock, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -53,7 +53,13 @@ export default function PublicCertificatePage() {
 
       try {
         setLoading(true);
-        const cert = await getCertificateByPublicId(public_id);
+        
+        // Auto-detect format: UUID (36 chars with dashes) or XID (16-20 chars)
+        const isUUID = public_id.includes('-') && public_id.length === 36;
+        
+        const cert = isUUID 
+          ? await getCertificateByPublicId(public_id)  // Old format: UUID
+          : await getCertificateByXID(public_id);      // New format: XID
         
         if (!cert) {
           setNotFound(true);

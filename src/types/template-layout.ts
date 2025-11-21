@@ -1,45 +1,33 @@
-/**
- * Template Layout Configuration Types
- * Defines the structure for storing complete layout configuration in database
- */
-
 import { RichText } from './rich-text';
 
 export interface TextLayerConfig {
-  id: string; // e.g., "name", "certificate_no", "issue_date"
+  id: string; 
   x: number;
   y: number;
   xPercent: number;
   yPercent: number;
   fontSize: number;
-  fontSizePercent?: number; // Font size as percentage of template height (0-100) - optional for backward compatibility
+  fontSizePercent?: number; 
   color: string;
   fontWeight: string;
   fontFamily: string;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
-  defaultText?: string; // Default text to use in generation (optional)
-  useDefaultText?: boolean; // Whether to use defaultText instead of dynamic data
-  maxWidth?: number; // Maximum width for text wrapping (in pixels)
-  lineHeight?: number; // Line height multiplier (default 1.2)
-  visible?: boolean; // Whether this layer is visible in preview and generation (default: true)
-  // Rich text support (inline formatting)
-  richText?: RichText; // Array of text spans with individual styles
-  hasInlineFormatting?: boolean; // Whether this layer uses rich text formatting
+  defaultText?: string; 
+  useDefaultText?: boolean; 
+  maxWidth?: number; 
+  lineHeight?: number; 
+  visible?: boolean; 
+  richText?: RichText; 
+  hasInlineFormatting?: boolean; 
   
   // Extended styling properties
-  fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through' | 'overline'; // Font style including decorations (default: 'normal')
-  textDecoration?: 'none' | 'underline' | 'line-through' | 'overline'; // Legacy: Text decoration (default: 'none')
-  textShadow?: string; // Text shadow CSS value (e.g., '2px 2px 4px rgba(0,0,0,0.5)')
+  fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through' | 'overline'; 
+  textDecoration?: 'none' | 'underline' | 'line-through' | 'overline'; 
+  textShadow?: string;
   
   // UI state (not persisted to database)
   isDragging?: boolean; // Temporary state during drag operations
 }
-
-/**
- * Photo/Image Layer Configuration
- * Professional layer system like Canva/Picsart
- * All positions and sizes use PERCENTAGE for resolution independence
- */
 export interface PhotoLayerConfig {
   id: string;
   type: 'photo' | 'logo' | 'signature' | 'decoration';
@@ -122,11 +110,9 @@ export interface QRCodeLayerConfig {
   // Aspect ratio lock (always true for QR codes)
   maintainAspectRatio: boolean;
   
-  // Margin around QR code (in modules/pixels)
-  margin?: number; // Default: 4
+  margin?: number;
   
-  // Visibility
-  visible?: boolean; // Whether this layer is visible (default: true)
+  visible?: boolean;
 }
 
 /**

@@ -15,8 +15,9 @@ import {
   getCertificateCategories, 
   Certificate, 
   SearchFilters,
-  getCertificateByNumber,
-  getCertificateByPublicId
+  getCertificateByPublicId, 
+  getCertificateByXID, 
+  getCertificateByNumber
 } from "@/lib/supabase/certificates";
 import Image from "next/image";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
@@ -277,7 +278,7 @@ function SearchResultsContent() {
         return;
       }
       
-      const publicLinkMatch = q.match(/(?:\/cek\/|cek\/)([a-f0-9-]{36})/i);
+      const publicLinkMatch = q.match(/(?:\/cek\/|cek\/|\/c\/|c\/)([a-f0-9-]{16,36})/i);
       const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
       const isCertId = q.match(/^CERT-/i);
       
@@ -286,9 +287,17 @@ function SearchResultsContent() {
         try {
           let cert: Certificate | null = null;
           if (publicLinkMatch) {
-            cert = await getCertificateByPublicId(publicLinkMatch[1]);
+            const identifier = publicLinkMatch[1];
+            
+            // Auto-detect format: UUID (36 chars with dashes) or XID (16-20 chars)
+            const isUUID = identifier.includes('-') && identifier.length === 36;
+            
+            cert = isUUID 
+              ? await getCertificateByPublicId(identifier)  // Old format: UUID
+              : await getCertificateByXID(identifier);      // New format: XID
+              
             if (cert) {
-              router.push(`/cek/${publicLinkMatch[1]}`);
+              router.push(`/c/${identifier}`);
               return;
             }
           } else {
