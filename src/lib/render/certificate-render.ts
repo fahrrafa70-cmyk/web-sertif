@@ -284,7 +284,7 @@ export async function renderCertificateToDataURL(
         : (layer.textAlign || 'center'); // Other layers: use setting or default center
       
       // Scale fontSize based on template resolution
-      const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
+      const fontWeight = layer.fontWeight || 'normal';
       const baseFontSize = Math.max(1, layer.fontSize || 16);
       const scaledFontSize = Math.round(baseFontSize * scaleFactor);
       const fontFamily = layer.fontFamily || 'Arial';
@@ -898,7 +898,9 @@ function drawRichText(
     line.spans.forEach(span => {
       // CRITICAL: Scale span fontSize if provided, otherwise use base (already scaled)
       const spanFontSize = span.fontSize ? Math.round(span.fontSize * scaleFactor) : baseFontSize;
-      const spanFont = `${span.fontWeight || 'normal'} ${spanFontSize}px ${span.fontFamily || 'Arial'}`;
+      const spanFontStyle = span.fontStyle || 'normal';
+      const spanFontWeight = span.fontWeight || 'normal';
+      const spanFont = `${spanFontStyle} ${spanFontWeight} ${spanFontSize}px ${span.fontFamily || 'Arial'}`;
       ctx.font = spanFont;
       lineWidth += ctx.measureText(span.text).width;
     });
@@ -913,12 +915,13 @@ function drawRichText(
     // Draw each span
     line.spans.forEach(span => {
       const spanFontWeight = span.fontWeight || 'normal';
+      const spanFontStyle = span.fontStyle || 'normal';
       // CRITICAL: Scale span fontSize if provided, otherwise use base (already scaled)
       const spanFontSize = span.fontSize ? Math.round(span.fontSize * scaleFactor) : baseFontSize;
       const spanFontFamily = span.fontFamily || 'Arial';
       const spanColor = span.color || ctx.fillStyle;
       
-      ctx.font = `${spanFontWeight} ${spanFontSize}px ${spanFontFamily}`;
+      ctx.font = `${spanFontStyle} ${spanFontWeight} ${spanFontSize}px ${spanFontFamily}`;
       ctx.fillStyle = spanColor;
       ctx.fillText(span.text, currentX, lineY);
       
