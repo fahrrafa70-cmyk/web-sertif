@@ -10,6 +10,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/contexts/language-context";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
+import ModernHeader from "@/components/modern-header";
 
 export default function PublicCertificatePage() {
   const params = useParams();
@@ -343,36 +344,11 @@ export default function PublicCertificatePage() {
   // Success state - Display certificate
   return (
     <div style={{ margin: 0, padding: 0 }}>
-      {/* Header - Follows app theme */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm" style={{ margin: 0, padding: 0, position: 'sticky', top: 0, zIndex: 50 }}>
-        <div className="px-4 sm:px-6 py-4 sm:py-5">
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* Logo Icon with header.png */}
-            <div className="relative flex-shrink-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md overflow-hidden">
-                <Image
-                  src="/header.png"
-                  alt="Certify Logo"
-                  width={32}
-                  height={32}
-                  className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
-                  priority
-                />
-              </div>
-            </div>
-            
-            {/* Text */}
-            <div className="flex flex-col">
-              <span className="text-base sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                Certify
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Header - Use ModernHeader without auth and mobile sidebar */}
+      <ModernHeader hideAuth={true} hideMobileSidebar={true} />
 
-      {/* Main Content */}
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      {/* Main Content - Add padding-top for fixed header */}
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 md:py-12" style={{ paddingTop: 'var(--header-height-mobile, 72px)' }}>
         <div className="w-full max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

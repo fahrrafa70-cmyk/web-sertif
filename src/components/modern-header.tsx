@@ -13,7 +13,12 @@ import { ThemeSwitcher } from "./theme-switcher";
 import UserAvatar from "./user-avatar";
 import MobileSidebar from "./mobile-sidebar";
 
-const ModernHeader = memo(function ModernHeader() {
+interface ModernHeaderProps {
+  hideAuth?: boolean; // Hide authentication/profile section
+  hideMobileSidebar?: boolean; // Hide mobile sidebar (menu button and sidebar)
+}
+
+const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSidebar = false }: ModernHeaderProps) {
   const { setOpenLogin, isAuthenticated } = useAuth();
   const { isModalOpen } = useModal();
   const pathname = usePathname();
@@ -50,14 +55,16 @@ const ModernHeader = memo(function ModernHeader() {
         }}
       >
         <div className="h-full w-full px-2 sm:px-3 md:px-4 flex items-center justify-between gap-1 sm:gap-2 relative z-10">
-          {/* Mobile Menu Button */}
-          <button
-            onClick={handleMobileSidebarToggle}
-            className="lg:hidden flex-shrink-0 p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            aria-label="Open Menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+          {/* Mobile Menu Button - Hidden if hideMobileSidebar is true */}
+          {!hideMobileSidebar && (
+            <button
+              onClick={handleMobileSidebarToggle}
+              className="lg:hidden flex-shrink-0 p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Open Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Logo - Responsive positioning */}
           <div className="flex-1 lg:flex-initial flex items-center justify-center lg:justify-start min-w-0 overflow-hidden">
@@ -81,37 +88,41 @@ const ModernHeader = memo(function ModernHeader() {
           </div>
 
           {/* Right Section - Theme + Language + Avatar or Login */}
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
-            {/* Theme Switcher - Hidden on mobile, shown on desktop */}
-            <div className="hidden lg:block">
-              <ThemeSwitcher variant="compact" />
-            </div>
-            {/* Language Switcher - Hidden on mobile, shown on desktop */}
-            <div className="hidden lg:block">
-              <LanguageSwitcher variant="compact" />
-            </div>
+          {!hideAuth && (
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
+              {/* Theme Switcher - Hidden on mobile, shown on desktop */}
+              <div className="hidden lg:block">
+                <ThemeSwitcher variant="compact" />
+              </div>
+              {/* Language Switcher - Hidden on mobile, shown on desktop */}
+              <div className="hidden lg:block">
+                <LanguageSwitcher variant="compact" />
+              </div>
 
-            {/* User Avatar or Login Button */}
-            {isAuthenticated ? (
-              <UserAvatar />
-            ) : (
-              <Button
-                size="sm"
-                className="gradient-primary text-white border-0 shadow-md h-7 sm:h-8 md:h-9 text-xs sm:text-sm px-2 sm:px-3 md:px-4"
-                onClick={() => setOpenLogin(true)}
-              >
-                Login
-              </Button>
-            )}
-          </div>
+              {/* User Avatar or Login Button */}
+              {isAuthenticated ? (
+                <UserAvatar />
+              ) : (
+                <Button
+                  size="sm"
+                  className="gradient-primary text-white border-0 shadow-md h-7 sm:h-8 md:h-9 text-xs sm:text-sm px-2 sm:px-3 md:px-4"
+                  onClick={() => setOpenLogin(true)}
+                >
+                  Login
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Mobile Sidebar */}
-      <MobileSidebar
-        isOpen={isMobileSidebarOpen}
-        onClose={handleMobileSidebarClose}
-      />
+      {/* Mobile Sidebar - Hidden if hideMobileSidebar is true */}
+      {!hideMobileSidebar && (
+        <MobileSidebar
+          isOpen={isMobileSidebarOpen}
+          onClose={handleMobileSidebarClose}
+        />
+      )}
     </>
   );
 });
