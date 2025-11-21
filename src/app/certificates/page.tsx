@@ -38,7 +38,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { useCertificates } from "@/hooks/use-certificates";
 import { Certificate, TextLayer as CertificateTextLayer, createCertificate, CreateCertificateData } from "@/lib/supabase/certificates";
 import { supabaseClient } from "@/lib/supabase/client";
-import { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig } from "@/types/template-layout";
+import { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig, QRCodeLayerConfig } from "@/types/template-layout";
 import { Edit, Trash2, FileText, Download, ChevronDown, Link, Image as ImageIcon, ChevronLeft, ChevronRight, Filter, X, Search } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -940,10 +940,34 @@ function CertificatesContent() {
       crop: layer.crop,
       mask: layer.mask
     })) || [];
+    
+    // Prepare QR code layers with certificate URL from layout config
+    const qrLayersForRender = layoutConfig?.certificate?.qrLayers?.map((layer: QRCodeLayerConfig) => ({
+      id: layer.id,
+      type: layer.type as 'qr_code',
+      qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/certificate/${member.id}`),
+      x: layer.x,
+      y: layer.y,
+      xPercent: layer.xPercent,
+      yPercent: layer.yPercent,
+      width: layer.width,
+      height: layer.height,
+      widthPercent: layer.widthPercent,
+      heightPercent: layer.heightPercent,
+      zIndex: layer.zIndex,
+      opacity: layer.opacity,
+      rotation: layer.rotation,
+      foregroundColor: layer.foregroundColor,
+      backgroundColor: layer.backgroundColor,
+      errorCorrectionLevel: layer.errorCorrectionLevel,
+      margin: layer.margin
+    })) || [];
+    
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,
       photoLayers: photoLayersForRender,
+      qrLayers: qrLayersForRender,
     });
     const { cert: certFileName, score: scoreFileName, xid } = generatePairedXIDFilenames();
     const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
@@ -1147,10 +1171,34 @@ function CertificatesContent() {
               hasInlineFormatting: layer.hasInlineFormatting,
             };
           });
+          
+          // Prepare QR code layers for score with certificate URL
+          const scoreQRLayersForRender = layoutConfig?.score?.qrLayers?.map((layer: QRCodeLayerConfig) => ({
+            id: layer.id,
+            type: layer.type as 'qr_code',
+            qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/certificate/${member.id}`),
+            x: layer.x,
+            y: layer.y,
+            xPercent: layer.xPercent,
+            yPercent: layer.yPercent,
+            width: layer.width,
+            height: layer.height,
+            widthPercent: layer.widthPercent,
+            heightPercent: layer.heightPercent,
+            zIndex: layer.zIndex,
+            opacity: layer.opacity,
+            rotation: layer.rotation,
+            foregroundColor: layer.foregroundColor,
+            backgroundColor: layer.backgroundColor,
+            errorCorrectionLevel: layer.errorCorrectionLevel,
+            margin: layer.margin
+          })) || [];
+          
           const scoreImageDataUrl = await renderCertificateToDataURL({
             templateImageUrl: template.score_image_url,
             textLayers: scoreTextLayers,
             photoLayers: scorePhotoLayersForRender,
+            qrLayers: scoreQRLayersForRender,
           });
           const scoreThumbnail = await generateThumbnail(scoreImageDataUrl, {
             format: 'webp',

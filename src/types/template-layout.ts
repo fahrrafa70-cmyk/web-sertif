@@ -59,21 +59,12 @@ export interface PhotoLayerConfig {
   widthPercent: number; // Primary: 0-1 (percentage of canvas width)
   heightPercent: number; // Primary: 0-1 (percentage of canvas height)
   
-  // Layer order
   zIndex: number; // Higher = on top (text layers typically 100+)
-  
-  // Fit mode (how image fits in bounding box)
   fitMode: 'contain' | 'cover' | 'fill' | 'none';
-  // - contain: fit inside, maintain aspect (letterbox/pillarbox)
-  // - cover: fill box, maintain aspect (crop edges)
-  // - fill: stretch to fill (may distort)
-  // - none: original size
-  
-  // Crop (region of source image to display, 0-1)
   crop?: {
-    x: number; // Left offset (0-1)
-    y: number; // Top offset (0-1)
-    width: number; // Width (0-1)
+    x: number;
+    y: number;
+    width: number;
     height: number; // Height (0-1)
   };
   
@@ -95,8 +86,47 @@ export interface PhotoLayerConfig {
   originalWidth?: number;
   originalHeight?: number;
   
-  // Storage path (for deletion)
   storagePath?: string; // Supabase Storage path
+}
+export interface QRCodeLayerConfig {
+  id: string;
+  type: 'qr_code';
+  
+  // QR Code specific
+  qrData: string; // Data to encode (URL, text, etc.) - use {{CERTIFICATE_URL}} as placeholder
+  errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H'; // Error correction: L=7%, M=15%, Q=25%, H=30%
+  
+  // Position (percentage-based 0-1)
+  x: number; // Absolute pixel (fallback)
+  y: number;
+  xPercent: number; // Primary: 0-1 (percentage of canvas width)
+  yPercent: number; // Primary: 0-1 (percentage of canvas height)
+  
+  // Size (percentage-based 0-1)
+  width: number; // Absolute pixel (fallback)
+  height: number;
+  widthPercent: number;
+  heightPercent: number;
+  
+  // QR Code appearance
+  foregroundColor?: string;
+  backgroundColor?: string;
+  
+  // Layer order
+  zIndex: number;
+  
+  // Visual effects
+  opacity: number;
+  rotation: number;
+  
+  // Aspect ratio lock (always true for QR codes)
+  maintainAspectRatio: boolean;
+  
+  // Margin around QR code (in modules/pixels)
+  margin?: number; // Default: 4
+  
+  // Visibility
+  visible?: boolean; // Whether this layer is visible (default: true)
 }
 
 /**
@@ -135,12 +165,14 @@ export interface FontSetting {
 export interface CertificateModeConfig {
   textLayers: TextLayerConfig[];
   photoLayers?: PhotoLayerConfig[]; // New: Professional photo layer system
+  qrLayers?: QRCodeLayerConfig[]; // QR Code layers
   overlayImages?: OverlayImageConfig[]; // Legacy support
 }
 
 export interface ScoreModeConfig {
   textLayers: TextLayerConfig[];
   photoLayers?: PhotoLayerConfig[]; // New: Professional photo layer system
+  qrLayers?: QRCodeLayerConfig[]; // QR Code layers
   overlayImages?: OverlayImageConfig[]; // Legacy support
   fontSettings?: ScoreFontSettings;
 }
@@ -149,11 +181,6 @@ export interface CanvasConfig {
   width: number;
   height: number;
 }
-
-/**
- * Complete template layout configuration
- * This is stored in templates.layout_config JSONB field
- */
 export interface TemplateLayoutConfig {
   // Certificate mode layout (required)
   certificate?: CertificateModeConfig;
@@ -169,33 +196,20 @@ export interface TemplateLayoutConfig {
   lastSavedAt: string; // ISO timestamp
 }
 
-/**
- * Validation result for layout configuration
- */
 export interface LayoutValidationResult {
   isValid: boolean;
   missingFields: string[];
   errors: string[];
 }
 
-/**
- * Required text layer IDs for certificate mode
- * Note: Score mode uses the same required fields for consistency
- */
 export const REQUIRED_CERTIFICATE_FIELDS = [
   'name',
   'certificate_no',
   'issue_date'
 ] as const;
 
-/**
- * Required text layer IDs for score mode (same as certificate mode)
- */
 export const REQUIRED_SCORE_FIELDS = REQUIRED_CERTIFICATE_FIELDS;
 
-/**
- * Optional text layer IDs for certificate mode
- */
 export const OPTIONAL_CERTIFICATE_FIELDS = [
   'description',
   'expired_date',

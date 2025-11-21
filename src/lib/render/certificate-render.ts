@@ -1,11 +1,12 @@
 /**
  * Certificate Renderer Utility
- * Renders certificate template + text layers to PNG DataURL
+ * Renders certificate template + text layers + QR codes to PNG DataURL
  * Reusable across Generate page and Quick Generate modal
  */
 
 import { STANDARD_CANVAS_WIDTH } from "@/lib/constants/canvas";
 import { RichText } from "@/types/rich-text";
+import { generateQRCodeDataURL } from "@/lib/utils/qr-code";
 
 export interface RenderTextLayer {
   id: string;
@@ -73,10 +74,45 @@ export interface RenderPhotoLayer {
   rotation: number;
 }
 
+/**
+ * QR Code Layer for Rendering
+ */
+export interface RenderQRLayer {
+  id: string;
+  type: 'qr_code';
+  qrData: string; // Data to encode (URL placeholder will be replaced)
+  
+  // Position (percentage-based, fallback to absolute)
+  x?: number;
+  y?: number;
+  xPercent?: number;
+  yPercent?: number;
+  
+  // Size (percentage-based, fallback to absolute)
+  width?: number;
+  height?: number;
+  widthPercent?: number;
+  heightPercent?: number;
+  
+  // Layer order
+  zIndex: number;
+  
+  // QR Code appearance
+  foregroundColor?: string;
+  backgroundColor?: string;
+  errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H';
+  margin?: number;
+  
+  // Visual effects
+  opacity: number;
+  rotation: number;
+}
+
 export interface RenderCertificateParams {
   templateImageUrl: string;
   textLayers: RenderTextLayer[];
   photoLayers?: RenderPhotoLayer[]; // Optional: Photo/image layers
+  qrLayers?: RenderQRLayer[]; // Optional: QR code layers
   width?: number;  // Optional: If not provided, use template's natural width
   height?: number; // Optional: If not provided, use template's natural height
 }
@@ -102,7 +138,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 export async function renderCertificateToDataURL(
   params: RenderCertificateParams
 ): Promise<string> {
-  const { templateImageUrl, textLayers, photoLayers, width, height } = params;
+  const { templateImageUrl, textLayers, photoLayers, qrLayers, width, height } = params;
   
   // CRITICAL: Wait for fonts to load before rendering
   // Font rendering differences between CSS and Canvas can cause positioning issues
@@ -181,9 +217,9 @@ export async function renderCertificateToDataURL(
   
   // Prepare all layers with zIndex for sorting
   interface LayerToRender {
-    type: 'photo' | 'text';
+    type: 'photo' | 'text' | 'qr';
     zIndex: number;
-    data: RenderPhotoLayer | RenderTextLayer;
+    data: RenderPhotoLayer | RenderTextLayer | RenderQRLayer;
   }
   
   const layersToRender: LayerToRender[] = [];
@@ -208,6 +244,17 @@ export async function renderCertificateToDataURL(
     });
   });
   
+  // Add QR code layers
+  if (qrLayers && qrLayers.length > 0) {
+    qrLayers.forEach((layer) => {
+      layersToRender.push({
+        type: 'qr',
+        zIndex: layer.zIndex || 50,
+        data: layer
+      });
+    });
+  }
+  
   // Sort layers by zIndex (ascending)
   layersToRender.sort((a, b) => a.zIndex - b.zIndex);
   
@@ -220,6 +267,15 @@ export async function renderCertificateToDataURL(
         await renderPhotoLayer(ctx, photoLayer, finalWidth, finalHeight, scaleFactor);
       } catch {
         // Failed to load photo
+      }
+    } else if (layerWrapper.type === 'qr') {
+      // ===== RENDER QR CODE LAYER =====
+      const qrLayer = layerWrapper.data as RenderQRLayer;
+      try {
+        await renderQRLayer(ctx, qrLayer, finalWidth, finalHeight);
+      } catch (error) {
+        console.error('Failed to render QR code:', error);
+        // Continue with other layers even if QR fails
       }
     } else {
       // ===== RENDER TEXT LAYER =====
@@ -1159,6 +1215,68 @@ async function renderPhotoLayer(
     fit.width,
     fit.height
   );
+  
+  // Restore context state
+  ctx.restore();
+}
+
+/**
+ * Render QR code layer
+ * Generates QR code and renders it at specified position
+ */
+async function renderQRLayer(
+  ctx: CanvasRenderingContext2D,
+  layer: RenderQRLayer,
+  canvasWidth: number,
+  canvasHeight: number
+): Promise<void> {
+  // Calculate position (percentage-first)
+  const x = layer.xPercent !== undefined && layer.xPercent !== null
+    ? Math.round(layer.xPercent * canvasWidth)
+    : layer.x || 0;
+  const y = layer.yPercent !== undefined && layer.yPercent !== null
+    ? Math.round(layer.yPercent * canvasHeight)
+    : layer.y || 0;
+  
+  // Calculate size (percentage-first)
+  const width = layer.widthPercent !== undefined && layer.widthPercent !== null
+    ? Math.round(layer.widthPercent * canvasWidth)
+    : layer.width || 100;
+  const height = layer.heightPercent !== undefined && layer.heightPercent !== null
+    ? Math.round(layer.heightPercent * canvasHeight)
+    : layer.height || 100;
+  
+  // Generate QR code as data URL
+  const qrDataURL = await generateQRCodeDataURL(layer.qrData, {
+    width,
+    height,
+    errorCorrectionLevel: layer.errorCorrectionLevel || 'M',
+    margin: layer.margin ?? 4,
+    color: {
+      dark: layer.foregroundColor || '#000000',
+      light: layer.backgroundColor || '#FFFFFF'
+    }
+  });
+  
+  // Load QR code image
+  const qrImage = await loadImage(qrDataURL);
+  
+  // Save context state
+  ctx.save();
+  
+  // Apply opacity
+  ctx.globalAlpha = layer.opacity;
+  
+  // Apply rotation
+  if (layer.rotation !== 0) {
+    // Move to center of QR code
+    ctx.translate(x + width / 2, y + height / 2);
+    ctx.rotate((layer.rotation * Math.PI) / 180);
+    ctx.translate(-(x + width / 2), -(y + height / 2));
+  }
+  
+  // Draw QR code
+  ctx.drawImage(qrImage, x, y, width, height);
   
   // Restore context state
   ctx.restore();
