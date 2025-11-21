@@ -27,8 +27,8 @@ export const LanguageSwitcher = memo(function LanguageSwitcher({ variant = 'defa
   }, []);
 
   const languages = [
-    { code: 'en' as const, name: t('language.english'), flag: '🇺🇸' },
-    { code: 'id' as const, name: t('language.indonesia'), flag: '🇮🇩' },
+    { code: 'en' as const, name: t('language.english'), flag: 'EN' },
+    { code: 'id' as const, name: t('language.indonesia'), flag: 'ID' },
   ];
 
   const currentLanguage = languages.find(lang => lang.code === language);

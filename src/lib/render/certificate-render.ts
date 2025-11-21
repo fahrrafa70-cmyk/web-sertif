@@ -4,7 +4,7 @@
  * Reusable across Generate page and Quick Generate modal
  */
 
-import { STANDARD_CANVAS_WIDTH } from "@/lib/constants/canvas";
+import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import { RichText } from "@/types/rich-text";
 import { generateQRCodeDataURL } from "@/lib/utils/qr-code";
 
@@ -286,13 +286,19 @@ export async function renderCertificateToDataURL(
         continue;
       }
       
-      // Calculate position (percentage-first)
-      const x = layer.xPercent !== undefined && layer.xPercent !== null
-        ? Math.round(layer.xPercent * finalWidth)    // Percentage (NEW system) 
-        : Math.round((layer.x || 0) * scaleFactor);  // Absolute (OLD system, legacy)
-      let y = layer.yPercent !== undefined && layer.yPercent !== null
-        ? Math.round(layer.yPercent * finalHeight)   // Percentage (NEW system) 
-        : Math.round((layer.y || 0) * scaleFactor);  // Absolute (OLD system, legacy)
+      // ✅ CRITICAL FIX: Always use percentage-based positioning for resolution independence
+      // This ensures preview and generate match exactly, even when template resolution changes
+      // Calculate xPercent/yPercent from absolute x/y if not available (backward compatibility)
+      const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
+        ? layer.xPercent
+        : (layer.x || 0) / STANDARD_CANVAS_WIDTH;
+      const yPercent = layer.yPercent !== undefined && layer.yPercent !== null
+        ? layer.yPercent
+        : (layer.y || 0) / STANDARD_CANVAS_HEIGHT;
+      
+      // Apply percentage to actual template dimensions (resolution-independent)
+      const x = Math.round(xPercent * finalWidth);
+      let y = Math.round(yPercent * finalHeight);
       
       // SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
       const isScoreLayer = (layer: RenderTextLayer) => {
@@ -320,30 +326,8 @@ export async function renderCertificateToDataURL(
         return false;
       };
       
-      // Dynamic Y-axis adjustment based on font size and layer type
-      const getYAdjustment = (layer: RenderTextLayer) => {
-        const fontSize = layer.fontSize || 16;
-        
-        // Certificate number: fixed adjustment
-        if (layer.id === 'certificate_no') return 7;
-        
-        // Score layers: font-size based adjustment (fine-tuned positioning)
-        if (isScoreLayer(layer)) {
-          if (fontSize <= 18) return 3;   // +3px DOWN for small fonts
-          if (fontSize <= 22) return 5;   // +5px DOWN for medium fonts
-          if (fontSize <= 26) return 7;   // +7px DOWN for large fonts
-          return 9;                       // +9px DOWN for extra large fonts
-        }
-        
-        // Other layers: no adjustment
-        return 0;
-      };
-      
-      const yAdjustment = getYAdjustment(layer);
-      
-      if (yAdjustment > 0) {
-        y = y + yAdjustment;
-      }
+      // Y-adjustment is now applied directly in drawWrappedText() function
+      // No adjustment needed here - pure percentage positioning
       
       // Scale maxWidth based on template resolution
       const baseMaxWidth = layer.maxWidth || 300;
@@ -356,7 +340,7 @@ export async function renderCertificateToDataURL(
         : (layer.textAlign || 'center'); // Other layers: use setting or default center
       
       // Scale fontSize based on template resolution
-      const fontWeight = layer.fontWeight === 'bold' ? 'bold' : 'normal';
+      const fontWeight = layer.fontWeight || 'normal';
       const baseFontSize = Math.max(1, layer.fontSize || 16);
       const scaledFontSize = Math.round(baseFontSize * scaleFactor);
       const fontFamily = layer.fontFamily || 'Arial';
@@ -401,6 +385,7 @@ export async function renderCertificateToDataURL(
           layer.lineHeight || 1.2,
           align,
           scaleFactor,
+          layer.id, // Pass layer ID for Y-adjustment
           isDecoration ? style : undefined // Pass decoration style
         );
       } else {
@@ -798,10 +783,28 @@ function drawWrappedText(
     }
   }
 
+  // Y-ADJUSTMENT: Apply adjustment for certificate_no, issue_date, and score layers
+  // This compensates for font rendering differences between CSS and Canvas
+  // Different adjustment values for different layer types
+  const isScoreLayerForAdjustment = layerId && (
+    layerId === 'nilai' || 
+    layerId === 'prestasi' || 
+    layerId === 'Nilai / Prestasi' ||
+    layerId.toLowerCase().includes('nilai') ||
+    layerId.toLowerCase().includes('prestasi')
+  );
+  
+  let microYAdjustment = 0;
+  if (layerId === 'certificate_no' || layerId === 'issue_date') {
+    microYAdjustment = fontSize * 0.10;  // 10% for certificate_no/issue_date (~2.6px for 26px)
+  } else if (isScoreLayerForAdjustment) {
+    microYAdjustment = fontSize * 0.087;  // 8.7% for score layers (~2.0px for 23px)
+  }
+  
   // Draw each line
   // Canvas textAlign is set above to handle alignment correctly for each line
   lines.forEach((line, index) => {
-    const lineY = startY + (index * lineHeightPx);
+    const lineY = startY + (index * lineHeightPx) + microYAdjustment;
     ctx.fillText(line, adjustedDrawX, lineY);
     
     // Draw text decoration if specified
@@ -867,6 +870,7 @@ function drawRichText(
   lineHeight: number,
   textAlign: 'left' | 'center' | 'right' | 'justify',
   scaleFactor: number = 1,
+  layerId?: string, // Optional layer ID for Y-adjustment
   _textDecoration?: 'underline' | 'line-through' | 'overline' // Optional text decoration (not yet implemented for rich text)
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
@@ -924,9 +928,25 @@ function drawRichText(
   const totalTextHeight = lines.length * lineHeightPx;
   const startY = y - (totalTextHeight / 2);
   
+  // Y-ADJUSTMENT: Apply same adjustment as drawWrappedText for score layers
+  const isScoreLayerForAdjustment = layerId && (
+    layerId === 'nilai' || 
+    layerId === 'prestasi' || 
+    layerId === 'Nilai / Prestasi' ||
+    layerId.toLowerCase().includes('nilai') ||
+    layerId.toLowerCase().includes('prestasi')
+  );
+  
+  let microYAdjustment = 0;
+  if (layerId === 'certificate_no' || layerId === 'issue_date') {
+    microYAdjustment = baseFontSize * 0.10;
+  } else if (isScoreLayerForAdjustment) {
+    microYAdjustment = baseFontSize * 0.087;
+  }
+  
   // Draw each line with its spans
   lines.forEach((line, lineIndex) => {
-    const lineY = startY + (lineIndex * lineHeightPx);
+    const lineY = startY + (lineIndex * lineHeightPx) + microYAdjustment;
     let currentX = x;
     
     // Calculate line width for alignment
@@ -934,7 +954,9 @@ function drawRichText(
     line.spans.forEach(span => {
       // CRITICAL: Scale span fontSize if provided, otherwise use base (already scaled)
       const spanFontSize = span.fontSize ? Math.round(span.fontSize * scaleFactor) : baseFontSize;
-      const spanFont = `${span.fontWeight || 'normal'} ${spanFontSize}px ${span.fontFamily || 'Arial'}`;
+      const spanFontStyle = span.fontStyle || 'normal';
+      const spanFontWeight = span.fontWeight || 'normal';
+      const spanFont = `${spanFontStyle} ${spanFontWeight} ${spanFontSize}px ${span.fontFamily || 'Arial'}`;
       ctx.font = spanFont;
       lineWidth += ctx.measureText(span.text).width;
     });
@@ -949,12 +971,13 @@ function drawRichText(
     // Draw each span
     line.spans.forEach(span => {
       const spanFontWeight = span.fontWeight || 'normal';
+      const spanFontStyle = span.fontStyle || 'normal';
       // CRITICAL: Scale span fontSize if provided, otherwise use base (already scaled)
       const spanFontSize = span.fontSize ? Math.round(span.fontSize * scaleFactor) : baseFontSize;
       const spanFontFamily = span.fontFamily || 'Arial';
       const spanColor = span.color || ctx.fillStyle;
       
-      ctx.font = `${spanFontWeight} ${spanFontSize}px ${spanFontFamily}`;
+      ctx.font = `${spanFontStyle} ${spanFontWeight} ${spanFontSize}px ${spanFontFamily}`;
       ctx.fillStyle = spanColor;
       ctx.fillText(span.text, currentX, lineY);
       

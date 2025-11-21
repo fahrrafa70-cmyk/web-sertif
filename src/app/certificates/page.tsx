@@ -754,6 +754,11 @@ function CertificatesContent() {
               excelScoreData = {};
               // The row data comes from mergeExcelData() which maps Excel columns to layer IDs
               const scoreTextLayers = layoutConfig.score.textLayers || [];
+              
+              // DEBUG: Log available Excel columns
+              console.log('📊 [EXCEL DEBUG] Available Excel columns:', Object.keys(row));
+              console.log('📊 [EXCEL DEBUG] Score text layers:', scoreTextLayers.map(l => l.id));
+              
               for (const layer of scoreTextLayers) {
                 // Only skip standard certificate fields that are handled separately
                 // DO NOT skip based on useDefaultText - we need Excel data for ALL layers!
@@ -767,8 +772,16 @@ function CertificatesContent() {
                 // Extract Excel data for ALL other layers (including those with useDefaultText)
                 if (row[layer.id] !== undefined && row[layer.id] !== null && row[layer.id] !== '') {
                   excelScoreData[layer.id] = String(row[layer.id]);
+                  
+                  // DEBUG: Log extracted data
+                  console.log(`✅ [EXCEL EXTRACTED] Layer "${layer.id}":`, String(row[layer.id]));
+                } else {
+                  // DEBUG: Log missing data
+                  console.log(`❌ [EXCEL MISSING] Layer "${layer.id}" not found in Excel row`);
                 }
               }
+              
+              console.log('📦 [EXCEL SCORE DATA]:', excelScoreData);
             }
             
             // generateSingleCertificate will auto-generate certificate_no and expired_date if empty
@@ -1105,6 +1118,15 @@ function CertificatesContent() {
                 scoreData[layer.id] !== '' &&
                 String(scoreData[layer.id]).trim() !== '') {
               text = String(scoreData[layer.id]).trim();
+              
+              // DEBUG: Log score layer text assignment
+              console.log(`🎨 [RENDER LAYER] "${layer.id}":`, {
+                text: text.substring(0, 50),
+                fontSize: layer.fontSize,
+                textAlign: layer.textAlign,
+                xPercent: layer.xPercent,
+                yPercent: layer.yPercent
+              });
             }
             else if (layer.id === 'name') {
               text = member.name;

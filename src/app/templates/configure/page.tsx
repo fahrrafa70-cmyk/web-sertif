@@ -2484,21 +2484,6 @@ function ConfigureLayoutContent() {
                           tabletHorizontalOffset = scaleDifference * 1; // Slight right shift
                         }
                         
-                        console.log(`📱 [${layer.id}] Tablet Dynamic Adjustment:`, {
-                          layerId: layer.id,
-                          canvasScale: canvasScale,
-                          scaleDifference: Math.abs(canvasScale - 1.0),
-                          iPadProScale: 0.948,
-                          relativeScaleDiff: canvasScale < 1.0 ? (0.948 - canvasScale) : 0,
-                          baseOffset: canvasScale < 1.0 ? -0.1 : 0,
-                          additionalOffset: canvasScale < 1.0 ? -((0.948 - canvasScale) * 2) : 0,
-                          horizontalOffset: tabletHorizontalOffset,
-                          verticalOffset: tabletVerticalOffset,
-                          device: 'Tablet (Dynamic)',
-                          windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'N/A',
-                          templateWidth: templateImageDimensions?.width || STANDARD_CANVAS_WIDTH,
-                          containerWidth: canvasRef.current?.offsetWidth || 0
-                        });
                         return `translate(${tabletHorizontalOffset}%, ${tabletVerticalOffset}%)`;
                       }
                       
@@ -2522,7 +2507,7 @@ function ConfigureLayoutContent() {
                           // 🎯 DIFFERENT ADJUSTMENT FOR EACH LAYER AND MODE
                           if (layer.id === 'issue_date' && configMode === 'certificate') {
                             // issue_date in CERTIFICATE mode - turun 0.5px (lower 0.5px)
-                            mobileVerticalOffset = -49.5 + (scaleDifference * 2.5); // -49.5 = turun 0.5px dari -50
+                            mobileVerticalOffset = -45 + (scaleDifference * 2.5); // -49.5 = turun 0.5px dari -50
                             mobileHorizontalOffset = -(scaleDifference * 2);
                           } else if (layer.id === 'issue_date' && configMode === 'score') {
                             // issue_date in SCORE mode - turun 0.5px (lower 0.5px)
@@ -2530,30 +2515,16 @@ function ConfigureLayoutContent() {
                             mobileHorizontalOffset = -(scaleDifference * 5);
                           } else if (layer.id === 'certificate_no') {
                             // certificate_no: fine-tuned position (naik 1px dari original -43)
-                            mobileVerticalOffset = -44 - (scaleDifference * 1); // Naik 1px dari -43
+                            mobileVerticalOffset = -40 - (scaleDifference * 1); // Naik 1px dari -43
                             mobileHorizontalOffset = -2 - (scaleDifference * 1); // Previous value - slight left
                           } else if (isNilaiPrestasiLayer) {
                             // ONLY nilai/prestasi layers - NOT aspek teknis or other layers
                             mobileVerticalOffset = -10 - (scaleDifference * 40);
                             mobileHorizontalOffset = 10 - (scaleDifference * 15);
-                            console.log(`🎯 [${layer.id}] NILAI/PRESTASI OFFSET APPLIED:`, {
-                              layerId: layer.id,
-                              scaleDifference: scaleDifference,
-                              verticalOffset: mobileVerticalOffset,
-                              horizontalOffset: mobileHorizontalOffset,
-                              canvasScale: canvasScale
-                            });
                           } else if (isKompetensiLayer) {
                             // ONLY kompetensi layer - geser sedikit ke kiri
                             mobileVerticalOffset = -50 - (scaleDifference * 3);
                             mobileHorizontalOffset = -1 - (scaleDifference * 1); // -1 = geser 1px ke kiri
-                            console.log(`🎯 [${layer.id}] KOMPETENSI OFFSET APPLIED:`, {
-                              layerId: layer.id,
-                              scaleDifference: scaleDifference,
-                              verticalOffset: mobileVerticalOffset,
-                              horizontalOffset: mobileHorizontalOffset,
-                              canvasScale: canvasScale
-                            });
                           }
                         } else if (canvasScale > 1.0) {
                           // Scale is larger than 1, adjust accordingly
@@ -2561,21 +2532,6 @@ function ConfigureLayoutContent() {
                           mobileVerticalOffset = -50 + (scaleDifference * 10);
                           mobileHorizontalOffset = scaleDifference * 5; // Move right slightly
                         }
-                      
-
-                        console.log(`🎯 [${layer.id}] Mobile Transform Calculation:`, {
-                          layerId: layer.id,
-                          configMode,
-                          canvasScale,
-                          verticalOffset: mobileVerticalOffset,
-                          horizontalOffset: mobileHorizontalOffset,
-                          scaleDifference: Math.abs(canvasScale - 1.0),
-                          adjustmentType: (layer.id === 'issue_date' && configMode === 'certificate') ? 'ISSUE_DATE_CERTIFICATE' : 
-                                         (layer.id === 'issue_date' && configMode === 'score') ? 'ISSUE_DATE_SCORE' :
-                                         layer.id === 'certificate_no' ? 'CERTIFICATE_NO' : 
-                                         isNilaiPrestasiLayer ? 'NILAI_PRESTASI_ONLY' : 
-                                         isKompetensiLayer ? 'KOMPETENSI_ONLY' : 'DEFAULT'
-                        });
                         
                         return `translate(${mobileHorizontalOffset}%, ${mobileVerticalOffset}%)`;
                       }
@@ -2629,12 +2585,20 @@ function ConfigureLayoutContent() {
                             const templateScale = (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH) / STANDARD_CANVAS_WIDTH;
                             const domScale = isDesktop ? templateScale : templateScale * canvasScale;
                             
-                            // Small compensation for mobile (3.5% wider) for better readability
-                            const widthCompensation = (!isDesktop && layer.maxWidth) ? 1.035 : 1; // 3.5% wider on mobile
+                            // Mobile width compensation: description gets more width for better readability
+                            let widthCompensation = 1;
+                            if (!isDesktop && layer.maxWidth) {
+                              // Description layer gets 7% wider on mobile
+                              if (layer.id === 'description') {
+                                widthCompensation = 1.06; // 7% wider
+                              } else {
+                                widthCompensation = 1.035; // 3.5% wider for other layers
+                              }
+                            }
 
                             return {
                               fontSize: `${layer.fontSize * domScale}px`,
-                              // Scale width-related properties with small compensation on mobile
+                              // Scale width-related properties with compensation on mobile
                               width: layer.maxWidth ? `${layer.maxWidth * domScale * widthCompensation}px` : 'auto',
                               maxWidth: layer.maxWidth ? `${layer.maxWidth * domScale * widthCompensation}px` : 'none',
                               minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * domScale}px`,
