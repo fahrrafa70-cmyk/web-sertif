@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   X,
   Home,
@@ -124,14 +125,17 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               {/* Header */}
               <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <div className="flex items-center space-x-3">
-                  <div className="w-11 h-11 gradient-primary rounded-xl flex items-center justify-center shadow-md">
-                    <span className="text-white font-bold text-xl tracking-tight">E</span>
-                  </div>
+                  <Image 
+                    src="/favicon.png" 
+                    alt="Certify Logo" 
+                    width={44} 
+                    height={44}
+                    className="w-11 h-11 object-contain"
+                  />
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                      E-Certificate
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                      Certify
                     </h2>
-                    <p className="text-xs text-gray-400 dark:text-gray-300 font-medium tracking-wide">Certification System</p>
                   </div>
                 </div>
                 <button
