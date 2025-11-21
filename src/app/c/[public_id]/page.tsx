@@ -347,18 +347,16 @@ export default function PublicCertificatePage() {
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm" style={{ margin: 0, padding: 0, position: 'sticky', top: 0, zIndex: 50 }}>
         <div className="px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* Logo Icon with header.png */}
+            {/* Logo Icon - favicon.png only */}
             <div className="relative flex-shrink-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 gradient-primary rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md overflow-hidden">
-                <Image
-                  src="/header.png"
-                  alt="Certify Logo"
-                  width={32}
-                  height={32}
-                  className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
-                  priority
-                />
-              </div>
+              <Image
+                src="/favicon.png"
+                alt="Certify Logo"
+                width={40}
+                height={40}
+                className="w-10 h-10 sm:w-12 sm:h-12 object-contain transition-all duration-300 hover:scale-105"
+                priority
+              />
             </div>
             
             {/* Text */}
