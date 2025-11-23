@@ -59,32 +59,42 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
           {!hideMobileSidebar && (
             <button
               onClick={handleMobileSidebarToggle}
-              className="lg:hidden flex-shrink-0 p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="lg:hidden flex-shrink-0 p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative z-20"
               aria-label="Open Menu"
             >
               <Menu className="w-5 h-5" />
             </button>
           )}
 
-          {/* Logo - Responsive positioning */}
-          <div className="flex-1 lg:flex-initial flex items-center justify-center lg:justify-start min-w-0 overflow-hidden">
-            <Link href="/" className="flex items-center space-x-2 sm:space-x-2.5 md:space-x-3 group max-w-full">
-              <div className="relative flex-shrink-0">
+          {/* Logo - Absolute centered on mobile, normal flow on desktop */}
+          <div className="flex-1 lg:flex-initial flex items-center relative">
+            {/* Mobile: Absolute centered logo */}
+            <div className="lg:hidden absolute inset-0 flex items-center justify-center z-10">
+              <Link href="/" className="flex items-center group">
                 <Image
-                  src="/favicon.png"
+                  src="/headerdark.png"
                   alt="Certify Logo"
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 object-contain transition-all duration-300 group-hover:scale-105"
+                  width={200}
+                  height={60}
+                  className="h-10 sm:h-11 md:h-12 w-auto object-contain transition-all duration-300 group-hover:scale-105"
                   priority
                 />
-              </div>
-              
-              {/* Text - Bold and prominent */}
-              <span className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                Certify
-              </span>
-            </Link>
+              </Link>
+            </div>
+            
+            {/* Desktop: Normal positioned logo */}
+            <div className="hidden lg:flex items-center">
+              <Link href="/" className="flex items-center group">
+                <Image
+                  src="/headerdark.png"
+                  alt="Certify Logo"
+                  width={320}
+                  height={120}
+                  className="h-12 w-auto object-contain transition-all duration-300 group-hover:scale-105"
+                  priority
+                />
+              </Link>
+            </div>
           </div>
 
           {/* Right Section - Theme + Language + Avatar or Login */}

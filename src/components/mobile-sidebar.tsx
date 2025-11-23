@@ -124,19 +124,14 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
             <div className="flex flex-col h-full">
               {/* Header */}
               <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center">
                   <Image 
-                    src="/favicon.png" 
+                    src="/headerdark.png" 
                     alt="Certify Logo" 
-                    width={44} 
-                    height={44}
-                    className="w-11 h-11 object-contain"
+                    width={200} 
+                    height={60}
+                    className="h-10 w-auto object-contain"
                   />
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      Certify
-                    </h2>
-                  </div>
                 </div>
                 <button
                   onClick={onClose}

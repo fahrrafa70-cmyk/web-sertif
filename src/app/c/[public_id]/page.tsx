@@ -386,15 +386,18 @@ export default function PublicCertificatePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Main Certificate Image */}
                     {certificate.certificate_image_url ? (
-                      <div className="relative w-full">
-                        <Image
-                          src={certificate.certificate_image_url}
-                          alt="Certificate"
-                          width={800}
-                          height={600}
-                          className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
-                          priority
-                        />
+                      <div className="flex items-center">
+                        {/* Logo - headerdark.png only */}
+                        <div className="relative flex-shrink-0">
+                          <Image
+                            src="/headerdark.png"
+                            alt="Certify Logo"
+                            width={100}
+                            height={32}
+                            className="h-6 sm:h-7 md:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
+                            priority
+                          />
+                        </div>
                       </div>
                     ) : (
                       <div className="w-full h-48 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
