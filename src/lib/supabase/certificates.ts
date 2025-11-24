@@ -11,6 +11,7 @@ export interface Certificate {
   category: string | null;
   template_id: string | null;
   member_id: string | null;
+  tenant_id?: string | null;
   certificate_image_url: string | null; // PNG master (high quality)
   certificate_thumbnail_url?: string | null; // WebP preview (web optimized)
   score_image_url: string | null; // PNG score master (dual templates)

@@ -1,6 +1,7 @@
 "use client";
 
 import ModernLayout from "@/components/modern-layout";
+import type { ReactElement } from "react";
 import { Input } from "@/components/ui/input";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Member } from "@/lib/supabase/members";
+import { Tenant, getTenantsForCurrentUser } from "@/lib/supabase/tenants";
 import {
   Dialog,
   DialogContent,
@@ -61,15 +63,14 @@ import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/c
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
 import { CertificatesPageSkeleton } from "@/components/ui/certificates-skeleton";
-import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
 import { autoPopulatePrestasi } from "@/lib/utils/score-predicates";
 import { 
   replaceVariables, 
   replaceVariablesInRichText
 } from '@/lib/utils/variable-parser';
-import { getTenantsForCurrentUser, type Tenant } from "@/lib/supabase/tenants";
+import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
 
-function CertificatesContent() {
+function CertificatesContent(): ReactElement {
   const { t, language } = useLanguage();
   
   // Set document title robust untuk certificates page
@@ -706,7 +707,9 @@ function CertificatesContent() {
               generated++;
               // Update the same toast instead of creating new ones
               toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
-            } catch {
+            } catch (error) {
+              console.error(`❌ Failed to generate certificate for ${member.name}:`, error);
+              // Don't increment generated count on error
             }
           }
           
@@ -868,8 +871,8 @@ function CertificatesContent() {
       scoreData = autoPopulatePrestasi(scoreData);
     }
     
-    // Generate XID early for use in QR codes and file names
-    const { cert: certFileName, score: scoreFileName, xid } = generatePairedXIDFilenames();
+    // ✅ BUG FIX: Don't generate new XID for file naming!
+    // We'll get proper filenames after saving certificate with real XID
     
     // CRITICAL: Auto-generate certificate_no if empty
     let finalCertificateNo = certData.certificate_no?.trim();
@@ -995,11 +998,14 @@ function CertificatesContent() {
       mask: layer.mask
     })) || [];
     
+    // ✅ We'll get certificate XID after saving it below
+    // For now, prepare QR layers with placeholder - we'll update URLs after certificate is saved
+    
     // Prepare QR code layers with certificate URL from layout config  
     const qrLayersForRender = layoutConfig?.certificate?.qrLayers?.map((layer: QRCodeLayerConfig) => ({
       id: layer.id,
       type: layer.type as 'qr_code',
-      qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/${xid}`),
+      qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/PLACEHOLDER_XID`),
       x: layer.x,
       y: layer.y,
       xPercent: layer.xPercent,
@@ -1016,6 +1022,10 @@ function CertificatesContent() {
       errorCorrectionLevel: layer.errorCorrectionLevel,
       margin: layer.margin
     })) || [];
+    
+    // ✅ BUG FIX: Don't generate new XID for file naming!
+    // We'll get proper filenames after saving certificate with real XID
+    const { cert: certFileName, xid } = generatePairedXIDFilenames();
     
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
@@ -1071,7 +1081,7 @@ function CertificatesContent() {
     
     const finalCertificateImageUrl = pngUploadResult.url;
     const finalCertificateThumbnailUrl = webpUploadResult.url;
-    const certificateTextLayers: CertificateTextLayer[] = textLayers.map(layer => {
+    const certificateTextLayers: CertificateTextLayer[] = textLayers.map((layer) => {
       const baseLayer = {
         id: layer.id,
         text: layer.text,
@@ -1081,18 +1091,17 @@ function CertificatesContent() {
         yPercent: layer.yPercent || 0,
         fontSize: layer.fontSize,
         color: layer.color,
-        fontWeight: layer.fontWeight || 'normal',
-        fontFamily: layer.fontFamily || 'Arial',
+        fontWeight: layer.fontWeight || "normal",
+        fontFamily: layer.fontFamily || "Arial",
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
       };
       // Only include textAlign if it's not certificate_no or issue_date
-      if (layer.id !== 'certificate_no' && layer.id !== 'issue_date') {
+      if (layer.id !== "certificate_no" && layer.id !== "issue_date") {
         return { ...baseLayer, textAlign: layer.textAlign };
       }
       return baseLayer;
     });
-    
     // Create certificate data to save (use finalCertData which has auto-generated values)
     const certificateDataToSave: CreateCertificateData = {
       certificate_no: finalCertData.certificate_no,
@@ -1103,13 +1112,108 @@ function CertificatesContent() {
       category: template.category || undefined,
       template_id: template.id,
       member_id: member.id.startsWith('temp-') ? undefined : member.id,
-      text_layers: certificateTextLayers,
+      text_layers: textLayers.map(layer => {
+        const baseLayer = {
+          id: layer.id,
+          text: layer.text,
+          x: layer.x || 0,
+          y: layer.y || 0,
+          xPercent: layer.xPercent || 0,
+          yPercent: layer.yPercent || 0,
+          fontSize: layer.fontSize,
+          color: layer.color,
+          fontWeight: layer.fontWeight || 'normal',
+          fontFamily: layer.fontFamily || 'Arial',
+          maxWidth: layer.maxWidth,
+          lineHeight: layer.lineHeight,
+        };
+        // Only include textAlign if it's not certificate_no or issue_date
+        if (layer.id !== 'certificate_no' && layer.id !== 'issue_date') {
+          return { ...baseLayer, textAlign: layer.textAlign };
+        }
+        return baseLayer;
+      }),
       merged_image: finalCertificateImageUrl,
       certificate_image_url: finalCertificateImageUrl,
       certificate_thumbnail_url: finalCertificateThumbnailUrl,
     };
-    
+
+    // Save certificate to get proper XID from database
     const savedCertificate = await createCertificate(certificateDataToSave);
+
+    // Now use the REAL certificate XID for filenames
+    const certificateXid = savedCertificate.xid;
+    // Use certificateXid to update existing filenames
+    const finalCertFileName = `${certificateXid}_cert.png`;
+    const finalScoreFileName = `${certificateXid}_score.png`;
+
+    // Update QR layers with correct certificate XID
+    qrLayersForRender?.forEach(layer => {
+      const currentQrData = layer.qrData ?? '';
+      layer.qrData = currentQrData.replace('PLACEHOLDER_XID', certificateXid ?? '');
+    });
+
+    // Re-render certificate with correct QR URLs and upload with proper filename
+    const finalCertificateImageDataUrl = await renderCertificateToDataURL({
+      templateImageUrl,
+      textLayers,
+      photoLayers: photoLayersForRender,
+      qrLayers: qrLayersForRender,
+    });
+
+    const finalCertificateThumbnail = await generateThumbnail(finalCertificateImageDataUrl, {
+      format: 'webp',
+      quality: 0.85,
+      maxWidth: 1200
+    });
+
+    // Upload with proper XID filename
+    const finalPngUploadResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData: finalCertificateImageDataUrl,
+        fileName: finalCertFileName,
+        bucketName: 'certificates',
+      }),
+    });
+
+    if (!finalPngUploadResponse.ok) {
+      const errorText = await finalPngUploadResponse.text();
+      throw new Error(`Failed to upload final PNG to storage: ${errorText}`);
+    }
+
+    const finalPngUploadResult = await finalPngUploadResponse.json();
+    const finalWebpUploadResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData: finalCertificateThumbnail,
+        fileName: finalCertFileName.replace('.png', '.webp'),
+        bucketName: 'certificates',
+      }),
+    });
+
+    if (!finalWebpUploadResponse.ok) {
+      const errorText = await finalWebpUploadResponse.text();
+      throw new Error(`Failed to upload final WebP to storage: ${errorText}`);
+    }
+
+    const finalWebpUploadResult = await finalWebpUploadResponse.json();
+
+    // Update certificate record with proper URLs
+    const { error: updateError } = await supabaseClient
+      .from('certificates')
+      .update({ 
+        certificate_image_url: finalPngUploadResult.url,
+        certificate_thumbnail_url: finalWebpUploadResult.url
+      })
+      .eq('id', savedCertificate.id);
+    
+    if (updateError) {
+      console.error('❌ Failed to update certificate URLs:', updateError);
+    }
+    
     if (template.score_image_url && scoreData && Object.keys(scoreData).length > 0) {
       try {
         // Load score layout from database
@@ -1238,7 +1342,7 @@ function CertificatesContent() {
           const scoreQRLayersForRender = layoutConfig?.score?.qrLayers?.map((layer: QRCodeLayerConfig) => ({
             id: layer.id,
             type: layer.type as 'qr_code',
-            qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/${xid}`),
+            qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/${certificateXid}`),
             x: layer.x,
             y: layer.y,
             xPercent: layer.xPercent,
@@ -1267,7 +1371,7 @@ function CertificatesContent() {
             quality: 0.85,
             maxWidth: 1200
           });
-          const scorePngFileName = scoreFileName;
+          const scorePngFileName = finalScoreFileName;
           const scorePngUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
