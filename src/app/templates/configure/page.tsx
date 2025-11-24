@@ -1394,6 +1394,79 @@ function ConfigureLayoutContent() {
     document.addEventListener('pointerup', handlePointerUp);
   };
 
+  // Handle QR code resize with pointer events - maintains square aspect ratio
+  const handleQRResizePointerDown = (layerId: string, e: React.PointerEvent, direction: 'right' | 'left' | 'top' | 'bottom' | 'corner' = 'corner') => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const layer = qrLayers.find(l => l.id === layerId);
+    if (!layer || !canvasRef.current) return;
+
+    // Capture pointer for consistent tracking
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startSize = layer.width; // QR is always square, use width as size
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      // Get actual container dimensions and calculate scale
+      const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+      const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+      const actualScale = canvasScale;
+      
+      // Convert pointer delta to template coordinates using actual scale
+      const deltaX = (moveEvent.clientX - startX) / actualScale;
+      const deltaY = (moveEvent.clientY - startY) / actualScale;
+      
+      // For QR codes, we always maintain square aspect ratio
+      // Use the larger delta for more intuitive resizing
+      let sizeDelta = 0;
+      
+      if (direction === 'right') {
+        sizeDelta = deltaX;
+      } else if (direction === 'left') {
+        sizeDelta = -deltaX;
+      } else if (direction === 'bottom') {
+        sizeDelta = deltaY;
+      } else if (direction === 'top') {
+        sizeDelta = -deltaY;
+      } else if (direction === 'corner') {
+        // For corner resize, use the average of both deltas for smooth resizing
+        sizeDelta = (Math.abs(deltaX) > Math.abs(deltaY)) ? deltaX : deltaY;
+      }
+      
+      // Calculate new size (square)
+      const newSize = Math.max(50, Math.min(
+        Math.min(templateWidth, templateHeight) * 0.8, // Max 80% of template
+        startSize + sizeDelta
+      ));
+      
+      // Update QR layer with new square dimensions
+      updateQRLayer(layerId, {
+        width: Math.round(newSize),
+        height: Math.round(newSize), // Always square
+        widthPercent: newSize / templateWidth,
+        heightPercent: newSize / templateHeight
+      });
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      // Release pointer capture
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch (err) {
+        // Ignore if already released
+      }
+      
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+  };
+
   // Handle photo layer drag
   const handlePhotoLayerMouseDown = (layerId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -2647,12 +2720,14 @@ function ConfigureLayoutContent() {
                           e.stopPropagation();
                           setSelectedLayerId(layer.id);
                           setSelectedPhotoLayerId(null);
+                          setSelectedQRLayerId(null);
                         }}
                         onPointerDown={(e) => {
                           if (!isSelected) {
                             e.stopPropagation();
                             setSelectedLayerId(layer.id);
                             setSelectedPhotoLayerId(null);
+                            setSelectedQRLayerId(null);
                           } else {
                             handleLayerPointerDown(layer.id, e);
                           }
@@ -2782,12 +2857,14 @@ function ConfigureLayoutContent() {
                           e.stopPropagation();
                           setSelectedPhotoLayerId(layer.id);
                           setSelectedLayerId(null);
+                          setSelectedQRLayerId(null);
                         }}
                         onMouseDown={(e) => {
                           if (!isSelected) {
                             e.stopPropagation();
                             setSelectedPhotoLayerId(layer.id);
                             setSelectedLayerId(null);
+                            setSelectedQRLayerId(null);
                           } else {
                             handlePhotoLayerMouseDown(layer.id, e);
                           }
@@ -2921,6 +2998,85 @@ function ConfigureLayoutContent() {
                             }}
                           />
                         )}
+                        
+                        {/* QR Resize Handles - Only show when selected */}
+                        {isSelected && (
+                          <>
+                            {/* Corner resize handles for better UX (QR codes are square) */}
+                            {/* Bottom-right corner */}
+                            <div
+                              className="absolute -bottom-3 -right-3 w-6 h-6 cursor-nwse-resize group"
+                              style={{ userSelect: 'none', touchAction: 'none', zIndex: 1000 }}
+                              onPointerDown={(e) => handleQRResizePointerDown(layer.id, e, 'corner')}
+                              title="Drag to resize QR code"
+                            >
+                              <div className="w-3 h-3 bg-blue-500 rounded-full absolute bottom-0 right-0 border-2 border-white shadow-md"></div>
+                            </div>
+                            
+                            {/* Bottom-left corner */}
+                            <div
+                              className="absolute -bottom-3 -left-3 w-6 h-6 cursor-nesw-resize group"
+                              style={{ userSelect: 'none', touchAction: 'none', zIndex: 1000 }}
+                              onPointerDown={(e) => handleQRResizePointerDown(layer.id, e, 'corner')}
+                              title="Drag to resize QR code"
+                            >
+                              <div className="w-3 h-3 bg-blue-500 rounded-full absolute bottom-0 left-0 border-2 border-white shadow-md"></div>
+                            </div>
+                            
+                            {/* Top-right corner */}
+                            <div
+                              className="absolute -top-3 -right-3 w-6 h-6 cursor-nesw-resize group"
+                              style={{ userSelect: 'none', touchAction: 'none', zIndex: 1000 }}
+                              onPointerDown={(e) => handleQRResizePointerDown(layer.id, e, 'corner')}
+                              title="Drag to resize QR code"
+                            >
+                              <div className="w-3 h-3 bg-blue-500 rounded-full absolute top-0 right-0 border-2 border-white shadow-md"></div>
+                            </div>
+                            
+                            {/* Top-left corner */}
+                            <div
+                              className="absolute -top-3 -left-3 w-6 h-6 cursor-nwse-resize group"
+                              style={{ userSelect: 'none', touchAction: 'none', zIndex: 1000 }}
+                              onPointerDown={(e) => handleQRResizePointerDown(layer.id, e, 'corner')}
+                              title="Drag to resize QR code"
+                            >
+                              <div className="w-3 h-3 bg-blue-500 rounded-full absolute top-0 left-0 border-2 border-white shadow-md"></div>
+                            </div>
+                            
+                            {/* Edge resize handles for more granular control */}
+                            {/* Right edge */}
+                            <div
+                              className="absolute top-0 -right-2 w-4 h-full cursor-ew-resize"
+                              style={{ userSelect: 'none', touchAction: 'none', zIndex: 999 }}
+                              onPointerDown={(e) => handleQRResizePointerDown(layer.id, e, 'right')}
+                              title="Drag to resize width"
+                            />
+                            
+                            {/* Left edge */}
+                            <div
+                              className="absolute top-0 -left-2 w-4 h-full cursor-ew-resize"
+                              style={{ userSelect: 'none', touchAction: 'none', zIndex: 999 }}
+                              onPointerDown={(e) => handleQRResizePointerDown(layer.id, e, 'left')}
+                              title="Drag to resize width"
+                            />
+                            
+                            {/* Bottom edge */}
+                            <div
+                              className="absolute -bottom-2 left-0 h-4 w-full cursor-ns-resize"
+                              style={{ userSelect: 'none', touchAction: 'none', zIndex: 999 }}
+                              onPointerDown={(e) => handleQRResizePointerDown(layer.id, e, 'bottom')}
+                              title="Drag to resize height"
+                            />
+                            
+                            {/* Top edge */}
+                            <div
+                              className="absolute -top-2 left-0 h-4 w-full cursor-ns-resize"
+                              style={{ userSelect: 'none', touchAction: 'none', zIndex: 999 }}
+                              onPointerDown={(e) => handleQRResizePointerDown(layer.id, e, 'top')}
+                              title="Drag to resize height"
+                            />
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -3014,6 +3170,7 @@ function ConfigureLayoutContent() {
                         onClick={() => {
                           setSelectedLayerId(layer.id);
                           setSelectedPhotoLayerId(null);
+                          setSelectedQRLayerId(null);
                         }}
                       >
                         <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
@@ -3144,6 +3301,7 @@ function ConfigureLayoutContent() {
                           onClick={() => {
                             setSelectedPhotoLayerId(layer.id);
                             setSelectedLayerId(null);
+                            setSelectedQRLayerId(null);
                           }}
                         >
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
