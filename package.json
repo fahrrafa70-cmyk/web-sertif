@@ -27,7 +27,9 @@
     "pwa:validate": "node scripts/validate-pwa.js",
     "pwa:test": "npm run build && npm run pwa:validate",
     "thumbnails:regenerate": "node scripts/regenerate-thumbnails.js",
-    "thumbnails:check": "echo 'Checking thumbnail optimization status...' && ls -la public/template/thumbnails/ 2>/dev/null || echo 'No thumbnails directory found'"
+    "thumbnails:check": "echo 'Checking thumbnail optimization status...' && ls -la public/template/thumbnails/ 2>/dev/null || echo 'No thumbnails directory found'",
+    "migrate:xid": "node scripts/migrate-uuid-to-xid.js migrate",
+    "migrate:xid:verify": "node scripts/migrate-uuid-to-xid.js verify"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
