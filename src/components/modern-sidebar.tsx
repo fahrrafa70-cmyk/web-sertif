@@ -10,6 +10,7 @@ import {
   Users,
   Info,
   HelpCircle,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
@@ -39,6 +40,12 @@ const ModernSidebar = memo(function ModernSidebar() {
       icon: <Home className="w-5 h-5" />,
       label: t("nav.home"),
       href: "/",
+    },
+    {
+      icon: <Building2 className="w-5 h-5" />,
+      label: "Tenants",
+      href: "/tenants",
+      roles: ["admin", "team"],
     },
     {
       icon: <FileText className="w-5 h-5" />,

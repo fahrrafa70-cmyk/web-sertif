@@ -16,10 +16,14 @@ import * as XLSX from "xlsx";
 import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X, Users, Filter } from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { confirmToast } from "@/lib/ui/confirm";
+import { getTenantsForCurrentUser, type Tenant } from "@/lib/supabase/tenants";
 
 export default function MembersPage() {
   const { t, language } = useLanguage();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
+  const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
 
   // Set document title robust untuk data/members page
   useEffect(() => {
@@ -43,6 +47,7 @@ export default function MembersPage() {
       timeouts.forEach(clearTimeout);
     };
   }, []);
+
   const [membersData, setMembersData] = useState<Member[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +126,37 @@ export default function MembersPage() {
       setLoading(false);
     }
   }, [t]);
+
+  // Load tenants for selector
+  useEffect(() => {
+    const loadTenants = async () => {
+      try {
+        setLoadingTenants(true);
+        const data = await getTenantsForCurrentUser();
+        setTenants(data);
+
+        let initialId = "";
+        try {
+          const stored = window.localStorage.getItem("ecert-selected-tenant-id") || "";
+          if (stored && data.some((t) => t.id === stored)) {
+            initialId = stored;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (!initialId && data.length === 1) {
+          initialId = data[0].id;
+        }
+
+        setSelectedTenantId(initialId);
+      } finally {
+        setLoadingTenants(false);
+      }
+    };
+
+    void loadTenants();
+  }, []);
 
   // Handle Excel import
   const handleExcelImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -537,39 +573,38 @@ export default function MembersPage() {
     setFilterModalOpen(false);
   };
 
-  // Filter members based on search query and filters
+  // Filter members based on tenant, search query and filters
   // Use debounced search query for filtering
   const filteredMembers = useMemo(() => {
     let filtered = membersData;
-    
+
+    // Apply tenant filter
+    if (selectedTenantId) {
+      filtered = filtered.filter((member) => member.tenant_id === selectedTenantId);
+    }
+
     // Apply organization filter
     if (organizationFilter) {
-      filtered = filtered.filter(member => 
-        member.organization === organizationFilter
-      );
+      filtered = filtered.filter((member) => member.organization === organizationFilter);
     }
-    
+
     // Apply city filter
     if (cityFilter) {
-      filtered = filtered.filter(member => 
-        member.city === cityFilter
-      );
+      filtered = filtered.filter((member) => member.city === cityFilter);
     }
-    
+
     // Apply job filter
     if (jobFilter) {
-      filtered = filtered.filter(member => 
-        member.job === jobFilter
-      );
+      filtered = filtered.filter((member) => member.job === jobFilter);
     }
-    
+
     // Apply search query
     if (!debouncedSearchQuery.trim()) {
       return filtered;
     }
-    
+
     const query = debouncedSearchQuery.toLowerCase();
-    return filtered.filter(member => 
+    return filtered.filter((member) =>
       member.name.toLowerCase().includes(query) ||
       (member.email && member.email.toLowerCase().includes(query)) ||
       (member.organization && member.organization.toLowerCase().includes(query)) ||
@@ -577,7 +612,7 @@ export default function MembersPage() {
       (member.job && member.job.toLowerCase().includes(query)) ||
       (member.city && member.city.toLowerCase().includes(query))
     );
-  }, [membersData, debouncedSearchQuery, organizationFilter, cityFilter, jobFilter]);
+  }, [membersData, debouncedSearchQuery, organizationFilter, cityFilter, jobFilter, selectedTenantId]);
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -644,40 +679,86 @@ export default function MembersPage() {
           <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 mb-6">
-              {/* Title */}
+              {/* Title + Active Tenant Indicator */}
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
                   <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">{t('members.title')}</h1>
-              </div>
-                
-              {/* Action Buttons */}
-              {(role === "Admin" || role === "Team") && (
-                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
-                  <Button 
-                    onClick={() => setShowExcelInfoModal(true)} 
-                    disabled={importing}
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 flex-shrink-0" />
-                    <span className="whitespace-nowrap">{importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}</span>
-                  </Button>
-                  <input
-                    ref={excelInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleExcelImport}
-                    className="hidden"
-                  />
-                  <Button onClick={() => {
-                    setAddModalOpen(true);
-                    setFormErrors({});
-                  }} className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
-                    <span className="whitespace-nowrap">{language === 'id' ? 'Tambah Data' : 'Add Data'}</span>
-                  </Button>
+                <div>
+                  <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">{t('members.title')}</h1>
+                  <p className="mt-1 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                    <span>Tenant aktif:</span>
+                    {selectedTenantId ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 text-[10px] sm:text-[11px] uppercase tracking-wide">
+                        {tenants.find((t) => t.id === selectedTenantId)?.name || 'Tidak diketahui'}
+                      </span>
+                    ) : (
+                      <span className="text-red-500 text-[11px] sm:text-xs">Belum memilih tenant</span>
+                    )}
+                  </p>
                 </div>
-              )}
+              </div>
+
+              {/* Right side: Tenant selector (only if multiple) + Action Buttons */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                {tenants.length > 1 && (
+                  <div className="w-full sm:w-56">
+                    <select
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs sm:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                      value={selectedTenantId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedTenantId(value);
+                        try {
+                          window.localStorage.setItem("ecert-selected-tenant-id", value);
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      disabled={loadingTenants || tenants.length === 0}
+                    >
+                      {loadingTenants && <option value="">Memuat tenant...</option>}
+                      {!loadingTenants && tenants.length > 0 && !selectedTenantId && (
+                        <option value="">Pilih tenant...</option>
+                      )}
+                      {!loadingTenants && tenants.map((tenant) => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {(role === "Admin" || role === "Team") && (
+                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
+                    <Button
+                      onClick={() => setShowExcelInfoModal(true)}
+                      disabled={importing}
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 flex-shrink-0" />
+                      <span className="whitespace-nowrap">{importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}</span>
+                    </Button>
+                    <input
+                      ref={excelInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleExcelImport}
+                      className="hidden"
+                    />
+                    <Button
+                      onClick={() => {
+                        setAddModalOpen(true);
+                        setFormErrors({});
+                      }}
+                      className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                    >
+                      <span className="whitespace-nowrap">{language === 'id' ? 'Tambah Data' : 'Add Data'}</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* Search Bar and Filter */}

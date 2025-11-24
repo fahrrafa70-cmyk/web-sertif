@@ -27,6 +27,7 @@ export interface Template {
   category: string;
   orientation: string;
   created_at: string;
+  tenant_id?: string | null;
   image_path?: string; // Add image path field
   preview_image_path?: string; // Optional preview (thumbnail) image
   // Thumbnail paths for optimized loading
