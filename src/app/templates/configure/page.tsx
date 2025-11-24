@@ -2249,20 +2249,38 @@ function ConfigureLayoutContent() {
       {/* Main Content - Padding top sama dengan tinggi header untuk mengisi gap */}
       <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 pt-14 sm:pt-16">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-start gap-3 sm:gap-4">
           {/* Compact Canvas for Editing - Fixed on Mobile for stable positioning */}
           <div 
-            className="lg:col-span-4 order-1 lg:order-1 fixed lg:static top-20 sm:top-24 left-0 right-0 lg:left-auto lg:right-auto z-20 lg:z-auto bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 lg:bg-transparent pb-3 lg:pb-0 shadow-md lg:shadow-none overflow-hidden lg:overflow-visible px-3 sm:px-4 md:px-6 lg:px-0 pt-2 lg:pt-0 rounded-b-2xl lg:rounded-none"
-            style={{
-              maxHeight: isDesktop ? 'none' : (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width ? '55vh' : '38vh')
-            }}
+            className="lg:flex-1 lg:w-2/3 lg:self-start order-1 lg:order-1 fixed lg:static top-20 sm:top-24 left-0 right-0 lg:left-auto lg:right-auto z-20 lg:z-auto bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 lg:bg-transparent pb-3 lg:pb-0 shadow-md lg:shadow-none overflow-hidden lg:overflow-visible px-3 sm:px-4 md:px-6 lg:px-0 pt-2 lg:pt-0 rounded-b-2xl lg:rounded-none"
+              style={{
+                // Mobile: responsive max height based on template orientation  
+                // Desktop: fixed max height to prevent stretching with side panel
+                maxHeight: isDesktop 
+                  ? (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                      ? '900px'  // Desktop Portrait: max height
+                      : '600px') // Desktop Landscape: max height
+                  : (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
+                      ? '55vh' 
+                      : '38vh'),
+                // Fix border height on desktop - prevent extending based on panel height
+                height: isDesktop ? 'fit-content' : 'auto',
+                // Prevent flex stretch - maintain natural content height
+                alignSelf: isDesktop ? 'flex-start' : 'auto'
+              }}
           >
             <div 
-              className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6 h-full overflow-visible ${
+              className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 p-2 sm:p-3 md:p-4 lg:p-6 overflow-visible ${
                 !templateImageDimensions || (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width)
                   ? 'w-full lg:max-w-[650px] lg:mx-auto' 
                   : 'w-full'
               }`}
+              style={{
+                // Ensure fixed content height on desktop to prevent stretching
+                height: isDesktop ? 'fit-content' : '100%',
+                // Make sure container doesn't flex to fill parent height
+                flexShrink: 0
+              }}
             >
               {/* Loading skeleton - shown only when dimensions are not yet loaded */}
               {!templateImageDimensions && (
@@ -2873,6 +2891,7 @@ function ConfigureLayoutContent() {
                         <Image
                           src={layer.src}
                           alt={layer.id}
+                          fill
                           style={{
                             width: '100%',
                             height: '100%',
@@ -2955,6 +2974,8 @@ function ConfigureLayoutContent() {
                         <Image 
                           src={getQRPreviewUrl()}
                           alt="QR Code Preview"
+                          width={200}
+                          height={200}
                           className="w-full h-full object-contain p-1"
                           style={{
                             opacity: layer.opacity,
@@ -3088,7 +3109,7 @@ function ConfigureLayoutContent() {
 
           {/* Configuration Panel */}
           <div 
-            className="lg:col-span-2 order-2 lg:order-2 fixed lg:static lg:top-auto left-0 right-0 lg:left-auto lg:right-auto bottom-0 lg:bottom-auto z-10 lg:z-auto px-3 sm:px-4 md:px-6 lg:px-0"
+            className="lg:w-1/3 lg:flex-shrink-0 order-2 lg:order-2 fixed lg:static lg:top-auto left-0 right-0 lg:left-auto lg:right-auto bottom-0 lg:bottom-auto z-10 lg:z-auto px-3 sm:px-4 md:px-6 lg:px-0"
             style={{
               top: isDesktop ? 'auto' : (templateImageDimensions && templateImageDimensions.height > templateImageDimensions.width 
                 ? 'calc(55vh + 6.5rem)' 
@@ -3309,6 +3330,8 @@ function ConfigureLayoutContent() {
                               <Image 
                                 src={layer.src} 
                                 alt={layer.id}
+                                width={32}
+                                height={32}
                                 className="w-full h-full object-cover"
                               />
                             </div>
