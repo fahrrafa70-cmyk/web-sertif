@@ -2952,7 +2952,7 @@ function ConfigureLayoutContent() {
                         }}
                       >
                         {/* QR Code Preview Image from Storage */}
-                        <img 
+                        <Image 
                           src={getQRPreviewUrl()}
                           alt="QR Code Preview"
                           className="w-full h-full object-contain p-1"

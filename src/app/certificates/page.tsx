@@ -61,7 +61,6 @@ import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/c
 import { formatDateString, formatReadableDate } from "@/lib/utils/certificate-formatters";
 import { generateCertificateNumber } from "@/lib/supabase/certificates";
 import { CertificatesPageSkeleton } from "@/components/ui/certificates-skeleton";
-import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
 import { autoPopulatePrestasi } from "@/lib/utils/score-predicates";
 import { 
   replaceVariables, 
@@ -833,8 +832,8 @@ function CertificatesContent() {
       scoreData = autoPopulatePrestasi(scoreData);
     }
     
-    // Generate XID early for use in QR codes and file names
-    const { cert: certFileName, score: scoreFileName, xid } = generatePairedXIDFilenames();
+    // ✅ BUG FIX: Don't generate new XID for file naming!
+    // We'll get proper filenames after saving certificate with real XID
     
     // CRITICAL: Auto-generate certificate_no if empty
     let finalCertificateNo = certData.certificate_no?.trim();
@@ -960,11 +959,14 @@ function CertificatesContent() {
       mask: layer.mask
     })) || [];
     
+    // ✅ We'll get certificate XID after saving it below
+    // For now, prepare QR layers with placeholder - we'll update URLs after certificate is saved
+    
     // Prepare QR code layers with certificate URL from layout config  
     const qrLayersForRender = layoutConfig?.certificate?.qrLayers?.map((layer: QRCodeLayerConfig) => ({
       id: layer.id,
       type: layer.type as 'qr_code',
-      qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/${xid}`),
+      qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/PLACEHOLDER_XID`),
       x: layer.x,
       y: layer.y,
       xPercent: layer.xPercent,
@@ -982,6 +984,9 @@ function CertificatesContent() {
       margin: layer.margin
     })) || [];
     
+    // Use temporary filename for initial save
+    const tempFileName = `temp_${Date.now()}_cert.png`;
+    
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,
@@ -993,7 +998,7 @@ function CertificatesContent() {
       quality: 0.85,
       maxWidth: 1200
     });
-    const pngFileName = certFileName;
+    const pngFileName = tempFileName;
     const pngUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1074,7 +1079,81 @@ function CertificatesContent() {
       certificate_thumbnail_url: finalCertificateThumbnailUrl,
     };
     
+    // ✅ Save certificate to get proper XID from database
     const savedCertificate = await createCertificate(certificateDataToSave);
+    
+    // Now use the REAL certificate XID for filenames
+    const certificateXid = savedCertificate.xid;
+    const certFileName = `${certificateXid}_cert.png`;
+    const scoreFileName = `${certificateXid}_score.png`;
+    
+    // ✅ NOW RE-RENDER with correct certificate XID
+    // Update QR layers with correct certificate XID
+    qrLayersForRender?.forEach(layer => {
+      layer.qrData = layer.qrData.replace('PLACEHOLDER_XID', certificateXid);
+    });
+    
+    // Re-render certificate with correct QR URLs and upload with proper filename
+    const finalCertificateImageDataUrl = await renderCertificateToDataURL({
+      templateImageUrl,
+      textLayers,
+      photoLayers: photoLayersForRender,
+      qrLayers: qrLayersForRender,
+    });
+    
+    const finalCertificateThumbnail = await generateThumbnail(finalCertificateImageDataUrl, {
+      format: 'webp',
+      quality: 0.85,
+      maxWidth: 1200
+    });
+    
+    // Upload with proper XID filename
+    const finalPngUploadResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData: finalCertificateImageDataUrl,
+        fileName: certFileName,
+        bucketName: 'certificates',
+      }),
+    });
+    
+    if (!finalPngUploadResponse.ok) {
+      const errorText = await finalPngUploadResponse.text();
+      throw new Error(`Failed to upload final PNG to storage: ${errorText}`);
+    }
+    
+    const finalPngUploadResult = await finalPngUploadResponse.json();
+    const finalWebpUploadResponse = await fetch('/api/upload-to-storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData: finalCertificateThumbnail,
+        fileName: certFileName.replace('.png', '.webp'),
+        bucketName: 'certificates',
+      }),
+    });
+    
+    if (!finalWebpUploadResponse.ok) {
+      const errorText = await finalWebpUploadResponse.text();
+      throw new Error(`Failed to upload final WebP to storage: ${errorText}`);
+    }
+    
+    const finalWebpUploadResult = await finalWebpUploadResponse.json();
+    
+    // Update certificate record with proper URLs
+    const { error: updateError } = await supabaseClient
+      .from('certificates')
+      .update({ 
+        certificate_image_url: finalPngUploadResult.url,
+        certificate_thumbnail_url: finalWebpUploadResult.url
+      })
+      .eq('id', savedCertificate.id);
+    
+    if (updateError) {
+      console.error('❌ Failed to update certificate URLs:', updateError);
+    }
+    
     if (template.score_image_url && scoreData && Object.keys(scoreData).length > 0) {
       try {
         // Load score layout from database
@@ -1203,7 +1282,7 @@ function CertificatesContent() {
           const scoreQRLayersForRender = layoutConfig?.score?.qrLayers?.map((layer: QRCodeLayerConfig) => ({
             id: layer.id,
             type: layer.type as 'qr_code',
-            qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/${xid}`),
+            qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/${certificateXid}`),
             x: layer.x,
             y: layer.y,
             xPercent: layer.xPercent,
