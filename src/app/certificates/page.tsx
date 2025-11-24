@@ -66,6 +66,7 @@ import {
   replaceVariables, 
   replaceVariablesInRichText
 } from '@/lib/utils/variable-parser';
+import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
 
 function CertificatesContent() {
   const { t, language } = useLanguage();
@@ -670,7 +671,9 @@ function CertificatesContent() {
               generated++;
               // Update the same toast instead of creating new ones
               toast.loading(`${t('quickGenerate.generatingCertificates')} ${generated}/${total}`, { id: currentToast });
-            } catch {
+            } catch (error) {
+              console.error(`❌ Failed to generate certificate for ${member.name}:`, error);
+              // Don't increment generated count on error
             }
           }
           
@@ -984,8 +987,9 @@ function CertificatesContent() {
       margin: layer.margin
     })) || [];
     
-    // Use temporary filename for initial save
-    const tempFileName = `temp_${Date.now()}_cert.png`;
+    // ✅ BUG FIX: Don't generate new XID for file naming!
+    // We'll get proper filenames after saving certificate with real XID
+    const { cert: certFileName, xid } = generatePairedXIDFilenames();
     
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
@@ -998,7 +1002,7 @@ function CertificatesContent() {
       quality: 0.85,
       maxWidth: 1200
     });
-    const pngFileName = tempFileName;
+    const pngFileName = certFileName;
     const pngUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1084,8 +1088,9 @@ function CertificatesContent() {
     
     // Now use the REAL certificate XID for filenames
     const certificateXid = savedCertificate.xid;
-    const certFileName = `${certificateXid}_cert.png`;
-    const scoreFileName = `${certificateXid}_score.png`;
+    // Use certificateXid to update existing filenames
+    const finalCertFileName = `${certificateXid}_cert.png`;
+    const finalScoreFileName = `${certificateXid}_score.png`;
     
     // ✅ NOW RE-RENDER with correct certificate XID
     // Update QR layers with correct certificate XID
@@ -1113,7 +1118,7 @@ function CertificatesContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         imageData: finalCertificateImageDataUrl,
-        fileName: certFileName,
+        fileName: finalCertFileName,
         bucketName: 'certificates',
       }),
     });
@@ -1129,7 +1134,7 @@ function CertificatesContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         imageData: finalCertificateThumbnail,
-        fileName: certFileName.replace('.png', '.webp'),
+        fileName: finalCertFileName.replace('.png', '.webp'),
         bucketName: 'certificates',
       }),
     });
@@ -1311,7 +1316,7 @@ function CertificatesContent() {
             quality: 0.85,
             maxWidth: 1200
           });
-          const scorePngFileName = scoreFileName;
+          const scorePngFileName = finalScoreFileName;
           const scorePngUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
