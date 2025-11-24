@@ -2647,12 +2647,14 @@ function ConfigureLayoutContent() {
                           e.stopPropagation();
                           setSelectedLayerId(layer.id);
                           setSelectedPhotoLayerId(null);
+                          setSelectedQRLayerId(null);
                         }}
                         onPointerDown={(e) => {
                           if (!isSelected) {
                             e.stopPropagation();
                             setSelectedLayerId(layer.id);
                             setSelectedPhotoLayerId(null);
+                            setSelectedQRLayerId(null);
                           } else {
                             handleLayerPointerDown(layer.id, e);
                           }
@@ -2782,12 +2784,14 @@ function ConfigureLayoutContent() {
                           e.stopPropagation();
                           setSelectedPhotoLayerId(layer.id);
                           setSelectedLayerId(null);
+                          setSelectedQRLayerId(null);
                         }}
                         onMouseDown={(e) => {
                           if (!isSelected) {
                             e.stopPropagation();
                             setSelectedPhotoLayerId(layer.id);
                             setSelectedLayerId(null);
+                            setSelectedQRLayerId(null);
                           } else {
                             handlePhotoLayerMouseDown(layer.id, e);
                           }
@@ -3014,6 +3018,7 @@ function ConfigureLayoutContent() {
                         onClick={() => {
                           setSelectedLayerId(layer.id);
                           setSelectedPhotoLayerId(null);
+                          setSelectedQRLayerId(null);
                         }}
                       >
                         <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
@@ -3144,6 +3149,7 @@ function ConfigureLayoutContent() {
                           onClick={() => {
                             setSelectedPhotoLayerId(layer.id);
                             setSelectedLayerId(null);
+                            setSelectedQRLayerId(null);
                           }}
                         >
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
