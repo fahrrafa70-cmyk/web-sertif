@@ -236,7 +236,25 @@ export default function AuthCallbackPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-2xl p-8 max-w-sm w-full text-center space-y-3">
           <div className="flex justify-center">
-            <div className="w-10 h-10 border-4 border-blue-200 dark:border-blue-900 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin"></div>
+            <svg
+              className="animate-spin"
+              width="40"
+              height="40"
+              viewBox="0 0 40 40"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                className="stroke-blue-500 dark:stroke-blue-400"
+                cx="20"
+                cy="20"
+                r="16"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="100.53"
+                strokeDashoffset="25.13"
+              />
+            </svg>
           </div>
           <div className="space-y-1">
             <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Loading...</h1>

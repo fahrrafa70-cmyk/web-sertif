@@ -1,7 +1,6 @@
 "use client";
 
 import { ButtonHTMLAttributes, forwardRef } from "react";
-import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface LoadingButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -52,7 +51,7 @@ const LoadingButton = forwardRef<HTMLButtonElement, LoadingButtonProps>(
         {...props}
       >
         {isLoading && (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
         )}
         {isLoading ? (loadingText || children) : children}
       </button>

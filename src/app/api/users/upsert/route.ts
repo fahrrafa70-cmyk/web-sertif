@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       full_name: full_name ?? null,
       avatar_url: avatar_url ?? null,
       auth_provider: auth_provider ?? null,
-      role: role ?? 'user',
+      role: role ?? 'member',
       updated_at: new Date().toISOString()
     };
 

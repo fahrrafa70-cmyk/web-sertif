@@ -1724,7 +1724,25 @@ function CertificatesContent() {
               <div className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center">
-                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                  <svg
+                    className="animate-spin mx-auto mb-6"
+                    width="32"
+                    height="32"
+                    viewBox="0 0 32 32"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      className="stroke-blue-500 dark:stroke-blue-400"
+                      cx="16"
+                      cy="16"
+                      r="12"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeDasharray="75.4"
+                      strokeDashoffset="18.85"
+                    />
+                  </svg>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     {t("certificates.loading")}
                   </h3>
@@ -1881,7 +1899,7 @@ function CertificatesContent() {
                                 >
                                   {deletingCertificateId === certificate.id ? (
                                     <>
-                                      <div className="w-4 h-4 mr-1 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                      <div className="w-4 h-4 mr-1 border-b-2 border-white rounded-full animate-spin"></div>
                                       {t("certificates.deleting")}
                                     </>
                                   ) : (
@@ -2052,7 +2070,7 @@ function CertificatesContent() {
                             >
                               {deletingCertificateId === certificate.id ? (
                                 <>
-                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                  <div className="w-3 h-3 border-b-2 border-white rounded-full animate-spin"></div>
                                   <span className="hidden sm:inline">Deleting...</span>
                                 </>
                               ) : (
@@ -2863,7 +2881,7 @@ function CertificatesContent() {
                       >
                         {deletingCertificateId === previewCertificate.id ? (
                           <>
-                            <div className="w-4 h-4 mr-1 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <div className="w-4 h-4 mr-1 border-b-2 border-white rounded-full animate-spin"></div>
                             {t('certificates.deleting')}
                           </>
                         ) : (
@@ -3059,7 +3077,25 @@ function CertificatesContent() {
                 {loadingMemberDetail ? (
                   <div className="flex flex-col items-center justify-center py-12">
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full flex items-center justify-center mb-3 shadow-sm">
-                      <div className="w-5 h-5 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                      <svg
+                        className="animate-spin"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <circle
+                          className="stroke-blue-500 dark:stroke-blue-400"
+                          cx="10"
+                          cy="10"
+                          r="7"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeDasharray="43.98"
+                          strokeDashoffset="10.995"
+                        />
+                      </svg>
                     </div>
                     <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Loading...</span>
                   </div>
@@ -3175,7 +3211,25 @@ function CertificatesContent() {
                 {loadingMemberDetail ? (
                   <div className="flex flex-col items-center justify-center py-16">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                      <div className="w-6 h-6 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                      <svg
+                        className="animate-spin"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <circle
+                          className="stroke-blue-500 dark:stroke-blue-400"
+                          cx="12"
+                          cy="12"
+                          r="9"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeDasharray="56.55"
+                          strokeDashoffset="14.14"
+                        />
+                      </svg>
                     </div>
                     <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">Loading member details...</span>
                   </div>

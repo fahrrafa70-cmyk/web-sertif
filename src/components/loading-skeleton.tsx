@@ -4,13 +4,12 @@
  * Used for code splitting and lazy loading
  */
 
+import { Loading } from './ui/spinner';
+
 export function LoadingSkeleton({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 ${className}`}>
-      <div className="text-center space-y-4">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-      </div>
+      <Loading size="xl" text="Loading..." />
     </div>
   );
 }

@@ -769,7 +769,7 @@ export default function HeroSection() {
                     <span className="hidden sm:inline" suppressHydrationWarning>{mounted ? t('hero.searchButton') : 'Search'}</span>
                     <span className="sm:hidden" suppressHydrationWarning>{mounted ? t('hero.searchButton') : 'Search'}</span>
                     {searching ? (
-                      <div className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 border-b-2 border-white rounded-full animate-spin" />
                     ) : (
                       <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                     )}

@@ -1274,7 +1274,7 @@ function SearchResultsContent() {
                 >
                   <span>{t('hero.searchButton')}</span>
                   {searching ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-b-2 border-white rounded-full animate-spin" />
                   ) : (
                     <ArrowRight className="w-4 h-4" />
                   )}
@@ -1941,7 +1941,25 @@ export default function SearchResultsPage() {
       <Suspense fallback={
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <svg
+              className="animate-spin mx-auto mb-4"
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                className="stroke-blue-500 dark:stroke-blue-400"
+                cx="16"
+                cy="16"
+                r="12"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="75.4"
+                strokeDashoffset="18.85"
+              />
+            </svg>
             <p className="text-gray-600 dark:text-gray-400">Loading...</p>
           </div>
         </div>

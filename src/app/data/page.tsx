@@ -604,7 +604,25 @@ export default function MembersPage() {
       <ModernLayout>
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-4">
           <div className="text-center">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <svg
+              className="animate-spin mx-auto mb-6"
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                className="stroke-blue-500 dark:stroke-blue-400"
+                cx="16"
+                cy="16"
+                r="12"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="75.4"
+                strokeDashoffset="18.85"
+              />
+            </svg>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
               {t('members.loading')}
             </h3>
@@ -720,7 +738,25 @@ export default function MembersPage() {
                 className="min-h-[400px] flex items-center justify-center"
               >
                 <div className="text-center">
-                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                  <svg
+                    className="animate-spin mx-auto mb-6"
+                    width="32"
+                    height="32"
+                    viewBox="0 0 32 32"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      className="stroke-blue-500 dark:stroke-blue-400"
+                      cx="16"
+                      cy="16"
+                      r="12"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeDasharray="75.4"
+                      strokeDashoffset="18.85"
+                    />
+                  </svg>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     {t("members.loading")}
                   </h3>

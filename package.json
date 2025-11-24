@@ -29,7 +29,13 @@
     "thumbnails:regenerate": "node scripts/regenerate-thumbnails.js",
     "thumbnails:check": "echo 'Checking thumbnail optimization status...' && ls -la public/template/thumbnails/ 2>/dev/null || echo 'No thumbnails directory found'",
     "migrate:xid": "node scripts/migrate-uuid-to-xid.js migrate",
-    "migrate:xid:verify": "node scripts/migrate-uuid-to-xid.js verify"
+    "migrate:xid:verify": "node scripts/migrate-uuid-to-xid.js verify",
+    "whitelist:add": "node scripts/add-admin-whitelist.js add",
+    "whitelist:list": "node scripts/add-admin-whitelist.js list",
+    "whitelist:remove": "node scripts/add-admin-whitelist.js remove",
+    "sync:auth-whitelist": "node scripts/sync-auth-to-whitelist.js sync",
+    "sync:auth-whitelist:dry": "node scripts/sync-auth-to-whitelist.js sync --dry-run",
+    "sync:auth-whitelist:verify": "node scripts/sync-auth-to-whitelist.js verify"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

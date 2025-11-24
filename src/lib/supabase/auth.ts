@@ -140,7 +140,7 @@ export async function signInWithGitHub() {
  * Check if email exists in whitelist and return assigned role
  * Returns null if email is not whitelisted
  */
-export async function checkEmailWhitelist(email: string): Promise<"admin" | "team" | "user" | null> {
+export async function checkEmailWhitelist(email: string): Promise<"admin" | "team" | "user" | "member" | null> {
   try {
     const normalizedEmail = email.toLowerCase().trim();
     
@@ -165,7 +165,11 @@ export async function checkEmailWhitelist(email: string): Promise<"admin" | "tea
       return role;
     }
 
-    if (role === "member" || role === "user" || role === "public") {
+    if (role === "member") {
+      return "member";
+    }
+
+    if (role === "user" || role === "public") {
       return "user";
     }
     
@@ -210,9 +214,29 @@ export async function createOrUpdateUserFromOAuth(
       throw new Error(checkError.message);
     }
 
-    const whitelistRole = await checkEmailWhitelist(normalizedEmail);
+    // Check whitelist first
+    let whitelistRole = await checkEmailWhitelist(normalizedEmail);
 
-    let roleToPersist: "admin" | "team" | "user" = "user";
+    // If not in whitelist, add with default 'member' role
+    if (!whitelistRole) {
+      console.log(`📝 Email not in whitelist, adding: ${normalizedEmail} with role 'member'`);
+      try {
+        const { error: insertError } = await supabaseClient
+          .from('email_whitelist')
+          .insert([{ email: normalizedEmail, role: 'member' }]);
+        
+        if (insertError && insertError.code !== '23505') { // 23505 = unique violation (already exists)
+          console.error('Error adding to whitelist:', insertError);
+        } else {
+          console.log(`✅ Added ${normalizedEmail} to whitelist with role 'member'`);
+          whitelistRole = 'member';
+        }
+      } catch (err) {
+        console.error('Error adding to whitelist:', err);
+      }
+    }
+
+    let roleToPersist: "admin" | "team" | "user" | "member" = "user";
     if (whitelistRole) {
       roleToPersist = whitelistRole;
     } else if (existingUser) {
