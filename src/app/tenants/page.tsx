@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import ModernLayout from "@/components/modern-layout";
 import { useLanguage } from "@/contexts/language-context";
 import { getTenantsForCurrentUser, createTenantForCurrentUser, updateTenant, deleteTenant, type Tenant } from "@/lib/supabase/tenants";
+import { supabaseClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus, Building2 } from "lucide-react";
 import {
@@ -16,6 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { confirmToast } from "@/lib/ui/confirm";
 
 export default function TenantsPage() {
   const { t } = useLanguage();
@@ -27,42 +30,111 @@ export default function TenantsPage() {
   const [creating, setCreating] = useState(false);
   const [newTenantName, setNewTenantName] = useState("");
   const [newTenantType, setNewTenantType] = useState("company");
+  const [newTenantDescription, setNewTenantDescription] = useState("");
+  const [newTenantLogoUrl, setNewTenantLogoUrl] = useState("");
+  const [newTenantCoverUrl, setNewTenantCoverUrl] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [editTenantName, setEditTenantName] = useState("");
+  const [editTenantType, setEditTenantType] = useState("company");
+  const [editTenantDescription, setEditTenantDescription] = useState("");
+  const [editTenantLogoUrl, setEditTenantLogoUrl] = useState("");
+  const [editTenantCoverUrl, setEditTenantCoverUrl] = useState("");
+  const [uploadingNewLogo, setUploadingNewLogo] = useState(false);
+  const [uploadingNewCover, setUploadingNewCover] = useState(false);
+  const [uploadingEditLogo, setUploadingEditLogo] = useState(false);
+  const [uploadingEditCover, setUploadingEditCover] = useState(false);
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   const handleEditTenant = async (tenant: Tenant) => {
-    const newName = window.prompt("Nama tenant", tenant.name);
-    if (newName === null) return;
-
-    const newType = window.prompt(
-      "Tipe tenant (company, school, organization, personal, other)",
-      tenant.tenant_type || "company",
-    );
-
-    try {
-      setError(null);
-      const updated = await updateTenant(tenant.id, {
-        name: newName,
-        tenant_type: newType || null,
-      });
-      setTenants((prev) => prev.map((t) => (t.id === tenant.id ? updated : t)));
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to update tenant";
-      setError(message);
+    setEditingTenant(tenant);
+    setEditTenantName(tenant.name || "");
+    setEditTenantType(tenant.tenant_type || "company");
+    if (tenant.description && tenant.description.trim().length > 0) {
+      setEditTenantDescription(tenant.description);
+    } else {
+      let fallback = "";
+      if (tenant.tenant_type === "company") {
+        fallback = "Perusahaan atau organisasi bisnis.";
+      } else if (tenant.tenant_type === "school") {
+        fallback = "Sekolah, kampus, atau lembaga pendidikan.";
+      } else if (tenant.tenant_type === "organization") {
+        fallback = "Organisasi, komunitas, atau asosiasi.";
+      } else if (tenant.tenant_type === "personal") {
+        fallback = "Tenant pribadi untuk individu atau freelancer.";
+      } else if (!tenant.tenant_type) {
+        fallback = "Tenant untuk mengelola data, templates, dan certificates.";
+      }
+      setEditTenantDescription(fallback);
     }
+    setEditTenantLogoUrl(tenant.logo_url || "");
+    setEditTenantCoverUrl(tenant.cover_url || "");
+    setEditOpen(true);
   };
 
   const handleDeleteTenant = async (tenant: Tenant) => {
-    const confirmed = window.confirm(
+    const ok = await confirmToast(
       `Yakin ingin menghapus tenant "${tenant.name}"? Pastikan semua data sudah tidak diperlukan.`,
+      { confirmText: "Hapus", cancelText: "Batal", tone: "destructive" },
     );
-    if (!confirmed) return;
+    if (!ok) return;
 
     try {
       setError(null);
       await deleteTenant(tenant.id);
       setTenants((prev) => prev.filter((t) => t.id !== tenant.id));
+      toast.success(`Tenant "${tenant.name}" berhasil dihapus.`);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to delete tenant";
       setError(message);
+      toast.error(message);
+    }
+  };
+
+  const handleUploadImage = async (
+    event: ChangeEvent<HTMLInputElement>,
+    folder: "profile" | "cover",
+    setUrl: (url: string) => void,
+    setUploading: (uploading: boolean) => void,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const ext = file.name.split(".").pop() || "jpg";
+      const fileName = `${folder}-${Date.now()}.${ext}`;
+      const path = `${folder}/${fileName}`;
+
+      const { error: uploadError } = await supabaseClient.storage
+        .from("tenants")
+        .upload(path, file, { upsert: true });
+
+      if (uploadError) {
+        toast.error(`Gagal mengunggah gambar: ${uploadError.message}`);
+        return;
+      }
+
+      const { data } = supabaseClient.storage.from("tenants").getPublicUrl(path);
+      if (data?.publicUrl) {
+        setUrl(data.publicUrl);
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Gagal mengunggah gambar";
+      toast.error(message);
+    } finally {
+      setUploading(false);
+      event.target.value = "";
     }
   };
 
@@ -93,17 +165,60 @@ export default function TenantsPage() {
 
     try {
       setCreating(true);
-      const tenant = await createTenantForCurrentUser(trimmed, newTenantType);
+      const tenant = await createTenantForCurrentUser(
+        trimmed,
+        newTenantType,
+        newTenantDescription.trim() || null,
+        newTenantLogoUrl.trim() || null,
+        newTenantCoverUrl.trim() || null,
+      );
       setTenants((prev) => [...prev, tenant]);
       setCreateOpen(false);
       setNewTenantName("");
       setNewTenantType("company");
+      setNewTenantDescription("");
+      setNewTenantLogoUrl("");
+      setNewTenantCoverUrl("");
       router.push(`/tenants/${tenant.id}`);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to create tenant";
       setError(message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleSubmitEditTenant = async () => {
+    if (!editingTenant) return;
+    const trimmed = editTenantName.trim();
+    if (!trimmed) {
+      toast.error("Nama tenant tidak boleh kosong.");
+      return;
+    }
+
+    try {
+      setEditing(true);
+      setError(null);
+      const updated = await updateTenant(editingTenant.id, {
+        name: trimmed,
+        tenant_type: editTenantType || null,
+        description: editTenantDescription.trim() || null,
+        logo_url: editTenantLogoUrl.trim() || null,
+        cover_url: editTenantCoverUrl.trim() || null,
+      });
+      setTenants((prev) => prev.map((t) => (t.id === editingTenant.id ? updated : t)));
+      setEditingTenant(null);
+      setEditOpen(false);
+      setEditTenantDescription("");
+      setEditTenantLogoUrl("");
+      setEditTenantCoverUrl("");
+      toast.success("Tenant berhasil diperbarui.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to update tenant";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setEditing(false);
     }
   };
 
@@ -168,59 +283,91 @@ export default function TenantsPage() {
                 {tenants.map((tenant) => (
                   <div
                     key={tenant.id}
-                    className="group rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60 hover:bg-white dark:hover:bg-gray-900 transition-colors shadow-sm hover:shadow-md transform hover:-translate-y-0.5 duration-150 p-4 flex flex-col justify-between min-h-[150px]"
+                    className="group rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/80 hover:shadow-lg transition-shadow transform hover:-translate-y-0.5 duration-150 overflow-hidden flex flex-col"
                   >
                     <button
                       type="button"
                       onClick={() => handleOpenTenant(tenant.id)}
-                      className="text-left flex-1"
+                      className="text-left flex-1 flex flex-col"
                     >
-                      <div>
-                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-0.5 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                          {tenant.name}
-                        </h2>
-                        <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2">
-                          {tenant.tenant_type === "company" && "Perusahaan atau organisasi bisnis."}
-                          {tenant.tenant_type === "school" && "Sekolah, kampus, atau lembaga pendidikan."}
-                          {tenant.tenant_type === "organization" && "Organisasi, komunitas, atau asosiasi."}
-                          {tenant.tenant_type === "personal" && "Tenant pribadi untuk individu atau freelancer."}
-                          {!tenant.tenant_type && "Tenant untuk mengelola data, templates, dan certificates."}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between mt-4 text-xs text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-2">
+                      {/* Cover section */}
+                      <div
+                        className="relative h-24 sm:h-28 w-full overflow-hidden"
+                        style={{
+                          backgroundImage: tenant.cover_url
+                            ? `url(${tenant.cover_url})`
+                            : undefined,
+                          backgroundSize: tenant.cover_url ? "cover" : undefined,
+                          backgroundPosition: tenant.cover_url ? "center" : undefined,
+                        }}
+                      >
+                        {!tenant.cover_url && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800" />
+                        )}
+                        <div className="absolute inset-0 bg-black/20" />
+                        <div className="absolute top-2 right-3 flex items-center gap-1">
                           {tenant.tenant_type && (
-                            <span className="uppercase tracking-wide text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
                               {tenant.tenant_type}
                             </span>
                           )}
-                          <span className="uppercase tracking-wide text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                            {tenant.status || "active"}
-                          </span>
                         </div>
-                        <span>
-                          {new Date(tenant.created_at).toLocaleDateString()}
-                        </span>
+                        <div className="absolute inset-y-0 left-4 flex items-center gap-3">
+                          <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-full border-2 border-white bg-gray-200 dark:bg-gray-800 overflow-hidden flex items-center justify-center text-sm font-semibold text-gray-800 dark:text-gray-100 shadow-md">
+                            {tenant.logo_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={tenant.logo_url}
+                                alt={tenant.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              (tenant.name || "?").charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <div className="pb-0.5 text-right max-w-[140px] sm:max-w-[160px]">
+                            <h2 className="text-sm sm:text-base font-semibold text-white mb-0.5 truncate">
+                              {tenant.name}
+                            </h2>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Body section */}
+                      <div className="pt-7 px-4 pb-1 flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
+                          <span>{formatDate(tenant.created_at)}</span>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 min-h-[28px]">
+                          {tenant.description && tenant.description.trim().length > 0
+                            ? tenant.description
+                            : "Tidak ada deskripsi"}
+                        </p>
                       </div>
                     </button>
-                    <div className="flex items-center justify-end gap-2 mt-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditTenant(tenant)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="bg-red-500 hover:bg-red-600 text-white border-none shadow-sm"
-                        onClick={() => handleDeleteTenant(tenant)}
-                      >
-                        Delete
-                      </Button>
+                    <div className="flex items-center justify-between px-4 pb-2 pt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                      <span>
+                        {(tenant.member_count ?? 0).toString()} Anggota
+                      </span>
+                      <div className="flex items-center justify-end gap-2 text-[12px] text-inherit">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditTenant(tenant)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="bg-red-500 hover:bg-red-600 text-white border-none shadow-sm"
+                          onClick={() => handleDeleteTenant(tenant)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -244,6 +391,65 @@ export default function TenantsPage() {
                   autoFocus
                   disabled={creating}
                 />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tenant-description">Deskripsi</Label>
+                <textarea
+                  id="tenant-description"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 min-h-[80px] resize-y"
+                  value={newTenantDescription}
+                  onChange={(e) => setNewTenantDescription(e.target.value)}
+                  placeholder="Contoh: Tenant untuk mengelola kerjasama dan sertifikat pelatihan."
+                  disabled={creating}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tenant-logo-file">Logo (opsional)</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="tenant-logo-file"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleUploadImage(e, "profile", setNewTenantLogoUrl, setUploadingNewLogo)}
+                    disabled={creating || uploadingNewLogo}
+                  />
+                  <Label
+                    htmlFor="tenant-logo-file"
+                    className="inline-flex items-center px-3 py-1.5 rounded-md border cursor-pointer text-xs sm:text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    {uploadingNewLogo ? "Mengunggah..." : "Upload logo"}
+                  </Label>
+                  {newTenantLogoUrl && (
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[140px]">
+                      Logo terpilih
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tenant-cover-file">Cover (opsional)</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="tenant-cover-file"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleUploadImage(e, "cover", setNewTenantCoverUrl, setUploadingNewCover)}
+                    disabled={creating || uploadingNewCover}
+                  />
+                  <Label
+                    htmlFor="tenant-cover-file"
+                    className="inline-flex items-center px-3 py-1.5 rounded-md border cursor-pointer text-xs sm:text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    {uploadingNewCover ? "Mengunggah..." : "Upload cover"}
+                  </Label>
+                  {newTenantCoverUrl && (
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[140px]">
+                      Cover terpilih
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="tenant-type">Tipe tenant</Label>
@@ -276,6 +482,125 @@ export default function TenantsPage() {
                 className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
               >
                 {creating ? "Membuat..." : "Buat tenant"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={editOpen} onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) {
+            setEditingTenant(null);
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit tenant</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1">
+                <Label htmlFor="edit-tenant-name">Nama tenant / organisasi</Label>
+                <Input
+                  id="edit-tenant-name"
+                  value={editTenantName}
+                  onChange={(e) => setEditTenantName(e.target.value)}
+                  placeholder="Misal: PT. Contoh Jaya"
+                  autoFocus
+                  disabled={editing}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-tenant-description">Deskripsi</Label>
+                <textarea
+                  id="edit-tenant-description"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 min-h-[80px] resize-y"
+                  value={editTenantDescription}
+                  onChange={(e) => setEditTenantDescription(e.target.value)}
+                  placeholder="Contoh: Tenant untuk mengelola kerjasama dan sertifikat pelatihan."
+                  disabled={editing}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-tenant-logo-file">Logo (opsional)</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="edit-tenant-logo-file"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleUploadImage(e, "profile", setEditTenantLogoUrl, setUploadingEditLogo)}
+                    disabled={editing || uploadingEditLogo}
+                  />
+                  <Label
+                    htmlFor="edit-tenant-logo-file"
+                    className="inline-flex items-center px-3 py-1.5 rounded-md border cursor-pointer text-xs sm:text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    {uploadingEditLogo ? "Mengunggah..." : "Ganti logo"}
+                  </Label>
+                  {editTenantLogoUrl && (
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[140px]">
+                      Logo terpilih
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-tenant-cover-file">Cover (opsional)</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="edit-tenant-cover-file"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleUploadImage(e, "cover", setEditTenantCoverUrl, setUploadingEditCover)}
+                    disabled={editing || uploadingEditCover}
+                  />
+                  <Label
+                    htmlFor="edit-tenant-cover-file"
+                    className="inline-flex items-center px-3 py-1.5 rounded-md border cursor-pointer text-xs sm:text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    {uploadingEditCover ? "Mengunggah..." : "Ganti cover"}
+                  </Label>
+                  {editTenantCoverUrl && (
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[140px]">
+                      Cover terpilih
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-tenant-type">Tipe tenant</Label>
+                <select
+                  id="edit-tenant-type"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                  value={editTenantType}
+                  onChange={(e) => setEditTenantType(e.target.value)}
+                  disabled={editing}
+                >
+                  <option value="company">Perusahaan / Industri</option>
+                  <option value="school">Sekolah / Kampus</option>
+                  <option value="organization">Organisasi / Komunitas</option>
+                  <option value="personal">Pribadi / Freelancer</option>
+                  <option value="other">Lainnya</option>
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditOpen(false);
+                  setEditingTenant(null);
+                }}
+                disabled={editing}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleSubmitEditTenant}
+                disabled={editing || !editTenantName.trim()}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+              >
+                {editing ? "Menyimpan..." : "Simpan perubahan"}
               </Button>
             </DialogFooter>
           </DialogContent>
