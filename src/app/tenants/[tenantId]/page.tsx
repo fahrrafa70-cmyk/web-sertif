@@ -265,9 +265,6 @@ export default function TenantDetailPage() {
                           <Badge variant="outline" className="text-[11px] uppercase tracking-wide">
                             {member.role}
                           </Badge>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {member.status}
-                          </span>
                         </div>
                       </div>
                     ))}
@@ -302,15 +299,10 @@ export default function TenantDetailPage() {
                           <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
                             <p>
                               <span className="font-medium">
-                                {member.user?.full_name || member.user?.email || "Seorang user"}
+                                {member.user?.full_name || member.user?.email || "User"}
                               </span>{" "}
-                              bergabung sebagai
-                              {" "}
-                              <span className="uppercase font-semibold">{member.role}</span>
-                              {" "}
-                              dengan status
-                              {" "}
-                              <span className="font-medium">{member.status}</span>.
+                              bergabung sebagai{" "}
+                              <span className="uppercase font-semibold">{member.role}</span>.
                             </p>
                             <p className="text-[10px] text-gray-500 dark:text-gray-400">
                               {new Date(member.created_at).toLocaleString()}

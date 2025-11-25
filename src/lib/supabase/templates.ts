@@ -228,6 +228,25 @@ export async function getTemplates(): Promise<Template[]> {
   return data || [];
 }
 
+// Fetch templates for a specific tenant (used in Certificates Quick Generate)
+export async function getTemplatesForTenant(tenantId: string): Promise<Template[]> {
+  if (!tenantId) {
+    return [];
+  }
+
+  const { data, error } = await supabaseClient
+    .from('templates')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch templates for tenant: ${error.message}`);
+  }
+
+  return data || [];
+}
+
 // Get template by ID
 export async function getTemplate(id: string): Promise<Template | null> {
   const { data, error } = await supabaseClient

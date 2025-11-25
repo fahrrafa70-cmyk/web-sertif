@@ -67,6 +67,20 @@ export async function getMembers(useCache: boolean = true): Promise<Member[]> {
   return (data as Member[]) || [];
 }
 
+export async function getMembersForTenant(tenantId: string): Promise<Member[]> {
+  if (!tenantId) return [];
+
+  const { data, error } = await supabaseClient
+    .from('members')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch members for tenant: ${error.message}`);
+
+  return (data as Member[]) || [];
+}
+
 export async function getMember(id: string): Promise<Member> {
   const { data, error } = await supabaseClient
     .from('members')

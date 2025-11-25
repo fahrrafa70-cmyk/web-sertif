@@ -1020,16 +1020,13 @@ export default function TemplatesPage() {
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     {t('templates.noTemplates')}
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    {t('templates.noTemplatesMessage')}
-                  </p>
                   {(role === "Admin" || role === "Team") && (
                     <Button 
                       onClick={openCreate} 
                       className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
                     >
                       <Plus className="w-5 h-5 mr-2" />
-                      {t('templates.createNew')}
+                      + New Template
                     </Button>
                   )}
                 </div>
