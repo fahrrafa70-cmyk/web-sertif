@@ -73,46 +73,42 @@ export interface UpdateTemplateData {
   status?: string; // Template status: "ready" or "draft"
 }
 
-// Upload image to local storage (simplified version)
+// Upload template image to Supabase Storage (templates bucket)
 export async function uploadTemplateImage(file: File): Promise<string> {
-  try {
-    // Validate file
-    if (!file || file.size === 0) {
-      throw new Error('Invalid file provided');
-    }
-
-    const fileExt = file.name.split('.').pop()?.toLowerCase();
-    if (!fileExt || !['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(fileExt)) {
-      throw new Error('Invalid file type. Only JPG, JPEG, PNG, WebP, and GIF are allowed.');
-    }
-
-    const fileName = `template-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    
-    // Upload to local storage
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('fileName', fileName);
-
-    const response = await fetch('/api/upload-template', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    
-    if (!result.success || !result.url) {
-      throw new Error(result.error || 'Upload failed');
-    }
-
-    return result.url;
-
-  } catch (error) {
-    throw error;
+  // Validate file
+  if (!file || file.size === 0) {
+    throw new Error('Invalid file provided');
   }
+
+  const fileExt = file.name.split('.').pop()?.toLowerCase();
+  if (!fileExt || !['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(fileExt)) {
+    throw new Error('Invalid file type. Only JPG, JPEG, PNG, WebP, and GIF are allowed.');
+  }
+
+  const fileName = `templates/template-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('fileName', fileName);
+  formData.append('bucketName', 'templates');
+
+  const response = await fetch('/api/upload-to-storage', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload to storage failed: ${response.status} ${errorText}`);
+  }
+
+  const result = await response.json();
+
+  if (!result.success || !result.url) {
+    throw new Error(result.error || 'Upload to storage failed');
+  }
+
+  return result.url as string;
 }
 
 // Fallback function for original upload method

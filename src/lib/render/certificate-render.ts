@@ -783,28 +783,12 @@ function drawWrappedText(
     }
   }
 
-  // Y-ADJUSTMENT: Apply adjustment for certificate_no, issue_date, and score layers
-  // This compensates for font rendering differences between CSS and Canvas
-  // Different adjustment values for different layer types
-  const isScoreLayerForAdjustment = layerId && (
-    layerId === 'nilai' || 
-    layerId === 'prestasi' || 
-    layerId === 'Nilai / Prestasi' ||
-    layerId.toLowerCase().includes('nilai') ||
-    layerId.toLowerCase().includes('prestasi')
-  );
-  
-  let microYAdjustment = 0;
-  if (layerId === 'certificate_no' || layerId === 'issue_date') {
-    microYAdjustment = fontSize * 0.10;  // 10% for certificate_no/issue_date (~2.6px for 26px)
-  } else if (isScoreLayerForAdjustment) {
-    microYAdjustment = fontSize * 0.087;  // 8.7% for score layers (~2.0px for 23px)
-  }
-  
   // Draw each line
   // Canvas textAlign is set above to handle alignment correctly for each line
   lines.forEach((line, index) => {
-    const lineY = startY + (index * lineHeightPx) + microYAdjustment;
+    // Pure geometric centering: no extra Y-offset per layer
+    const lineY = startY + (index * lineHeightPx);
+
     ctx.fillText(line, adjustedDrawX, lineY);
     
     // Draw text decoration if specified
