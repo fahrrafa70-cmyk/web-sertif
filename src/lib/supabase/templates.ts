@@ -51,6 +51,7 @@ export interface CreateTemplateData {
   name: string;
   category: string;
   orientation: string;
+  tenant_id?: string;
   image_file?: File;
   preview_image_file?: File;
   // Dual template support
@@ -352,6 +353,11 @@ export async function createTemplate(templateData: CreateTemplateData): Promise<
       orientation: templateData.orientation.trim(),
       is_dual_template: templateData.is_dual_template || false
     };
+
+    // Attach tenant_id if provided (required by DB constraint)
+    if (templateData.tenant_id) {
+      insertData.tenant_id = templateData.tenant_id;
+    }
 
     // Handle image paths based on template type
     if (templateData.is_dual_template) {

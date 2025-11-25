@@ -453,6 +453,12 @@ export default function TemplatesPage() {
   }
 
   async function submitCreate() {
+    // Validate tenant selection
+    if (!selectedTenantId) {
+      toast.error('Silakan pilih tenant terlebih dahulu sebelum membuat template');
+      return;
+    }
+
     // Validate name
     if (!draft || !draft.name?.trim()) {
       toast.error(t('templates.fillTemplateName'));
@@ -488,6 +494,7 @@ export default function TemplatesPage() {
         name: draft.name.trim(),
         category: draft.category.trim(),
         orientation: draft.orientation || "Landscape",
+        tenant_id: selectedTenantId,
         is_dual_template: isDualTemplate,
         preview_image_file: previewImageFile || undefined
       };

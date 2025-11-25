@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
       preview_image_path,
       certificate_image_url,
       score_image_url,
-      is_dual_template
+      is_dual_template,
+      tenant_id
     } = body;
 
     // Validate required fields
@@ -67,6 +68,11 @@ export async function POST(request: NextRequest) {
       category: category.trim(),
       orientation: orientation.trim(),
     };
+
+    // Attach tenant_id if provided (required by DB constraint)
+    if (tenant_id) {
+      insertData.tenant_id = tenant_id;
+    }
 
     // Add image paths if provided
     if (image_path) {
