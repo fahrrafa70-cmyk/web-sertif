@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { checkUsernameAvailability } from "@/lib/supabase/users";
+import {
+  checkUsernameAvailability,
+  getUserProfileByEmail,
+} from "@/lib/supabase/email-whitelist";
 
 // Check username availability
 export async function GET(request: NextRequest) {
@@ -42,13 +45,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Username validation: alphanumeric and underscore only
-    const usernameRegex = /^[a-zA-Z0-9_]+$/;
-    if (!usernameRegex.test(username.trim())) {
+    // Enhanced username validation: lowercase alphanumeric and underscore only
+    const normalizedUsername = username.trim().toLowerCase();
+    const usernameRegex = /^[a-z0-9_]+$/;
+    
+    if (!usernameRegex.test(normalizedUsername)) {
       return NextResponse.json(
         {
           available: false,
-          error: "Username can only contain letters, numbers, and underscores",
+          error: "Username can only contain lowercase letters, numbers, and underscores",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (normalizedUsername.length > 50) {
+      return NextResponse.json(
+        {
+          available: false,
+          error: "Username must be less than 50 characters",
         },
         { status: 400 },
       );
@@ -61,7 +76,6 @@ export async function GET(request: NextRequest) {
     if (authHeader && authHeader.startsWith("Bearer ")) {
       try {
         const token = authHeader.substring(7);
-
         const supabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -74,58 +88,59 @@ export async function GET(request: NextRequest) {
 
         const {
           data: { user },
-          error: authError,
         } = await supabase.auth.getUser();
 
-        if (authError) {
-          console.log(
-            "⚠️ API: Auth error (continuing without user):",
-            authError.message,
-          );
-        } else if (user) {
-          currentUserId = user.id;
-          console.log("✅ API: User authenticated:", user.id);
-        } else {
-          console.log("ℹ️ API: No user found (continuing without user)");
+        if (user && user.email) {
+          try {
+            // Get profile from email_whitelist to get the correct ID
+            const profile = await getUserProfileByEmail(user.email);
+            if (profile) {
+              currentUserId = profile.id;
+              console.log(`👤 API: Found user profile ID: ${currentUserId}`);
+            } else {
+              console.log(`⚠️ API: No profile found for email: ${user.email}`);
+            }
+          } catch (profileError) {
+            console.error("❌ API: Error getting user profile:", profileError);
+          }
         }
-      } catch {
+      } catch (err) {
         // Continue without current user ID if auth fails
-        console.log("⚠️ API: Auth check failed, continuing without user ID:");
+        console.log(
+          "Auth check failed, continuing without user ID:",
+          err instanceof Error ? err.message : "Unknown error",
+        );
       }
-    } else {
-      console.log(
-        "ℹ️ API: No auth header provided, checking username without user context",
-      );
     }
 
     console.log(
-      `🎯 API: Checking username "${username}" for user ${currentUserId}`,
+      `🎯 API: Checking username "${normalizedUsername}" for user ${currentUserId}`,
     );
 
     // Check availability with detailed error handling
     let isAvailable: boolean;
     try {
-      isAvailable = await checkUsernameAvailability(username, currentUserId);
-      console.log(
-        `✅ API: Username "${username}" availability result:`,
-        isAvailable,
+      isAvailable = await checkUsernameAvailability(
+        normalizedUsername,
+        currentUserId,
       );
     } catch (checkError) {
       console.error("❌ API: Error in checkUsernameAvailability:", checkError);
-
-      // For username checking, return available=false on database errors
-      // This is safer than throwing 500 errors for a non-critical check
-      return NextResponse.json({
-        available: false,
-        error:
-          "Unable to verify username availability at this time. Please try a different username.",
-        username: username.toLowerCase().trim(),
-      });
+      return NextResponse.json(
+        {
+          error:
+            checkError instanceof Error
+              ? checkError.message
+              : "Database error checking username",
+          available: false,
+        },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({
       available: isAvailable,
-      username: username.toLowerCase().trim(),
+      username: normalizedUsername,
     });
   } catch (err) {
     console.error("💥 Error checking username availability:", err);

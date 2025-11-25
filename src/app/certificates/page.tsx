@@ -403,10 +403,10 @@ function CertificatesContent(): ReactElement {
     }
   }
 
-  // Generate public certificate link using XID (compact) or public_id (fallback)
+  // Generate public certificate link using certificate number
   async function generateCertificateLink(certificate: Certificate) {
-    // Prefer XID for new compact URLs, fallback to public_id for older certificates
-    const identifier = certificate.xid || certificate.public_id;
+    // Use certificate number for URL
+    const identifier = certificate.certificate_no;
     
     if (!identifier) {
       toast.error(t('certificates.generateLink') + ' - ' + t('hero.noPublicLink'));
@@ -429,8 +429,8 @@ function CertificatesContent(): ReactElement {
         baseUrl = `https://${baseUrl.replace(/^\/\//, '')}`;
       }
       
-      // Generate absolute public link with new compact /c/ route
-      const certificateLink = `${baseUrl}/c/${identifier}`;
+      // Generate absolute public link with /cek/ route
+      const certificateLink = `${baseUrl}/cek/${identifier}`;
       
       // Copy to clipboard
       if (navigator.clipboard) {
@@ -1001,14 +1001,13 @@ function CertificatesContent(): ReactElement {
       mask: layer.mask
     })) || [];
     
-    // ✅ We'll get certificate XID after saving it below
-    // For now, prepare QR layers with placeholder - we'll update URLs after certificate is saved
+    // ✅ Use certificate_no for QR code URL (already available from finalCertData)
     
     // Prepare QR code layers with certificate URL from layout config  
     const qrLayersForRender = layoutConfig?.certificate?.qrLayers?.map((layer: QRCodeLayerConfig) => ({
       id: layer.id,
       type: layer.type as 'qr_code',
-      qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/PLACEHOLDER_XID`),
+      qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/cek/${finalCertData.certificate_no}`),
       x: layer.x,
       y: layer.y,
       xPercent: layer.xPercent,
@@ -1150,13 +1149,9 @@ function CertificatesContent(): ReactElement {
     const finalCertFileName = `${certificateXid}_cert.png`;
     const finalScoreFileName = `${certificateXid}_score.png`;
 
-    // Update QR layers with correct certificate XID
-    qrLayersForRender?.forEach(layer => {
-      const currentQrData = layer.qrData ?? '';
-      layer.qrData = currentQrData.replace('PLACEHOLDER_XID', certificateXid ?? '');
-    });
+    // QR layers already have correct certificate_no URL, no need to update
 
-    // Re-render certificate with correct QR URLs and upload with proper filename
+    // Re-render certificate and upload with proper filename
     const finalCertificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,
@@ -1345,7 +1340,7 @@ function CertificatesContent(): ReactElement {
           const scoreQRLayersForRender = layoutConfig?.score?.qrLayers?.map((layer: QRCodeLayerConfig) => ({
             id: layer.id,
             type: layer.type as 'qr_code',
-            qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/c/${certificateXid}`),
+            qrData: layer.qrData.replace('{{CERTIFICATE_URL}}', `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/cek/${savedCertificate.certificate_no}`),
             x: layer.x,
             y: layer.y,
             xPercent: layer.xPercent,

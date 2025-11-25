@@ -49,14 +49,6 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [usernameCheckTimeout, setUsernameCheckTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [showCropModal, setShowCropModal] = useState(false);
-  const [cropSettings, setCropSettings] = useState({
-    scale: 1,
-    x: 0,
-    y: 0
-  });
 
   // Set document title
   useEffect(() => {
@@ -85,11 +77,14 @@ export default function ProfilePage() {
       return;
     }
 
+    // Fetch profile when component mounts
     fetchProfile();
   }, [isAuthenticated, router, fetchProfile]);
 
+  // Update form data when profile loads
   useEffect(() => {
     if (profile) {
+      // Only keep male/female for gender selection
       const profileGender = profile.gender === 'male' || profile.gender === 'female' 
         ? profile.gender 
         : '';
@@ -133,16 +128,6 @@ export default function ProfilePage() {
     };
   }, [usernameCheckTimeout]);
 
-  // Auto-clear error after 5 seconds
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => {
-        clearError();
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error, clearError]);
-
   const validateFullName = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -156,6 +141,7 @@ export default function ProfilePage() {
 
   const validateUsername = useCallback(async (value: string) => {
     const trimmed = value.trim();
+    const normalized = trimmed.toLowerCase(); // Normalize to lowercase like backend
     
     if (!trimmed) {
       return { isValid: false, isAvailable: false, message: 'Username is required' };
@@ -165,22 +151,26 @@ export default function ProfilePage() {
       return { isValid: false, isAvailable: false, message: 'Username must be at least 3 characters' };
     }
     
-    const usernameRegex = /^[a-zA-Z0-9_]+$/;
-    if (!usernameRegex.test(trimmed)) {
-      return { isValid: false, isAvailable: false, message: 'Username can only contain letters, numbers, and underscores' };
+    if (trimmed.length > 50) {
+      return { isValid: false, isAvailable: false, message: 'Username must be less than 50 characters' };
+    }
+    
+    // Enhanced regex to match backend validation (lowercase only)
+    const usernameRegex = /^[a-z0-9_]+$/;
+    if (!usernameRegex.test(normalized)) {
+      return { isValid: false, isAvailable: false, message: 'Username can only contain lowercase letters, numbers, and underscores' };
     }
     
     // If it's the same as current username, it's valid
-    const currentUsername = (profile?.username || '').toLowerCase();
-    const inputUsername = trimmed.toLowerCase();
-    
-    if (inputUsername === currentUsername) {
+    if (normalized === (profile?.username || '').toLowerCase()) {
       return { isValid: true, isAvailable: true, message: '' };
     }
     
-    // Check availability for different username
+    // Check availability for different username (send normalized version)
     try {
-      const isAvailable = await checkUsernameAvailability(trimmed);
+      console.log(`🔍 Frontend: Validating username "${normalized}"`);
+      const isAvailable = await checkUsernameAvailability(normalized);
+      console.log(`✅ Frontend: Username "${normalized}" available:`, isAvailable);
       
       if (!isAvailable) {
         return { isValid: false, isAvailable: false, message: 'Username is already taken' };
@@ -193,10 +183,13 @@ export default function ProfilePage() {
   }, [profile?.username, checkUsernameAvailability]);
 
   const handleInputChange = useCallback((field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Auto-normalize username to lowercase for better UX
+    const normalizedValue = field === 'username' ? value.toLowerCase() : value;
+    
+    setFormData(prev => ({ ...prev, [field]: normalizedValue }));
     
     if (field === 'full_name') {
-      const validation = validateFullName(value);
+      const validation = validateFullName(normalizedValue);
       setValidation(prev => ({
         ...prev,
         full_name: validation
@@ -215,7 +208,7 @@ export default function ProfilePage() {
       
       // Debounce username validation
       const timeout = setTimeout(async () => {
-        const validation = await validateUsername(value);
+        const validation = await validateUsername(normalizedValue);
         setValidation(prev => ({
           ...prev,
           username: validation
@@ -226,7 +219,9 @@ export default function ProfilePage() {
     }
   }, [usernameCheckTimeout, validateUsername]);
 
-  const handleFileSelect = (file: File) => {
+  const handleAvatarUpload = async (file: File) => {
+    if (!profile) return;
+
     // Validate file
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload an image file');
@@ -238,28 +233,17 @@ export default function ProfilePage() {
       return;
     }
 
-    // Create preview URL
-    const url = URL.createObjectURL(file);
-    setSelectedImage(file);
-    setPreviewUrl(url);
-    setCropSettings({ scale: 1, x: 0, y: 0 }); // Reset crop settings for new image
-    setShowCropModal(true);
-  };
-
-  const handleAvatarUpload = async (croppedFile: File) => {
-    if (!profile) return;
-
     setUploadingAvatar(true);
 
     try {
       // Create unique filename
-      const fileExt = croppedFile.name.split('.').pop() || 'jpg';
+      const fileExt = file.name.split('.').pop();
       const fileName = `avatar-${profile.id}-${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabaseClient.storage
         .from('profile')
-        .upload(fileName, croppedFile, {
+        .upload(fileName, file, {
           cacheControl: '3600',
           upsert: true
         });
@@ -275,15 +259,6 @@ export default function ProfilePage() {
       setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
       toast.success('Avatar uploaded successfully');
 
-      // Clean up
-      setShowCropModal(false);
-      setSelectedImage(null);
-      setCropSettings({ scale: 1, x: 0, y: 0 });
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-        setPreviewUrl(null);
-      }
-
     } catch (err) {
       console.error('Avatar upload error:', err);
       toast.error('Failed to upload avatar');
@@ -292,28 +267,12 @@ export default function ProfilePage() {
     }
   };
 
-  const cancelCrop = () => {
-    setShowCropModal(false);
-    setSelectedImage(null);
-    setCropSettings({ scale: 1, x: 0, y: 0 });
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    console.log('🚀 Starting profile update...');
-    console.log('📋 Form data:', formData);
 
     // Final validation
     const fullNameValidation = validateFullName(formData.full_name);
     const usernameValidation = await validateUsername(formData.username);
-
-    console.log('✅ Full name validation:', fullNameValidation);
-    console.log('✅ Username validation:', usernameValidation);
 
     if (!fullNameValidation.isValid || !usernameValidation.isValid) {
       toast.error('Please fix validation errors');
@@ -322,19 +281,15 @@ export default function ProfilePage() {
 
     const updates = {
       full_name: formData.full_name.trim(),
-      username: formData.username.trim(),
+      username: formData.username.trim().toLowerCase(), // Ensure lowercase
       gender: formData.gender || undefined,
       avatar_url: formData.avatar_url || undefined
     };
 
-    console.log('📤 Sending updates:', updates);
     const success = await updateProfile(updates);
-    console.log('📥 Update result:', success);
     
     if (success) {
       toast.success('Profile updated successfully');
-    } else {
-      toast.error('Failed to update profile');
     }
   };
 
@@ -377,7 +332,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <ModernLayout hideSidebar>
-        <div className="max-w-4xl mx-auto p-4">
+        <div className="max-w-4xl mx-auto p-4 space-y-4">
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
@@ -388,57 +343,34 @@ export default function ProfilePage() {
 
   return (
     <ModernLayout hideSidebar>
-      <div className="max-w-4xl mx-auto px-4 pt-2 pb-4">
+      <div className="max-w-4xl mx-auto p-4 space-y-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="space-y-3"
         >
-          {/* Header - Compact */}
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-              <User className="h-5 w-5 text-white" />
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+              <User className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                 Edit Profile
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 Customize your profile information
               </p>
             </div>
           </div>
 
-          {/* Error Display */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"
-            >
-              <div className="flex items-center gap-3">
-                <X className="h-5 w-5 text-red-500" />
-                <p className="text-red-700 dark:text-red-400">{error}</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearError}
-                  className="ml-auto text-red-600 hover:text-red-800"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
 
           {/* Main Form */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <form onSubmit={handleSubmit} className="p-3 space-y-3">
+            <form onSubmit={handleSubmit} className="p-4 space-y-4">
               
               {/* Avatar Section */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label className="text-base font-medium">Profile Picture</Label>
                 <div className="flex items-center gap-6">
                   <div className="relative w-20 h-20 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
@@ -467,7 +399,7 @@ export default function ProfilePage() {
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
-                      onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                      onChange={(e) => e.target.files?.[0] && handleAvatarUpload(e.target.files[0])}
                       className="hidden"
                     />
                     <Button
@@ -610,18 +542,19 @@ export default function ProfilePage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <Button
                     type="submit"
                     disabled={
+                      !hasChanges || 
                       !validation.full_name.isValid || 
                       !validation.username.isValid || 
                       updating ||
                       checkingUsername
                     }
                     className={`w-full sm:w-auto transition-all ${
-                      (!validation.full_name.isValid || !validation.username.isValid || updating || checkingUsername)
+                      (!hasChanges || !validation.full_name.isValid || !validation.username.isValid || updating || checkingUsername)
                         ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed text-gray-600'
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
@@ -629,10 +562,10 @@ export default function ProfilePage() {
                     {updating ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Saving...
+                        Updating...
                       </>
                     ) : (
-                      'Save'
+                      'Update Profile'
                     )}
                   </Button>
                   
@@ -650,121 +583,7 @@ export default function ProfilePage() {
             </form>
           </div>
 
-          {/* Crop Modal */}
-          {showCropModal && previewUrl && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-lg w-full"
-              >
-                <h3 className="text-lg font-semibold mb-4">Adjust Profile Picture</h3>
-                
-                <div className="space-y-6">
-                  {/* Preview Area */}
-                  <div className="flex justify-center">
-                    <div className="relative w-64 h-64 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 border-4 border-blue-500">
-                      <div 
-                        className="absolute inset-0 cursor-move"
-                        style={{
-                          transform: `translate(${cropSettings.x}px, ${cropSettings.y}px) scale(${cropSettings.scale})`,
-                          transition: 'transform 0.1s ease'
-                        }}
-                        onMouseDown={(e) => {
-                          const startX = e.clientX - cropSettings.x;
-                          const startY = e.clientY - cropSettings.y;
-                          
-                          const handleMouseMove = (e: MouseEvent) => {
-                            setCropSettings(prev => ({
-                              ...prev,
-                              x: e.clientX - startX,
-                              y: e.clientY - startY
-                            }));
-                          };
-                          
-                          const handleMouseUp = () => {
-                            document.removeEventListener('mousemove', handleMouseMove);
-                            document.removeEventListener('mouseup', handleMouseUp);
-                          };
-                          
-                          document.addEventListener('mousemove', handleMouseMove);
-                          document.addEventListener('mouseup', handleMouseUp);
-                        }}
-                      >
-                        <Image
-                          src={previewUrl}
-                          alt="Preview"
-                          fill
-                          className="object-cover select-none pointer-events-none"
-                          draggable={false}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Controls */}
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="text-sm font-medium mb-2 block">Zoom</Label>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="3"
-                        step="0.1"
-                        value={cropSettings.scale}
-                        onChange={(e) => setCropSettings(prev => ({ ...prev, scale: parseFloat(e.target.value) }))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>50%</span>
-                        <span>300%</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => setCropSettings({ scale: 1, x: 0, y: 0 })}
-                        className="text-sm"
-                        disabled={uploadingAvatar}
-                      >
-                        Reset
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                    Drag to reposition • Use slider to zoom
-                  </p>
-                  
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={cancelCrop}
-                      className="flex-1"
-                      disabled={uploadingAvatar}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={() => selectedImage && handleAvatarUpload(selectedImage)}
-                      className="flex-1"
-                      disabled={uploadingAvatar}
-                    >
-                      {uploadingAvatar ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        'Use Photo'
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
+
         </motion.div>
       </div>
     </ModernLayout>

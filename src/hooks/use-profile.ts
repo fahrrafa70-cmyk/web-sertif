@@ -34,45 +34,39 @@ export function useProfile(): UseProfileState & UseProfileActions {
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      console.log("📥 Fetching profile directly from Supabase...");
-
-      // Get current user ID
+      // Get current session
       const {
-        data: { user },
-        error: userError,
-      } = await supabaseClient.auth.getUser();
+        data: { session },
+        error: sessionError,
+      } = await supabaseClient.auth.getSession();
 
-      if (!user || userError) {
-        throw new Error("Authentication required. Please log in again.");
+      if (sessionError || !session) {
+        throw new Error("Authentication required");
       }
 
-      console.log("👤 Fetching profile for user ID:", user.id);
+      // Fetch profile via API
+      const response = await fetch("/api/profile", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-      // Fetch profile directly from Supabase database
-      const { data, error } = await supabaseClient
-        .from("users")
-        .select(
-          "id, email, full_name, username, gender, avatar_url, auth_provider, created_at, updated_at",
-        )
-        .eq("id", user.id);
-
-      if (error) {
-        console.error("❌ Supabase fetch error:", error);
-        throw new Error(error.message || "Failed to fetch profile");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      console.log("✅ Profile fetched successfully:", data);
+      const data = await response.json();
 
-      // Fetch returns array, get first item (should be only one)
-      const profile = Array.isArray(data) ? data[0] : data;
-
-      if (!profile) {
-        throw new Error("Profile not found");
+      if (!data.success) {
+        throw new Error(data.error || "Failed to fetch profile");
       }
 
       setState((prev) => ({
         ...prev,
-        profile: profile,
+        profile: data.data,
         loading: false,
         error: null,
       }));
@@ -92,86 +86,40 @@ export function useProfile(): UseProfileState & UseProfileActions {
       setState((prev) => ({ ...prev, updating: true, error: null }));
 
       try {
-        console.log("💾 Updating profile directly with Supabase...");
-        console.log("📝 Updates to apply:", updates);
-
-        // Get current user ID
+        // Get current session
         const {
-          data: { user },
-          error: userError,
-        } = await supabaseClient.auth.getUser();
+          data: { session },
+          error: sessionError,
+        } = await supabaseClient.auth.getSession();
 
-        if (!user || userError) {
-          throw new Error("Authentication required. Please log in again.");
+        if (sessionError || !session) {
+          throw new Error("Authentication required");
         }
 
-        console.log("👤 Current user ID:", user.id);
+        // Update profile via API
+        const response = await fetch("/api/profile", {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updates),
+        });
 
-        // Try UPDATE first
-        const { data, error } = await supabaseClient
-          .from("users")
-          .update({
-            full_name: updates.full_name,
-            username: updates.username,
-            gender: updates.gender,
-            avatar_url: updates.avatar_url,
-          })
-          .eq("id", user.id)
-          .select(
-            "id, email, full_name, username, gender, avatar_url, auth_provider, created_at, updated_at",
-          );
-
-        if (error) {
-          console.error("Supabase error:", error);
-          throw new Error(error.message || "Failed to update profile");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
         }
 
-        console.log("Update result:", data);
+        const data = await response.json();
 
-        // If no row updated, user doesn't exist in custom table - create it
-        if (!data || (Array.isArray(data) && data.length === 0)) {
-          console.log("🆕 User not in custom table, creating record...");
-
-          const { data: newData, error: insertError } = await supabaseClient
-            .from("users")
-            .insert({
-              id: user.id,
-              email: user.email || "",
-              full_name: updates.full_name,
-              username: updates.username,
-              gender: updates.gender,
-              avatar_url: updates.avatar_url,
-            })
-            .select(
-              "id, email, full_name, username, gender, avatar_url, auth_provider, created_at, updated_at",
-            );
-
-          if (insertError) {
-            console.error("Insert error:", insertError);
-            throw new Error(insertError.message || "Failed to create profile");
-          }
-
-          console.log("✅ Profile created:", newData);
-
-          // Use inserted data
-          const createdProfile = Array.isArray(newData) ? newData[0] : newData;
-
-          setState((prev) => ({
-            ...prev,
-            profile: createdProfile,
-            updating: false,
-            error: null,
-          }));
-
-          return true;
+        if (!data.success) {
+          throw new Error(data.error || "Failed to update profile");
         }
-
-        // Update returns array, get first item
-        const updatedProfile = Array.isArray(data) ? data[0] : data;
 
         setState((prev) => ({
           ...prev,
-          profile: updatedProfile,
+          profile: data.data,
           updating: false,
           error: null,
         }));
@@ -194,46 +142,58 @@ export function useProfile(): UseProfileState & UseProfileActions {
   const checkUsernameAvailability = useCallback(
     async (username: string): Promise<boolean> => {
       if (!username || username.trim().length < 3) {
+        console.log("🚫 Username too short:", username);
         return false;
       }
 
       setState((prev) => ({ ...prev, checkingUsername: true }));
 
       try {
-        console.log("🔍 Checking username availability directly:", username);
-
-        // Get current user ID to exclude from check
+        // Get current session for authenticated check
         const {
-          data: { user },
-        } = await supabaseClient.auth.getUser();
-        const currentUserId = user?.id;
+          data: { session },
+        } = await supabaseClient.auth.getSession();
 
-        // Check if username exists (excluding current user)
-        let query = supabaseClient
-          .from("users")
-          .select("username")
-          .eq("username", username.trim());
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
 
-        if (currentUserId) {
-          query = query.neq("id", currentUserId);
+        // Add auth header if user is authenticated
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
         }
 
-        const { data, error } = await query;
+        console.log(`🌐 Frontend: Checking username "${username}"`);
 
-        if (error) {
-          console.error("❌ Username check error:", error);
-          // On error, assume available to avoid false blocking
-          return true;
+        const response = await fetch(
+          `/api/profile/username-check?username=${encodeURIComponent(username)}`,
+          {
+            method: "GET",
+            headers,
+          },
+        );
+
+        console.log(`📡 Frontend: API response status:`, response.status);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error("❌ Frontend: Username check failed:", errorData);
+          return false;
         }
 
-        const isAvailable = !data || data.length === 0;
-        console.log("✅ Username available:", isAvailable);
+        const data = await response.json();
+        console.log(`📋 Frontend: API response data:`, data);
+
+        const isAvailable = data.available === true;
+        console.log(`🎯 Frontend: Final availability result:`, isAvailable);
 
         return isAvailable;
       } catch (err) {
-        console.error("Username check failed:", err);
-        // On error, assume available to avoid false blocking
-        return true;
+        console.error(
+          "💥 Frontend: Error checking username availability:",
+          err,
+        );
+        return false;
       } finally {
         setState((prev) => ({ ...prev, checkingUsername: false }));
       }
