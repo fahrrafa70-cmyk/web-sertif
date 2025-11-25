@@ -282,6 +282,24 @@ function SearchResultsContent() {
       const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
       const isCertId = q.match(/^CERT-/i);
       
+      // Check minimum 3 characters requirement (only for keyword searches, not for direct ID/link searches)
+      const trimmedQ = q.trim();
+      if (!publicLinkMatch && !oldLinkMatch && !isCertId) {
+        if (trimmedQ.length < 3) {
+          setSearchError('Search must be at least 3 characters long');
+          setSearchResults([]);
+          return;
+        }
+        
+        // Check if it contains at least 3 letters (for meaningful text search)
+        const letterCount = (trimmedQ.match(/[a-zA-Z]/g) || []).length;
+        if (letterCount < 3) {
+          setSearchError('Search must contain at least 3 letters');
+          setSearchResults([]);
+          return;
+        }
+      }
+      
       if (publicLinkMatch || oldLinkMatch || isCertId) {
         // Direct search by ID/link - redirect to certificate page
         try {
@@ -489,6 +507,26 @@ function SearchResultsContent() {
       setSearchResults([]);
       setHasSearched(false); // Reset if search query is empty
       return;
+    }
+
+    // Validate minimum requirements for keyword search
+    const publicLinkMatch = q.match(/(?:\/cek\/|cek\/|\/c\/|c\/)([a-f0-9-]{16,36})/i);
+    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
+    const isCertId = q.match(/^CERT-/i);
+    
+    if (!publicLinkMatch && !oldLinkMatch && !isCertId) {
+      if (q.length < 3) {
+        setSearchError('Search must be at least 3 characters long');
+        setSearchResults([]);
+        return;
+      }
+      
+      const letterCount = (q.match(/[a-zA-Z]/g) || []).length;
+      if (letterCount < 3) {
+        setSearchError('Search must contain at least 3 letters');
+        setSearchResults([]);
+        return;
+      }
     }
 
     // Update filters and perform search (URL stays as /search without query params)

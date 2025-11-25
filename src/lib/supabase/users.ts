@@ -1,12 +1,15 @@
 import { supabaseClient } from './client';
 
 export type UserRole = 'admin' | 'team' | 'user' | 'member';
+export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 
 export interface AppUser {
   id: string;
   email: string;
   password?: string | null;
   full_name: string;
+  username?: string | null;
+  gender?: Gender | null;
   organization?: string | null;
   phone?: string | null;
   role: UserRole | string; // keep flexible if DB uses enum text with case variants
@@ -24,6 +27,25 @@ export interface CreateAppUserInput {
   organization?: string;
   phone?: string;
   role?: UserRole | string; // will be forced to 'team' by caller
+}
+
+export interface UpdateProfileInput {
+  full_name?: string;
+  username?: string;
+  gender?: Gender;
+  avatar_url?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  username?: string | null;
+  gender?: Gender | null;
+  avatar_url?: string | null;
+  auth_provider?: 'email' | 'google' | 'github' | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export async function getUsers(opts?: { role?: string }): Promise<AppUser[]> {
@@ -91,4 +113,76 @@ export async function createUser(input: CreateAppUserInput): Promise<AppUser> {
   }
 
   return data as AppUser;
+}
+
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  const { data, error } = await supabaseClient
+    .from('users')
+    .select('id, email, full_name, username, gender, avatar_url, auth_provider, created_at, updated_at')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch user profile: ${error.message}`);
+  }
+
+  return data as UserProfile | null;
+}
+
+export async function checkUsernameAvailability(username: string, currentUserId?: string): Promise<boolean> {
+  let query = supabaseClient
+    .from('users')
+    .select('id')
+    .eq('username', username.toLowerCase())
+    .limit(1);
+
+  // If checking for current user, exclude their own record
+  if (currentUserId) {
+    query = query.neq('id', currentUserId);
+  }
+
+  const { data, error } = await query;
+  
+  if (error) {
+    throw new Error(`Failed to check username availability: ${error.message}`);
+  }
+
+  // Username is available if no records found
+  return !data || data.length === 0;
+}
+
+export async function updateUserProfile(
+  userId: string, 
+  updates: UpdateProfileInput
+): Promise<UserProfile> {
+  // Validate username if provided
+  if (updates.username) {
+    const isAvailable = await checkUsernameAvailability(updates.username, userId);
+    if (!isAvailable) {
+      throw new Error('Username is already taken');
+    }
+  }
+
+  const payload: Record<string, unknown> = {
+    updated_at: new Date().toISOString()
+  };
+
+  // Add only provided fields to payload
+  if (updates.full_name !== undefined) payload.full_name = updates.full_name.trim();
+  if (updates.username !== undefined) payload.username = updates.username.toLowerCase().trim();
+  if (updates.gender !== undefined) payload.gender = updates.gender;
+  if (updates.avatar_url !== undefined) payload.avatar_url = updates.avatar_url;
+
+  const { data, error } = await supabaseClient
+    .from('users')
+    .update(payload)
+    .eq('id', userId)
+    .select('id, email, full_name, username, gender, avatar_url, auth_provider, created_at, updated_at')
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update user profile: ${error.message}`);
+  }
+
+  return data as UserProfile;
 }
