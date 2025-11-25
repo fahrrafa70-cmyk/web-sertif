@@ -18,6 +18,7 @@ import { confirmToast } from "@/lib/ui/confirm";
 import { LoadingButton } from "@/components/ui/loading-button";
 import Image from "next/image";
 import { TemplatesPageSkeleton } from "@/components/ui/templates-skeleton";
+import { getTenantsForCurrentUser, type Tenant } from "@/lib/supabase/tenants";
 
 // Helper function for category colors
 const getCategoryColor = (category: string) => {
@@ -182,6 +183,9 @@ export default function TemplatesPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
+  const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
 
   // Set document title robust untuk templates page
   useEffect(() => {
@@ -205,6 +209,38 @@ export default function TemplatesPage() {
       timeouts.forEach(clearTimeout);
     };
   }, []);
+
+  // Load tenants for selector
+  useEffect(() => {
+    const loadTenants = async () => {
+      try {
+        setLoadingTenants(true);
+        const data = await getTenantsForCurrentUser();
+        setTenants(data);
+
+        let initialId = "";
+        try {
+          const stored = window.localStorage.getItem("ecert-selected-tenant-id") || "";
+          if (stored && data.some((t) => t.id === stored)) {
+            initialId = stored;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (!initialId && data.length === 1) {
+          initialId = data[0].id;
+        }
+
+        setSelectedTenantId(initialId);
+      } finally {
+        setLoadingTenants(false);
+      }
+    };
+
+    void loadTenants();
+  }, []);
+
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 100); // Optimized for INP performance
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -249,6 +285,12 @@ export default function TemplatesPage() {
     if (!templates.length) return [];
     
     let list = templates;
+
+    // Filter by selected tenant if available
+    if (selectedTenantId) {
+      list = list.filter((template) => template.tenant_id === selectedTenantId);
+      if (!list.length) return [];
+    }
     
     // Apply category filter first (usually more selective)
     if (categoryFilter) {
@@ -284,7 +326,7 @@ export default function TemplatesPage() {
     }
     
     return list;
-  }, [templates, debouncedQuery, categoryFilter, orientationFilter, statusFilter]);
+  }, [templates, debouncedQuery, categoryFilter, orientationFilter, statusFilter, selectedTenantId]);
   
   // ✅ PHASE 2: Smart preloader for next page templates - TEMPORARILY DISABLED
   // const { preloadTemplate, preloadOnHover, preloadNextPage, getStats } = useSmartPreloader({
@@ -309,6 +351,11 @@ export default function TemplatesPage() {
       else if (normalized === "public") setRole("Public");
     } catch {}
   }, []);
+
+  const selectedTenant = useMemo(
+    () => tenants.find((t) => t.id === selectedTenantId) || null,
+    [tenants, selectedTenantId],
+  );
 
   // Simplified without debug functions
 
@@ -737,29 +784,72 @@ export default function TemplatesPage() {
         } as React.CSSProperties}
       >
         <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
-          {/* Header Section - Like Groups page */}
-          <div className="mb-3">
+          {/* Header Section - Title + Tenant Selector */}
+          <div className="mb-3 space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 w-full">
               {/* Title */}
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-md flex-shrink-0 bg-blue-500">
                   <Layout className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
-                  {t('templates.title')}
-                </h1>
+                <div>
+                  <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
+                    {t('templates.title')}
+                  </h1>
+                  {/* Active tenant indicator */}
+                  <p className="mt-1 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                    <span>Tenant aktif:</span>
+                    {selectedTenant ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 text-[10px] sm:text-[11px] uppercase tracking-wide">
+                        {selectedTenant.name}
+                      </span>
+                    ) : (
+                      <span className="text-red-500">Belum memilih tenant</span>
+                    )}
+                  </p>
+                </div>
               </div>
               
-              {/* Create Button */}
-              {(role === "Admin" || role === "Team") && (
-                <Button 
-                  onClick={openCreate} 
-                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full sm:w-auto"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  <span>{t('templates.create')}</span>
-                </Button>
-              )}
+              {/* Right side: tenant selector (only if >1) + create button */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                {tenants.length > 1 && (
+                  <div className="w-full sm:w-56">
+                    <select
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs sm:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                      value={selectedTenantId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedTenantId(value);
+                        try {
+                          window.localStorage.setItem("ecert-selected-tenant-id", value);
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      disabled={loadingTenants || tenants.length === 0}
+                    >
+                      {loadingTenants && <option value="">Memuat tenant...</option>}
+                      {!loadingTenants && tenants.length > 0 && !selectedTenantId && (
+                        <option value="">Pilih tenant...</option>
+                      )}
+                      {!loadingTenants && tenants.map((tenant) => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {(role === "Admin" || role === "Team") && (
+                  <Button 
+                    onClick={openCreate} 
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full sm:w-auto"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    <span>{t('templates.create')}</span>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 

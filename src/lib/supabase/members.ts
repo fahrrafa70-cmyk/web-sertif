@@ -3,6 +3,7 @@ import { supabaseClient } from './client';
 export interface Member {
   id: string;
   name: string;
+  tenant_id?: string | null;
   organization?: string | null;
   phone?: string | null;
   email?: string | null;

@@ -1,6 +1,7 @@
 "use client";
 
 import ModernLayout from "@/components/modern-layout";
+import type { ReactElement } from "react";
 import { Input } from "@/components/ui/input";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Member } from "@/lib/supabase/members";
+import { Tenant, getTenantsForCurrentUser } from "@/lib/supabase/tenants";
 import {
   Dialog,
   DialogContent,
@@ -68,7 +70,7 @@ import {
 } from '@/lib/utils/variable-parser';
 import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
 
-function CertificatesContent() {
+function CertificatesContent(): ReactElement {
   const { t, language } = useLanguage();
   
   // Set document title robust untuk certificates page
@@ -92,6 +94,37 @@ function CertificatesContent() {
     return () => {
       timeouts.forEach(clearTimeout);
     };
+  }, []);
+
+  // Load tenants for selector
+  useEffect(() => {
+    const loadTenants = async () => {
+      try {
+        setLoadingTenants(true);
+        const data = await getTenantsForCurrentUser();
+        setTenants(data);
+
+        let initialId = "";
+        try {
+          const stored = window.localStorage.getItem("ecert-selected-tenant-id") || "";
+          if (stored && data.some((t) => t.id === stored)) {
+            initialId = stored;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (!initialId && data.length === 1) {
+          initialId = data[0].id;
+        }
+
+        setSelectedTenantId(initialId);
+      } finally {
+        setLoadingTenants(false);
+      }
+    };
+
+    void loadTenants();
   }, []);
   
   // Format: 2 Nov 2025
@@ -134,6 +167,9 @@ function CertificatesContent() {
   const params = useSearchParams();
   const certQuery = (params?.get("cert") || "").toLowerCase();
   const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
+  const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearchInput = useDebounce(searchInput, 100); // Faster response for better INP
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -1045,7 +1081,7 @@ function CertificatesContent() {
     
     const finalCertificateImageUrl = pngUploadResult.url;
     const finalCertificateThumbnailUrl = webpUploadResult.url;
-    const certificateTextLayers: CertificateTextLayer[] = textLayers.map(layer => {
+    const certificateTextLayers: CertificateTextLayer[] = textLayers.map((layer) => {
       const baseLayer = {
         id: layer.id,
         text: layer.text,
@@ -1055,18 +1091,17 @@ function CertificatesContent() {
         yPercent: layer.yPercent || 0,
         fontSize: layer.fontSize,
         color: layer.color,
-        fontWeight: layer.fontWeight || 'normal',
-        fontFamily: layer.fontFamily || 'Arial',
+        fontWeight: layer.fontWeight || "normal",
+        fontFamily: layer.fontFamily || "Arial",
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
       };
       // Only include textAlign if it's not certificate_no or issue_date
-      if (layer.id !== 'certificate_no' && layer.id !== 'issue_date') {
+      if (layer.id !== "certificate_no" && layer.id !== "issue_date") {
         return { ...baseLayer, textAlign: layer.textAlign };
       }
       return baseLayer;
     });
-    
     // Create certificate data to save (use finalCertData which has auto-generated values)
     const certificateDataToSave: CreateCertificateData = {
       certificate_no: finalCertData.certificate_no,
@@ -1077,27 +1112,47 @@ function CertificatesContent() {
       category: template.category || undefined,
       template_id: template.id,
       member_id: member.id.startsWith('temp-') ? undefined : member.id,
-      text_layers: certificateTextLayers,
+      text_layers: textLayers.map(layer => {
+        const baseLayer = {
+          id: layer.id,
+          text: layer.text,
+          x: layer.x || 0,
+          y: layer.y || 0,
+          xPercent: layer.xPercent || 0,
+          yPercent: layer.yPercent || 0,
+          fontSize: layer.fontSize,
+          color: layer.color,
+          fontWeight: layer.fontWeight || 'normal',
+          fontFamily: layer.fontFamily || 'Arial',
+          maxWidth: layer.maxWidth,
+          lineHeight: layer.lineHeight,
+        };
+        // Only include textAlign if it's not certificate_no or issue_date
+        if (layer.id !== 'certificate_no' && layer.id !== 'issue_date') {
+          return { ...baseLayer, textAlign: layer.textAlign };
+        }
+        return baseLayer;
+      }),
       merged_image: finalCertificateImageUrl,
       certificate_image_url: finalCertificateImageUrl,
       certificate_thumbnail_url: finalCertificateThumbnailUrl,
     };
-    
-    // ✅ Save certificate to get proper XID from database
+
+    // Save certificate to get proper XID from database
     const savedCertificate = await createCertificate(certificateDataToSave);
-    
+
     // Now use the REAL certificate XID for filenames
     const certificateXid = savedCertificate.xid;
     // Use certificateXid to update existing filenames
     const finalCertFileName = `${certificateXid}_cert.png`;
     const finalScoreFileName = `${certificateXid}_score.png`;
-    
-    // ✅ NOW RE-RENDER with correct certificate XID
+
     // Update QR layers with correct certificate XID
     qrLayersForRender?.forEach(layer => {
-      layer.qrData = layer.qrData.replace('PLACEHOLDER_XID', certificateXid);
+      const currentQrData = layer.qrData ?? '';
+      layer.qrData = currentQrData.replace('PLACEHOLDER_XID', certificateXid ?? '');
     });
-    
+
     // Re-render certificate with correct QR URLs and upload with proper filename
     const finalCertificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
@@ -1105,13 +1160,13 @@ function CertificatesContent() {
       photoLayers: photoLayersForRender,
       qrLayers: qrLayersForRender,
     });
-    
+
     const finalCertificateThumbnail = await generateThumbnail(finalCertificateImageDataUrl, {
       format: 'webp',
       quality: 0.85,
       maxWidth: 1200
     });
-    
+
     // Upload with proper XID filename
     const finalPngUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
@@ -1122,12 +1177,12 @@ function CertificatesContent() {
         bucketName: 'certificates',
       }),
     });
-    
+
     if (!finalPngUploadResponse.ok) {
       const errorText = await finalPngUploadResponse.text();
       throw new Error(`Failed to upload final PNG to storage: ${errorText}`);
     }
-    
+
     const finalPngUploadResult = await finalPngUploadResponse.json();
     const finalWebpUploadResponse = await fetch('/api/upload-to-storage', {
       method: 'POST',
@@ -1138,14 +1193,14 @@ function CertificatesContent() {
         bucketName: 'certificates',
       }),
     });
-    
+
     if (!finalWebpUploadResponse.ok) {
       const errorText = await finalWebpUploadResponse.text();
       throw new Error(`Failed to upload final WebP to storage: ${errorText}`);
     }
-    
+
     const finalWebpUploadResult = await finalWebpUploadResponse.json();
-    
+
     // Update certificate record with proper URLs
     const { error: updateError } = await supabaseClient
       .from('certificates')
@@ -1386,6 +1441,13 @@ function CertificatesContent() {
   const filtered = useMemo(() => {
     let filteredCerts = certificates;
 
+    // Tenant filter
+    if (selectedTenantId) {
+      filteredCerts = filteredCerts.filter(
+        (cert) => cert.tenant_id === selectedTenantId,
+      );
+    }
+
     // Search filter - use debounced search input for better performance
     const searchQuery = (debouncedSearchInput || certQuery || "").toLowerCase();
     if (searchQuery) {
@@ -1411,9 +1473,8 @@ function CertificatesContent() {
         (cert) => cert.issue_date === dateFilter,
       );
     }
-
     return filteredCerts;
-  }, [certificates, debouncedSearchInput, certQuery, categoryFilter, dateFilter]);
+  }, [certificates, debouncedSearchInput, certQuery, categoryFilter, dateFilter, selectedTenantId]);
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -1752,20 +1813,63 @@ function CertificatesContent() {
                     <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
                       <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
-                      {t("certificates.title")}
-                    </h1>
+                    <div>
+                      <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
+                        {t("certificates.title")}
+                      </h1>
+                      <p className="mt-1 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <span>Tenant aktif:</span>
+                        {selectedTenantId ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 text-[10px] sm:text-[11px] uppercase tracking-wide">
+                            {tenants.find((t) => t.id === selectedTenantId)?.name || "Tidak diketahui"}
+                          </span>
+                        ) : (
+                          <span className="text-red-500 text-[11px] sm:text-xs">Belum memilih tenant</span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  
-                  {/* Quick Generate Button */}
-                  {(role === "Admin" || role === "Team") && (
-                    <Button
-                      onClick={handleOpenQuickGenerate}
-                      className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
-                    >
-                      <span>{t("certificates.generate")}</span>
-                    </Button>
-                  )}
+
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                    {tenants.length > 1 && (
+                      <div className="w-full sm:w-56">
+                        <select
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs sm:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                          value={selectedTenantId}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedTenantId(value);
+                            try {
+                              window.localStorage.setItem("ecert-selected-tenant-id", value);
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                          disabled={loadingTenants || tenants.length === 0}
+                        >
+                          {loadingTenants && <option value="">Memuat tenant...</option>}
+                          {!loadingTenants && tenants.length > 0 && !selectedTenantId && (
+                            <option value="">Pilih tenant...</option>
+                          )}
+                          {!loadingTenants && tenants.map((tenant) => (
+                            <option key={tenant.id} value={tenant.id}>
+                              {tenant.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Quick Generate Button */}
+                    {(role === "Admin" || role === "Team") && (
+                      <Button
+                        onClick={handleOpenQuickGenerate}
+                        className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
+                      >
+                        <span>{t("certificates.generate")}</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Search and Filter Row */}

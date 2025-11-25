@@ -8,6 +8,7 @@ import { ModalProvider } from "@/contexts/modal-context";
 import { LoginModal } from "@/components/ui/login-modal";
 import { ThemeScript } from "@/components/theme-script";
 import { ErrorBoundaryWrapper } from "@/components/error-boundary-wrapper";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -86,6 +87,7 @@ export default function RootLayout({
                     {/* <ScrollbarVisibility /> */}
                     {children}
                     <LoginModal />
+                    <Toaster position="top-right" richColors />
                   </ModalProvider>
                 </AuthProvider>
               </LanguageProvider>
