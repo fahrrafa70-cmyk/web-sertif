@@ -292,7 +292,7 @@ export default function TenantsPage() {
                     >
                       {/* Cover section */}
                       <div
-                        className="relative h-24 sm:h-28 w-full overflow-hidden"
+                        className="relative h-28 sm:h-32 w-full overflow-hidden"
                         style={{
                           backgroundImage: tenant.cover_url
                             ? `url(${tenant.cover_url})`
@@ -334,7 +334,7 @@ export default function TenantsPage() {
                       </div>
 
                       {/* Body section */}
-                      <div className="pt-7 px-4 pb-1 flex flex-col gap-1">
+                      <div className="pt-8 px-4 pb-2 flex flex-col gap-1.5">
                         <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">
                           <span>{formatDate(tenant.created_at)}</span>
                         </div>
@@ -404,7 +404,7 @@ export default function TenantsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="tenant-logo-file">Logo (opsional)</Label>
+                <Label htmlFor="tenant-logo-file">Logo</Label>
                 <div className="flex items-center gap-2">
                   <input
                     id="tenant-logo-file"
@@ -428,7 +428,7 @@ export default function TenantsPage() {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="tenant-cover-file">Cover (opsional)</Label>
+                <Label htmlFor="tenant-cover-file">Cover</Label>
                 <div className="flex items-center gap-2">
                   <input
                     id="tenant-cover-file"
@@ -520,7 +520,7 @@ export default function TenantsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="edit-tenant-logo-file">Logo (opsional)</Label>
+                <Label htmlFor="edit-tenant-logo-file">Logo</Label>
                 <div className="flex items-center gap-2">
                   <input
                     id="edit-tenant-logo-file"
@@ -544,7 +544,7 @@ export default function TenantsPage() {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="edit-tenant-cover-file">Cover (opsional)</Label>
+                <Label htmlFor="edit-tenant-cover-file">Cover</Label>
                 <div className="flex items-center gap-2">
                   <input
                     id="edit-tenant-cover-file"
