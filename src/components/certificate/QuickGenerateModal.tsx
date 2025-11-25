@@ -708,7 +708,9 @@ export function QuickGenerateModal({
               </SelectTrigger>
               <SelectContent position="popper" className="z-[9999] max-h-[300px]" sideOffset={5}>
                 {templates.length === 0 ? (
-                  <div className="p-2 text-sm text-gray-500">{t('quickGenerate.loadingTemplates')}</div>
+                  <div className="p-2 text-sm text-gray-500 text-center">
+                    Belum ada template yang dibuat untuk tenant ini
+                  </div>
                 ) : (
                   templates.map(template => (
                     <SelectItem 
@@ -776,7 +778,9 @@ export function QuickGenerateModal({
                   <Label>{t('quickGenerate.selectMembers')}</Label>
                   <div className="border border-gray-300 rounded-lg max-h-[200px] overflow-y-auto p-2 space-y-2">
                     {members.length === 0 ? (
-                      <div className="p-2 text-sm text-gray-500 text-center">{t('quickGenerate.loadingMembers')}</div>
+                      <div className="p-2 text-sm text-gray-500 text-center">
+                        Belum ada data anggota untuk tenant ini
+                      </div>
                     ) : (
                       members.map(member => (
                         <label 

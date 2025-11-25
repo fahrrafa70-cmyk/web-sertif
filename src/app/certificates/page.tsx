@@ -55,8 +55,8 @@ import Image from "next/image";
 import { confirmToast } from "@/lib/ui/confirm";
 import { Suspense } from "react";
 import { QuickGenerateModal, QuickGenerateParams } from "@/components/certificate/QuickGenerateModal";
-import { getTemplates } from "@/lib/supabase/templates";
-import { getMembers } from "@/lib/supabase/members";
+import { getTemplatesForTenant } from "@/lib/supabase/templates";
+import { getMembersForTenant } from "@/lib/supabase/members";
 import { renderCertificateToDataURL, RenderTextLayer } from "@/lib/render/certificate-render";
 import { generateThumbnail } from "@/lib/utils/thumbnail";
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
@@ -582,30 +582,33 @@ function CertificatesContent(): ReactElement {
 
   // Quick Generate: Load templates and members when modal opens
   const handleOpenQuickGenerate = async () => {
+    if (!selectedTenantId) {
+      toast.error('Pilih tenant terlebih dahulu sebelum generate sertifikat');
+      return;
+    }
+
     setQuickGenerateOpen(true);
-    
-    if (templates.length === 0 || members.length === 0) {
-      const loadingToast = toast.loading('Loading templates and members...');
-      
-      try {
-        setLoadingQuickGenData(true);
-        const [templatesData, membersData] = await Promise.all([
-          getTemplates(),
-          getMembers()
-        ]);
-        
-        // Filter out draft templates - only show ready templates for certificate generation
-        const readyTemplates = templatesData.filter(t => t.status === 'ready' || !t.status);
-        
-        setTemplates(readyTemplates);
-        setMembers(membersData);
-        toast.dismiss(loadingToast);
-      } catch {
-        toast.dismiss(loadingToast);
-        toast.error('Failed to load templates and members');
-      } finally {
-        setLoadingQuickGenData(false);
-      }
+
+    const loadingToast = toast.loading('Loading templates and members...');
+
+    try {
+      setLoadingQuickGenData(true);
+      const [templatesData, membersData] = await Promise.all([
+        getTemplatesForTenant(selectedTenantId),
+        getMembersForTenant(selectedTenantId),
+      ]);
+
+      // Hanya tampilkan template yang siap digunakan (status ready atau tanpa status)
+      const readyTemplates = templatesData.filter((t) => t.status === 'ready' || !t.status);
+
+      setTemplates(readyTemplates);
+      setMembers(membersData);
+      toast.dismiss(loadingToast);
+    } catch {
+      toast.dismiss(loadingToast);
+      toast.error('Failed to load templates and members for this tenant');
+    } finally {
+      setLoadingQuickGenData(false);
     }
   };
 
