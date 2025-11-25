@@ -667,7 +667,7 @@ function ConfigureLayoutContent() {
             // CRITICAL: Normalize coordinates when dimensions are loaded
             const layout = existingLayoutRef.current;
             if (layout && layout.score && layout.score.textLayers && layout.score.textLayers.length > 0) {
-              const normalizedLayers = (layout.score.textLayers as TextLayer[]).map(layer => {
+              let normalizedLayers = (layout.score.textLayers as TextLayer[]).map(layer => {
                 // Use xPercent/yPercent if available (resolution-independent), otherwise calculate from x/y
                 const xPercent = layer.xPercent !== undefined && layer.xPercent !== null
                   ? layer.xPercent
@@ -689,7 +689,30 @@ function ConfigureLayoutContent() {
                   lineHeight: layer.lineHeight || 1.2,
                 }, dimensions.height);
               });
-              
+
+              // Ensure required issue_date layer exists for score (Back) layout
+              const hasScoreIssueDate = normalizedLayers.some(layer => layer.id === 'issue_date');
+              if (!hasScoreIssueDate) {
+                normalizedLayers = [
+                  ...normalizedLayers,
+                  {
+                    id: 'issue_date',
+                    x: Math.round(dimensions.width * 0.7),
+                    y: Math.round(dimensions.height * 0.85),
+                    xPercent: 0.7,
+                    yPercent: 0.85,
+                    fontSize: 20,
+                    fontSizePercent: (20 / dimensions.height) * 100,
+                    color: '#000000',
+                    fontWeight: 'normal',
+                    fontFamily: 'Arial',
+                    maxWidth: Math.round(dimensions.width * 0.2),
+                    lineHeight: 1.2,
+                    visible: true,
+                  } as TextLayerConfig,
+                ];
+              }
+
               setScoreTextLayers(normalizedLayers);
               
               // Load photo layers for score mode
@@ -716,6 +739,21 @@ function ConfigureLayoutContent() {
                   fontFamily: 'Arial',
                   textAlign: 'center',
                   maxWidth: Math.round(dimensions.width * 0.8),
+                  lineHeight: 1.2,
+                  visible: true,
+                },
+                {
+                  id: 'issue_date',
+                  x: Math.round(dimensions.width * 0.7),
+                  y: Math.round(dimensions.height * 0.85),
+                  xPercent: 0.7,
+                  yPercent: 0.85,
+                  fontSize: 20,
+                  fontSizePercent: (20 / dimensions.height) * 100,
+                  color: '#000000',
+                  fontWeight: 'normal',
+                  fontFamily: 'Arial',
+                  maxWidth: Math.round(dimensions.width * 0.2),
                   lineHeight: 1.2,
                   visible: true,
                 },

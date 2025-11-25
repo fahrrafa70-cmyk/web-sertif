@@ -1034,6 +1034,8 @@ function CertificatesContent(): ReactElement {
       textLayers,
       photoLayers: photoLayersForRender,
       qrLayers: qrLayersForRender,
+      templateId: template.id,
+      templateName: template.name,
     });
     const certificateThumbnail = await generateThumbnail(certificateImageDataUrl, {
       format: 'webp',
@@ -1114,6 +1116,7 @@ function CertificatesContent(): ReactElement {
       category: template.category || undefined,
       template_id: template.id,
       member_id: member.id.startsWith('temp-') ? undefined : member.id,
+      tenant_id: selectedTenantId || undefined,
       text_layers: textLayers.map(layer => {
         const baseLayer = {
           id: layer.id,
@@ -1143,73 +1146,83 @@ function CertificatesContent(): ReactElement {
     // Save certificate to get proper XID from database
     const savedCertificate = await createCertificate(certificateDataToSave);
 
-    // Now use the REAL certificate XID for filenames
-    const certificateXid = savedCertificate.xid;
-    // Use certificateXid to update existing filenames
-    const finalCertFileName = `${certificateXid}_cert.png`;
-    const finalScoreFileName = `${certificateXid}_score.png`;
+    // Tahap lanjutan (re-render + upload ulang dengan XID asli + update URL) 
+    // TIDAK boleh menggagalkan status sukses generate, karena sertifikat
+    // sudah tersimpan di database pada titik ini.
+    try {
+      // Now use the REAL certificate XID for filenames
+      const certificateXid = savedCertificate.xid;
+      // Use certificateXid to update existing filenames
+      const finalCertFileName = `${certificateXid}_cert.png`;
+      const finalScoreFileName = `${certificateXid}_score.png`;
 
-    // QR layers already have correct certificate_no URL, no need to update
+      // QR layers already have correct certificate_no URL, no need to update
 
-    // Re-render certificate and upload with proper filename
-    const finalCertificateImageDataUrl = await renderCertificateToDataURL({
-      templateImageUrl,
-      textLayers,
-      photoLayers: photoLayersForRender,
-      qrLayers: qrLayersForRender,
-    });
+      // Re-render certificate and upload with proper filename
+      const finalCertificateImageDataUrl = await renderCertificateToDataURL({
+        templateImageUrl,
+        textLayers,
+        photoLayers: photoLayersForRender,
+        qrLayers: qrLayersForRender,
+        templateId: template.id,
+        templateName: template.name,
+      });
 
-    const finalCertificateThumbnail = await generateThumbnail(finalCertificateImageDataUrl, {
-      format: 'webp',
-      quality: 0.85,
-      maxWidth: 1200
-    });
+      const finalCertificateThumbnail = await generateThumbnail(finalCertificateImageDataUrl, {
+        format: 'webp',
+        quality: 0.85,
+        maxWidth: 1200
+      });
 
-    // Upload with proper XID filename
-    const finalPngUploadResponse = await fetch('/api/upload-to-storage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageData: finalCertificateImageDataUrl,
-        fileName: finalCertFileName,
-        bucketName: 'certificates',
-      }),
-    });
+      // Upload with proper XID filename
+      const finalPngUploadResponse = await fetch('/api/upload-to-storage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageData: finalCertificateImageDataUrl,
+          fileName: finalCertFileName,
+          bucketName: 'certificates',
+        }),
+      });
 
-    if (!finalPngUploadResponse.ok) {
-      const errorText = await finalPngUploadResponse.text();
-      throw new Error(`Failed to upload final PNG to storage: ${errorText}`);
-    }
+      if (!finalPngUploadResponse.ok) {
+        const errorText = await finalPngUploadResponse.text();
+        throw new Error(`Failed to upload final PNG to storage: ${errorText}`);
+      }
 
-    const finalPngUploadResult = await finalPngUploadResponse.json();
-    const finalWebpUploadResponse = await fetch('/api/upload-to-storage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageData: finalCertificateThumbnail,
-        fileName: finalCertFileName.replace('.png', '.webp'),
-        bucketName: 'certificates',
-      }),
-    });
+      const finalPngUploadResult = await finalPngUploadResponse.json();
+      const finalWebpUploadResponse = await fetch('/api/upload-to-storage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageData: finalCertificateThumbnail,
+          fileName: finalCertFileName.replace('.png', '.webp'),
+          bucketName: 'certificates',
+        }),
+      });
 
-    if (!finalWebpUploadResponse.ok) {
-      const errorText = await finalWebpUploadResponse.text();
-      throw new Error(`Failed to upload final WebP to storage: ${errorText}`);
-    }
+      if (!finalWebpUploadResponse.ok) {
+        const errorText = await finalWebpUploadResponse.text();
+        throw new Error(`Failed to upload final WebP to storage: ${errorText}`);
+      }
 
-    const finalWebpUploadResult = await finalWebpUploadResponse.json();
+      const finalWebpUploadResult = await finalWebpUploadResponse.json();
 
-    // Update certificate record with proper URLs
-    const { error: updateError } = await supabaseClient
-      .from('certificates')
-      .update({ 
-        certificate_image_url: finalPngUploadResult.url,
-        certificate_thumbnail_url: finalWebpUploadResult.url
-      })
-      .eq('id', savedCertificate.id);
-    
-    if (updateError) {
-      console.error('❌ Failed to update certificate URLs:', updateError);
+      // Update certificate record with proper URLs
+      const { error: updateError } = await supabaseClient
+        .from('certificates')
+        .update({ 
+          certificate_image_url: finalPngUploadResult.url,
+          certificate_thumbnail_url: finalWebpUploadResult.url
+        })
+        .eq('id', savedCertificate.id);
+      
+      if (updateError) {
+        console.error('❌ Failed to update certificate URLs:', updateError);
+      }
+    } catch (postSaveError) {
+      console.error('⚠️ Post-save render/upload error (certificate already created):', postSaveError);
+      // Jangan lempar ulang error, supaya perhitungan generated tetap dianggap sukses
     }
     
     if (template.score_image_url && scoreData && Object.keys(scoreData).length > 0) {
@@ -1363,13 +1376,15 @@ function CertificatesContent(): ReactElement {
             textLayers: scoreTextLayers,
             photoLayers: scorePhotoLayersForRender,
             qrLayers: scoreQRLayersForRender,
+            templateId: template.id,
+            templateName: template.name,
           });
           const scoreThumbnail = await generateThumbnail(scoreImageDataUrl, {
             format: 'webp',
             quality: 0.85,
             maxWidth: 1200
           });
-          const scorePngFileName = finalScoreFileName;
+          const scorePngFileName = `${savedCertificate.xid}_score.png`;
           const scorePngUploadResponse = await fetch('/api/upload-to-storage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

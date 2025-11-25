@@ -115,6 +115,8 @@ export interface RenderCertificateParams {
   qrLayers?: RenderQRLayer[]; // Optional: QR code layers
   width?: number;  // Optional: If not provided, use template's natural width
   height?: number; // Optional: If not provided, use template's natural height
+  templateId?: string; // Optional: Template identifier (for per-template tweaks)
+  templateName?: string; // Optional: Template name (for per-template tweaks)
 }
 
 /**
@@ -138,7 +140,13 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 export async function renderCertificateToDataURL(
   params: RenderCertificateParams
 ): Promise<string> {
-  const { templateImageUrl, textLayers, photoLayers, qrLayers, width, height } = params;
+  const { templateImageUrl, textLayers, photoLayers, qrLayers, width, height, templateId, templateName } = params;
+  
+  // Template-specific behavior: detect Sertifikat Kompetensi UBIG
+  const isUbigTemplate =
+    templateId === 'fcfa7587-5c4e-4a6f-a4c7-04288c0e7031' ||
+    (typeof templateName === 'string' &&
+      templateName.toLowerCase().includes('sertifikat kompetensi ubig'));
   
   // CRITICAL: Wait for fonts to load before rendering
   // Font rendering differences between CSS and Canvas can cause positioning issues
@@ -299,7 +307,12 @@ export async function renderCertificateToDataURL(
       // Apply percentage to actual template dimensions (resolution-independent)
       const x = Math.round(xPercent * finalWidth);
       let y = Math.round(yPercent * finalHeight);
-      
+
+      // UBIG-only: shift all text layers slightly downward for better visual balance
+      if (isUbigTemplate) {
+        y += 8;
+      }
+
       // SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
       const isScoreLayer = (layer: RenderTextLayer) => {
         // Check by ID first (including "Nilai / Prestasi" with space and slash)
@@ -386,7 +399,8 @@ export async function renderCertificateToDataURL(
           align,
           scaleFactor,
           layer.id, // Pass layer ID for Y-adjustment
-          isDecoration ? style : undefined // Pass decoration style
+          isDecoration ? style : undefined, // Pass decoration style
+          isUbigTemplate
         );
       } else {
         drawWrappedText(
@@ -398,7 +412,8 @@ export async function renderCertificateToDataURL(
           layer.lineHeight || 1.2,
           align,
           layer.id,
-          isDecoration ? style : undefined // Pass decoration style
+          isDecoration ? style : undefined, // Pass decoration style
+          isUbigTemplate
         );
       }
     }
@@ -438,7 +453,8 @@ function drawWrappedText(
   lineHeight: number,
   textAlign: 'left' | 'center' | 'right' | 'justify',
   layerId?: string, // Optional layer ID for debugging
-  textDecoration?: 'underline' | 'line-through' | 'overline' // Optional text decoration
+  textDecoration?: 'underline' | 'line-through' | 'overline', // Optional text decoration
+  isUbigTemplate: boolean = false
 ) {
   // CRITICAL: For "name" layer, prevent wrapping - text should shift left instead of wrapping down
   // If text is longer than maxWidth, keep it as single line and adjust x position to shift left
@@ -481,257 +497,147 @@ function drawWrappedText(
     }
   } else {
     // Normal wrapping behavior for other layers
-  // Build lines that fit within maxWidth
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    const metrics = ctx.measureText(testLine);
-    
-    if (metrics.width > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const metrics = ctx.measureText(testLine);
+      
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
     }
-  }
-  if (currentLine) {
-    lines.push(currentLine);
+    if (currentLine) {
+      lines.push(currentLine);
     }
   }
 
   // Calculate total text block height matching CSS line-height behavior
-  // CSS line-height creates a line-box with height = fontSize * lineHeight for each line
   const lineHeightPx = fontSize * lineHeight;
   const totalTextHeight = lines.length * lineHeightPx;
   
-  // CRITICAL FIX: Use TextMetrics to calculate actual visual center
-  // CSS and Canvas position text differently, causing visual mismatch especially for small fonts.
-  //
-  // CSS line-height behavior:
-  // - Line-box height = fontSize * lineHeight
-  // - Text baseline is positioned within line-box (typically at ~0.8 * fontSize from top)
-  // - Line-height space is distributed around baseline (half above, half below)
-  // - Visual center is affected by baseline position + space distribution
-  //
-  // Canvas textBaseline='top' behavior:
-  // - Positions from top of em-square
-  // - No space above text
-  // - Visual center = top + (actual text height / 2)
-  //
-  // Solution: Calculate the actual visual center using TextMetrics
-  // CRITICAL: Ensure font is set and valid before measuring!
+  // TextMetrics-based analysis (kept as-is)
   const firstLine = lines[0] || '';
-  
-  // CRITICAL FIX: Verify font is properly set before measurement
-  // If font string is malformed (missing fontWeight), TextMetrics will be invalid
-  // Check if font string matches expected format: "weight size family"
   if (!ctx.font || ctx.font === '10px sans-serif' || !ctx.font.includes('px')) {
     // Font should have been set earlier
-    // This should never happen if code path is correct
   }
-  
   const firstLineMetrics = ctx.measureText(firstLine);
-  
-  // CRITICAL: Verify font was applied correctly by checking metrics
-  // If width is 0 or very small, font may not be loaded
-  if (firstLineMetrics.width === 0 && firstLine.length > 0) {
-    // Font may not be loaded properly
-  }
-  
-  // INVESTIGATION: Font rendering differences between CSS and Canvas
-  // 
-  // Potential issues:
-  // 1. Font not fully loaded - measureText may return inaccurate metrics
-  // 2. Font fallback - Canvas might use different font than CSS
-  // 3. Font metrics differences - actualBoundingBox might differ from CSS computed height
-  // 4. Text rendering engine differences - CSS uses system font renderer, Canvas uses its own
-  //
-  // CRITICAL DISCOVERY: CSS and Canvas use different rendering models for line-height
-  //
-  // CSS line-height behavior:
-  // - Creates a line-box with height = fontSize * lineHeight
-  // - Text baseline is positioned within this line-box
-  // - Space is distributed around the baseline (not evenly above/below text)
-  // - The visual center of text is NOT at the center of line-height box
-  // - Visual center = baseline position + half of actual text height
-  // - For typical fonts, baseline is at ~80% of fontSize from top of em-square
-  // - Within line-height box: visual center shifts depending on space distribution
-  //
-  // Canvas textBaseline='top' behavior:
-  // - We position from top of em-square (where text actually starts rendering)
-  // - We add spacing below using lineHeight
-  // - Visual center = top + (totalTextHeight / 2) where totalTextHeight = fontSize * lineHeight * lines
-  // - This assumes visual center is at center of totalTextHeight
-  // - BUT this is WRONG because CSS centers line-height box, not text itself
-  //
-  // The mismatch: 
-  // - CSS visual center accounts for baseline position + line-height space distribution
-  // - Canvas visual center assumes text is centered within line-height box
-  // - These are NOT the same!
-  //
-  // CRITICAL FIX: Validate TextMetrics - negative values indicate font not loaded or measurement error
-  // Negative actualBoundingBoxAscent is a critical bug that causes all calculations to fail
-  // 
-  // PROBLEM: TextMetrics masih invalid meskipun sudah ada font loading delay
-  // Ini menunjukkan masalah fundamental - font measurement gagal untuk font kecil
-  // 
-  // ALTERNATIVE APPROACH: Untuk font kecil dengan TextMetrics invalid,
-  // kita bisa skip kompleks calculation dan langsung gunakan simple centering + fixed adjustment
-  // berdasarkan actual measurement dari console logs
-  const hasValidMetrics = firstLineMetrics.actualBoundingBoxAscent > 0 && 
-                          firstLineMetrics.actualBoundingBoxDescent > 0 &&
-                          !isNaN(firstLineMetrics.actualBoundingBoxAscent) &&
-                          !isNaN(firstLineMetrics.actualBoundingBoxDescent) &&
-                          isFinite(firstLineMetrics.actualBoundingBoxAscent) &&
-                          isFinite(firstLineMetrics.actualBoundingBoxDescent);
-  
+  const hasValidMetrics =
+    firstLineMetrics.actualBoundingBoxAscent > 0 &&
+    firstLineMetrics.actualBoundingBoxDescent > 0 &&
+    !isNaN(firstLineMetrics.actualBoundingBoxAscent) &&
+    !isNaN(firstLineMetrics.actualBoundingBoxDescent) &&
+    isFinite(firstLineMetrics.actualBoundingBoxAscent) &&
+    isFinite(firstLineMetrics.actualBoundingBoxDescent);
+
   if (!hasValidMetrics && layerId) {
-    // Fallback metrics work correctly, so this is not a critical error
     const debugInfo = {
       actualBoundingBoxAscent: firstLineMetrics.actualBoundingBoxAscent,
       actualBoundingBoxDescent: firstLineMetrics.actualBoundingBoxDescent,
       width: firstLineMetrics.width,
       fontSize,
       fontFamily: ctx.font,
-      message: 'Font not fully loaded, using reliable fallback (80/20 split)'
+      message: 'Font not fully loaded, using reliable fallback (80/20 split)',
     };
     void debugInfo;
   }
-  
-  // CRITICAL FIX: Handle invalid TextMetrics properly
-  // When actualBoundingBoxAscent is negative (font not loaded, measurement error, etc),
-  // we MUST use reliable fallback values to prevent catastrophic calculation errors
+
   let actualAscent: number;
   let actualDescent: number;
   let actualTextHeight: number;
-  
+
   if (hasValidMetrics) {
-    // Use actual measured metrics
     actualAscent = firstLineMetrics.actualBoundingBoxAscent;
     actualDescent = firstLineMetrics.actualBoundingBoxDescent;
     actualTextHeight = actualAscent + actualDescent;
   } else {
-    // CRITICAL: Use reliable fallback when TextMetrics are invalid
-    // For Arial and most sans-serif fonts:
-    // - Ascent is typically ~80% of fontSize  
-    // - Descent is typically ~20% of fontSize
-    // These ratios match CSS line-height baseline behavior better than 77/23 split
-    actualAscent = fontSize * 0.80;
-    actualDescent = fontSize * 0.20;
+    actualAscent = fontSize * 0.8;
+    actualDescent = fontSize * 0.2;
     actualTextHeight = actualAscent + actualDescent;
-    
-    // Fallback metrics applied
     const fallbackInfo = {
       fontSize,
       fallbackAscent: actualAscent,
       fallbackDescent: actualDescent,
-      fontFamily: ctx.font
+      fontFamily: ctx.font,
     };
     void fallbackInfo;
   }
-  
-  // Final safety check: ensure values are positive and reasonable
-  if (actualAscent <= 0 || actualDescent <= 0 || actualTextHeight <= 0 || !isFinite(actualAscent) || !isFinite(actualDescent)) {
-    // Metrics still invalid after fallback
-    const errorInfo = {
-      actualAscent,
-      actualDescent,
-      actualTextHeight,
-      fontSize
-    };
+
+  if (
+    actualAscent <= 0 ||
+    actualDescent <= 0 ||
+    actualTextHeight <= 0 ||
+    !isFinite(actualAscent) ||
+    !isFinite(actualDescent)
+  ) {
+    const errorInfo = { actualAscent, actualDescent, actualTextHeight, fontSize };
     void errorInfo;
-    // Last resort: use fontSize-based safe values
-    actualAscent = fontSize * 0.80;
-    actualDescent = fontSize * 0.20;
+    actualAscent = fontSize * 0.8;
+    actualDescent = fontSize * 0.2;
     actualTextHeight = fontSize;
   }
-  
-  // Log comprehensive metrics for investigation
+
   if (layerId === 'certificate_no' || layerId === 'issue_date') {
     const metricsInfo = {
       fontSize,
       lineHeight,
       fontFamily: ctx.font,
       fontWeight: ctx.font,
-      // Canvas TextMetrics
       actualBoundingBoxAscent: firstLineMetrics.actualBoundingBoxAscent,
       actualBoundingBoxDescent: firstLineMetrics.actualBoundingBoxDescent,
       fontBoundingBoxAscent: firstLineMetrics.fontBoundingBoxAscent,
       fontBoundingBoxDescent: firstLineMetrics.fontBoundingBoxDescent,
       emHeightAscent: firstLineMetrics.emHeightAscent,
       emHeightDescent: firstLineMetrics.emHeightDescent,
-      // Calculated values
       hasValidMetrics,
       actualAscent,
       actualDescent,
       actualTextHeight,
-      // Ratios (should be ~0.77 for ascent, ~0.23 for descent for typical fonts)
       ascentRatio: actualAscent / fontSize,
       descentRatio: actualDescent / fontSize,
-      // Line-height calculations
       lineHeightPx,
       totalTextHeight,
-      // Comparison: CSS vs Canvas visual center
       cssLineHeightBoxHeight: lineHeightPx,
       canvasTotalHeight: totalTextHeight,
-      // Check if actualTextHeight matches lineHeightPx (they should be different!)
       textVsLineHeightRatio: actualTextHeight / lineHeightPx,
-      // Expected: actualTextHeight < lineHeightPx because line-height adds space
-      heightDifference: lineHeightPx - actualTextHeight
+      heightDifference: lineHeightPx - actualTextHeight,
     };
     void metricsInfo;
   }
-  
-  // REFACTOR: Use uniform geometric center for ALL layers
-  // This ensures consistent positioning between Preview (CSS) and Generated PNG (Canvas)
-  // No special casing, no hardcoded adjustments, no padding/border compensation
-  // 
-  // Why this works:
-  // - Both CSS and Canvas now center text block (fontSize * lineHeight) at stored y
-  // - No padding/border in CSS preview (removed to match Canvas)
-  // - Geometric center: startY = y - (totalTextHeight / 2)
-  // - Works uniformly for all font sizes and lineHeight values
-  //
-  // Benefits:
-  // - Consistent positioning across all layers
-  // - Scalable: works for any template without per-layer adjustments
-  // - Maintainable: simple, clear logic
-  // - Predictable: same calculation for preview and generation
-  
-  const startY = y - (totalTextHeight / 2);
-  
-  // CRITICAL FIX: Calculate x position for each line based on textAlign
-  // 
-  // COORDINATE SYSTEM MISMATCH:
-  // CSS Preview: left: x, transform: translate(TX%, -50%)
-  //   - left:   TX = 0%    → x is LEFT edge (no shift)
-  //   - center: TX = -50%  → x shifts left by 50% of element width → Visual center at x
-  //   - right:  TX = -100% → x shifts left by 100% of element width → Visual right edge at x
-  // 
-  // Canvas Rendering: ctx.textAlign = align; ctx.fillText(text, x, y)
-  //   - left:   x is LEFT edge ✅ MATCHES CSS
-  //   - center: x is CENTER point ✅ MATCHES CSS (after transform)
-  //   - right:  x is RIGHT edge ✅ MATCHES CSS (after transform)
-  // 
-  // CONCLUSION: Stored x coordinate already represents the VISUAL position (post-transform)
-  // which matches Canvas textAlign expectations. No adjustment needed!
-  // Note: Canvas doesn't support 'justify', map it to 'left'
+
+  const startY = y - totalTextHeight / 2;
+
+  const isScoreLayerForAdjustment =
+    layerId &&
+    (layerId === 'nilai' ||
+      layerId === 'prestasi' ||
+      layerId === 'Nilai / Prestasi' ||
+      layerId.toLowerCase().includes('nilai') ||
+      layerId.toLowerCase().includes('prestasi'));
+
+  let microYAdjustment = 0;
+  // UBIG: semua font kecil 16–20px (default + custom) pakai offset yang sama
+  if (isScoreLayerForAdjustment) {
+    microYAdjustment = fontSize * 0.087;
+  } else if (isUbigTemplate && fontSize >= 16 && fontSize <= 20) {
+    microYAdjustment = fontSize * 0.1;
+  } else if (!isUbigTemplate && (layerId === 'certificate_no' || layerId === 'issue_date')) {
+    microYAdjustment = fontSize * 0.1;
+  } else if (!isUbigTemplate && fontSize >= 16 && fontSize <= 20) {
+    microYAdjustment = fontSize * 0.4;
+  }
+
+  // X positioning, decorations, and drawing kept as in previous version
   ctx.textAlign = textAlign === 'justify' ? 'left' : textAlign;
-  
   let drawX = x;
-  
-  // REFACTOR: Use stored x coordinate directly for ALL layers
-  // No adjustments needed - CSS transform and Canvas textAlign are already aligned
   drawX = x;
-  
-  // SIMPLIFIED DEBUG LOGGING: Verify uniform geometric center calculation
+
   if (layerId === 'name' || layerId === 'certificate_no' || layerId === 'issue_date') {
-    // All layers now use simple geometric center
-    const calculatedCenter = startY + (totalTextHeight / 2);
+    const calculatedCenter = startY + totalTextHeight / 2;
     const centerDifference = calculatedCenter - y;
-    
     const debugInfo = {
       layerId,
-      // Input coordinates
       x,
       y,
       fontSize,
@@ -739,91 +645,72 @@ function drawWrappedText(
       textAlign,
       text: text.substring(0, 20),
       linesCount: lines.length,
-      // Calculations
       lineHeightPx,
       totalTextHeight,
       startY,
       calculatedCenter,
       expectedCenter: y,
       centerDifference,
-      // Verification
       isOffsetCorrect: Math.abs(centerDifference) < 0.5,
-      actualShift: centerDifference > 0 ? `${centerDifference.toFixed(2)}px DOWN` : `${Math.abs(centerDifference).toFixed(2)}px UP`,
+      actualShift:
+        centerDifference > 0
+          ? `${centerDifference.toFixed(2)}px DOWN`
+          : `${Math.abs(centerDifference).toFixed(2)}px UP`,
       method: 'UNIFORM_GEOMETRIC_CENTER - same for all layers',
-      recommendation: Math.abs(centerDifference) < 0.5
-        ? 'Perfect center alignment ✓'
-        : `Off by ${Math.abs(centerDifference).toFixed(1)}px - check coordinates or CSS`
+      recommendation:
+        Math.abs(centerDifference) < 0.5
+          ? 'Perfect center alignment '
+          : `Off by ${Math.abs(centerDifference).toFixed(1)}px - check coordinates or CSS`,
     };
     void debugInfo;
   }
 
-  // CRITICAL: For "name" layer with long text, adjust x to shift left if text exceeds maxWidth
-  // This prevents wrapping and keeps text in single line, shifting the text box to the left
   let adjustedDrawX = drawX;
   if (isNameLayer && maxWidth > 0 && lines.length === 1) {
-    // Single line text that might exceed maxWidth
-    const lineWidth = ctx.measureText(lines[0]).width;
-    
-    if (lineWidth > maxWidth) {
-      // Text exceeds maxWidth - adjust x to shift left based on alignment
+    const lineWidthSingle = ctx.measureText(lines[0]).width;
+    if (lineWidthSingle > maxWidth) {
+      const overflow = lineWidthSingle - maxWidth;
       if (textAlign === 'right') {
-        // For right-aligned: shift left by the overflow amount
-        const overflow = lineWidth - maxWidth;
         adjustedDrawX = drawX - overflow;
       } else if (textAlign === 'center') {
-        // For center-aligned: shift left by half the overflow amount
-        const overflow = lineWidth - maxWidth;
-        adjustedDrawX = drawX - (overflow / 2);
+        adjustedDrawX = drawX - overflow / 2;
       } else {
-        // For left-aligned: shift left to keep text within maxWidth boundary
-        // Calculate overflow and shift left to accommodate the full text
-        const overflow = lineWidth - maxWidth;
         adjustedDrawX = drawX - overflow;
       }
     }
   }
 
-  // Draw each line
-  // Canvas textAlign is set above to handle alignment correctly for each line
   lines.forEach((line, index) => {
-    // Pure geometric centering: no extra Y-offset per layer
-    const lineY = startY + (index * lineHeightPx);
-
+    const lineY = startY + index * lineHeightPx + microYAdjustment;
     ctx.fillText(line, adjustedDrawX, lineY);
-    
-    // Draw text decoration if specified
+
     if (textDecoration) {
-      const lineWidth = ctx.measureText(line).width;
-      const lineThickness = Math.max(1, fontSize / 16); // Scale line thickness with font size
-      
-      // Calculate line start X based on text alignment
+      const lineWidthLocal = ctx.measureText(line).width;
+      const lineThickness = Math.max(1, fontSize / 16);
       let decorationX = adjustedDrawX;
       if (ctx.textAlign === 'center') {
-        decorationX = adjustedDrawX - (lineWidth / 2);
+        decorationX = adjustedDrawX - lineWidthLocal / 2;
       } else if (ctx.textAlign === 'right') {
-        decorationX = adjustedDrawX - lineWidth;
+        decorationX = adjustedDrawX - lineWidthLocal;
       }
-      
-      // Draw decoration line
-      ctx.fillStyle = ctx.fillStyle; // Use same color as text
-      
+
+      ctx.fillStyle = ctx.fillStyle;
       if (textDecoration === 'underline') {
-        // Underline: below text baseline
         const underlineY = lineY + fontSize;
-        ctx.fillRect(decorationX, underlineY, lineWidth, lineThickness);
+        ctx.fillRect(decorationX, underlineY, lineWidthLocal, lineThickness);
       } else if (textDecoration === 'line-through') {
-        // Line-through: middle of text
-        const strikeY = lineY + (fontSize / 2);
-        ctx.fillRect(decorationX, strikeY, lineWidth, lineThickness);
+        const strikeY = lineY + fontSize / 2;
+        ctx.fillRect(decorationX, strikeY, lineWidthLocal, lineThickness);
       } else if (textDecoration === 'overline') {
-        // Overline: above text
         const overlineY = lineY - lineThickness;
-        ctx.fillRect(decorationX, overlineY, lineWidth, lineThickness);
+        ctx.fillRect(decorationX, overlineY, lineWidthLocal, lineThickness);
       }
     }
-    
-    // Log final draw position for critical layers (first line only)
-    if (index === 0 && (layerId === 'name' || layerId === 'certificate_no' || layerId === 'issue_date')) {
+
+    if (
+      index === 0 &&
+      (layerId === 'name' || layerId === 'certificate_no' || layerId === 'issue_date')
+    ) {
       const fillTextInfo = {
         layerId,
         line: line.substring(0, 20),
@@ -833,7 +720,7 @@ function drawWrappedText(
         textBaseline: ctx.textBaseline,
         fontSize,
         font: ctx.font,
-        textDecoration: textDecoration || 'none'
+        textDecoration: textDecoration || 'none',
       };
       void fillTextInfo;
     }
@@ -841,8 +728,21 @@ function drawWrappedText(
 }
 
 /**
- * Draw rich text with inline formatting
- * Supports different font weights and families within the same text layer
+ * Draw rich text with inline formatting.
+ * Supports different font weights and families within the same text layer.
+ * 
+ * @param ctx Canvas rendering context
+ * @param richText Rich text to draw
+ * @param x X-coordinate of the text
+ * @param y Y-coordinate of the text
+ * @param maxWidth Maximum width of the text
+ * @param baseFontSize Base font size
+ * @param lineHeight Line height
+ * @param textAlign Text alignment
+ * @param scaleFactor Scale factor for font sizes
+ * @param layerId Optional layer ID for Y-adjustment
+ * @param _textDecoration Optional text decoration (not yet implemented for rich text)
+ * @param isUbigTemplate Whether the template is UBIG
  */
 function drawRichText(
   ctx: CanvasRenderingContext2D,
@@ -855,7 +755,8 @@ function drawRichText(
   textAlign: 'left' | 'center' | 'right' | 'justify',
   scaleFactor: number = 1,
   layerId?: string, // Optional layer ID for Y-adjustment
-  _textDecoration?: 'underline' | 'line-through' | 'overline' // Optional text decoration (not yet implemented for rich text)
+  _textDecoration?: 'underline' | 'line-through' | 'overline', // Optional text decoration (not yet implemented for rich text)
+  isUbigTemplate: boolean = false
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
   
@@ -903,6 +804,7 @@ function drawRichText(
     }
   }
   
+  // Push remaining text as the last line (if any)
   if (currentLine) {
     const spansForLine = extractSpansForRange(richText, currentOffset, currentOffset + currentLine.length);
     lines.push({ text: currentLine, spans: spansForLine });
@@ -912,7 +814,7 @@ function drawRichText(
   const totalTextHeight = lines.length * lineHeightPx;
   const startY = y - (totalTextHeight / 2);
   
-  // Y-ADJUSTMENT: Apply same adjustment as drawWrappedText for score layers
+  // Y-ADJUSTMENT: Apply same adjustment as drawWrappedText
   const isScoreLayerForAdjustment = layerId && (
     layerId === 'nilai' || 
     layerId === 'prestasi' || 
@@ -926,12 +828,20 @@ function drawRichText(
     microYAdjustment = baseFontSize * 0.10;
   } else if (isScoreLayerForAdjustment) {
     microYAdjustment = baseFontSize * 0.087;
+  } else {
+    // Generic micro-adjustment for small fonts (e.g. 18px) to better match CSS preview
+    // EXPERIMENTAL: Strong offset so effect is clearly visible during testing
+    // For baseFontSize ~18px, this gives ~7.2px downward shift (40% of font size)
+    if (baseFontSize >= 16 && baseFontSize <= 20) {
+      microYAdjustment = baseFontSize * 0.4;
+    }
   }
   
   // Draw each line with its spans
   lines.forEach((line, lineIndex) => {
     const lineY = startY + (lineIndex * lineHeightPx) + microYAdjustment;
     let currentX = x;
+    // ... (rest of the code remains the same)
     
     // Calculate line width for alignment
     let lineWidth = 0;

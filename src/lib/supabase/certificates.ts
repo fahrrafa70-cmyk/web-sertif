@@ -97,6 +97,7 @@ export interface CreateCertificateData {
   category?: string;
   template_id?: string;
   member_id?: string;
+  tenant_id?: string; // NEW: Associate certificate with tenant
   certificate_image_url?: string; // PNG master (high quality)
   certificate_thumbnail_url?: string; // WebP preview (web optimized)
   score_image_url?: string; // PNG score master (dual templates)
@@ -434,6 +435,7 @@ export async function createCertificate(
       category: certificateData.category?.trim() || null,
       template_id: certificateData.template_id || null,
       member_id: certificateData.member_id || null,
+      tenant_id: certificateData.tenant_id || null,
       // Prefer public URL if provided; fall back to merged_image (data URL)
       certificate_image_url:
         certificateData.certificate_image_url ||
