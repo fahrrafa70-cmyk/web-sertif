@@ -6,19 +6,23 @@ import ModernHeader from "./modern-header";
 
 interface ModernLayoutProps {
   children: React.ReactNode;
+  hideSidebar?: boolean;
 }
 
-const ModernLayout = memo(function ModernLayout({ children }: ModernLayoutProps) {
+const ModernLayout = memo(function ModernLayout({ children, hideSidebar = false }: ModernLayoutProps) {
   return (
     <div className="w-full" style={{ backgroundColor: 'var(--background)' }}>
       {/* Header - Full Width */}
       <ModernHeader />
 
       {/* Sidebar - Below Header, Desktop Only */}
-      <ModernSidebar />
+      {!hideSidebar && <ModernSidebar />}
 
       {/* Main Content */}
-      <main className="lg:ml-20 w-full" style={{ backgroundColor: 'var(--background)', paddingTop: 'var(--header-height-mobile)' }}>
+      <main 
+        className={`w-full ${!hideSidebar ? 'lg:ml-20' : ''}`} 
+        style={{ backgroundColor: 'var(--background)', paddingTop: 'var(--header-height-mobile)' }}
+      >
         {children}
       </main>
     </div>

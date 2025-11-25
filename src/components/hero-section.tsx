@@ -596,6 +596,30 @@ export default function HeroSection() {
       setShowResults(false);
       return;
     }
+
+    // Check for direct link/ID patterns (allow these to pass without minimum length)
+    const publicLinkMatch = q.match(/(?:\/cek\/|cek\/|\/c\/|c\/)([a-f0-9-]{16,36})/i);
+    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
+    const isCertId = q.match(/^CERT-/i);
+    
+    // Apply minimum character validation only for keyword searches (not direct ID/link searches)
+    if (!publicLinkMatch && !oldLinkMatch && !isCertId) {
+      if (q.length < 3) {
+        setSearchError('Search must be at least 3 characters long');
+        setSearchResults([]);
+        setShowResults(false);
+        return;
+      }
+      
+      // Check if it contains at least 3 letters (for meaningful text search)
+      const letterCount = (q.match(/[a-zA-Z]/g) || []).length;
+      if (letterCount < 3) {
+        setSearchError('Search must contain at least 3 letters');
+        setSearchResults([]);
+        setShowResults(false);
+        return;
+      }
+    }
     
     // Keyword search - redirect to search results page with smooth transition
     setSearching(true); // Show loading state during redirect

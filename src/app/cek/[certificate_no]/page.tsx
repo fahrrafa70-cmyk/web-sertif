@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getCertificateByPublicId, getCertificateByXID, Certificate } from "@/lib/supabase/certificates";
+import { getCertificateByNumber, Certificate } from "@/lib/supabase/certificates";
 import { Button } from "@/components/ui/button";
 import { Link2, Share2, FileText, Calendar, Building2, User, Clock, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -16,7 +16,7 @@ export default function PublicCertificatePage() {
   const params = useParams();
   const router = useRouter();
   const { language } = useLanguage();
-  const public_id = params?.public_id as string;
+  const certificate_no = params?.certificate_no as string;
   
   const [certificate, setCertificate] = useState<Certificate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ export default function PublicCertificatePage() {
 
   useEffect(() => {
     async function loadCertificate() {
-      if (!public_id) {
+      if (!certificate_no) {
         setNotFound(true);
         setLoading(false);
         return;
@@ -55,12 +55,8 @@ export default function PublicCertificatePage() {
       try {
         setLoading(true);
         
-        // Auto-detect format: UUID (36 chars with dashes) or XID (16-20 chars)
-        const isUUID = public_id.includes('-') && public_id.length === 36;
-        
-        const cert = isUUID 
-          ? await getCertificateByPublicId(public_id)  // Old format: UUID
-          : await getCertificateByXID(public_id);      // New format: XID
+        // Lookup by certificate number
+        const cert = await getCertificateByNumber(certificate_no);
         
         if (!cert) {
           setNotFound(true);
@@ -76,7 +72,7 @@ export default function PublicCertificatePage() {
     }
 
     loadCertificate();
-  }, [public_id]);
+  }, [certificate_no]);
 
   // Set document title dinamis robust berdasarkan certificate
   useEffect(() => {
@@ -245,9 +241,9 @@ export default function PublicCertificatePage() {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
                     (typeof window !== 'undefined' ? window.location.origin : '');
     
-    // Prefer XID for compact URLs, fallback to public_id for older certificates
-    const identifier = certificate.xid || certificate.public_id;
-    const publicUrl = `${baseUrl}/c/${identifier}`;
+    // Use certificate number for URL
+    const identifier = certificate.certificate_no;
+    const publicUrl = `${baseUrl}/cek/${identifier}`;
 
     try {
       if (navigator.clipboard && window.isSecureContext) {
@@ -276,9 +272,9 @@ export default function PublicCertificatePage() {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
                     (typeof window !== 'undefined' ? window.location.origin : '');
     
-    // Prefer XID for compact URLs, fallback to public_id for older certificates
-    const identifier = certificate.xid || certificate.public_id;
-    const publicUrl = `${baseUrl}/c/${identifier}`;
+    // Use certificate number for URL
+    const identifier = certificate.certificate_no;
+    const publicUrl = `${baseUrl}/cek/${identifier}`;
 
     const shareData = {
       title: `Certificate - ${certificate.certificate_no}`,

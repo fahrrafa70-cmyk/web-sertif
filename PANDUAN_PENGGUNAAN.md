@@ -310,10 +310,10 @@ Jika template belum dikonfigurasi:
 
 **Contoh Format Excel:**
 
-| name | email | phone | organization | job | date_of_birth | address | city |
-|------|-------|-------|--------------|-----|---------------|---------|------|
-| Budi Santoso | budi@email.com | 081234567890 | PT ABC | Manager | 1990-05-20 | Jl. Raya No. 123 | Jakarta |
-| Siti Nurhaliza | siti@email.com | 081987654321 | PT XYZ | Staff | 1995-08-15 | Jl. Merdeka No. 45 | Bandung |
+| name           | email           | phone        | organization | job     | date_of_birth | address            | city    |
+|----------------|-----------------|--------------|--------------|---------|---------------|--------------------|---------|
+| Budi Santoso   | budi@email.com  | 081234567890 | PT ABC       | Manager | 1990-05-20    | Jl. Raya No. 123   | Jakarta |
+| Siti Nurhaliza | siti@email.com  | 081987654321 | PT XYZ       | Staff   | 1995-08-15    | Jl. Merdeka No. 45 | Bandung |
 
 **Langkah 2: Import ke Sistem**
 1. Login dengan role **Admin** atau **Team**

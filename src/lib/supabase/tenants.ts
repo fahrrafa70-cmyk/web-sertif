@@ -1,6 +1,6 @@
-import { supabaseClient } from './client';
+import { supabaseClient } from "./client";
 
-export type TenantStatus = 'active' | 'archived';
+export type TenantStatus = "active" | "archived";
 
 export interface Tenant {
   id: string;
@@ -17,7 +17,7 @@ export interface Tenant {
   updated_at: string;
 }
 
-export type TenantRole = 'owner' | 'manager' | 'staff';
+export type TenantRole = "owner" | "manager" | "staff";
 
 export interface TenantMember {
   id: string;
@@ -46,7 +46,10 @@ export interface TenantInvite {
 }
 
 export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
-  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseClient.auth.getSession();
 
   if (sessionError) {
     throw new Error(`Failed to get session: ${sessionError.message}`);
@@ -58,7 +61,7 @@ export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
   }
 
   const { data, error } = await supabaseClient
-    .from('tenant_members')
+    .from("tenant_members")
     .select(
       `
       tenants:tenant_id (
@@ -76,19 +79,25 @@ export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
       )
     `,
     )
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: true });
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
 
   if (error) {
     throw new Error(`Failed to fetch tenants: ${error.message}`);
   }
 
+  type TenantRowData = { tenants: Tenant | Tenant[] | null };
   const tenants: Tenant[] = [];
 
-  (data || []).forEach((row: any) => {
-    if (row && row.tenants) {
-      tenants.push(row.tenants as Tenant);
+  (data as unknown as TenantRowData[] | null | undefined)?.forEach((row) => {
+    if (row?.tenants) {
+      // Handle both single tenant and array of tenants
+      if (Array.isArray(row.tenants)) {
+        tenants.push(...row.tenants);
+      } else {
+        tenants.push(row.tenants);
+      }
     }
   });
 
@@ -108,18 +117,21 @@ export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
   const tenantIds = tenantList.map((t) => t.id);
 
   const { data: memberRows, error: memberError } = await supabaseClient
-    .from('tenant_members')
-    .select('tenant_id')
-    .in('tenant_id', tenantIds)
-    .eq('status', 'active');
+    .from("tenant_members")
+    .select("tenant_id")
+    .in("tenant_id", tenantIds)
+    .eq("status", "active");
 
   if (memberError) {
-    throw new Error(`Failed to fetch tenant member counts: ${memberError.message}`);
+    throw new Error(
+      `Failed to fetch tenant member counts: ${memberError.message}`,
+    );
   }
 
+  type TenantMemberRow = { tenant_id: string | null };
   const counts = new Map<string, number>();
-  (memberRows || []).forEach((row: any) => {
-    const id = row.tenant_id as string | undefined;
+  (memberRows as TenantMemberRow[] | null | undefined)?.forEach((row) => {
+    const id = row.tenant_id ?? undefined;
     if (!id) return;
     counts.set(id, (counts.get(id) ?? 0) + 1);
   });
@@ -132,13 +144,13 @@ export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
 
 export async function getTenantById(id: string): Promise<Tenant | null> {
   if (!id) {
-    throw new Error('Tenant ID is required');
+    throw new Error("Tenant ID is required");
   }
 
   const { data, error } = await supabaseClient
-    .from('tenants')
-    .select('*')
-    .eq('id', id)
+    .from("tenants")
+    .select("*")
+    .eq("id", id)
     .maybeSingle();
 
   if (error) {
@@ -148,16 +160,18 @@ export async function getTenantById(id: string): Promise<Tenant | null> {
   return (data as Tenant) ?? null;
 }
 
-export async function getTenantMembers(tenantId: string): Promise<TenantMember[]> {
+export async function getTenantMembers(
+  tenantId: string,
+): Promise<TenantMember[]> {
   if (!tenantId) {
-    throw new Error('Tenant ID is required');
+    throw new Error("Tenant ID is required");
   }
 
   const { data, error } = await supabaseClient
-    .from('tenant_members')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: true });
+    .from("tenant_members")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: true });
 
   if (error) {
     throw new Error(`Failed to fetch tenant members: ${error.message}`);
@@ -176,32 +190,32 @@ export async function createTenant(
 ): Promise<Tenant> {
   const trimmed = name.trim();
   if (!trimmed) {
-    throw new Error('Tenant name is required');
+    throw new Error("Tenant name is required");
   }
   if (!ownerUserId) {
-    throw new Error('Owner user id is required');
+    throw new Error("Owner user id is required");
   }
 
   const baseSlug = trimmed
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   const slug = baseSlug || `tenant-${Date.now()}`;
 
   const { data, error } = await supabaseClient
-    .from('tenants')
+    .from("tenants")
     .insert([
       {
         name: trimmed,
         slug,
         owner_user_id: ownerUserId,
-        tenant_type: tenantType ?? 'company',
+        tenant_type: tenantType ?? "company",
         description: description ?? null,
         logo_url: logoUrl ?? null,
         cover_url: coverUrl ?? null,
       },
     ])
-    .select('*')
+    .select("*")
     .single();
 
   if (error) {
@@ -218,7 +232,10 @@ export async function createTenantForCurrentUser(
   logoUrl?: string | null,
   coverUrl?: string | null,
 ): Promise<Tenant> {
-  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseClient.auth.getSession();
 
   if (sessionError) {
     throw new Error(`Failed to get session: ${sessionError.message}`);
@@ -226,19 +243,26 @@ export async function createTenantForCurrentUser(
 
   const userId = session?.user?.id;
   if (!userId) {
-    throw new Error('User is not authenticated');
+    throw new Error("User is not authenticated");
   }
 
-  const tenant = await createTenant(name, userId, tenantType, description, logoUrl, coverUrl);
+  const tenant = await createTenant(
+    name,
+    userId,
+    tenantType,
+    description,
+    logoUrl,
+    coverUrl,
+  );
 
   const { error: memberError } = await supabaseClient
-    .from('tenant_members')
+    .from("tenant_members")
     .insert([
       {
         tenant_id: tenant.id,
         user_id: userId,
-        role: 'owner',
-        status: 'active',
+        role: "owner",
+        status: "active",
       },
     ]);
 
@@ -251,17 +275,33 @@ export async function createTenantForCurrentUser(
 
 export async function updateTenant(
   id: string,
-  updates: { name?: string; tenant_type?: string | null; status?: string; description?: string | null; logo_url?: string | null; cover_url?: string | null },
+  updates: {
+    name?: string;
+    tenant_type?: string | null;
+    status?: string;
+    description?: string | null;
+    logo_url?: string | null;
+    cover_url?: string | null;
+  },
 ): Promise<Tenant> {
   if (!id) {
-    throw new Error('Tenant ID is required');
+    throw new Error("Tenant ID is required");
   }
 
-  const payload: Record<string, any> = {};
-  if (typeof updates.name === 'string') {
+  type PayloadType = {
+    name?: string;
+    tenant_type?: string | null;
+    status?: string;
+    description?: string | null;
+    logo_url?: string | null;
+    cover_url?: string | null;
+  };
+
+  const payload: PayloadType = {};
+  if (typeof updates.name === "string") {
     const trimmed = updates.name.trim();
     if (!trimmed) {
-      throw new Error('Tenant name is required');
+      throw new Error("Tenant name is required");
     }
     payload.name = trimmed;
   }
@@ -282,10 +322,10 @@ export async function updateTenant(
   }
 
   const { data, error } = await supabaseClient
-    .from('tenants')
+    .from("tenants")
     .update(payload)
-    .eq('id', id)
-    .select('*')
+    .eq("id", id)
+    .select("*")
     .single();
 
   if (error) {
@@ -297,26 +337,28 @@ export async function updateTenant(
 
 export async function deleteTenant(id: string): Promise<void> {
   if (!id) {
-    throw new Error('Tenant ID is required');
+    throw new Error("Tenant ID is required");
   }
 
-  const { error } = await supabaseClient.from('tenants').delete().eq('id', id);
+  const { error } = await supabaseClient.from("tenants").delete().eq("id", id);
 
   if (error) {
     throw new Error(`Failed to delete tenant: ${error.message}`);
   }
 }
 
-export async function getTenantInvites(tenantId: string): Promise<TenantInvite[]> {
+export async function getTenantInvites(
+  tenantId: string,
+): Promise<TenantInvite[]> {
   if (!tenantId) {
-    throw new Error('Tenant ID is required');
+    throw new Error("Tenant ID is required");
   }
 
   const { data, error } = await supabaseClient
-    .from('tenant_invites')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false });
+    .from("tenant_invites")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw new Error(`Failed to fetch tenant invites: ${error.message}`);
@@ -327,13 +369,16 @@ export async function getTenantInvites(tenantId: string): Promise<TenantInvite[]
 
 export async function createTenantInvite(
   tenantId: string,
-  role: TenantRole | string = 'staff',
+  role: TenantRole | string = "staff",
 ): Promise<TenantInvite> {
   if (!tenantId) {
-    throw new Error('Tenant ID is required');
+    throw new Error("Tenant ID is required");
   }
 
-  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseClient.auth.getSession();
 
   if (sessionError) {
     throw new Error(`Failed to get session: ${sessionError.message}`);
@@ -341,17 +386,17 @@ export async function createTenantInvite(
 
   const userId = session?.user?.id;
   if (!userId) {
-    throw new Error('User is not authenticated');
+    throw new Error("User is not authenticated");
   }
 
   // Generate a simple unique token for the invite
   const token =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${tenantId}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
   const { data, error } = await supabaseClient
-    .from('tenant_invites')
+    .from("tenant_invites")
     .insert([
       {
         tenant_id: tenantId,
@@ -359,7 +404,7 @@ export async function createTenantInvite(
         token,
       },
     ])
-    .select('*')
+    .select("*")
     .single();
 
   if (error) {

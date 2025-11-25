@@ -15,8 +15,6 @@ import {
   getCertificateCategories, 
   Certificate, 
   SearchFilters,
-  getCertificateByPublicId, 
-  getCertificateByXID, 
   getCertificateByNumber
 } from "@/lib/supabase/certificates";
 import Image from "next/image";
@@ -278,35 +276,38 @@ function SearchResultsContent() {
         return;
       }
       
-      const publicLinkMatch = q.match(/(?:\/cek\/|cek\/|\/c\/|c\/)([a-f0-9-]{16,36})/i);
+      const cekLinkMatch = q.match(/(?:\/cek\/|cek\/)([A-Za-z0-9-_]+)/);
       const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
       const isCertId = q.match(/^CERT-/i);
       
-      if (publicLinkMatch || oldLinkMatch || isCertId) {
+      // Check minimum 3 characters requirement (only for keyword searches, not for direct ID/link searches)
+      const trimmedQ = q.trim();
+      if (!cekLinkMatch && !oldLinkMatch && !isCertId) {
+        if (trimmedQ.length < 3) {
+          setSearchError('Search must be at least 3 characters long');
+          setSearchResults([]);
+          return;
+        }
+        
+        // Check if it contains at least 3 letters (for meaningful text search)
+        const letterCount = (trimmedQ.match(/[a-zA-Z]/g) || []).length;
+        if (letterCount < 3) {
+          setSearchError('Search must contain at least 3 letters');
+          setSearchResults([]);
+          return;
+        }
+      }
+      
+      if (cekLinkMatch || oldLinkMatch || isCertId) {
         // Direct search by ID/link - redirect to certificate page
         try {
           let cert: Certificate | null = null;
-          if (publicLinkMatch) {
-            const identifier = publicLinkMatch[1];
-            
-            // Auto-detect format: UUID (36 chars with dashes) or XID (16-20 chars)
-            const isUUID = identifier.includes('-') && identifier.length === 36;
-            
-            cert = isUUID 
-              ? await getCertificateByPublicId(identifier)  // Old format: UUID
-              : await getCertificateByXID(identifier);      // New format: XID
-              
-            if (cert) {
-              router.push(`/c/${identifier}`);
-              return;
-            }
-          } else {
-            const certNo = oldLinkMatch ? oldLinkMatch[1] : q;
-            cert = await getCertificateByNumber(certNo);
-            if (cert) {
-              router.push(`/certificate/${certNo}`);
-              return;
-            }
+          const certNo = cekLinkMatch ? cekLinkMatch[1] : (oldLinkMatch ? oldLinkMatch[1] : q);
+          
+          cert = await getCertificateByNumber(certNo);
+          if (cert) {
+            router.push(`/cek/${certNo}`);
+            return;
           }
           
           if (!cert) {
@@ -491,6 +492,26 @@ function SearchResultsContent() {
       return;
     }
 
+    // Validate minimum requirements for keyword search
+    const publicLinkMatch = q.match(/(?:\/cek\/|cek\/|\/c\/|c\/)([a-f0-9-]{16,36})/i);
+    const oldLinkMatch = q.match(/(?:\/certificate\/|certificate\/)([A-Za-z0-9-_]+)/);
+    const isCertId = q.match(/^CERT-/i);
+    
+    if (!publicLinkMatch && !oldLinkMatch && !isCertId) {
+      if (q.length < 3) {
+        setSearchError('Search must be at least 3 characters long');
+        setSearchResults([]);
+        return;
+      }
+      
+      const letterCount = (q.match(/[a-zA-Z]/g) || []).length;
+      if (letterCount < 3) {
+        setSearchError('Search must contain at least 3 letters');
+        setSearchResults([]);
+        return;
+      }
+    }
+
     // Update filters and perform search (URL stays as /search without query params)
     const newFilters: SearchFilters = {
       keyword: q,
@@ -672,15 +693,15 @@ function SearchResultsContent() {
   // Generate certificate link
   const generateCertificateLink = useCallback(async (certificate: Certificate) => {
     try {
-      // Prefer XID for compact URLs, fallback to public_id for older certificates
-      const identifier = certificate.xid || certificate.public_id;
+      // Use certificate number for URL
+      const identifier = certificate.certificate_no;
       
       if (!identifier) {
         toast.error(t('hero.noPublicLink'));
         return;
       }
 
-      const link = `${window.location.origin}/c/${identifier}`;
+      const link = `${window.location.origin}/cek/${identifier}`;
       await navigator.clipboard.writeText(link);
       toast.success(t('hero.linkCopied'));
     } catch (err) {

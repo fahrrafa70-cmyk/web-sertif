@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect, memo, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
+import Link from "next/link";
 
 const UserAvatar = memo(function UserAvatar() {
   const { t } = useLanguage();
@@ -122,6 +123,14 @@ const UserAvatar = memo(function UserAvatar() {
 
             {/* Menu Items */}
             <div className="py-1">
+              <Link 
+                href="/profile" 
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <User className="w-4 h-4" />
+                <span>Edit Profile</span>
+              </Link>
             </div>
 
             {/* Logout - Removed border-t */}
