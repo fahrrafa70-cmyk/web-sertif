@@ -1225,12 +1225,15 @@ function CertificatesContent(): ReactElement {
       // Jangan lempar ulang error, supaya perhitungan generated tetap dianggap sukses
     }
     
-    if (template.score_image_url && scoreData && Object.keys(scoreData).length > 0) {
+    // DUAL TEMPLATE: Always generate back/score PNG whenever template has score_image_url
+    // even if there is no scoreData or no text layers. This guarantees the back side
+    // is available for export/email/PDF as long as the template defines a score image.
+    if (template.score_image_url) {
       try {
         // Load score layout from database
         const scoreLayoutConfig = layoutConfig?.score;
         
-        if (scoreLayoutConfig && scoreLayoutConfig.textLayers) {
+        if (scoreLayoutConfig && scoreLayoutConfig.textLayers && scoreLayoutConfig.textLayers.length > 0) {
           const migratedScoreLayers = scoreLayoutConfig.textLayers
             .filter(layer => layer.visible !== false)
             .map(layer => ({
@@ -1437,17 +1440,87 @@ function CertificatesContent(): ReactElement {
             .eq('id', savedCertificate.id);
           
           if (updateError) {
-            console.error('❌ Failed to update score certificate:', updateError);
+            console.error('❌ Failed to update certificate score URLs:', updateError);
+          }
+        } else {
+          // No score layout or no score text layers defined.
+          // Still generate a plain back image using the raw score template image
+          // so that dual-side templates always have a back side.
+          const scoreImageDataUrl = await renderCertificateToDataURL({
+            templateImageUrl: template.score_image_url,
+            textLayers: [],
+            photoLayers: [],
+            qrLayers: [],
+            templateId: template.id,
+            templateName: template.name,
+          });
+          const scoreThumbnail = await generateThumbnail(scoreImageDataUrl, {
+            format: 'webp',
+            quality: 0.85,
+            maxWidth: 1200
+          });
+          const scorePngFileName = `${savedCertificate.xid}_score.png`;
+          const scorePngUploadResponse = await fetch('/api/upload-to-storage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageData: scoreImageDataUrl,
+              fileName: scorePngFileName,
+              bucketName: 'certificates',
+            }),
+          });
+
+          if (!scorePngUploadResponse.ok) {
+            const errorText = await scorePngUploadResponse.text();
+            throw new Error(`Failed to upload PNG score master to storage: ${errorText}`);
+          }
+
+          const scorePngUploadResult = await scorePngUploadResponse.json();
+          if (!scorePngUploadResult.success) {
+            throw new Error(`PNG score upload failed: ${scorePngUploadResult.error}`);
+          }
+
+          const scoreWebpFileName = `preview/${xid}_score.webp`;
+          const scoreWebpUploadResponse = await fetch('/api/upload-to-storage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageData: scoreThumbnail,
+              fileName: scoreWebpFileName,
+              bucketName: 'certificates',
+            }),
+          });
+
+          if (!scoreWebpUploadResponse.ok) {
+            const errorText = await scoreWebpUploadResponse.text();
+            throw new Error(`Failed to upload WebP score preview to storage: ${errorText}`);
+          }
+
+          const scoreWebpUploadResult = await scoreWebpUploadResponse.json();
+          if (!scoreWebpUploadResult.success) {
+            throw new Error(`WebP score upload failed: ${scoreWebpUploadResult.error}`);
+          }
+
+          const finalScoreImageUrlNoLayout = scorePngUploadResult.url;
+          const finalScoreThumbnailUrlNoLayout = scoreWebpUploadResult.url;
+
+          const { error: updateErrorNoLayout } = await supabaseClient
+            .from('certificates')
+            .update({
+              score_image_url: finalScoreImageUrlNoLayout,
+              score_thumbnail_url: finalScoreThumbnailUrlNoLayout,
+            })
+            .eq('id', savedCertificate.id);
+
+          if (updateErrorNoLayout) {
+            console.error('❌ Failed to update certificate score URLs (no layout):', updateErrorNoLayout);
           }
         }
-      } catch {
-        // Don't throw - main certificate is already saved
+      } catch (error) {
+        console.error('⚠️ Failed to generate score/back image:', error);
       }
     }
-    
-    // Refresh certificates list and wait for completion to prevent race condition
-    await refresh();
-    
+
     return savedCertificate;
   };
 

@@ -462,6 +462,15 @@ export function QuickGenerateModal({
   const isDualTemplate = React.useMemo(() => {
     return !!(selectedTemplate?.score_image_url && getScoreTextLayers().length > 0);
   }, [selectedTemplate, getScoreTextLayers]);
+
+  // Separate flag for whether we need a manual input step (front and/or back),
+  // independent of whether there are score/back fields.
+  const hasMemberInputStep = React.useMemo(() => {
+    if (!selectedTemplate) return false;
+    const frontFields = getFrontSideTextLayers();
+    const backFields = getScoreTextLayers();
+    return frontFields.length > 0 || backFields.length > 0;
+  }, [selectedTemplate, getFrontSideTextLayers, getScoreTextLayers]);
   
   // Check if all members have completed score data (for step 2 validation)
   const isAllScoreDataComplete = () => {
@@ -563,39 +572,33 @@ export function QuickGenerateModal({
           .map(id => members.find(m => m.id === id))
           .filter((m): m is Member => m !== undefined);
 
-        // Auto-populate prestasi based on nilai for all members
-        const finalScoreDataMap = isDualTemplate && scoreDataMap 
-          ? batchAutoPopulatePrestasi(scoreDataMap)
-          : scoreDataMap;
+        // Auto-populate prestasi based on nilai untuk semua member (jika dual template)
+        const finalScoreDataMap = scoreDataMap && Object.keys(scoreDataMap).length > 0
+          ? (isDualTemplate ? batchAutoPopulatePrestasi(scoreDataMap) : scoreDataMap)
+          : undefined;
 
         console.log('🔍 DEBUG QuickGenerateModal - Before Generate:', {
           isDualTemplate,
           hasScoreDataMap: !!scoreDataMap,
           scoreDataMapKeys: scoreDataMap ? Object.keys(scoreDataMap) : [],
-          scoreDataMapSample: scoreDataMap ? Object.entries(scoreDataMap).slice(0, 2) : [],
           finalScoreDataMapKeys: finalScoreDataMap ? Object.keys(finalScoreDataMap) : [],
-          selectedMemberIds: selectedMembers
+          selectedMemberIds: selectedMembers,
         });
 
         const params: QuickGenerateParams = {
           template: selectedTemplate,
           dataSource: 'member',
           dateFormat,
-          members: selectedMemberObjects, // Pass array of members
+          members: selectedMemberObjects,
           certificateData: {
-            certificate_no: '', // Will be auto-generated
+            certificate_no: '',
             description: '',
             issue_date: issueDate,
-            expired_date: expiredDate
+            expired_date: expiredDate,
           },
-          scoreDataMap: isDualTemplate ? finalScoreDataMap : undefined // Pass score data with auto-populated prestasi
+          // Selalu kirim map hasil isian user (dengan auto-prestasi jika dual)
+          scoreDataMap: finalScoreDataMap,
         };
-
-        console.log('📦 DEBUG Params to onGenerate:', {
-          hasScoreDataMap: !!params.scoreDataMap,
-          scoreDataMapKeys: params.scoreDataMap ? Object.keys(params.scoreDataMap) : [],
-          membersCount: params.members?.length
-        });
 
         await onGenerate(params);
       } else {
@@ -915,8 +918,8 @@ export function QuickGenerateModal({
           </div>
         )}
 
-        {/* Step 2/3: Input Data Front Side & Back Side (Member only, dual template) */}
-        {currentStep >= 2 && dataSource === 'member' && isDualTemplate && (
+        {/* Step 2/3: Input Data Front Side & Back Side (Member only) */}
+        {currentStep >= 2 && dataSource === 'member' && hasMemberInputStep && (
           <div className="space-y-6 py-4">
             <InputScoreStep
               members={members.filter(m => selectedMembers.includes(m.id))}
@@ -943,11 +946,11 @@ export function QuickGenerateModal({
             onClick={() => {
               // Determine next action based on current step and data source
               if (currentStep === 1) {
-                // Step 1: Move to step 2 for Excel mapping or member score input
+                // Step 1: Move to step 2 for Excel mapping or member manual input
                 if (dataSource === 'excel' && (excelMainData.length > 0)) {
                   setCurrentStep(2); // Go to mapping step
-                } else if (dataSource === 'member' && isDualTemplate) {
-                  setCurrentStep(2); // Go to score input
+                } else if (dataSource === 'member' && hasMemberInputStep) {
+                  setCurrentStep(2); // Go to input step (front and/or back)
                 } else {
                   // No intermediate step needed, generate directly
                   handleGenerate();
@@ -972,7 +975,7 @@ export function QuickGenerateModal({
           >
             {currentStep === 1 && (
               (dataSource === 'excel' && excelMainData.length > 0) || 
-              (dataSource === 'member' && isDualTemplate)
+              (dataSource === 'member' && hasMemberInputStep)
             ) ? (
               <>
                 {t('quickGenerate.next')}
