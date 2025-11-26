@@ -8,6 +8,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/language-context";
+import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Plus, Search, Edit, Trash2, Layout, X, Settings, Filter } from "lucide-react";
 import { useTemplates } from "@/hooks/use-templates";
@@ -182,10 +183,25 @@ TemplateCard.displayName = 'TemplateCard';
 export default function TemplatesPage() {
   const { t } = useLanguage();
   const router = useRouter();
-  const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+  const { role: authRole } = useAuth();
+  const [role, setRole] = useState<"owner" | "manager" | "staff" | "user" | "public">("public");
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
   const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
+
+  // Map authRole from AuthContext to local role state
+  useEffect(() => {
+    if (authRole) {
+      const normalized = authRole.toLowerCase();
+      const mapped: "owner" | "manager" | "staff" | "user" | "public" =
+        normalized === "owner" || normalized === "manager" || normalized === "staff"
+          ? (normalized as "owner" | "manager" | "staff")
+          : normalized === "user"
+            ? "user"
+            : "public";
+      setRole(mapped);
+    }
+  }, [authRole]);
 
   // Set document title robust untuk templates page
   useEffect(() => {
@@ -283,14 +299,14 @@ export default function TemplatesPage() {
   const filtered = useMemo(() => {
     // Early return if no templates
     if (!templates.length) return [];
+    // If no tenant selected, do not show any templates (new accounts should start empty)
+    if (!selectedTenantId) return [];
     
     let list = templates;
 
-    // Filter by selected tenant if available
-    if (selectedTenantId) {
-      list = list.filter((template) => template.tenant_id === selectedTenantId);
-      if (!list.length) return [];
-    }
+    // Filter by selected tenant (must be present here)
+    list = list.filter((template) => template.tenant_id === selectedTenantId);
+    if (!list.length) return [];
     
     // Apply category filter first (usually more selective)
     if (categoryFilter) {
@@ -339,18 +355,6 @@ export default function TemplatesPage() {
   // Simplified without heavy preloading
 
   // 🚀 PERFORMANCE: Removed initial load delay logic
-
-  // derive role from localStorage to match header behavior without changing layout
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem("ecert-role");
-      // Accept both lowercase and capitalized role values
-      const normalized = (saved || "").toLowerCase();
-      if (normalized === "admin") setRole("Admin");
-      else if (normalized === "team") setRole("Team");
-      else if (normalized === "public") setRole("Public");
-    } catch {}
-  }, []);
 
   const selectedTenant = useMemo(
     () => tenants.find((t) => t.id === selectedTenantId) || null,
@@ -433,7 +437,7 @@ export default function TemplatesPage() {
   // Preview modal state
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   
-  const canDelete = role === "Admin"; // Only Admin can delete
+  const canDelete = role === "owner" || role === "manager"; // Only owner/manager can delete
 
   // Helper function to get image URL for template (now using the imported function)
   // This function is kept for backward compatibility but now uses the proper implementation
@@ -808,7 +812,7 @@ export default function TemplatesPage() {
               
               {/* Right side: tenant selector (only if >1) + create button */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                {tenants.length > 1 && (
+                {tenants.length > 0 && (
                   <div className="w-full sm:w-56">
                     <select
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs sm:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
@@ -836,7 +840,7 @@ export default function TemplatesPage() {
                     </select>
                   </div>
                 )}
-                {(role === "Admin" || role === "Team") && (
+                {(role === "owner" || role === "manager") && (
                   <Button 
                     onClick={openCreate} 
                     className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full sm:w-auto"
@@ -1016,7 +1020,7 @@ export default function TemplatesPage() {
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                     {t('templates.noTemplates')}
                   </h3>
-                  {(role === "Admin" || role === "Team") && (
+                  {(role === "owner" || role === "manager") && (
                     <Button 
                       onClick={openCreate} 
                       className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
@@ -1717,7 +1721,7 @@ export default function TemplatesPage() {
                   >
                     {t('common.cancel')}
                   </Button>
-                  {(role === "Admin" || role === "Team") && (
+                  {(role === "owner" || role === "manager") && (
                     <LoadingButton 
                       className="gradient-primary text-white shadow-lg hover:shadow-xl" 
                       onClick={submitEdit}
@@ -1843,7 +1847,7 @@ export default function TemplatesPage() {
 
                       {/* Action Buttons */}
                       <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">
-                        {(role === "Admin" || role === "Team") && previewTemplate && (
+                        {(role === "owner" || role === "manager") && previewTemplate && (
                           <Button 
                             className="gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300" 
                             onClick={() => {

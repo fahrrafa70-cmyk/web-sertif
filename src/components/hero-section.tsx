@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { ArrowRight, Search, Download, ChevronDown, FileText, Link, Filter, X, Image as ImageIcon } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
+import { getTenantsForCurrentUser, type Tenant } from "@/lib/supabase/tenants";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
 import {
   DropdownMenu,
@@ -27,8 +29,14 @@ import {
 
 export default function HeroSection() {
   const { t, language } = useLanguage();
+  const { role: authRole } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  
+  // Tenant management for multi-tenant isolation
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
+  const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -50,12 +58,14 @@ export default function HeroSection() {
     category: "",
     startDate: "",
     endDate: "",
+    tenant_id: "", // Will be set after tenants load
   });
   
   // Temporary filter values for modal
   const [tempCategory, setTempCategory] = useState("");
   const [tempStartDate, setTempStartDate] = useState("");
   const [tempEndDate, setTempEndDate] = useState("");
+  const [tempTenant, setTempTenant] = useState("");
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -119,6 +129,50 @@ export default function HeroSection() {
     }
   }, [showResults, searchResults.length]);
   
+  // Load tenants for current user
+  useEffect(() => {
+    const loadTenants = async () => {
+      try {
+        setLoadingTenants(true);
+        const data = await getTenantsForCurrentUser();
+        setTenants(data);
+
+        let initialId = "";
+        try {
+          const stored = window.localStorage.getItem("ecert-selected-tenant-id") || "";
+          if (stored && data.some((t) => t.id === stored)) {
+            initialId = stored;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (!initialId && data.length === 1) {
+          initialId = data[0].id;
+        }
+
+        setSelectedTenantId(initialId);
+        
+        // Update filters with tenant_id
+        setFilters(prev => ({
+          ...prev,
+          tenant_id: initialId
+        }));
+      } finally {
+        setLoadingTenants(false);
+      }
+    };
+
+    void loadTenants();
+  }, []);
+
+  // Update filters when tenant changes
+  useEffect(() => {
+    setFilters(prev => ({
+      ...prev,
+      tenant_id: selectedTenantId
+    }));
+  }, [selectedTenantId]);
 
   // Export certificate to PDF
   async function exportToPDF(certificate: Certificate) {
@@ -448,20 +502,30 @@ export default function HeroSection() {
     }
   }, [sendCert, sendPreviewSrc, sendForm, isSendingEmail, t]);
 
-  // Load categories on mount
+  // Load categories on mount (after tenant is loaded)
   useEffect(() => {
-    async function loadCategories() {
+    const loadCategories = async () => {
       try {
-        const cats = await getCertificateCategories();
-        // Categories loaded successfully
-        setCategories(cats);
-      } catch (err) {
-        console.error('Failed to load categories:', err);
-        toast.error(t('hero.loadCategoriesFailed'));
+        // Only load categories if tenant is selected
+        if (!selectedTenantId) {
+          setCategories([]);
+          return;
+        }
+        
+        const cats = await getCertificateCategories(selectedTenantId);
+        if (Array.isArray(cats)) {
+          setCategories(cats);
+        } else {
+          console.warn('Categories is not an array:', cats);
+          setCategories([]);
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+        setCategories([]);
       }
-    }
+    };
     loadCategories();
-  }, [t]);
+  }, [selectedTenantId]); // Reload when tenant changes
 
   // Handle keyboard events for preview modal
   useEffect(() => {
@@ -565,6 +629,7 @@ export default function HeroSection() {
           category: filters.category,
           startDate: filters.startDate,
           endDate: filters.endDate,
+          tenant_id: filters.tenant_id,
         };
         performSearch(searchFilters, true);
       }, 300); // 300ms debounce
@@ -578,6 +643,7 @@ export default function HeroSection() {
           category: "",
           startDate: "",
           endDate: "",
+          tenant_id: filters.tenant_id,
         };
         performSearch(searchFilters, true);
       }, 300);
@@ -651,29 +717,42 @@ export default function HeroSection() {
     setTempCategory(filters.category || "");
     setTempStartDate(filters.startDate || "");
     setTempEndDate(filters.endDate || "");
+    setTempTenant(selectedTenantId || "");
     setFilterModalOpen(true);
-  }, [filters]);
+  }, [filters, selectedTenantId]);
 
   const applyFilters = useCallback(() => {
+    // Update selected tenant if changed
+    if (tempTenant !== selectedTenantId) {
+      setSelectedTenantId(tempTenant);
+      try {
+        window.localStorage.setItem("ecert-selected-tenant-id", tempTenant);
+      } catch {
+        // ignore
+      }
+    }
+    
     const newFilters: SearchFilters = {
       keyword: certificateId.trim(),
       category: tempCategory,
       startDate: tempStartDate,
       endDate: tempEndDate,
+      tenant_id: tempTenant, // Use temp tenant from filter
     };
     setFilters(newFilters);
     if (certificateId.trim()) {
-      performSearch(newFilters, true);
+      performSearch(newFilters, false); // Don't show toast to prevent double toast
     }
     setFilterModalOpen(false);
-  }, [certificateId, tempCategory, tempStartDate, tempEndDate, performSearch]);
+  }, [certificateId, tempCategory, tempStartDate, tempEndDate, tempTenant, selectedTenantId, performSearch]);
 
   const cancelFilters = useCallback(() => {
     setTempCategory(filters.category || "");
     setTempStartDate(filters.startDate || "");
     setTempEndDate(filters.endDate || "");
+    setTempTenant(selectedTenantId || "");
     setFilterModalOpen(false);
-  }, [filters]);
+  }, [filters, selectedTenantId]);
 
   // Removed unused clearTempFilters function
 
@@ -684,6 +763,7 @@ export default function HeroSection() {
       category: "",
       startDate: "",
       endDate: "",
+      tenant_id: filters.tenant_id, // Keep tenant_id when clearing other filters
     });
     // Don't clear certificateId or search results when clearing filters
     // Only clear if explicitly resetting everything
@@ -694,6 +774,7 @@ export default function HeroSection() {
         category: "",
         startDate: "",
         endDate: "",
+        tenant_id: filters.tenant_id,
       };
       performSearch(searchFilters, true);
     } else {
@@ -1229,6 +1310,38 @@ export default function HeroSection() {
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          {/* Tenant Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Organization</label>
+            <select
+              value={tempTenant}
+              onChange={(e) => setTempTenant(e.target.value)}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={loadingTenants}
+            >
+              {loadingTenants ? (
+                <option value="">Loading organizations...</option>
+              ) : (
+                <>
+                  {tenants.length === 0 ? (
+                    <option value="">No organizations available</option>
+                  ) : (
+                    <>
+                      {!tempTenant && (
+                        <option value="">Select organization...</option>
+                      )}
+                      {tenants.map((tenant) => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </select>
+          </div>
+          
           {/* Category Filter */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
@@ -1270,26 +1383,16 @@ export default function HeroSection() {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-4">
-          <Button
-            onClick={cancelFilters}
-            variant="outline"
-            className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            Cancel
-          </Button>
+        <div className="flex justify-end pt-4">
           <Button
             onClick={applyFilters}
-            className="flex-1 gradient-primary text-white"
+            className="px-8 gradient-primary text-white"
           >
             Apply
           </Button>
         </div>
       </DialogContent>
     </Dialog>
-    
-    {/* Toast Notifications */}
-    <Toaster position="top-right" richColors />
   </>
   );
 }

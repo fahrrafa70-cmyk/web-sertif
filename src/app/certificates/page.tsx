@@ -23,7 +23,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Member } from "@/lib/supabase/members";
-import { Tenant, getTenantsForCurrentUser } from "@/lib/supabase/tenants";
+import { Tenant, getTenantsForCurrentUser, getCurrentUserTenantRole } from "@/lib/supabase/tenants";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,7 @@ import Image from "next/image";
 import { confirmToast } from "@/lib/ui/confirm";
 import { Suspense } from "react";
 import { QuickGenerateModal, QuickGenerateParams } from "@/components/certificate/QuickGenerateModal";
+import { WizardGenerateModal } from "@/components/certificate/WizardGenerateModal";
 import { getTemplatesForTenant } from "@/lib/supabase/templates";
 import { getMembersForTenant } from "@/lib/supabase/members";
 import { renderCertificateToDataURL, RenderTextLayer } from "@/lib/render/certificate-render";
@@ -166,7 +167,7 @@ function CertificatesContent(): ReactElement {
   }, []);
   const params = useSearchParams();
   const certQuery = (params?.get("cert") || "").toLowerCase();
-  const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+  const [tenantRole, setTenantRole] = useState<"owner" | "manager" | "staff" | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
   const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
@@ -195,6 +196,7 @@ function CertificatesContent(): ReactElement {
   
   // Quick Generate state
   const [quickGenerateOpen, setQuickGenerateOpen] = useState(false);
+  const [wizardGenerateOpen, setWizardGenerateOpen] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [, setLoadingQuickGenData] = useState(false);
@@ -261,16 +263,24 @@ function CertificatesContent(): ReactElement {
   const [exportingPNG, setExportingPNG] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState<string | null>(null);
 
+  // Load user role within the selected tenant (owner/manager/staff)
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem("ecert-role") || "";
-      const normalized = raw.toLowerCase();
-      const mapped = normalized === "admin" ? "Admin" : normalized === "team" ? "Team" : normalized === "public" ? "Public" : "Public";
-      setRole(mapped);
-    } catch {
-      setRole("Public");
-    }
-  }, []);
+    const loadTenantRole = async () => {
+      if (!selectedTenantId) {
+        setTenantRole(null);
+        return;
+      }
+
+      try {
+        const role = await getCurrentUserTenantRole(selectedTenantId);
+        setTenantRole(role);
+      } catch {
+        setTenantRole(null);
+      }
+    };
+
+    void loadTenantRole();
+  }, [selectedTenantId]);
 
   // Auto-refresh certificates only when explicitly needed (removed aggressive refresh)
   // Users can manually refresh if needed, or refresh happens after create/update/delete
@@ -588,6 +598,38 @@ function CertificatesContent(): ReactElement {
     }
 
     setQuickGenerateOpen(true);
+
+    const loadingToast = toast.loading('Loading templates and members...');
+
+    try {
+      setLoadingQuickGenData(true);
+      const [templatesData, membersData] = await Promise.all([
+        getTemplatesForTenant(selectedTenantId),
+        getMembersForTenant(selectedTenantId),
+      ]);
+
+      // Hanya tampilkan template yang siap digunakan (status ready atau tanpa status)
+      const readyTemplates = templatesData.filter((t) => t.status === 'ready' || !t.status);
+
+      setTemplates(readyTemplates);
+      setMembers(membersData);
+      toast.dismiss(loadingToast);
+    } catch {
+      toast.dismiss(loadingToast);
+      toast.error('Failed to load templates and members for this tenant');
+    } finally {
+      setLoadingQuickGenData(false);
+    }
+  };
+
+  // Wizard Generate: Load templates and members when wizard modal opens
+  const handleOpenWizardGenerate = async () => {
+    if (!selectedTenantId) {
+      toast.error('Pilih tenant terlebih dahulu sebelum generate sertifikat');
+      return;
+    }
+
+    setWizardGenerateOpen(true);
 
     const loadingToast = toast.loading('Loading templates and members...');
 
@@ -1529,14 +1571,17 @@ function CertificatesContent(): ReactElement {
   };
 
   const filtered = useMemo(() => {
+    // If no tenant selected, do not show any certificates (new accounts should start empty)
+    if (!selectedTenantId) {
+      return [];
+    }
+
     let filteredCerts = certificates;
 
     // Tenant filter
-    if (selectedTenantId) {
-      filteredCerts = filteredCerts.filter(
-        (cert) => cert.tenant_id === selectedTenantId,
-      );
-    }
+    filteredCerts = filteredCerts.filter(
+      (cert) => cert.tenant_id === selectedTenantId,
+    );
 
     // Search filter - use debounced search input for better performance
     const searchQuery = (debouncedSearchInput || certQuery || "").toLowerCase();
@@ -1618,7 +1663,7 @@ function CertificatesContent(): ReactElement {
   const [deletingCertificateId, setDeletingCertificateId] = useState<
     string | null
   >(null);
-  const canDelete = role === "Admin"; // Only Admin can delete
+  const canDelete = tenantRole === "owner" || tenantRole === "manager";
   
   // Member detail modal state
   const [memberDetailOpen, setMemberDetailOpen] = useState<boolean>(false);
@@ -1757,17 +1802,6 @@ function CertificatesContent(): ReactElement {
   
   // Disable any emergency override for production
   const forceCanDelete = false;
-  
-  // Debug logging
-  console.log("🔍 Certificates Page Debug:", {
-    role,
-    canDelete,
-    forceCanDelete,
-    localStorageRole:
-      typeof window !== "undefined" ? window.localStorage.getItem("ecert-role") : null,
-    certificatesCount: certificates.length,
-    deletingCertificateId
-  });
 
   function openEdit(certificate: Certificate) {
     setDraft({ ...certificate });
@@ -1800,22 +1834,14 @@ function CertificatesContent(): ReactElement {
 
   async function requestDelete(id: string) {
     console.log("🗑️ Delete request initiated:", { 
-      id, 
-      role, 
+      id,
+      tenantRole,
       canDelete,
-      localStorageRole:
-        typeof window !== "undefined" ? window.localStorage.getItem("ecert-role") : null,
       timestamp: new Date().toISOString()
     });
-    
+
+    // Frontend guard: only owner/manager may delete certificates
     if (!canDelete && !forceCanDelete) {
-      console.log("❌ Delete blocked: User doesn't have permission", {
-        role,
-        canDelete,
-        forceCanDelete,
-        localStorageRole:
-          typeof window !== "undefined" ? window.localStorage.getItem("ecert-role") : null
-      });
       toast.error(t("certificates.deleteNoPermission"), { duration: 2000 });
       return;
     }
@@ -1940,15 +1966,14 @@ function CertificatesContent(): ReactElement {
                       </div>
                     )}
 
-                    {/* Quick Generate Button */}
-                    {(role === "Admin" || role === "Team") && (
-                      <Button
-                        onClick={handleOpenQuickGenerate}
-                        className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
-                      >
-                        <span>{t("certificates.generate")}</span>
-                      </Button>
-                    )}
+                    {/* Wizard Generate Button - always visible, disabled if belum punya tenantRole (belum pilih / belum member) */}
+                    <Button
+                      onClick={handleOpenWizardGenerate}
+                      className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={!tenantRole}
+                    >
+                      <span>{t("certificates.generate")}</span>
+                    </Button>
                   </div>
                 </div>
                 
@@ -2128,37 +2153,34 @@ function CertificatesContent(): ReactElement {
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                              {(role === "Admin" || role === "Team") && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-gray-300"
-                                  onClick={() => openEdit(certificate)}
-                                >
-                                  <Edit className="w-4 h-4 mr-1" />
-                                  {t("common.edit")}
-                                </Button>
-                              )}
-                              {canDelete && (
-                                <button
-                                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1.5 shadow-sm hover:shadow-md"
-                                  onClick={() => requestDelete(certificate.id)}
-                                  disabled={deletingCertificateId === certificate.id}
-                                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                                >
-                                  {deletingCertificateId === certificate.id ? (
-                                    <>
-                                      <div className="w-4 h-4 mr-1 border-b-2 border-white rounded-full animate-spin"></div>
-                                      {t("certificates.deleting")}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Trash2 className="w-4 h-4 mr-1" />
-                                      {t("common.delete")}
-                                    </>
-                                  )}
-                                </button>
-                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => openEdit(certificate)}
+                                disabled={tenantRole === "staff" || !tenantRole}
+                              >
+                                <Edit className="w-4 h-4 mr-1" />
+                                {t("common.edit")}
+                              </Button>
+                              <button
+                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1.5 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => requestDelete(certificate.id)}
+                                disabled={!canDelete || deletingCertificateId === certificate.id}
+                                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                              >
+                                {deletingCertificateId === certificate.id ? (
+                                  <>
+                                    <div className="w-4 h-4 mr-1 border-b-2 border-white rounded-full animate-spin"></div>
+                                    {t("certificates.deleting")}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="w-4 h-4 mr-1" />
+                                    {t("common.delete")}
+                                  </>
+                                )}
+                              </button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -2298,38 +2320,35 @@ function CertificatesContent(): ReactElement {
                             </DropdownMenuContent>
                           </DropdownMenu>
 
-                          {(role === "Admin" || role === "Team") && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8"
-                              onClick={() => openEdit(certificate)}
-                            >
-                              <Edit className="w-3 h-3 mr-1" />
-                              {t("common.edit")}
-                            </Button>
-                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => openEdit(certificate)}
+                            disabled={tenantRole === "staff" || !tenantRole}
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            {t("common.edit")}
+                          </Button>
                           
-                          {canDelete && (
-                            <button
-                              className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg text-xs font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 h-8 shadow-sm hover:shadow-md"
-                              onClick={() => requestDelete(certificate.id)}
-                              disabled={deletingCertificateId === certificate.id}
-                              style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                            >
-                              {deletingCertificateId === certificate.id ? (
-                                <>
-                                  <div className="w-3 h-3 border-b-2 border-white rounded-full animate-spin"></div>
-                                  <span className="hidden sm:inline">Deleting...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>{t("common.delete")}</span>
-                                </>
-                              )}
-                            </button>
-                          )}
+                          <button
+                            className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg text-xs font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 h-8 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => requestDelete(certificate.id)}
+                            disabled={!canDelete || deletingCertificateId === certificate.id}
+                            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                          >
+                            {deletingCertificateId === certificate.id ? (
+                              <>
+                                <div className="w-3 h-3 border-b-2 border-white rounded-full animate-spin"></div>
+                                <span className="hidden sm:inline">Deleting...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-3 h-3" />
+                                <span>{t("common.delete")}</span>
+                              </>
+                            )}
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2421,15 +2440,14 @@ function CertificatesContent(): ReactElement {
                 <p className="text-gray-500 mb-6">
                   {t("certificates.noCertificatesMessage")}
                 </p>
-                {(role === "Admin" || role === "Team") && (
-                  <Button
-                    onClick={() => (window.location.href = "/templates")}
-                    className="gradient-primary text-white shadow-lg hover:shadow-xl"
-                  >
-                    <FileText className="w-5 h-5 mr-2" />
-                    {t("certificates.create")}
-                  </Button>
-                )}
+                <Button
+                  onClick={() => (window.location.href = "/templates")}
+                  className="gradient-primary text-white shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={tenantRole === "staff" || !tenantRole}
+                >
+                  <FileText className="w-5 h-5 mr-2" />
+                  {t("certificates.create")}
+                </Button>
               </div>
             )}
         </div>
@@ -3118,14 +3136,14 @@ function CertificatesContent(): ReactElement {
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
                   <div className="flex flex-wrap gap-2">
-                    {(canDelete || forceCanDelete) && previewCertificate && (
+                    {previewCertificate && (
                       <button
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 shadow-sm hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
                         onClick={() => {
                           setPreviewCertificate(null);
                           requestDelete(previewCertificate.id);
                         }}
-                        disabled={deletingCertificateId === previewCertificate.id}
+                        disabled={!canDelete || deletingCertificateId === previewCertificate.id}
                         style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                       >
                         {deletingCertificateId === previewCertificate.id ? (
@@ -3143,18 +3161,17 @@ function CertificatesContent(): ReactElement {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {(role === "Admin" || role === "Team") && (
-                      <Button
-                        variant="outline"
-                        className="border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-500/60 dark:text-blue-300 dark:hover:bg-blue-500/10 px-6"
-                        onClick={() => {
-                          setPreviewCertificate(null);
-                          openEdit(previewCertificate);
-                        }}
-                      >
-                        {t('certificates.editCertificate')}
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      className="border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-500/60 dark:text-blue-300 dark:hover:bg-blue-500/10 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => {
+                        setPreviewCertificate(null);
+                        openEdit(previewCertificate);
+                      }}
+                      disabled={tenantRole === "staff" || !tenantRole}
+                    >
+                      {t('certificates.editCertificate')}
+                    </Button>
                   </div>
                 </div>
               </>
@@ -3588,7 +3605,16 @@ function CertificatesContent(): ReactElement {
         </>
       )}
 
-      {/* Quick Generate Modal */}
+      {/* Wizard Generate Modal */}
+      <WizardGenerateModal
+        open={wizardGenerateOpen}
+        onClose={() => setWizardGenerateOpen(false)}
+        templates={templates}
+        members={members}
+        onGenerate={handleQuickGenerate}
+      />
+
+      {/* Quick Generate Modal (Backup) */}
       <QuickGenerateModal
         open={quickGenerateOpen}
         onClose={() => setQuickGenerateOpen(false)}

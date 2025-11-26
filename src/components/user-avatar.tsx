@@ -104,13 +104,18 @@ const UserAvatar = memo(function UserAvatar() {
                     {/* Role Badge - Inline with name */}
                     {role && (
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium flex-shrink-0 ${
-                        role === 'admin' 
+                        role === 'owner'
                           ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' 
-                          : role === 'team'
+                          : role === 'manager'
                           ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                          : role === 'staff'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
                           : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                       }`}>
-                        {role === 'admin' ? 'Admin' : role === 'team' ? 'Team' : 'User'}
+                        {role === 'owner' ? 'Owner' 
+                         : role === 'manager' ? 'Manager' 
+                         : role === 'staff' ? 'Staff'
+                         : 'User'}
                       </span>
                     )}
                   </div>

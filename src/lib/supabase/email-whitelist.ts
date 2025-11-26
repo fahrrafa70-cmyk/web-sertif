@@ -1,6 +1,6 @@
 import { supabaseClient } from "./client";
 
-export type UserRole = "admin" | "team" | "user" | "member";
+export type UserRole = "owner" | "manager" | "staff" | "user";
 export type Gender = "male" | "female" | "other" | "prefer_not_to_say";
 export type AuthProvider = "email" | "google" | "github";
 

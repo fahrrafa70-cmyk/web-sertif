@@ -17,10 +17,12 @@ import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X, Users, Fil
 import { LoadingButton } from "@/components/ui/loading-button";
 import { confirmToast } from "@/lib/ui/confirm";
 import { getTenantsForCurrentUser, type Tenant } from "@/lib/supabase/tenants";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function MembersPage() {
   const { t, language } = useLanguage();
-  const [role, setRole] = useState<"Admin" | "Team" | "Public">("Public");
+  const { role: authRole } = useAuth();
+  const [role, setRole] = useState<"owner" | "manager" | "staff" | "user" | "public">("public");
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
   const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
@@ -163,6 +165,12 @@ export default function MembersPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Require tenant selection to ensure imported members are scoped to a tenant
+    if (!selectedTenantId) {
+      toast.error(language === 'id' ? 'Pilih tenant terlebih dahulu sebelum impor Excel' : 'Please select a tenant before importing Excel');
+      return;
+    }
+
     try {
       setImporting(true);
       toast.info("Reading Excel file...");
@@ -191,6 +199,7 @@ export default function MembersPage() {
               // Map Excel columns to member fields
               const memberData = {
                 name: String(row.Name || row.name || "").trim(),
+                tenant_id: selectedTenantId,
                 email: String(row.Email || row.email || "").trim() || undefined,
                 organization: String(row.Organization || row.organization || "").trim() || undefined,
                 phone: String(row.Phone || row.phone || "").trim() || undefined,
@@ -248,34 +257,38 @@ export default function MembersPage() {
     }
   }, [loadMembers]);
 
-  // Load role from localStorage and initialize
+  // Initialize based on global role from AuthContext
   useEffect(() => {
     const initializeComponent = async () => {
       try {
-        // Load role from localStorage
-        const raw = window.localStorage.getItem("ecert-role") || "";
-        const normalized = raw.toLowerCase();
-        const mapped = normalized === "admin" ? "Admin" : normalized === "team" ? "Team" : normalized === "public" ? "Public" : "Public";
+        const normalized = (authRole || "user").toLowerCase();
+        const mapped: "owner" | "manager" | "staff" | "user" | "public" =
+          normalized === "owner" || normalized === "manager" || normalized === "staff"
+            ? (normalized as "owner" | "manager" | "staff")
+            : normalized === "user"
+              ? "user"
+              : "public";
+
         setRole(mapped);
-        
-        // Load members if authorized
-        if (mapped === "Admin" || mapped === "Team") {
+
+        // Load members if authorized (owner/manager/staff)
+        if (mapped === "owner" || mapped === "manager" || mapped === "staff") {
           await loadMembers();
         } else {
           setLoading(false);
         }
-        
+
         setInitialized(true);
       } catch (error) {
-        console.error("❌ Error initializing component:", error);
-        setRole("Public");
+        console.error("❌ Error initializing members page:", error);
+        setRole("public");
         setLoading(false);
         setInitialized(true);
       }
     };
-    
-    initializeComponent();
-  }, [loadMembers]);
+
+    void initializeComponent();
+  }, [authRole, loadMembers]);
 
   // Handle keyboard events for edit modal
   useEffect(() => {
@@ -415,6 +428,11 @@ export default function MembersPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Ensure a tenant is selected for per-tenant members and RLS policies
+    if (!selectedTenantId) {
+      toast.error(language === 'id' ? 'Pilih tenant terlebih dahulu sebelum menambah data' : 'Please select a tenant before adding data');
+      return;
+    }
     
     // Clear previous errors
     setFormErrors({});
@@ -466,6 +484,7 @@ export default function MembersPage() {
       setAdding(true);
       const added = await createMember({
         name: form.name,
+        tenant_id: selectedTenantId,
         email: form.email || undefined,
         organization: form.organization || undefined,
         phone: form.phone || undefined,
@@ -488,9 +507,9 @@ export default function MembersPage() {
     }
   }
 
-  // Delete member function (only for Admin)
+  // Delete member function (only for owner/manager)
   async function deleteMember(id: string) {
-    if (role !== "Admin") {
+    if (role !== "owner" && role !== "manager") {
       toast.error(t('members.deleteNoPermission'));
       return;
     }
@@ -576,12 +595,15 @@ export default function MembersPage() {
   // Filter members based on tenant, search query and filters
   // Use debounced search query for filtering
   const filteredMembers = useMemo(() => {
+    // If no tenant selected, do not show any members (new accounts should start empty)
+    if (!selectedTenantId) {
+      return [];
+    }
+
     let filtered = membersData;
 
-    // Apply tenant filter
-    if (selectedTenantId) {
-      filtered = filtered.filter((member) => member.tenant_id === selectedTenantId);
-    }
+    // Apply tenant filter (must match selected tenant)
+    filtered = filtered.filter((member) => member.tenant_id === selectedTenantId);
 
     // Apply organization filter
     if (organizationFilter) {
@@ -631,7 +653,7 @@ export default function MembersPage() {
     setCurrentPage(1);
   }, [searchQuery]);
   
-  const canDelete = role === "Admin";
+  const canDelete = role === "owner" || role === "manager";
 
   // Show loading while initializing
   if (!initialized) {
@@ -653,7 +675,7 @@ export default function MembersPage() {
   }
 
   // Redirect if not authorized
-  if (role === "Public") {
+  if (role === "user" || role === "public") {
     return (
       <ModernLayout>
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-4">
@@ -691,7 +713,7 @@ export default function MembersPage() {
 
               {/* Right side: Tenant selector (only if multiple) + Action Buttons */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                {tenants.length > 1 && (
+                {tenants.length > 0 && (
                   <div className="w-full sm:w-56">
                     <select
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs sm:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
@@ -720,7 +742,7 @@ export default function MembersPage() {
                   </div>
                 )}
 
-                {(role === "Admin" || role === "Team") && (
+                {(role === "owner" || role === "manager" || role === "staff") && (
                   <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
                     <Button
                       onClick={() => setShowExcelInfoModal(true)}
@@ -846,7 +868,11 @@ export default function MembersPage() {
                       <TableHead className="min-w-[150px] px-2">{t('members.table.contact')}</TableHead>
                       <TableHead className="min-w-[80px] px-2">{t('members.table.job')}</TableHead>
                       <TableHead className="min-w-[100px] px-2">{t('members.table.city')}</TableHead>
-                      <TableHead className="text-right min-w-[140px] px-2">{t('members.table.actions')}</TableHead>
+                      <TableHead className="min-w-[140px] px-2">
+                        <div className="w-full flex justify-center">
+                          <span className="text-center">{t('members.table.actions')}</span>
+                        </div>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -869,23 +895,29 @@ export default function MembersPage() {
                         </TableCell>
                         <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[80px]">{m.job || "—"}</TableCell>
                         <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[100px]">{m.city || "—"}</TableCell>
-                        <TableCell className="text-right px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end gap-1.5">
-                            {(role === "Admin" || role === "Team") && (
-                              <Button variant="outline" size="sm" className="border-gray-300" onClick={() => openEdit(m)}>{t('common.edit')}</Button>
-                            )}
-                            {canDelete && (
-                              <LoadingButton 
+                        <TableCell className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-center gap-1.5">
+                            {(role === "owner" || role === "manager" || role === "staff") && (
+                              <Button
+                                variant="outline"
                                 size="sm"
-                                className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700" 
-                                onClick={() => deleteMember(m.id)}
-                                isLoading={deleting === m.id}
-                                loadingText={language === 'id' ? 'Menghapus...' : 'Deleting...'}
-                                variant="destructive"
+                                className="border-gray-300"
+                                onClick={() => openEdit(m)}
                               >
-                                {t('common.delete')}
-                              </LoadingButton>
+                                {t('common.edit')}
+                              </Button>
                             )}
+                            <LoadingButton 
+                              size="sm"
+                              className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed" 
+                              onClick={() => deleteMember(m.id)}
+                              isLoading={deleting === m.id}
+                              loadingText={language === 'id' ? 'Menghapus...' : 'Deleting...'}
+                              variant="destructive"
+                              disabled={!canDelete || deleting === m.id}
+                            >
+                              {t('common.delete')}
+                            </LoadingButton>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -912,7 +944,7 @@ export default function MembersPage() {
                               <>
                                 <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('members.noMembersTitle')}</h3>
                                 <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.noMembersMessage')}</p>
-                                {(role === "Admin" || role === "Team") && (
+                                {(role === "owner" || role === "manager" || role === "staff") && (
                                   <button
                                     onClick={() => {
                                       setAddModalOpen(true);
@@ -1013,7 +1045,7 @@ export default function MembersPage() {
 
                     {/* Actions */}
                     <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
-                      {(role === "Admin" || role === "Team") && (
+                      {(role === "owner" || role === "manager" || role === "staff") && (
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -1023,18 +1055,17 @@ export default function MembersPage() {
                           {t('common.edit')}
                         </Button>
                       )}
-                      {canDelete && (
-                        <LoadingButton 
-                          size="sm"
-                          className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700" 
-                          onClick={() => deleteMember(m.id)}
-                          isLoading={deleting === m.id}
-                          loadingText={language === 'id' ? 'Menghapus...' : 'Deleting...'}
-                          variant="destructive"
-                        >
-                          {t('common.delete')}
-                        </LoadingButton>
-                      )}
+                      <LoadingButton 
+                        size="sm"
+                        className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed" 
+                        onClick={() => deleteMember(m.id)}
+                        isLoading={deleting === m.id}
+                        loadingText={language === 'id' ? 'Menghapus...' : 'Deleting...'}
+                        variant="destructive"
+                        disabled={!canDelete || deleting === m.id}
+                      >
+                        {t('common.delete')}
+                      </LoadingButton>
                     </div>
                   </div>
                 ))}
@@ -1060,7 +1091,7 @@ export default function MembersPage() {
                       <>
                         <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('members.noMembersTitle')}</h3>
                         <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.noMembersMessage')}</p>
-                        {(role === "Admin" || role === "Team") && (
+                        {(role === "owner" || role === "manager" || role === "staff") && (
                           <button
                             onClick={() => {
                               setAddModalOpen(true);
@@ -1316,7 +1347,7 @@ export default function MembersPage() {
                         variant="primary"
                         className="gradient-primary text-white"
                       >
-                        {language === 'id' ? 'Simpan Perubahan' : 'Save Changes'}
+                        {language === 'id' ? 'Simpan' : 'Save'}
                       </LoadingButton>
                     </div>
                   </form>
@@ -1441,7 +1472,7 @@ export default function MembersPage() {
                   </div>
                   
                   {/* Action Buttons - Fixed at bottom */}
-                  {(role === "Admin" || role === "Team") && (
+                  {(role === "owner" || role === "manager" || role === "staff") && (
                     <div className="flex-shrink-0 px-4 sm:px-0 pt-4 pb-4 sm:pb-0 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex justify-end gap-3">
                         <Button

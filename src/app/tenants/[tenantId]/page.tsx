@@ -11,15 +11,17 @@ import {
   createTenantInvite,
   updateTenant,
   deleteTenant,
+  updateTenantMemberRole,
   type Tenant,
   type TenantMember,
   type TenantInvite,
 } from "@/lib/supabase/tenants";
+import { supabaseClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Copy, Link2, Users, UserPlus, Building2, ArrowLeft } from "lucide-react";
+import { Copy, Link2, Users, UserPlus, Building2, ArrowLeft, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +44,8 @@ export default function TenantDetailPage() {
   const [editTenantName, setEditTenantName] = useState("");
   const [editTenantType, setEditTenantType] = useState("company");
   const [editTenantDescription, setEditTenantDescription] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
 
   const handleEditTenant = async () => {
     if (!tenant) return;
@@ -50,6 +54,36 @@ export default function TenantDetailPage() {
     setEditTenantType(tenant.tenant_type || "company");
     setEditTenantDescription(tenant.description || "");
     setEditOpen(true);
+  };
+
+  const handleChangeMemberRole = async (
+    member: TenantMember,
+    newRole: string,
+  ) => {
+    if (!tenant) return;
+    if (!tenant.id) return;
+    if (!newRole) return;
+
+    // Prevent owner from changing their own role to avoid locking the tenant
+    if (member.user_id && currentUserId && member.user_id === currentUserId) {
+      toast.error("Owner tidak dapat mengubah role miliknya sendiri.");
+      return;
+    }
+
+    try {
+      setUpdatingMemberId(member.id);
+      const updated = await updateTenantMemberRole(tenant.id, member.id, newRole);
+      setMembers((prev) =>
+        prev.map((m) => (m.id === member.id ? { ...m, role: updated.role } : m)),
+      );
+      toast.success("Role member berhasil diperbarui.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to update member role";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setUpdatingMemberId(null);
+    }
   };
 
   const handleSubmitEditTenant = async () => {
@@ -123,6 +157,17 @@ export default function TenantDetailPage() {
 
     void load();
   }, [tenantId]);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const {
+        data: { session },
+      } = await supabaseClient.auth.getSession();
+      setCurrentUserId(session?.user?.id ?? null);
+    };
+
+    void loadUser();
+  }, []);
 
   const baseInviteUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -223,15 +268,17 @@ export default function TenantDetailPage() {
                   <Users className="w-4 h-4" />
                   <span>Team members</span>
                 </CardTitle>
-                <Button
-                  size="sm"
-                  onClick={handleCreateInvite}
-                  disabled={creatingInvite}
-                  className="h-8 px-3 text-xs bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex items-center gap-1.5"
-                >
-                  <UserPlus className="w-3 h-3" />
-                  <span>{creatingInvite ? "Generating..." : "Generate invite"}</span>
-                </Button>
+                {tenant && currentUserId && tenant.owner_user_id === currentUserId && (
+                  <Button
+                    size="sm"
+                    onClick={handleCreateInvite}
+                    disabled={creatingInvite}
+                    className="h-8 px-3 text-xs bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex items-center gap-1.5"
+                  >
+                    <UserPlus className="w-3 h-3" />
+                    <span>{creatingInvite ? "Generating..." : "Generate invite"}</span>
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="pt-0">
                 {members.length === 0 ? (
@@ -261,10 +308,31 @@ export default function TenantDetailPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <Badge variant="outline" className="text-[11px] uppercase tracking-wide">
-                            {member.role}
-                          </Badge>
+                        <div className="flex flex-col items-end gap-1 min-w-[120px]">
+                          {tenant &&
+                            currentUserId &&
+                            tenant.owner_user_id === currentUserId &&
+                            member.role.toLowerCase() !== "owner" ? (
+                              <div className="relative inline-flex">
+                                <select
+                                  className="appearance-none text-[11px] uppercase tracking-wide px-2 py-0.5 pr-6 rounded-full border border-input bg-background text-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                  value={member.role}
+                                  disabled={updatingMemberId === member.id}
+                                  onChange={(e) => handleChangeMemberRole(member, e.target.value)}
+                                >
+                                  <option value="manager">MANAGER</option>
+                                  <option value="staff">STAFF</option>
+                                </select>
+                                <ChevronDown className="absolute right-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                              </div>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] uppercase tracking-wide px-2 py-0.5 rounded-full"
+                              >
+                                {member.role}
+                              </Badge>
+                            )}
                         </div>
                       </div>
                     ))}
@@ -334,7 +402,7 @@ export default function TenantDetailPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="edit-tenant-description-detail">Deskripsi (opsional)</Label>
+                <Label htmlFor="edit-tenant-description-detail">Deskripsi</Label>
                 <textarea
                   id="edit-tenant-description-detail"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 min-h-[80px] resize-y"
@@ -374,7 +442,7 @@ export default function TenantDetailPage() {
                 disabled={editing || !editTenantName.trim()}
                 className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
               >
-                {editing ? "Menyimpan..." : "Simpan perubahan"}
+                {editing ? "Menyimpan..." : "Simpan"}
               </Button>
             </DialogFooter>
           </DialogContent>
