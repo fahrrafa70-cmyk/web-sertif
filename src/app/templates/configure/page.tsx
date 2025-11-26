@@ -210,12 +210,7 @@ function ConfigureLayoutContent() {
                 useDefaultText: true,
               };
             }
-            // Reset useDefaultText for non-description layers that might have it set incorrectly
-            if (layer.id !== 'description' && layer.useDefaultText) {
-              console.log(`🔄 Removing useDefaultText from non-description layer: ${layer.id}`);
-              const { useDefaultText, ...rest } = layer;
-              return rest;
-            }
+            // For other layers, keep existing useDefaultText as-is (do not override user choice)
             return layer;
           });
           
@@ -253,12 +248,7 @@ function ConfigureLayoutContent() {
                 useDefaultText: true,
               };
             }
-            // Reset useDefaultText for non-description layers
-            if (layer.id !== 'description' && layer.useDefaultText) {
-              console.log(`🔄 Removing useDefaultText from non-description layer: ${layer.id}`);
-              const { useDefaultText, ...rest } = layer;
-              return rest;
-            }
+            // For other layers, keep existing useDefaultText as-is (do not override user choice)
             return layer;
           });
           
@@ -342,11 +332,7 @@ function ConfigureLayoutContent() {
                     useDefaultText: true,
                   };
                 }
-                // Remove useDefaultText from non-description layers
-                if (layer.id !== 'description' && layer.useDefaultText) {
-                  const { useDefaultText, ...rest } = layer;
-                  return rest;
-                }
+                // For other layers, keep existing useDefaultText as-is
                 return layer;
               });
               
@@ -2731,6 +2717,8 @@ function ConfigureLayoutContent() {
                               width: layer.maxWidth ? `${layer.maxWidth * domScale * widthCompensation}px` : 'auto',
                               maxWidth: layer.maxWidth ? `${layer.maxWidth * domScale * widthCompensation}px` : 'none',
                               minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * domScale}px`,
+                              // Apply letter spacing in preview using same scale as generation
+                              letterSpacing: layer.letterSpacing ? `${layer.letterSpacing * domScale}px` : undefined,
                             };
                           })() ),
                           color: layer.color,
@@ -4079,6 +4067,22 @@ function ConfigureLayoutContent() {
                       />
                     </div>
 
+                    {/* Letter Spacing */}
+                    <div>
+                      <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.letterSpacing')} (px)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={selectedLayer.letterSpacing ?? 0}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const parsed = raw === '' ? undefined : parseFloat(raw);
+                          updateLayer(selectedLayer.id, { letterSpacing: Number.isFinite(parsed as number) ? (parsed as number) : 0 });
+                        }}
+                        className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                      />
+                    </div>
+
                     {/* Max Width */}
                     <div>
                       <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.maxWidth')} (px)</Label>
@@ -4291,6 +4295,7 @@ function ConfigureLayoutContent() {
                         minHeight: `${(layer.fontSize * (layer.lineHeight || 1.2)) * templateScale}px`,
                         lineHeight: layer.lineHeight || 1.2,
                         wordWrap: 'break-word',
+                        letterSpacing: layer.letterSpacing ? `${layer.letterSpacing * templateScale}px` : undefined,
                         overflowWrap: 'break-word',
                         userSelect: 'none',
                       }}

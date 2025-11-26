@@ -44,7 +44,8 @@ function AuthCallbackContent() {
 
     const redirectHome = async () => {
       if (!cancelled) {
-        router.replace("/");
+        const next = searchParams.get("next");
+        router.replace(next || "/");
       }
     };
 
