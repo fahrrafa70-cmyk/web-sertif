@@ -161,10 +161,10 @@ export function useCertificates() {
     }
   }, [certificates]);
 
-  const search = useCallback(async (query: string): Promise<Certificate[]> => {
+  const search = useCallback(async (query: string, tenant_id?: string): Promise<Certificate[]> => {
     try {
       setError(null);
-      const results = await searchCertificates(query);
+      const results = await searchCertificates(query, tenant_id);
       return results;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to search certificates';

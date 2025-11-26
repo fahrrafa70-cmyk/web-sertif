@@ -3,8 +3,21 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { id, email, full_name, avatar_url, auth_provider, role } = body ?? {};
+    // Handle empty or invalid JSON body
+    let body;
+    try {
+      const text = await request.text();
+      if (!text || text.trim() === '') {
+        console.error('❌ Empty request body received');
+        return NextResponse.json({ error: 'Request body is required' }, { status: 400 });
+      }
+      body = JSON.parse(text);
+    } catch (jsonError) {
+      console.error('❌ Invalid JSON in request body:', jsonError);
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+    }
+
+    const { id, email, full_name, avatar_url, auth_provider, password, role } = body ?? {};
 
     if (!id || !email) {
       return NextResponse.json({ error: 'Missing required fields: id and email are mandatory.' }, { status: 400 });
@@ -32,7 +45,10 @@ export async function POST(request: NextRequest) {
       full_name: full_name ?? null,
       avatar_url: avatar_url ?? null,
       auth_provider: auth_provider ?? null,
-      role: role ?? 'member',
+      password: auth_provider === 'google' || auth_provider === 'github' 
+        ? 'oauth_user_no_password' // Default password for OAuth users
+        : password ?? 'default_password', // Use provided password or default
+      role: role ?? 'user', // Default role is 'user' (for first-time login)
       updated_at: new Date().toISOString()
     };
 

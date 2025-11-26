@@ -18,6 +18,7 @@ export interface Member {
 
 export interface CreateMemberInput {
   name: string;
+  tenant_id?: string; // per-tenant membership
   organization?: string;
   phone?: string;
   email?: string;
@@ -98,6 +99,7 @@ export async function createMember(input: CreateMemberInput): Promise<Member> {
 
   const insertData = {
     name,
+    tenant_id: input.tenant_id ?? null,
     organization: sanitize(input.organization),
     phone: sanitize(input.phone),
     email: sanitize(input.email)?.toLowerCase() ?? null,

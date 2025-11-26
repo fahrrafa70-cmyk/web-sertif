@@ -1,4 +1,5 @@
 import { supabaseClient } from "./client";
+import { getUserRoleByEmail } from "./auth";
 
 export type TenantStatus = "active" | "archived";
 
@@ -180,6 +181,78 @@ export async function getTenantMembers(
   return (data as TenantMember[]) || [];
 }
 
+async function assertTenantOwner(tenantId: string): Promise<string> {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseClient.auth.getSession();
+
+  if (sessionError) {
+    throw new Error(`Failed to get session: ${sessionError.message}`);
+  }
+
+  const userId = session?.user?.id;
+  if (!userId) {
+    throw new Error("User is not authenticated");
+  }
+
+  const { data, error } = await supabaseClient
+    .from("tenant_members")
+    .select("id, role, status")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to check tenant membership: ${error.message}`);
+  }
+
+  const role = (data?.role as string | null)?.toLowerCase();
+  if (!data || role !== "owner") {
+    throw new Error("Only tenant owner can perform this action");
+  }
+
+  return userId;
+}
+
+export async function getCurrentUserTenantRole(
+  tenantId: string,
+): Promise<TenantRole | null> {
+  if (!tenantId) return null;
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseClient.auth.getSession();
+
+  if (sessionError) {
+    throw new Error(`Failed to get session: ${sessionError.message}`);
+  }
+
+  const userId = session?.user?.id;
+  if (!userId) {
+    return null;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("tenant_members")
+    .select("role, status")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to get tenant role: ${error.message}`);
+  }
+
+  const role = (data?.role as string | null)?.toLowerCase() as TenantRole | null;
+  return (role === "owner" || role === "manager" || role === "staff")
+    ? role
+    : null;
+}
+
 export async function createTenant(
   name: string,
   ownerUserId: string,
@@ -246,6 +319,14 @@ export async function createTenantForCurrentUser(
     throw new Error("User is not authenticated");
   }
 
+  // Only allow users with global role 'owner' to create new tenants.
+  // Global role is resolved via email_whitelist/users using getUserRoleByEmail.
+  const userEmail = session.user.email;
+  const globalRole = userEmail ? await getUserRoleByEmail(userEmail) : null;
+  if (globalRole !== "owner") {
+    throw new Error("Only owner users can create new tenants");
+  }
+
   const tenant = await createTenant(
     name,
     userId,
@@ -287,6 +368,8 @@ export async function updateTenant(
   if (!id) {
     throw new Error("Tenant ID is required");
   }
+
+  await assertTenantOwner(id);
 
   type PayloadType = {
     name?: string;
@@ -339,6 +422,8 @@ export async function deleteTenant(id: string): Promise<void> {
   if (!id) {
     throw new Error("Tenant ID is required");
   }
+
+  await assertTenantOwner(id);
 
   const { error } = await supabaseClient.from("tenants").delete().eq("id", id);
 
@@ -393,19 +478,7 @@ export async function createTenantInvite(
     throw new Error("Tenant ID is required");
   }
 
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabaseClient.auth.getSession();
-
-  if (sessionError) {
-    throw new Error(`Failed to get session: ${sessionError.message}`);
-  }
-
-  const userId = session?.user?.id;
-  if (!userId) {
-    throw new Error("User is not authenticated");
-  }
+  const userId = await assertTenantOwner(tenantId);
 
   // Generate a simple unique token for the invite
   const token =
@@ -420,6 +493,10 @@ export async function createTenantInvite(
         tenant_id: tenantId,
         invited_by_user_id: userId,
         token,
+        role,
+        status: "pending",
+        created_by_user_id: userId,
+        expires_at: null,
       },
     ])
     .select("*")
@@ -430,4 +507,75 @@ export async function createTenantInvite(
   }
 
   return data as TenantInvite;
+}
+
+export async function updateTenantMemberRole(
+  tenantId: string,
+  memberId: string,
+  role: TenantRole | string,
+): Promise<TenantMember> {
+  if (!tenantId || !memberId) {
+    throw new Error("Tenant ID and member ID are required");
+  }
+
+  // Only tenant owner is allowed to change roles inside the tenant
+  await assertTenantOwner(tenantId);
+
+  const { data, error } = await supabaseClient
+    .from("tenant_members")
+    .update({ role })
+    .eq("id", memberId)
+    .eq("tenant_id", tenantId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update tenant member role: ${error.message}`);
+  }
+
+  return data as TenantMember;
+}
+
+export async function checkTenantHasData(tenantId: string): Promise<boolean> {
+  if (!tenantId) {
+    throw new Error("Tenant ID is required");
+  }
+
+  try {
+    // Check if tenant has any templates
+    const { count: templatesCount } = await supabaseClient
+      .from("templates")
+      .select("*", { count: "exact", head: true })
+      .eq("tenant_id", tenantId);
+
+    if (templatesCount && templatesCount > 0) {
+      return true;
+    }
+
+    // Check if tenant has any certificates
+    const { count: certificatesCount } = await supabaseClient
+      .from("certificates")
+      .select("*", { count: "exact", head: true })
+      .eq("tenant_id", tenantId);
+
+    if (certificatesCount && certificatesCount > 0) {
+      return true;
+    }
+
+    // Check if tenant has any members (data)
+    const { count: membersCount } = await supabaseClient
+      .from("members")
+      .select("*", { count: "exact", head: true })
+      .eq("tenant_id", tenantId);
+
+    if (membersCount && membersCount > 0) {
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error checking tenant data:", error);
+    // Return true as safe default - don't allow deletion if we can't check
+    return true;
+  }
 }

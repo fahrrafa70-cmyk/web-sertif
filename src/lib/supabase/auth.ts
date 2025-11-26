@@ -142,7 +142,7 @@ export async function signInWithGitHub() {
  * Check if email exists in whitelist and return assigned role
  * Returns null if email is not whitelisted
  */
-export async function checkEmailWhitelist(email: string): Promise<"admin" | "team" | "user" | "member" | null> {
+export async function checkEmailWhitelist(email: string): Promise<"owner" | "manager" | "staff" | "user" | null> {
   try {
     const normalizedEmail = email.toLowerCase().trim();
     
@@ -163,18 +163,24 @@ export async function checkEmailWhitelist(email: string): Promise<"admin" | "tea
     }
 
     const role = data.role.toLowerCase();
-    if (role === "admin" || role === "team") {
+
+    // Map any legacy values to new global roles
+    if (role === "owner" || role === "manager" || role === "staff" || role === "user") {
       return role;
     }
 
-    if (role === "member") {
-      return "member";
+    if (role === "admin") {
+      return "owner";
     }
 
-    if (role === "user" || role === "public") {
+    if (role === "team" || role === "member") {
+      return "manager";
+    }
+
+    if (role === "public") {
       return "user";
     }
-    
+
     return null;
   } catch (err) {
     console.error('Error checking whitelist:', err);
@@ -216,36 +222,24 @@ export async function createOrUpdateUserFromOAuth(
       throw new Error(checkError.message);
     }
 
-    // Check whitelist first
-    let whitelistRole = await checkEmailWhitelist(normalizedEmail);
+    // Check whitelist first (absolute when present)
+    const whitelistRole = await checkEmailWhitelist(normalizedEmail);
 
-    // If not in whitelist, add with default 'member' role
-    if (!whitelistRole) {
-      console.log(`📝 Email not in whitelist, adding: ${normalizedEmail} with role 'member'`);
-      try {
-        const { error: insertError } = await supabaseClient
-          .from('email_whitelist')
-          .insert([{ email: normalizedEmail, role: 'member' }]);
-        
-        if (insertError && insertError.code !== '23505') { // 23505 = unique violation (already exists)
-          console.error('Error adding to whitelist:', insertError);
-        } else {
-          console.log(`✅ Added ${normalizedEmail} to whitelist with role 'member'`);
-          whitelistRole = 'member';
-        }
-      } catch (err) {
-        console.error('Error adding to whitelist:', err);
-      }
-    }
+    let roleToPersist: "owner" | "manager" | "staff" | "user" = "user";
 
-    let roleToPersist: "admin" | "team" | "user" | "member" = "user";
     if (whitelistRole) {
+      // Whitelist wins if it has a role
       roleToPersist = whitelistRole;
     } else if (existingUser) {
       const currentRole = (existingUser.role as string | null)?.toLowerCase();
-      if (currentRole === 'admin' || currentRole === 'team') {
-        roleToPersist = currentRole;
-      } else {
+
+      if (currentRole === 'owner' || currentRole === 'manager' || currentRole === 'staff' || currentRole === 'user') {
+        roleToPersist = currentRole as typeof roleToPersist;
+      } else if (currentRole === 'admin') {
+        roleToPersist = 'owner';
+      } else if (currentRole === 'team' || currentRole === 'member') {
+        roleToPersist = 'manager';
+      } else if (currentRole === 'public') {
         roleToPersist = 'user';
       }
     }
@@ -283,11 +277,24 @@ export async function createOrUpdateUserFromOAuth(
   }
 }
 
-export async function getUserRoleByEmail(email: string): Promise<"admin" | "team" | "user" | null> {
+export async function getUserRoleByEmail(email: string): Promise<"owner" | "manager" | "staff" | "user" | null> {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // 1) Whitelist as primary source (absolute when present)
+  try {
+    const whitelistRole = await checkEmailWhitelist(normalizedEmail);
+    if (whitelistRole) {
+      return whitelistRole;
+    }
+  } catch (err) {
+    console.error("Error checking whitelist in getUserRoleByEmail:", err);
+  }
+
+  // 2) Fallback to users.role
   const { data, error } = await supabaseClient
     .from("users")
     .select("role")
-    .eq("email", email)
+    .eq("email", normalizedEmail)
     .maybeSingle();
 
   if (error) {
@@ -300,9 +307,15 @@ export async function getUserRoleByEmail(email: string): Promise<"admin" | "team
   }
 
   const role = (data.role as string | null)?.toLowerCase();
-  if (role === "member") return "user";
-  if (role === "public") return "user";
-  if (role === "admin" || role === "team" || role === "user") return role;
+
+  if (role === "owner" || role === "manager" || role === "staff" || role === "user") {
+    return role;
+  }
+
+  if (role === "admin") return "owner";
+  if (role === "team" || role === "member") return "manager";
+  if (role === "public") return null; // public users should not have role, let them default to 'user'
+
   return null;
 }
 

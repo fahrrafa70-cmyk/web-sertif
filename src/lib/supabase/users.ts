@@ -1,6 +1,6 @@
 import { supabaseClient } from "./client";
 
-export type UserRole = "admin" | "team" | "user" | "member";
+export type UserRole = "owner" | "manager" | "staff" | "user";
 export type Gender = "male" | "female" | "other" | "prefer_not_to_say";
 
 export interface AppUser {
@@ -26,7 +26,7 @@ export interface CreateAppUserInput {
   full_name: string;
   organization?: string;
   phone?: string;
-  role?: UserRole | string; // will be forced to 'team' by caller
+  role?: UserRole | string; // will be forced to 'user' by caller
 }
 
 export interface UpdateProfileInput {
@@ -49,7 +49,7 @@ export interface UserProfile {
 }
 
 export async function getUsers(opts?: { role?: string }): Promise<AppUser[]> {
-  const roleFilter = opts?.role ?? "Team";
+  const roleFilter = opts?.role ?? "user";
   let query = supabaseClient
     .from("users")
     .select("*")
@@ -68,7 +68,7 @@ export async function createUser(input: CreateAppUserInput): Promise<AppUser> {
   const organization = input.organization?.trim() || null;
   const phone = input.phone?.trim() || null;
   const password = input.password?.trim() || null;
-  const role = (input.role ?? "Team").toString();
+  const role = (input.role ?? "user").toString();
 
   if (!email || !full_name) {
     throw new Error("Full name and email are required");
@@ -103,7 +103,7 @@ export async function createUser(input: CreateAppUserInput): Promise<AppUser> {
     .single();
 
   if (error) {
-    // Fallback: try lowercase 'team' if enum expects it
+    // Fallback: try lowercase 'staff' if enum expects it
     const lower = role.toLowerCase();
     if (lower !== role) {
       insertPayload.role = lower;

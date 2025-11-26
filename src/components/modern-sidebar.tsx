@@ -19,7 +19,7 @@ interface NavItem {
   icon: React.ReactNode;
   label: string;
   href: string;
-  roles?: ("admin" | "team")[];
+  roles?: ("owner" | "manager" | "staff")[];
 }
 
 const ModernSidebar = memo(function ModernSidebar() {
@@ -45,25 +45,25 @@ const ModernSidebar = memo(function ModernSidebar() {
       icon: <Building2 className="w-5 h-5" />,
       label: "Tenants",
       href: "/tenants",
-      roles: ["admin", "team"],
+      roles: ["owner", "manager", "staff"],
     },
     {
       icon: <FileText className="w-5 h-5" />,
       label: t("nav.certificates"),
       href: "/certificates",
-      roles: ["admin", "team"],
+      roles: ["owner", "manager", "staff"],
     },
     {
       icon: <Layout className="w-5 h-5" />,
       label: t("nav.templates"),
       href: "/templates",
-      roles: ["admin", "team"],
+      roles: ["owner", "manager", "staff"],
     },
     {
       icon: <Users className="w-5 h-5" />,
       label: "Data",
       href: "/data",
-      roles: ["admin", "team"],
+      roles: ["owner", "manager", "staff"],
     },
     {
       icon: <Info className="w-5 h-5" />,
@@ -81,7 +81,7 @@ const ModernSidebar = memo(function ModernSidebar() {
   const filteredItems = useMemo(() => {
     return navItems.filter((item) => {
       if (!item.roles) return true;
-      return item.roles.includes(role as "admin" | "team");
+      return role !== null && item.roles.includes(role as "owner" | "manager" | "staff");
     });
   }, [navItems, role]);
 

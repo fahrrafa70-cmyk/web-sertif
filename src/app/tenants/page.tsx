@@ -4,8 +4,9 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import ModernLayout from "@/components/modern-layout";
 import { useLanguage } from "@/contexts/language-context";
-import { getTenantsForCurrentUser, createTenantForCurrentUser, updateTenant, deleteTenant, type Tenant } from "@/lib/supabase/tenants";
+import { getTenantsForCurrentUser, createTenantForCurrentUser, updateTenant, deleteTenant, checkTenantHasData, type Tenant } from "@/lib/supabase/tenants";
 import { supabaseClient } from "@/lib/supabase/client";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Plus, Building2 } from "lucide-react";
 import {
@@ -23,9 +24,11 @@ import { confirmToast } from "@/lib/ui/confirm";
 export default function TenantsPage() {
   const { t } = useLanguage();
   const router = useRouter();
+  const { role: authRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newTenantName, setNewTenantName] = useState("");
@@ -45,6 +48,7 @@ export default function TenantsPage() {
   const [uploadingNewCover, setUploadingNewCover] = useState(false);
   const [uploadingEditLogo, setUploadingEditLogo] = useState(false);
   const [uploadingEditCover, setUploadingEditCover] = useState(false);
+  const [tenantsWithData, setTenantsWithData] = useState<Set<string>>(new Set());
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
@@ -82,7 +86,37 @@ export default function TenantsPage() {
     setEditOpen(true);
   };
 
+  const checkTenantsData = async (tenantsList: Tenant[]) => {
+    const tenantsWithDataSet = new Set<string>();
+    
+    // Check each tenant for data in parallel
+    await Promise.all(
+      tenantsList.map(async (tenant) => {
+        try {
+          const hasData = await checkTenantHasData(tenant.id);
+          if (hasData) {
+            tenantsWithDataSet.add(tenant.id);
+          }
+        } catch (error) {
+          console.error(`Error checking data for tenant ${tenant.id}:`, error);
+          // Add to set as safe default
+          tenantsWithDataSet.add(tenant.id);
+        }
+      })
+    );
+    
+    setTenantsWithData(tenantsWithDataSet);
+  };
+
   const handleDeleteTenant = async (tenant: Tenant) => {
+    // Check if tenant has data
+    const hasData = tenantsWithData.has(tenant.id);
+    
+    if (hasData) {
+      toast.error(`Tidak dapat menghapus tenant "${tenant.name}" karena masih memiliki data (templates, sertifikat, atau member). Hapus semua data terlebih dahulu.`);
+      return;
+    }
+
     const ok = await confirmToast(
       `Yakin ingin menghapus tenant "${tenant.name}"? Pastikan semua data sudah tidak diperlukan.`,
       { confirmText: "Hapus", cancelText: "Batal", tone: "destructive" },
@@ -93,6 +127,14 @@ export default function TenantsPage() {
       setError(null);
       await deleteTenant(tenant.id);
       setTenants((prev) => prev.filter((t) => t.id !== tenant.id));
+      
+      // Remove from tenantsWithData set
+      setTenantsWithData((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(tenant.id);
+        return newSet;
+      });
+      
       toast.success(`Tenant "${tenant.name}" berhasil dihapus.`);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to delete tenant";
@@ -145,6 +187,9 @@ export default function TenantsPage() {
         setError(null);
         const data = await getTenantsForCurrentUser();
         setTenants(data);
+        
+        // Check which tenants have data
+        await checkTenantsData(data);
       } catch (e) {
         const message = e instanceof Error ? e.message : "Failed to load tenants";
         setError(message);
@@ -154,6 +199,18 @@ export default function TenantsPage() {
     };
 
     void load();
+  }, []);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const {
+        data: { session },
+      } = await supabaseClient.auth.getSession();
+      const userId = session?.user?.id ?? null;
+      setCurrentUserId(userId);
+    };
+
+    void loadUser();
   }, []);
   const handleOpenTenant = (tenantId: string) => {
     router.push(`/tenants/${tenantId}`);
@@ -172,7 +229,12 @@ export default function TenantsPage() {
         newTenantLogoUrl.trim() || null,
         newTenantCoverUrl.trim() || null,
       );
-      setTenants((prev) => [...prev, tenant]);
+      const updatedTenants = [...tenants, tenant];
+      setTenants(updatedTenants);
+      
+      // Check data for the new tenant list
+      await checkTenantsData(updatedTenants);
+      
       setCreateOpen(false);
       setNewTenantName("");
       setNewTenantType("company");
@@ -206,7 +268,12 @@ export default function TenantsPage() {
         logo_url: editTenantLogoUrl.trim() || null,
         cover_url: editTenantCoverUrl.trim() || null,
       });
-      setTenants((prev) => prev.map((t) => (t.id === editingTenant.id ? updated : t)));
+      const updatedTenants = tenants.map((t) => (t.id === editingTenant.id ? updated : t));
+      setTenants(updatedTenants);
+      
+      // Check data for updated tenant list
+      await checkTenantsData(updatedTenants);
+      
       setEditingTenant(null);
       setEditOpen(false);
       setEditTenantDescription("");
@@ -237,14 +304,15 @@ export default function TenantsPage() {
                 </h1>
               </div>
             </div>
-
-            <Button
-              onClick={() => setCreateOpen(true)}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New tenant</span>
-            </Button>
+            {currentUserId && authRole === "owner" && (
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New tenant</span>
+              </Button>
+            )}
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg p-4 sm:p-6 min-h-[200px]">
@@ -268,13 +336,15 @@ export default function TenantsPage() {
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   Kamu belum memiliki tenant. Buat tenant pertama untuk mulai mengelola data dan sertifikat.
                 </p>
-                <Button
-                  onClick={() => setCreateOpen(true)}
-                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Create tenant</span>
-                </Button>
+                {currentUserId && authRole === "owner" && (
+                  <Button
+                    onClick={() => setCreateOpen(true)}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create tenant</span>
+                  </Button>
+                )}
               </div>
             )}
 
@@ -350,23 +420,29 @@ export default function TenantsPage() {
                         {(tenant.member_count ?? 0).toString()} Anggota
                       </span>
                       <div className="flex items-center justify-end gap-2 text-[12px] text-inherit">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditTenant(tenant)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="bg-red-500 hover:bg-red-600 text-white border-none shadow-sm"
-                          onClick={() => handleDeleteTenant(tenant)}
-                        >
-                          Delete
-                        </Button>
+                        {currentUserId && tenant.owner_user_id === currentUserId && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditTenant(tenant)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="bg-red-500 hover:bg-red-600 text-white border-none shadow-sm disabled:bg-red-300 disabled:text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              onClick={() => handleDeleteTenant(tenant)}
+                              disabled={tenantsWithData.has(tenant.id)}
+                              title={tenantsWithData.has(tenant.id) ? "Tidak dapat menghapus tenant yang masih memiliki data" : "Hapus tenant"}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -600,7 +676,7 @@ export default function TenantsPage() {
                 disabled={editing || !editTenantName.trim()}
                 className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
               >
-                {editing ? "Menyimpan..." : "Simpan perubahan"}
+                {editing ? "Menyimpan..." : "Simpan"}
               </Button>
             </DialogFooter>
           </DialogContent>

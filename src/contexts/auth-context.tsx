@@ -11,7 +11,7 @@ import {
   createOrUpdateUserFromOAuth
 } from "@/lib/supabase/auth";
 
-type Role = "admin" | "team" | "user" | null;
+type Role = "owner" | "manager" | "staff" | "user" | null;
 
 type AuthState = {
   role: Role;
@@ -25,6 +25,7 @@ type AuthState = {
   signInWithOAuth: (provider: 'google' | 'github') => Promise<void>;
   signOut: () => Promise<void>;
   localSignOut: () => Promise<void>;
+  refreshRole: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -152,10 +153,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             
             // Fetch role with retry logic (user might be created async)
-            let fetchedRole: "admin" | "team" | "user" | null = null;
+            let fetchedRole: Role = null;
             let retries = 3;
             while (retries > 0 && fetchedRole === null) {
               try {
+                // Ensure user exists in users table for email/password logins
+                try {
+                  const { data: existingUser } = await supabaseClient
+                    .from("users")
+                    .select("id")
+                    .eq("id", session.user.id)
+                    .maybeSingle();
+
+                  if (!existingUser) {
+                    const meta = (session.user.user_metadata || {}) as { full_name?: string };
+                    const fullName = meta.full_name || normalized.split("@")[0];
+
+                    await fetch("/api/users/upsert", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        id: session.user.id,
+                        email: normalized,
+                        full_name: fullName,
+                        avatar_url: null,
+                        auth_provider: "email",
+                        role: "user",
+                      }),
+                    }).catch(() => {});
+                  }
+                } catch (ensureUserErr) {
+                  console.error("Error ensuring user record exists:", ensureUserErr);
+                }
+
+                // Ensure whitelist row exists with default user role if none
+                try {
+                  const { data: existingWhitelist } = await supabaseClient
+                    .from("email_whitelist")
+                    .select("role")
+                    .eq("email", normalized)
+                    .maybeSingle();
+
+                  if (!existingWhitelist) {
+                    await supabaseClient
+                      .from("email_whitelist")
+                      .insert({ email: normalized, role: "user" });
+                  }
+                } catch (ensureWhitelistErr) {
+                  console.error("Error ensuring email_whitelist record exists:", ensureWhitelistErr);
+                }
+
                 fetchedRole = await getUserRoleByEmail(normalized);
                 if (fetchedRole === null && retries > 1) {
                   // Wait a bit before retrying (user might still be created)
@@ -329,6 +376,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
+  const refreshRole = useCallback(async () => {
+    if (!email) return;
+    try {
+      const normalized = email.toLowerCase().trim();
+      const fetchedRole = await getUserRoleByEmail(normalized);
+      setRole(fetchedRole);
+
+      try {
+        window.localStorage.setItem("ecert-role", fetchedRole || "public");
+      } catch {}
+    } catch (err) {
+      console.error("Error refreshing user role:", err);
+    }
+  }, [email]);
+
   const localSignOut = useCallback(async () => {
     try {
       // Clear state immediately first
@@ -388,7 +450,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithOAuth,
     signOut,
     localSignOut,
-  }), [role, email, loading, error, openLogin, signIn, signInWithOAuth, signOut, localSignOut]);
+    refreshRole,
+  }), [role, email, loading, error, openLogin, signIn, signInWithOAuth, signOut, localSignOut, refreshRole]);
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

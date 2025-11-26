@@ -1,5 +1,6 @@
 import { supabaseClient } from "./client";
 import { generateXID } from "@/lib/utils/generate-xid";
+import type { TenantRole } from "./tenants";
 
 export interface Certificate {
   id: string;
@@ -120,6 +121,39 @@ export interface UpdateCertificateData {
   score_image_url?: string; // PNG score master (dual templates)
   score_thumbnail_url?: string; // WebP score preview (dual templates)
   text_layers?: TextLayer[];
+}
+
+async function getCurrentUserTenantRoleForCertificate(
+  tenantId: string | null | undefined,
+): Promise<TenantRole | null> {
+  if (!tenantId) return null;
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseClient.auth.getSession();
+
+  if (sessionError) {
+    throw new Error(`Failed to get session: ${sessionError.message}`);
+  }
+
+  const userId = session?.user?.id;
+  if (!userId) return null;
+
+  const { data, error } = await supabaseClient
+    .from("tenant_members")
+    .select("role, status")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to check tenant role for certificate: ${error.message}`);
+  }
+
+  const role = (data?.role as string | null)?.toLowerCase() as TenantRole | null;
+  return role === "owner" || role === "manager" || role === "staff" ? role : null;
 }
 
 // Get all certificates with optional caching and request deduplication
@@ -451,6 +485,16 @@ export async function createCertificate(
       is_public: true, // Default to public
     };
 
+    // If certificate is linked to a tenant, ensure the user is a member of that tenant
+    if (certificateData.tenant_id) {
+      const role = await getCurrentUserTenantRoleForCertificate(
+        certificateData.tenant_id,
+      );
+      if (!role) {
+        throw new Error("You are not a member of this tenant");
+      }
+      // All tenant roles (owner, manager, staff) are allowed to create/generate certificates
+    }
 
     // Insert data into certificates table
     const { data, error } = await supabaseClient
@@ -474,7 +518,6 @@ export async function createCertificate(
       throw new Error(`Failed to create certificate: ${error.message}`);
     }
 
-    
     // Invalidate cache after successful creation
     if (typeof window !== 'undefined') {
       try {
@@ -500,6 +543,19 @@ export async function updateCertificate(
   const currentCertificate = await getCertificate(id);
   if (!currentCertificate) {
     throw new Error("Certificate not found");
+  }
+
+  // If certificate belongs to a tenant, only owner/manager may edit
+  if (currentCertificate.tenant_id) {
+    const role = await getCurrentUserTenantRoleForCertificate(
+      currentCertificate.tenant_id,
+    );
+    if (!role) {
+      throw new Error("You are not a member of this tenant");
+    }
+    if (role === "staff") {
+      throw new Error("Staff cannot edit certificates in this tenant");
+    }
   }
 
   // If updating certificate_no, check for duplicates
@@ -658,11 +714,12 @@ export async function deleteCertificate(id: string): Promise<void> {
   }
 }
 
-// Search certificates
+// Search certificates with tenant filtering
 export async function searchCertificates(
   query: string,
+  tenant_id?: string
 ): Promise<Certificate[]> {
-  const { data, error } = await supabaseClient
+  let queryBuilder = supabaseClient
     .from("certificates")
     .select(
       `
@@ -678,8 +735,14 @@ export async function searchCertificates(
     )
     .or(
       `certificate_no.ilike.%${query}%,name.ilike.%${query}%,description.ilike.%${query}%`,
-    )
-    .order("created_at", { ascending: false });
+    );
+
+  // CRITICAL: Add tenant filter for multi-tenant isolation
+  if (tenant_id && typeof tenant_id === 'string' && tenant_id.trim()) {
+    queryBuilder = queryBuilder.eq("tenant_id", tenant_id.trim());
+  }
+
+  const { data, error } = await queryBuilder.order("created_at", { ascending: false });
 
   if (error) {
     throw new Error(`Failed to search certificates: ${error.message}`);
@@ -694,12 +757,19 @@ export interface SearchFilters {
   category?: string;
   startDate?: string;
   endDate?: string;
+  tenant_id?: string; // Filter by tenant for multi-tenant isolation
 }
 
 export async function advancedSearchCertificates(
   filters: SearchFilters,
 ): Promise<Certificate[]> {
   try {
+    // SECURITY: MUST have tenant_id to prevent cross-tenant data access
+    if (!filters.tenant_id || typeof filters.tenant_id !== 'string' || !filters.tenant_id.trim()) {
+      console.warn('advancedSearchCertificates: tenant_id is required for security');
+      return [];
+    }
+    
     // Check if keyword is provided
     const hasKeyword = filters.keyword && typeof filters.keyword === 'string' && filters.keyword.trim();
     
@@ -736,6 +806,12 @@ export async function advancedSearchCertificates(
     query = query.or(
       `certificate_no.ilike.%${sanitizedKeyword}%,name.ilike.%${sanitizedKeyword}%`,
     );
+
+    // CRITICAL: Tenant filter for multi-tenant isolation
+    // If tenant_id is provided, ONLY show certificates from that tenant
+    if (filters.tenant_id && typeof filters.tenant_id === 'string' && filters.tenant_id.trim()) {
+      query = query.eq("tenant_id", filters.tenant_id.trim());
+    }
 
     // Category filter (optional - to narrow down results)
     if (filters.category && typeof filters.category === 'string' && filters.category.trim()) {
@@ -794,17 +870,24 @@ export async function advancedSearchCertificates(
   }
 }
 
-// Get unique categories from certificates and templates
-export async function getCertificateCategories(): Promise<string[]> {
+// Get unique categories from certificates and templates with tenant filtering
+export async function getCertificateCategories(tenant_id?: string): Promise<string[]> {
   try {
     const categoriesSet = new Set<string>();
 
-    // Fetch categories from certificates table
-    const { data: certData, error: certError } = await supabaseClient
+    // Fetch categories from certificates table with tenant filter
+    let certQuery = supabaseClient
       .from("certificates")
       .select("category")
       .not("category", "is", null)
       .limit(1000);
+    
+    // Add tenant filter if provided
+    if (tenant_id && typeof tenant_id === 'string' && tenant_id.trim()) {
+      certQuery = certQuery.eq("tenant_id", tenant_id.trim());
+    }
+    
+    const { data: certData, error: certError } = await certQuery;
 
     if (certError) {
     } else if (certData && Array.isArray(certData)) {
@@ -815,12 +898,19 @@ export async function getCertificateCategories(): Promise<string[]> {
       });
     }
 
-    // Also fetch categories from templates table (if they exist there)
-    const { data: templateData, error: templateError } = await supabaseClient
+    // Also fetch categories from templates table with tenant filter
+    let templateQuery = supabaseClient
       .from("templates")
       .select("category")
       .not("category", "is", null)
       .limit(1000);
+    
+    // Add tenant filter if provided
+    if (tenant_id && typeof tenant_id === 'string' && tenant_id.trim()) {
+      templateQuery = templateQuery.eq("tenant_id", tenant_id.trim());
+    }
+    
+    const { data: templateData, error: templateError } = await templateQuery;
 
     if (templateError) {
     } else if (templateData && Array.isArray(templateData)) {
