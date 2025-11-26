@@ -34,24 +34,20 @@ export function useProfile(): UseProfileState & UseProfileActions {
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      // Get current session
       const {
-        data: { session },
-        error: sessionError,
-      } = await supabaseClient.auth.getSession();
-
-      if (sessionError || !session) {
-        throw new Error("Authentication required");
+        data: { user },
+      } = await supabaseClient.auth.getUser();
+      if (!user?.email) {
+        throw new Error("Not logged in");
       }
 
-      // Fetch profile via API
-      const response = await fetch("/api/profile", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `/api/profile?email=${encodeURIComponent(user.email)}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
         },
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -71,7 +67,6 @@ export function useProfile(): UseProfileState & UseProfileActions {
         error: null,
       }));
     } catch (err) {
-      console.error("Error fetching profile:", err);
       setState((prev) => ({
         ...prev,
         profile: null,
@@ -86,24 +81,17 @@ export function useProfile(): UseProfileState & UseProfileActions {
       setState((prev) => ({ ...prev, updating: true, error: null }));
 
       try {
-        // Get current session
         const {
-          data: { session },
-          error: sessionError,
-        } = await supabaseClient.auth.getSession();
-
-        if (sessionError || !session) {
-          throw new Error("Authentication required");
+          data: { user },
+        } = await supabaseClient.auth.getUser();
+        if (!user?.email) {
+          throw new Error("Not logged in");
         }
 
-        // Update profile via API
         const response = await fetch("/api/profile", {
           method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updates),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...updates, email: user.email }),
         });
 
         if (!response.ok) {
@@ -126,7 +114,6 @@ export function useProfile(): UseProfileState & UseProfileActions {
 
         return true;
       } catch (err) {
-        console.error("Error updating profile:", err);
         setState((prev) => ({
           ...prev,
           updating: false,
@@ -142,57 +129,24 @@ export function useProfile(): UseProfileState & UseProfileActions {
   const checkUsernameAvailability = useCallback(
     async (username: string): Promise<boolean> => {
       if (!username || username.trim().length < 3) {
-        console.log("🚫 Username too short:", username);
         return false;
       }
 
       setState((prev) => ({ ...prev, checkingUsername: true }));
 
       try {
-        // Get current session for authenticated check
-        const {
-          data: { session },
-        } = await supabaseClient.auth.getSession();
-
-        const headers: HeadersInit = {
-          "Content-Type": "application/json",
-        };
-
-        // Add auth header if user is authenticated
-        if (session?.access_token) {
-          headers["Authorization"] = `Bearer ${session.access_token}`;
-        }
-
-        console.log(`🌐 Frontend: Checking username "${username}"`);
-
         const response = await fetch(
           `/api/profile/username-check?username=${encodeURIComponent(username)}`,
-          {
-            method: "GET",
-            headers,
-          },
+          { method: "GET", headers: { "Content-Type": "application/json" } },
         );
 
-        console.log(`📡 Frontend: API response status:`, response.status);
-
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error("❌ Frontend: Username check failed:", errorData);
           return false;
         }
 
         const data = await response.json();
-        console.log(`📋 Frontend: API response data:`, data);
-
-        const isAvailable = data.available === true;
-        console.log(`🎯 Frontend: Final availability result:`, isAvailable);
-
-        return isAvailable;
-      } catch (err) {
-        console.error(
-          "💥 Frontend: Error checking username availability:",
-          err,
-        );
+        return data.available === true;
+      } catch {
         return false;
       } finally {
         setState((prev) => ({ ...prev, checkingUsername: false }));

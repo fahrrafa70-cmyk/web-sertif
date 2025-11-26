@@ -141,25 +141,33 @@ export async function checkUsernameAvailability(
   username: string,
   currentUserId?: string,
 ): Promise<boolean> {
-  let query = supabaseClient
-    .from("users")
-    .select("id")
-    .eq("username", username.toLowerCase())
-    .limit(1);
+  try {
+    let query = supabaseClient
+      .from("users")
+      .select("id")
+      .eq("username", username.toLowerCase())
+      .not("username", "is", null)
+      .limit(1);
 
-  // If checking for current user, exclude their own record
-  if (currentUserId) {
-    query = query.neq("id", currentUserId);
+    // If checking for current user, exclude their own record
+    if (currentUserId) {
+      query = query.neq("id", currentUserId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("checkUsernameAvailability error:", error);
+      // Return true on error to avoid blocking user
+      return true;
+    }
+
+    // Username is available if no records found
+    return !data || data.length === 0;
+  } catch (err) {
+    console.error("checkUsernameAvailability unexpected error:", err);
+    return true;
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(`Failed to check username availability: ${error.message}`);
-  }
-
-  // Username is available if no records found
-  return !data || data.length === 0;
 }
 
 export async function updateUserProfile(
