@@ -18,14 +18,17 @@ export async function GET(request: NextRequest) {
     const { data: profile, error } = await supabase
       .from("email_whitelist")
       .select(
-        "id, email, full_name, username, gender, avatar_url, organization, phone, role, auth_provider, is_active, is_verified, created_at, updated_at",
+        "id, email, full_name, username, gender, avatar_url, role, created_at, updated_at",
       )
       .eq("email", email.trim().toLowerCase())
-      .eq("is_active", true)
-      .single();
+      .maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, data: profile });
@@ -40,21 +43,17 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = getSupabaseServer();
+    const body = await request.json();
+    const { email, full_name, username, gender, avatar_url } = body;
 
-    // Get current logged in user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user?.email) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!email) {
+      return NextResponse.json({ error: "Email required" }, { status: 400 });
     }
 
-    // Parse request body
-    const body = await request.json();
-    const { full_name, username, gender, avatar_url } = body;
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -106,10 +105,16 @@ export async function PATCH(request: NextRequest) {
       .from("email_whitelist")
       .select("id, username")
       .eq("email", email.trim().toLowerCase())
-      .eq("is_active", true)
       .maybeSingle();
 
-    if (profileError || !currentProfile) {
+    if (profileError) {
+      return NextResponse.json(
+        { error: profileError.message },
+        { status: 500 },
+      );
+    }
+
+    if (!currentProfile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
@@ -120,7 +125,6 @@ export async function PATCH(request: NextRequest) {
         .select("id")
         .eq("username", updates.username)
         .neq("id", currentProfile.id)
-        .eq("is_active", true)
         .maybeSingle();
 
       if (existingUser) {
@@ -137,20 +141,20 @@ export async function PATCH(request: NextRequest) {
       .update(updates)
       .eq("id", currentProfile.id)
       .select(
-        "id, email, full_name, username, gender, avatar_url, role, is_active, created_at, updated_at",
+        "id, email, full_name, username, gender, avatar_url, role, created_at, updated_at",
       )
       .single();
 
     if (updateError) {
-      console.error("Update error:", updateError);
-      return NextResponse.json(
-        { error: "Failed to update profile" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data: updatedProfile });
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (err: unknown) {
+    const error = err as Error;
+    return NextResponse.json(
+      { error: error.message || "Server error" },
+      { status: 500 },
+    );
   }
 }

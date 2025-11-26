@@ -57,6 +57,9 @@ export default function ProfilePage() {
   const [tempImageFile, setTempImageFile] = useState<File | null>(null);
   const [imageScale, setImageScale] = useState(1);
   const [imageRotation, setImageRotation] = useState(0);
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Set document title
@@ -257,32 +260,36 @@ export default function ProfilePage() {
         img.src = tempImageUrl;
       });
 
-      // Set canvas size (square for avatar)
-      const size = 256;
-      canvas.width = size;
-      canvas.height = size;
+      // Preserve aspect ratio - max width/height 800px
+      const maxSize = 800;
+      const aspectRatio = img.width / img.height;
+      let canvasWidth, canvasHeight;
+      
+      if (aspectRatio > 1) {
+        // Landscape
+        canvasWidth = Math.min(img.width, maxSize);
+        canvasHeight = canvasWidth / aspectRatio;
+      } else {
+        // Portrait or square
+        canvasHeight = Math.min(img.height, maxSize);
+        canvasWidth = canvasHeight * aspectRatio;
+      }
+      
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
 
       // Clear and fill with white background
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, size, size);
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
       // Apply transformations
       ctx.save();
-      ctx.translate(size / 2, size / 2);
+      ctx.translate(canvasWidth / 2 + imagePosition.x, canvasHeight / 2 + imagePosition.y);
       ctx.rotate((imageRotation * Math.PI) / 180);
       ctx.scale(imageScale, imageScale);
 
-      // Draw image centered
-      const aspectRatio = img.width / img.height;
-      let drawWidth, drawHeight;
-      if (aspectRatio > 1) {
-        drawHeight = size;
-        drawWidth = size * aspectRatio;
-      } else {
-        drawWidth = size;
-        drawHeight = size / aspectRatio;
-      }
-      ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+      // Draw image centered with original aspect ratio
+      ctx.drawImage(img, -canvasWidth / 2, -canvasHeight / 2, canvasWidth, canvasHeight);
       ctx.restore();
 
       // Convert to blob
@@ -307,6 +314,10 @@ export default function ProfilePage() {
         .getPublicUrl(uploadData.path);
 
       setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+      
+      // Auto-save avatar to profile
+      await updateProfile({ avatar_url: publicUrl });
+      
       toast.success('Foto profil berhasil diunggah');
 
     } catch (err) {
@@ -327,6 +338,8 @@ export default function ProfilePage() {
     setTempImageFile(null);
     setImageScale(1);
     setImageRotation(0);
+    setImagePosition({ x: 0, y: 0 });
+    setIsDragging(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -352,6 +365,10 @@ export default function ProfilePage() {
     
     if (success) {
       toast.success('Profil berhasil disimpan!');
+      // Redirect to home after 1 second
+      setTimeout(() => {
+        router.push('/');
+      }, 1000);
     } else {
       toast.error('Gagal menyimpan profil. Silakan coba lagi.');
     }
@@ -415,16 +432,13 @@ export default function ProfilePage() {
         >
           {/* Header */}
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center">
               <User className="h-6 w-6 text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                 Edit Profil
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Kelola informasi profil Anda
-              </p>
             </div>
           </div>
 
@@ -443,7 +457,7 @@ export default function ProfilePage() {
                         src={formData.avatar_url}
                         alt="Profile picture"
                         fill
-                        className="object-cover"
+                        className="object-contain"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -651,21 +665,38 @@ export default function ProfilePage() {
           <div className="space-y-4">
             {/* Preview */}
             <div className="flex justify-center">
-              <div className="relative w-48 h-48 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 border-2 border-dashed border-gray-300">
+              <div className="relative w-64 h-64 overflow-hidden bg-gray-100 dark:bg-gray-700 border-2 border-dashed border-gray-300 rounded-full">
                 {tempImageUrl && (
                   <div 
-                    className="w-full h-full flex items-center justify-center"
+                    className="relative cursor-move select-none"
                     style={{
-                      transform: `scale(${imageScale}) rotate(${imageRotation}deg)`,
-                      transition: 'transform 0.1s ease-out'
+                      transform: `translate(${imagePosition.x}px, ${imagePosition.y}px) scale(${imageScale}) rotate(${imageRotation}deg)`,
+                      transition: isDragging ? 'none' : 'transform 0.1s ease-out'
                     }}
+                    onMouseDown={(e) => {
+                      setIsDragging(true);
+                      setDragStart({ x: e.clientX - imagePosition.x, y: e.clientY - imagePosition.y });
+                    }}
+                    onMouseMove={(e) => {
+                      if (isDragging) {
+                        setImagePosition({
+                          x: e.clientX - dragStart.x,
+                          y: e.clientY - dragStart.y
+                        });
+                      }
+                    }}
+                    onMouseUp={() => setIsDragging(false)}
+                    onMouseLeave={() => setIsDragging(false)}
                   >
                     <Image
                       src={tempImageUrl}
                       alt="Preview"
-                      fill
-                      className="object-cover"
+                      width={400}
+                      height={300}
+                      className="max-w-full h-auto pointer-events-none"
+                      style={{ maxHeight: '384px' }}
                       unoptimized
+                      draggable={false}
                     />
                   </div>
                 )}
@@ -692,8 +723,8 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Rotate Button */}
-            <div className="flex justify-center">
+            {/* Controls */}
+            <div className="flex justify-center gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -704,7 +735,25 @@ export default function ProfilePage() {
                 <RotateCw className="h-4 w-4" />
                 Putar 90°
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setImagePosition({ x: 0, y: 0 });
+                  setImageScale(1);
+                  setImageRotation(0);
+                }}
+                className="flex items-center gap-2"
+              >
+                Reset
+              </Button>
             </div>
+            
+            {/* Instructions */}
+            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+              Klik dan seret untuk menggeser foto, gunakan slider untuk memperbesar
+            </p>
           </div>
 
           <DialogFooter className="gap-2">
