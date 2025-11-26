@@ -45,16 +45,18 @@ export async function signInWithGoogle() {
       const isLocalhost = window.location.hostname === 'localhost' || 
                          window.location.hostname === '127.0.0.1' ||
                          window.location.hostname.includes('localhost');
-      
-      if (isLocalhost) {
-        // Localhost: Force redirect to localhost
-        redirectUrl = `${window.location.origin}/auth/callback`;
-        console.log('🔧 Development mode: OAuth will redirect to localhost');
-      } else {
-        // Production: Use environment variable or current origin
-        redirectUrl = process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL || `${window.location.origin}/auth/callback`;
-        console.log('🚀 Production mode: OAuth will redirect to production URL');
-      }
+
+      const currentUrl = window.location.href;
+      const callbackBase = isLocalhost
+        ? `${window.location.origin}/auth/callback`
+        : (process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL || `${window.location.origin}/auth/callback`);
+
+      // Always include `next` so auth/callback can return user to the page they started from
+      redirectUrl = `${callbackBase}?next=${encodeURIComponent(currentUrl)}`;
+
+      console.log(isLocalhost
+        ? '🔧 Development mode: OAuth will redirect to localhost with next param'
+        : '🚀 Production mode: OAuth will redirect to production URL with next param');
     }
     
     console.log('Google OAuth redirect URL:', redirectUrl);

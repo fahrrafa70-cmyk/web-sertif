@@ -367,6 +367,24 @@ export async function getTenantInvites(
   return (data as TenantInvite[]) || [];
 }
 
+export async function getTenantInviteByToken(token: string): Promise<TenantInvite | null> {
+  if (!token) {
+    throw new Error("Invite token is required");
+  }
+
+  const { data, error } = await supabaseClient
+    .from("tenant_invites")
+    .select("*")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch tenant invite: ${error.message}`);
+  }
+
+  return (data as TenantInvite) ?? null;
+}
+
 export async function createTenantInvite(
   tenantId: string,
   role: TenantRole | string = "staff",

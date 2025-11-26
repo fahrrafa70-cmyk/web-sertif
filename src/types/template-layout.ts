@@ -24,6 +24,7 @@ export interface TextLayerConfig {
   fontStyle?: 'normal' | 'italic' | 'oblique' | 'underline' | 'line-through' | 'overline'; 
   textDecoration?: 'none' | 'underline' | 'line-through' | 'overline'; 
   textShadow?: string;
+  letterSpacing?: number; // Letter spacing in pixels (positive = lebih renggang, negative = lebih rapat)
   
   // UI state (not persisted to database)
   isDragging?: boolean; // Temporary state during drag operations
@@ -133,7 +134,7 @@ export interface ScoreFontSettings {
   fontSize: number;
   fontFamily: string;
   color: string;
-  fontWeight: 'normal' | 'bold';
+  fontWeight: string;
   nilai: FontSetting;
   aspekTeknis: FontSetting;
   additionalInfo: FontSetting;
@@ -145,7 +146,7 @@ export interface FontSetting {
   fontSize: number;
   fontFamily: string;
   color: string;
-  fontWeight: 'normal' | 'bold';
+  fontWeight: string;
 }
 
 export interface CertificateModeConfig {

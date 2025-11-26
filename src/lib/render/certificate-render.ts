@@ -23,6 +23,7 @@ export interface RenderTextLayer {
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   maxWidth?: number;
   lineHeight?: number;
+  letterSpacing?: number; // Optional letterSpacing property
   richText?: RichText; // Rich text with inline formatting
   hasInlineFormatting?: boolean; // Whether layer uses rich text
 }
@@ -385,6 +386,9 @@ export async function renderCertificateToDataURL(
       // Set color and baseline
       ctx.fillStyle = layer.color || '#000000';
       ctx.textBaseline = 'top';
+
+      // Scale letter spacing based on template resolution (pixels in final canvas)
+      const scaledLetterSpacing = (layer.letterSpacing || 0) * scaleFactor;
       
       // Render text (rich text or regular)
       if (layer.richText && layer.hasInlineFormatting) {
@@ -400,7 +404,8 @@ export async function renderCertificateToDataURL(
           scaleFactor,
           layer.id, // Pass layer ID for Y-adjustment
           isDecoration ? style : undefined, // Pass decoration style
-          isUbigTemplate
+          isUbigTemplate,
+          scaledLetterSpacing
         );
       } else {
         drawWrappedText(
@@ -413,7 +418,8 @@ export async function renderCertificateToDataURL(
           align,
           layer.id,
           isDecoration ? style : undefined, // Pass decoration style
-          isUbigTemplate
+          isUbigTemplate,
+          scaledLetterSpacing
         );
       }
     }
@@ -454,7 +460,8 @@ function drawWrappedText(
   textAlign: 'left' | 'center' | 'right' | 'justify',
   layerId?: string, // Optional layer ID for debugging
   textDecoration?: 'underline' | 'line-through' | 'overline', // Optional text decoration
-  isUbigTemplate: boolean = false
+  isUbigTemplate: boolean = false,
+  letterSpacing: number = 0
 ) {
   // CRITICAL: For "name" layer, prevent wrapping - text should shift left instead of wrapping down
   // If text is longer than maxWidth, keep it as single line and adjust x position to shift left
@@ -682,11 +689,27 @@ function drawWrappedText(
 
   lines.forEach((line, index) => {
     const lineY = startY + index * lineHeightPx + microYAdjustment;
-    ctx.fillText(line, adjustedDrawX, lineY);
+    if (!letterSpacing) {
+      ctx.fillText(line, adjustedDrawX, lineY);
+    } else {
+      // Apply manual letter spacing by drawing character by character
+      let currentX = adjustedDrawX;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        ctx.fillText(char, currentX, lineY);
+        const charWidth = ctx.measureText(char).width;
+        currentX += charWidth + letterSpacing;
+      }
+    }
 
     if (textDecoration) {
-      const lineWidthLocal = ctx.measureText(line).width;
+      let lineWidthLocal = ctx.measureText(line).width;
+      if (letterSpacing && line.length > 1) {
+        const gaps = line.length - 1;
+        lineWidthLocal += gaps * letterSpacing;
+      }
       const lineThickness = Math.max(1, fontSize / 16);
+
       let decorationX = adjustedDrawX;
       if (ctx.textAlign === 'center') {
         decorationX = adjustedDrawX - lineWidthLocal / 2;
@@ -743,6 +766,7 @@ function drawWrappedText(
  * @param layerId Optional layer ID for Y-adjustment
  * @param _textDecoration Optional text decoration (not yet implemented for rich text)
  * @param isUbigTemplate Whether the template is UBIG
+ * @param letterSpacing Letter spacing (optional, default: 0)
  */
 function drawRichText(
   ctx: CanvasRenderingContext2D,
@@ -756,7 +780,8 @@ function drawRichText(
   scaleFactor: number = 1,
   layerId?: string, // Optional layer ID for Y-adjustment
   _textDecoration?: 'underline' | 'line-through' | 'overline', // Optional text decoration (not yet implemented for rich text)
-  isUbigTemplate: boolean = false
+  isUbigTemplate: boolean = false,
+  letterSpacing: number = 0
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
   
@@ -852,7 +877,13 @@ function drawRichText(
       const spanFontWeight = span.fontWeight || 'normal';
       const spanFont = `${spanFontStyle} ${spanFontWeight} ${spanFontSize}px ${span.fontFamily || 'Arial'}`;
       ctx.font = spanFont;
-      lineWidth += ctx.measureText(span.text).width;
+      const baseWidth = ctx.measureText(span.text).width;
+      if (letterSpacing) {
+        const gaps = Math.max(0, span.text.length - 1);
+        lineWidth += baseWidth + gaps * letterSpacing;
+      } else {
+        lineWidth += baseWidth;
+      }
     });
     
     // Adjust starting X based on alignment
@@ -873,10 +904,17 @@ function drawRichText(
       
       ctx.font = `${spanFontStyle} ${spanFontWeight} ${spanFontSize}px ${spanFontFamily}`;
       ctx.fillStyle = spanColor;
-      ctx.fillText(span.text, currentX, lineY);
-      
-      // Move X position for next span
-      currentX += ctx.measureText(span.text).width;
+
+      if (!letterSpacing) {
+        ctx.fillText(span.text, currentX, lineY);
+        currentX += ctx.measureText(span.text).width;
+      } else {
+        for (let i = 0; i < span.text.length; i++) {
+          const ch = span.text[i];
+          ctx.fillText(ch, currentX, lineY);
+          currentX += ctx.measureText(ch).width + letterSpacing;
+        }
+      }
     });
   });
 }
@@ -1168,7 +1206,8 @@ async function renderQRLayer(
     width,
     height,
     errorCorrectionLevel: layer.errorCorrectionLevel || 'M',
-    margin: layer.margin ?? 4,
+    // Use 0 as default margin so QR code fully occupies the configured box size
+    margin: layer.margin ?? 0,
     color: {
       dark: layer.foregroundColor || '#000000',
       light: layer.backgroundColor || '#FFFFFF'

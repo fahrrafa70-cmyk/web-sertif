@@ -978,6 +978,7 @@ function CertificatesContent(): ReactElement {
         textAlign: layer.textAlign,
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
+        letterSpacing: layer.letterSpacing,
         richText: processedRichText,
         hasInlineFormatting: layer.hasInlineFormatting};
     });
@@ -1096,9 +1097,11 @@ function CertificatesContent(): ReactElement {
         fontSize: layer.fontSize,
         color: layer.color,
         fontWeight: layer.fontWeight || "normal",
+        fontStyle: layer.fontStyle,
         fontFamily: layer.fontFamily || "Arial",
         maxWidth: layer.maxWidth,
         lineHeight: layer.lineHeight,
+        letterSpacing: layer.letterSpacing,
       };
       // Only include textAlign if it's not certificate_no or issue_date
       if (layer.id !== "certificate_no" && layer.id !== "issue_date") {
@@ -1131,6 +1134,7 @@ function CertificatesContent(): ReactElement {
           fontFamily: layer.fontFamily || 'Arial',
           maxWidth: layer.maxWidth,
           lineHeight: layer.lineHeight,
+          letterSpacing: layer.letterSpacing,
         };
         // Only include textAlign if it's not certificate_no or issue_date
         if (layer.id !== 'certificate_no' && layer.id !== 'issue_date') {
@@ -1903,16 +1907,6 @@ function CertificatesContent(): ReactElement {
                       <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
                         {t("certificates.title")}
                       </h1>
-                      <p className="mt-1 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                        <span>Tenant aktif:</span>
-                        {selectedTenantId ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 text-[10px] sm:text-[11px] uppercase tracking-wide">
-                            {tenants.find((t) => t.id === selectedTenantId)?.name || "Tidak diketahui"}
-                          </span>
-                        ) : (
-                          <span className="text-red-500 text-[11px] sm:text-xs">Belum memilih tenant</span>
-                        )}
-                      </p>
                     </div>
                   </div>
 

@@ -803,17 +803,6 @@ export default function TemplatesPage() {
                   <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
                     {t('templates.title')}
                   </h1>
-                  {/* Active tenant indicator */}
-                  <p className="mt-1 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                    <span>Tenant aktif:</span>
-                    {selectedTenant ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 text-[10px] sm:text-[11px] uppercase tracking-wide">
-                        {selectedTenant.name}
-                      </span>
-                    ) : (
-                      <span className="text-red-500">Belum memilih tenant</span>
-                    )}
-                  </p>
                 </div>
               </div>
               

@@ -20,6 +20,7 @@ export interface TextLayerDefault {
   visible?: boolean; // Whether this layer is visible in preview and generation (default: true)
   maxWidth?: number;
   lineHeight?: number;
+  letterSpacing?: number; // Optional letter spacing in pixels for template defaults
   richText?: Array<{
     text: string;
     fontSize?: number;
@@ -44,14 +45,14 @@ export interface FontSetting {
   fontSize: number;
   fontFamily: string;
   color: string;
-  fontWeight: 'normal' | 'bold';
+  fontWeight: string;
 }
 
 export interface ScoreFontSettings {
   fontSize: number;
   fontFamily: string;
   color: string;
-  fontWeight: 'normal' | 'bold';
+  fontWeight: string;
   nilai: FontSetting;
   aspekTeknis: FontSetting;
   additionalInfo: FontSetting;
