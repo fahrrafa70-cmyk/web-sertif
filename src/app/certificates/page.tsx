@@ -2428,7 +2428,7 @@ function CertificatesContent(): ReactElement {
             )}
 
             {/* Empty State */}
-            {!loading && !error && filtered.length === 0 && (
+            {!loading && !error && !loadingTenants && selectedTenantId && filtered.length === 0 && (
               <div className="text-center py-16"
               >
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">

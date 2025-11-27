@@ -128,7 +128,24 @@ export function WizardGenerateModal({
       case 2:
         return dataSource === 'excel' ? excelData.length > 0 : selectedMembers.length > 0;
       case 3:
-        return !!issueDate;
+        // Step 3: ensure date and required manual fields are filled
+        if (!issueDate) return false;
+
+        // When using member data, all template fields that appear in the manual fill section
+        // must have a non-empty value in certificateData
+        if (dataSource === 'member') {
+          const templateFields = getTemplateFields;
+
+          const hasEmptyRequiredField = templateFields.some((field) => {
+            const rawValue = certificateData[field.id as keyof typeof certificateData];
+            const value = rawValue === undefined || rawValue === null ? '' : String(rawValue).trim();
+            return value.length === 0;
+          });
+
+          if (hasEmptyRequiredField) return false;
+        }
+
+        return true;
       default:
         return true;
     }
@@ -208,7 +225,7 @@ export function WizardGenerateModal({
     <div className="space-y-4">
       <div className="text-center">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Pilih Template Sertifikat
+          {t('wizardGenerate.step1Title')}
         </h3>
       </div>
 
@@ -216,7 +233,7 @@ export function WizardGenerateModal({
         {templates.length === 0 ? (
           <div className="col-span-full text-center py-8">
             <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">Belum ada template tersedia</p>
+            <p className="text-gray-500">{t('wizardGenerate.noTemplates')}</p>
           </div>
         ) : (
           templates.map(template => {
@@ -350,7 +367,7 @@ export function WizardGenerateModal({
     <div className="space-y-4">
       <div className="text-center">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Pilih Sumber Data
+          {t('wizardGenerate.step2Title')}
         </h3>
       </div>
 
@@ -373,15 +390,15 @@ export function WizardGenerateModal({
           </div>
           <div className="flex-1">
             <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Upload Excel
+              {t('wizardGenerate.excelOptionTitle')}
             </h4>
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              File Excel dengan data lengkap
+              {t('wizardGenerate.excelOptionSubtitle')}
             </p>
             {dataSource === 'excel' && (
               <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 mt-1">
                 <CheckCircle className="w-3 h-3" />
-                <span className="text-xs font-medium">Dipilih</span>
+                <span className="text-xs font-medium">{t('wizardGenerate.selected')}</span>
               </div>
             )}
           </div>
@@ -405,15 +422,15 @@ export function WizardGenerateModal({
           </div>
           <div className="flex-1">
             <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Data Member
+              {t('wizardGenerate.memberOptionTitle')}
             </h4>
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              Member yang sudah tersimpan
+              {t('wizardGenerate.memberOptionSubtitle')}
             </p>
             {dataSource === 'member' && (
               <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 mt-1">
                 <CheckCircle className="w-3 h-3" />
-                <span className="text-xs font-medium">Dipilih</span>
+                <span className="text-xs font-medium">{t('wizardGenerate.selected')}</span>
               </div>
             )}
           </div>
@@ -423,7 +440,7 @@ export function WizardGenerateModal({
       {/* Data Source Content */}
       {dataSource === 'excel' && (
         <div className="space-y-4 border-t pt-6">
-          <Label>Upload File Excel</Label>
+          <Label>{t('wizardGenerate.uploadExcelLabel')}</Label>
           <ExcelUploadWizard 
             onDataLoaded={setExcelData}
             dataCount={excelData.length}
@@ -434,11 +451,11 @@ export function WizardGenerateModal({
 
       {dataSource === 'member' && (
         <div className="space-y-3 border-t pt-4">
-          <Label>Pilih Data ({selectedMembers.length} dipilih)</Label>
+          <Label>{t('wizardGenerate.selectMembersLabel').replace('{count}', String(selectedMembers.length))}</Label>
           <div className="border border-gray-300 rounded-lg max-h-[150px] overflow-y-auto p-2 space-y-1">
             {members.length === 0 ? (
               <div className="p-2 text-sm text-gray-500 text-center">
-                Belum ada data member
+                {t('wizardGenerate.noMembers')}
               </div>
             ) : (
               members.map(member => (
@@ -527,7 +544,7 @@ export function WizardGenerateModal({
       <div className="space-y-4">
         <div className="text-center">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Isi Data & Pengaturan
+            {t('wizardGenerate.step3Title')}
           </h3>
         </div>
 
@@ -538,7 +555,7 @@ export function WizardGenerateModal({
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-4">
                   <FileText className="w-5 h-5 text-blue-500" />
-                  Data Template ({templateFields.length} field)
+                  {t('wizardGenerate.templateDataTitle').replace('{count}', String(templateFields.length))}
                 </h4>
                 
                 <div className="grid grid-cols-1 gap-3 max-h-[250px] overflow-y-auto">
@@ -554,7 +571,7 @@ export function WizardGenerateModal({
                           ...prev, 
                           [field.id]: e.target.value 
                         }))}
-                        placeholder={`Masukkan ${field.id.replace(/_/g, ' ')}`}
+                        placeholder={t('wizardGenerate.inputFieldPlaceholder').replace('{field}', field.id.replace(/_/g, ' '))}
                         className="h-8"
                       />
                     </div>
@@ -571,22 +588,22 @@ export function WizardGenerateModal({
               <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
                 <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2 mb-4">
                   <Calendar className="w-5 h-5 text-blue-600" />
-                  Pengaturan Dasar
+                  {t('wizardGenerate.basicSettingsTitle')}
                 </h4>
                 
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">Nomor Sertifikat</Label>
+                    <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">{t('wizardGenerate.certificateNoLabel')}</Label>
                     <Input
                       value={certificateData.certificate_no}
                       onChange={(e) => setCertificateData(prev => ({ ...prev, certificate_no: e.target.value }))}
-                      placeholder="Auto-generate jika kosong"
+                      placeholder={t('wizardGenerate.certificateNoPlaceholder')}
                       className="h-9 bg-white dark:bg-gray-800"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">Format Tanggal</Label>
+                    <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">{t('wizardGenerate.dateFormatLabel')}</Label>
                     <Select value={dateFormat} onValueChange={(value) => setDateFormat(value as DateFormat)}>
                       <SelectTrigger className="h-9 bg-white dark:bg-gray-800">
                         <SelectValue />
@@ -594,7 +611,7 @@ export function WizardGenerateModal({
                       <SelectContent>
                         {DATE_FORMATS.map(format => (
                           <SelectItem key={format} value={format}>
-                            {format} {format === 'dd-indonesian-yyyy' && '(contoh)'}
+                            {format} {format === 'dd-indonesian-yyyy' && t('wizardGenerate.dateFormatExampleSuffix')}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -604,7 +621,7 @@ export function WizardGenerateModal({
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                        Tanggal Terbit *
+                        {t('wizardGenerate.issueDateLabel')}
                       </Label>
                       <Input 
                         type="date"
@@ -616,7 +633,7 @@ export function WizardGenerateModal({
                     
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                        Tanggal Kadaluarsa
+                        {t('wizardGenerate.expiredDateLabel')}
                       </Label>
                       <Input 
                         type="date"
@@ -628,7 +645,7 @@ export function WizardGenerateModal({
                   </div>
                   
                   <p className="text-xs text-blue-700 dark:text-blue-300">
-                    * Tanggal kadaluarsa otomatis 3 tahun dari tanggal terbit
+                    {t('wizardGenerate.expiredDateHint')}
                   </p>
                 </div>
               </div>
@@ -643,7 +660,7 @@ export function WizardGenerateModal({
     <div className="space-y-4">
       <div className="text-center">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Preview & Generate
+          {t('wizardGenerate.step4Title')}
         </h3>
       </div>
 
@@ -653,29 +670,27 @@ export function WizardGenerateModal({
           <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
             <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
               <Eye className="w-4 h-4 text-blue-500" />
-              Template Terpilih
+              {t('wizardGenerate.selectedTemplateTitle')}
             </h4>
             
             {selectedTemplate && (
               <div className="space-y-3">
-                {/* Template Image - Much Smaller */}
-                <div className={`bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden ${
-                  selectedTemplate.orientation === 'landscape' ? 'aspect-[4/3] max-h-[120px]' : 'aspect-[3/4] max-h-[160px]'
-                }`}>
+                {/* Template Image - show full certificate without vertical padding */}
+                <div className="w-full rounded-lg overflow-hidden">
                   {getTemplatePreviewUrl(selectedTemplate) ? (
                     <Image
                       src={getTemplatePreviewUrl(selectedTemplate)!}
                       alt={selectedTemplate.name}
-                      width={160}
-                      height={selectedTemplate.orientation === 'landscape' ? 120 : 213}
-                      className="w-full h-full object-contain"
+                      width={800}
+                      height={500}
+                      className="w-full h-auto block"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full">
+                    <div className="flex items-center justify-center py-8">
                       <div className="text-center">
                         <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-1" />
-                        <p className="text-xs text-gray-500">Preview tidak tersedia</p>
+                        <p className="text-xs text-gray-500">{t('wizardGenerate.previewNotAvailable')}</p>
                       </div>
                     </div>
                   )}
@@ -702,7 +717,7 @@ export function WizardGenerateModal({
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-4 flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-blue-600" />
-              Ringkasan
+              {t('wizardGenerate.summaryTitle')}
             </h4>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -717,29 +732,31 @@ export function WizardGenerateModal({
                   ) : (
                     <Users className="w-4 h-4 text-green-600" />
                   )}
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Sumber Data</span>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t('wizardGenerate.summaryDataSourceLabel')}</span>
                 </div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  {dataSource === 'excel' ? `Excel File` : `Data Member`}
+                  {dataSource === 'excel' ? t('wizardGenerate.summaryDataSourceExcel') : t('wizardGenerate.summaryDataSourceMember')}
                 </p>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                  {dataSource === 'excel' ? `${excelData.length} data` : `${selectedMembers.length} member`}
+                  {dataSource === 'excel'
+                    ? t('wizardGenerate.summaryExcelCount').replace('{count}', String(excelData.length))
+                    : t('wizardGenerate.summaryMemberCount').replace('{count}', String(selectedMembers.length))}
                 </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Klik untuk preview</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{t('wizardGenerate.summaryClickPreview')}</p>
               </div>
               
               {/* Date Format */}
               <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
                 <div className="flex items-center gap-2 mb-2">
                   <Calendar className="w-4 h-4 text-purple-600" />
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Format Tanggal</span>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t('wizardGenerate.summaryDateFormatLabel')}</span>
                 </div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   {dateFormat}
                 </p>
                 {dateFormat === 'dd-indonesian-yyyy' && (
                   <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Contoh: 26 November 2025
+                    {t('wizardGenerate.summaryDateFormatExample')}
                   </p>
                 )}
               </div>
@@ -748,13 +765,13 @@ export function WizardGenerateModal({
               <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
                 <div className="flex items-center gap-2 mb-2">
                   <FileText className="w-4 h-4 text-orange-600" />
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Field Template</span>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t('wizardGenerate.summaryTemplateFieldsLabel')}</span>
                 </div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  {getTemplateFields.length} field
+                  {t('wizardGenerate.summaryTemplateFieldsCount').replace('{count}', String(getTemplateFields.length))}
                 </p>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                  {selectedTemplate?.is_dual_template ? 'Dual template' : 'Single template'}
+                  {selectedTemplate?.is_dual_template ? t('wizardGenerate.summaryTemplateTypeDual') : t('wizardGenerate.summaryTemplateTypeSingle')}
                 </p>
               </div>
             </div>
@@ -808,7 +825,7 @@ export function WizardGenerateModal({
       <DialogContent className="max-w-6xl w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl text-center">
-            Generate Sertifikat - Wizard
+            {t('quickGenerate.title')}
           </DialogTitle>
         </DialogHeader>
 

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, Upload, CheckCircle, AlertCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/language-context";
 
 interface ExcelUploadWizardProps {
   onDataLoaded: (data: Array<Record<string, unknown>>) => void;
@@ -17,6 +18,7 @@ interface ExcelUploadWizardProps {
 
 export function ExcelUploadWizard({ onDataLoaded, dataCount, templateFields = [] }: ExcelUploadWizardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useLanguage();
 
   const parseExcelFile = async (file: File): Promise<Array<Record<string, unknown>>> => {
     const buffer = await file.arrayBuffer();
@@ -33,7 +35,7 @@ export function ExcelUploadWizard({ onDataLoaded, dataCount, templateFields = []
       const data = await parseExcelFile(file);
       
       if (data.length === 0) {
-        toast.error('File Excel kosong atau tidak valid');
+        toast.error(t('excelWizard.emptyOrInvalid'));
         return;
       }
 
@@ -42,15 +44,15 @@ export function ExcelUploadWizard({ onDataLoaded, dataCount, templateFields = []
       const hasName = 'name' in firstRow || 'nama' in firstRow;
       
       if (!hasName) {
-        toast.error('File Excel harus memiliki kolom "name" atau "nama"');
+        toast.error(t('excelWizard.nameColumnRequired'));
         return;
       }
 
       onDataLoaded(data);
-      toast.success(`✓ ${data.length} data berhasil dimuat dari Excel`);
+      toast.success(t('excelWizard.loadedCount').replace('{count}', String(data.length)));
     } catch (error) {
       console.error('Excel parse error:', error);
-      toast.error('Gagal membaca file Excel. Pastikan format file benar.');
+      toast.error(t('excelWizard.readFailed'));
     }
   };
 
@@ -62,10 +64,10 @@ export function ExcelUploadWizard({ onDataLoaded, dataCount, templateFields = []
         <div className="space-y-4">
           <div>
             <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Upload File Excel
+              {t('excelWizard.uploadTitle')}
             </h4>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Drag & drop file Excel atau klik tombol di bawah untuk browse
+              {t('excelWizard.uploadSubtitle')}
             </p>
           </div>
 
@@ -83,7 +85,7 @@ export function ExcelUploadWizard({ onDataLoaded, dataCount, templateFields = []
             className="mx-auto"
           >
             <Upload className="w-4 h-4 mr-2" />
-            Pilih File Excel
+            {t('excelWizard.chooseFile')}
           </Button>
         </div>
       </div>
@@ -95,10 +97,10 @@ export function ExcelUploadWizard({ onDataLoaded, dataCount, templateFields = []
             <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
             <div>
               <p className="text-green-800 dark:text-green-200 font-medium">
-                File berhasil dimuat
+                {t('excelWizard.uploadSuccessTitle')}
               </p>
               <p className="text-green-700 dark:text-green-300 text-sm">
-                {dataCount} data siap untuk di-generate
+                {t('excelWizard.uploadSuccessDescription').replace('{count}', String(dataCount))}
               </p>
             </div>
           </div>
@@ -111,20 +113,16 @@ export function ExcelUploadWizard({ onDataLoaded, dataCount, templateFields = []
           <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-blue-800 dark:text-blue-200 font-medium mb-2">
-              Format Excel yang Diperlukan:
+              {t('excelWizard.formatTitle')}
             </p>
             <ul className="text-blue-700 dark:text-blue-300 text-sm space-y-1">
-              <li>• Kolom <strong>name</strong> atau <strong>nama</strong> (wajib)</li>
-              <li>• Kolom <strong>email</strong> (opsional)</li>
-              <li>• Kolom <strong>organization</strong> atau <strong>perusahaan</strong> (opsional)</li>
-              <li>• Kolom <strong>certificate_no</strong> (opsional, auto-generate jika kosong)</li>
-              <li>• Kolom <strong>description</strong> (opsional)</li>
+              <li>• {t('excelWizard.certificateNoNote')}</li>
               {templateFields.length > 0 && (
                 <>
-                  <li className="pt-1 font-medium">• Kolom sesuai template yang dipilih:</li>
+                  <li className="pt-1 font-medium">• {t('excelWizard.templateColumnsTitle')}</li>
                   {templateFields.map((field) => (
                     <li key={field.id} className="ml-4">
-                      • Kolom <strong>{field.id}</strong> {field.id.includes('nilai') || field.id.includes('score') ? '(wajib)' : '(opsional)'}
+                      • Kolom <strong>{field.id}</strong>
                     </li>
                   ))}
                 </>

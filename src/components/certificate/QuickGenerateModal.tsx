@@ -559,7 +559,7 @@ export function QuickGenerateModal({
     }
     
     if (dataSource === 'excel' && isDualTemplate && excelScoreData.length === 0) {
-      toast.error('Harap upload Excel data nilai untuk dual template');
+      toast.error(t('quickGenerate.uploadScoreExcelRequired'));
       return;
     }
 

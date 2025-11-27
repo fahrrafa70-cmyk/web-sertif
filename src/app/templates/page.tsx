@@ -1009,7 +1009,7 @@ export default function TemplatesPage() {
           )}
 
             {/* Empty State */}
-            {!loading && !error && filtered.length === 0 && (
+            {!loading && !error && !loadingTenants && selectedTenantId && filtered.length === 0 && (
               <div
                                 className="p-12 sm:p-16"
               >
