@@ -5,16 +5,33 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
+import { useProfile } from "@/hooks/use-profile";
 import Link from "next/link";
+import Image from "next/image";
 
 const UserAvatar = memo(function UserAvatar() {
   const { t } = useLanguage();
   const { isAuthenticated, localSignOut, email, role } = useAuth();
+  const { profile, fetchProfile } = useProfile();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get user initials from email - memoized to prevent recalculation
+  // Fetch profile on mount
+  useEffect(() => {
+    if (isAuthenticated && email) {
+      fetchProfile();
+    }
+  }, [isAuthenticated, email, fetchProfile]);
+
+  // Get user initials from email or full_name - memoized to prevent recalculation
   const getInitials = useMemo(() => {
+    if (profile?.full_name) {
+      const parts = profile.full_name.trim().split(" ");
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+      return profile.full_name.substring(0, 2).toUpperCase();
+    }
     if (email) {
       const parts = email.split("@")[0].split(".");
       if (parts.length >= 2) {
@@ -23,7 +40,7 @@ const UserAvatar = memo(function UserAvatar() {
       return email.substring(0, 2).toUpperCase();
     }
     return "U";
-  }, [email]);
+  }, [profile?.full_name, email]);
 
   // Close dropdown when authentication changes
   useEffect(() => {
@@ -74,8 +91,19 @@ const UserAvatar = memo(function UserAvatar() {
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-xs shadow-md">
-          {getInitials}
+        <div className="w-7 h-7 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-xs shadow-md">
+          {profile?.avatar_url ? (
+            <Image
+              src={profile.avatar_url}
+              alt={profile.full_name || 'Avatar'}
+              width={28}
+              height={28}
+              className="w-full h-full object-contain"
+              unoptimized
+            />
+          ) : (
+            getInitials
+          )}
         </div>
       </button>
 
@@ -93,13 +121,24 @@ const UserAvatar = memo(function UserAvatar() {
             {/* User Info */}
             <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                  {getInitials}
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                  {profile?.avatar_url ? (
+                    <Image
+                      src={profile.avatar_url}
+                      alt={profile.full_name || 'Avatar'}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    getInitials
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                      {email?.split("@")[0] || "User"}
+                      {profile?.full_name || email?.split("@")[0] || "User"}
                     </p>
                     {/* Role Badge - Inline with name */}
                     {role && (
@@ -120,7 +159,7 @@ const UserAvatar = memo(function UserAvatar() {
                     )}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                    {email || ""}
+                    @{profile?.username || email?.split("@")[0] || ""}
                   </p>
                 </div>
               </div>
@@ -134,7 +173,7 @@ const UserAvatar = memo(function UserAvatar() {
                 className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <User className="w-4 h-4" />
-                <span>Edit Profile</span>
+                <span>Profil</span>
               </Link>
             </div>
 

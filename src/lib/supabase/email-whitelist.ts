@@ -89,44 +89,54 @@ export async function checkUsernameAvailability(
     normalizedUsername,
   );
 
-  let query = supabaseClient
-    .from("email_whitelist")
-    .select("id, username")
-    .eq("username", normalizedUsername)
-    .eq("is_active", true);
+  try {
+    // Build query - only check rows where username is NOT NULL
+    let query = supabaseClient
+      .from("email_whitelist")
+      .select("id, username")
+      .eq("username", normalizedUsername)
+      .not("username", "is", null)
+      .eq("is_active", true);
 
-  // If checking for current user, exclude their own record
-  if (currentUserId) {
+    // If checking for current user, exclude their own record
+    if (currentUserId) {
+      console.log(
+        "👤 checkUsernameAvailability: Excluding current user:",
+        currentUserId,
+      );
+      query = query.neq("id", currentUserId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("❌ checkUsernameAvailability: Database error:", error);
+      // Return true (available) on error to avoid blocking user, but log the error
+      console.error("⚠️ Returning available=true due to database error");
+      return true;
+    }
+
+    console.log("📊 checkUsernameAvailability: Query result:", data);
     console.log(
-      "👤 checkUsernameAvailability: Excluding current user:",
-      currentUserId,
+      "📊 checkUsernameAvailability: Found records count:",
+      data?.length || 0,
     );
-    query = query.neq("id", currentUserId);
+
+    // Username is available if no records found
+    const isAvailable = !data || data.length === 0;
+    console.log(
+      "✅ checkUsernameAvailability: Final result for",
+      normalizedUsername,
+      ":",
+      isAvailable,
+    );
+
+    return isAvailable;
+  } catch (err) {
+    console.error("❌ checkUsernameAvailability: Unexpected error:", err);
+    // Return true (available) on unexpected error to avoid blocking user
+    return true;
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("❌ checkUsernameAvailability: Database error:", error);
-    throw new Error(`Failed to check username availability: ${error.message}`);
-  }
-
-  console.log("📊 checkUsernameAvailability: Query result:", data);
-  console.log(
-    "📊 checkUsernameAvailability: Found records count:",
-    data?.length || 0,
-  );
-
-  // Username is available if no records found
-  const isAvailable = !data || data.length === 0;
-  console.log(
-    "✅ checkUsernameAvailability: Final result for",
-    normalizedUsername,
-    ":",
-    isAvailable,
-  );
-
-  return isAvailable;
 }
 
 export async function updateUserProfile(

@@ -1,15 +1,16 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  
-  // Redirect /cek/* to /c/* for backward compatibility
-  if (pathname.startsWith('/cek/')) {
-    const newPath = pathname.replace('/cek/', '/c/');
-    return NextResponse.redirect(new URL(newPath, request.url));
+
+  // Redirect old /c/{xid} to /c/redirect/{xid} for lookup and redirect
+  // This will be handled by a redirect page that looks up the certificate
+  if (pathname.match(/^\/c\/[^/]+$/)) {
+    const id = pathname.replace("/c/", "");
+    return NextResponse.redirect(new URL(`/c/redirect/${id}`, request.url));
   }
-  
+
   return NextResponse.next();
 }
 
@@ -22,6 +23,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };

@@ -18,9 +18,10 @@ export async function GET(request: NextRequest) {
     const { data: profile, error } = await supabase
       .from("email_whitelist")
       .select(
-        "id, email, full_name, username, gender, avatar_url, role, created_at, updated_at",
+        "id, email, full_name, username, gender, avatar_url, organization, phone, role, auth_provider, is_active, is_verified, created_at, updated_at",
       )
       .eq("email", email.trim().toLowerCase())
+      .eq("is_active", true)
       .maybeSingle();
 
     if (error) {
@@ -100,11 +101,11 @@ export async function PATCH(request: NextRequest) {
       updates.avatar_url = avatar_url;
     }
 
-    // Get current profile ID
     const { data: currentProfile, error: profileError } = await supabase
       .from("email_whitelist")
       .select("id, username")
       .eq("email", email.trim().toLowerCase())
+      .eq("is_active", true)
       .maybeSingle();
 
     if (profileError) {
@@ -118,13 +119,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Check username availability if changing username
     if (updates.username && updates.username !== currentProfile.username) {
       const { data: existingUser } = await supabase
         .from("email_whitelist")
         .select("id")
         .eq("username", updates.username)
         .neq("id", currentProfile.id)
+        .eq("is_active", true)
         .maybeSingle();
 
       if (existingUser) {
@@ -135,15 +136,14 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Update profile
     const { data: updatedProfile, error: updateError } = await supabase
       .from("email_whitelist")
       .update(updates)
       .eq("id", currentProfile.id)
       .select(
-        "id, email, full_name, username, gender, avatar_url, role, created_at, updated_at",
+        "id, email, full_name, username, gender, avatar_url, role, is_active, created_at, updated_at",
       )
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });

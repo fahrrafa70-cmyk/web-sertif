@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Copy, Link2, Users, UserPlus, Building2, ArrowLeft, ChevronDown } from "lucide-react";
+import { Copy, Link2, Users, UserPlus, Building2, ArrowLeft, ChevronDown, FileText, Image as ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -145,6 +145,19 @@ export default function TenantDetailPage() {
           getTenantById(tenantId),
           getTenantMembers(tenantId),
         ]);
+        console.log('📋 Loaded members:', memberData);
+        memberData.forEach((m, i) => {
+          console.log(`👤 Member ${i + 1}:`, {
+            id: m.id,
+            role: m.role,
+            user: m.user ? {
+              email: m.user.email,
+              full_name: m.user.full_name,
+              username: m.user.username,
+              avatar_url: m.user.avatar_url ? 'YES' : 'NO'
+            } : 'NULL'
+          });
+        });
         setTenant(tenantData);
         setMembers(memberData);
       } catch (e) {
@@ -226,41 +239,47 @@ export default function TenantDetailPage() {
     <ModernLayout>
       <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8" style={{ backgroundColor: "var(--background, #0b1120)" }}>
         <div className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
-                <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center flex-wrap gap-2">
-                    <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
-                      {tenant.name}
-                    </h1>
-                    {tenant.tenant_type && (
-                      <span className="uppercase tracking-wide text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                        {tenant.tenant_type}
-                      </span>
-                    )}
+          {/* Header */}
+          <div className="mb-3">
+            <div className="flex flex-col gap-3 mb-4">
+              {/* Title and Button Row */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
+                    <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center flex-wrap gap-2">
+                      <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">
+                        {tenant.name}
+                      </h1>
+                      {tenant.tenant_type && (
+                        <span className="uppercase tracking-wide text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                          {tenant.tenant_type}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {tenant.description || "Manage your organization members and settings"}
+                    </p>
                   </div>
                 </div>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 text-xs border-gray-300 dark:border-gray-700 flex items-center gap-1.5 w-fit"
+                  onClick={() => router.push("/tenants")}
+                >
+                  <ArrowLeft className="w-3 h-3" />
+                  <span>Back to Tenants</span>
+                </Button>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 px-3 text-xs border-gray-300 dark:border-gray-700 flex items-center gap-1.5"
-              onClick={() => router.push("/tenants")}
-            >
-              <ArrowLeft className="w-3 h-3" />
-              <span>Kembali</span>
-            </Button>
-          </div>
-
+          {/* Team Members and Activity Log - Side by Side */}
           <div className="grid grid-cols-1 lg:grid-cols-[2fr_1.3fr] gap-4 sm:gap-6">
             <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-md dark:shadow-lg">
               <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
@@ -294,14 +313,17 @@ export default function TenantDetailPage() {
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={member.user?.avatar_url || undefined} />
-                            <AvatarFallback>
-                              {member.user?.full_name?.[0]?.toUpperCase() || "U"}
+                            <AvatarImage src={member.user?.avatar_url || undefined} alt={member.user?.full_name || "User"} />
+                            <AvatarFallback className="text-xs font-semibold">
+                              {member.user?.full_name?.[0]?.toUpperCase() || member.user?.email?.[0]?.toUpperCase() || "U"}
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                               {member.user?.full_name || member.user?.email || "User"}
+                              {member.user?.username && (
+                                <span className="text-gray-500 dark:text-gray-400 font-normal"> ({member.user.username})</span>
+                              )}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                               {member.user?.email}
@@ -384,7 +406,8 @@ export default function TenantDetailPage() {
             </Card>
           </div>
         </div>
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      </section>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit tenant</DialogTitle>
@@ -447,7 +470,6 @@ export default function TenantDetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </section>
     </ModernLayout>
   );
 }

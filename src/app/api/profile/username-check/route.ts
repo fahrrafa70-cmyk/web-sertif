@@ -1,26 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  checkUsernameAvailability,
-  getUserProfileByEmail,
-} from "@/lib/supabase/email-whitelist";
+
+// Create server-side Supabase client
+function getSupabaseServer() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
+
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+  });
+}
 
 // Check username availability
 export async function GET(request: NextRequest) {
   try {
     console.log("🚀 API: Username check request started");
-
-    // Check environment variables
-    if (
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
-      console.error("❌ Missing Supabase environment variables");
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 },
-      );
-    }
 
     const { searchParams } = new URL(request.url);
     const username = searchParams.get("username");
@@ -48,12 +48,13 @@ export async function GET(request: NextRequest) {
     // Enhanced username validation: lowercase alphanumeric and underscore only
     const normalizedUsername = username.trim().toLowerCase();
     const usernameRegex = /^[a-z0-9_]+$/;
-    
+
     if (!usernameRegex.test(normalizedUsername)) {
       return NextResponse.json(
         {
           available: false,
-          error: "Username can only contain lowercase letters, numbers, and underscores",
+          error:
+            "Username can only contain lowercase letters, numbers, and underscores",
         },
         { status: 400 },
       );
@@ -69,6 +70,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Create server-side Supabase client
+    const supabase = getSupabaseServer();
+
     // Get current user ID if authenticated (to exclude from check)
     let currentUserId: string | undefined;
     const authHeader = request.headers.get("authorization");
@@ -76,7 +80,7 @@ export async function GET(request: NextRequest) {
     if (authHeader && authHeader.startsWith("Bearer ")) {
       try {
         const token = authHeader.substring(7);
-        const supabase = createClient(
+        const authSupabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
           {
@@ -88,24 +92,25 @@ export async function GET(request: NextRequest) {
 
         const {
           data: { user },
-        } = await supabase.auth.getUser();
+        } = await authSupabase.auth.getUser();
 
         if (user && user.email) {
-          try {
-            // Get profile from email_whitelist to get the correct ID
-            const profile = await getUserProfileByEmail(user.email);
-            if (profile) {
-              currentUserId = profile.id;
-              console.log(`👤 API: Found user profile ID: ${currentUserId}`);
-            } else {
-              console.log(`⚠️ API: No profile found for email: ${user.email}`);
-            }
-          } catch (profileError) {
-            console.error("❌ API: Error getting user profile:", profileError);
+          // Get profile from email_whitelist to get the correct ID
+          const { data: profile } = await supabase
+            .from("email_whitelist")
+            .select("id")
+            .eq("email", user.email.trim().toLowerCase())
+            .eq("is_active", true)
+            .maybeSingle();
+
+          if (profile) {
+            currentUserId = profile.id;
+            console.log(`👤 API: Found user profile ID: ${currentUserId}`);
+          } else {
+            console.log(`⚠️ API: No profile found for email: ${user.email}`);
           }
         }
       } catch (err) {
-        // Continue without current user ID if auth fails
         console.log(
           "Auth check failed, continuing without user ID:",
           err instanceof Error ? err.message : "Unknown error",
@@ -117,26 +122,36 @@ export async function GET(request: NextRequest) {
       `🎯 API: Checking username "${normalizedUsername}" for user ${currentUserId}`,
     );
 
-    // Check availability with detailed error handling
-    let isAvailable: boolean;
-    try {
-      isAvailable = await checkUsernameAvailability(
-        normalizedUsername,
-        currentUserId,
-      );
-    } catch (checkError) {
-      console.error("❌ API: Error in checkUsernameAvailability:", checkError);
-      return NextResponse.json(
-        {
-          error:
-            checkError instanceof Error
-              ? checkError.message
-              : "Database error checking username",
-          available: false,
-        },
-        { status: 500 },
-      );
+    // Check username availability directly with server-side client
+    let query = supabase
+      .from("email_whitelist")
+      .select("id, username")
+      .eq("username", normalizedUsername)
+      .not("username", "is", null)
+      .eq("is_active", true);
+
+    // Exclude current user's record
+    if (currentUserId) {
+      query = query.neq("id", currentUserId);
     }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("❌ API: Database error:", error);
+      // Return available=true on error to avoid blocking user
+      return NextResponse.json({
+        available: true,
+        username: normalizedUsername,
+        warning: "Could not verify, please try again",
+      });
+    }
+
+    console.log("📊 API: Query result:", data);
+    const isAvailable = !data || data.length === 0;
+    console.log(
+      `✅ API: Username "${normalizedUsername}" available: ${isAvailable}`,
+    );
 
     return NextResponse.json({
       available: isAvailable,
@@ -150,6 +165,7 @@ export async function GET(request: NextRequest) {
           err instanceof Error
             ? err.message
             : "Failed to check username availability",
+        available: true, // Return available on error to not block user
       },
       { status: 500 },
     );

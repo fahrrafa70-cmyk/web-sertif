@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import ModernLayout from "@/components/modern-layout";
 import { motion } from "framer-motion";
-import { User, Camera, Check, X, Loader2 } from "lucide-react";
+import { User, Camera, Check, X, Loader2, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,13 +44,23 @@ export default function ProfilePage() {
   });
 
   const [validation, setValidation] = useState({
-    username: { isValid: false, isAvailable: false, message: '' },
-    full_name: { isValid: false, message: '' }
+    username: { isValid: true, isAvailable: true, message: '' },
+    full_name: { isValid: true, message: '' }
   });
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
   const [usernameCheckTimeout, setUsernameCheckTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Avatar crop modal state
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [tempImageUrl, setTempImageUrl] = useState<string>('');
+  const [tempImageFile, setTempImageFile] = useState<File | null>(null);
+  const [imageScale, setImageScale] = useState(1);
+  const [imageRotation, setImageRotation] = useState(0);
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Set document title
   useEffect(() => {
@@ -105,19 +117,6 @@ export default function ProfilePage() {
     }
   }, [profile]);
 
-  // Check for changes
-  useEffect(() => {
-    if (!profile) return;
-    
-    const hasFieldChanges = (
-      formData.full_name !== (profile.full_name || '') ||
-      formData.username !== (profile.username || '') ||
-      formData.gender !== (profile.gender || '') ||
-      formData.avatar_url !== (profile.avatar_url || '')
-    );
-    
-    setHasChanges(hasFieldChanges);
-  }, [formData, profile]);
   
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -131,10 +130,10 @@ export default function ProfilePage() {
   const validateFullName = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) {
-      return { isValid: false, message: 'Full name is required' };
+      return { isValid: false, message: 'Nama lengkap wajib diisi' };
     }
     if (trimmed.length < 2) {
-      return { isValid: false, message: 'Name must be at least 2 characters' };
+      return { isValid: false, message: 'Nama minimal 2 karakter' };
     }
     return { isValid: true, message: '' };
   };
@@ -144,21 +143,21 @@ export default function ProfilePage() {
     const normalized = trimmed.toLowerCase(); // Normalize to lowercase like backend
     
     if (!trimmed) {
-      return { isValid: false, isAvailable: false, message: 'Username is required' };
+      return { isValid: false, isAvailable: false, message: 'Username wajib diisi' };
     }
     
     if (trimmed.length < 3) {
-      return { isValid: false, isAvailable: false, message: 'Username must be at least 3 characters' };
+      return { isValid: false, isAvailable: false, message: 'Username minimal 3 karakter' };
     }
     
     if (trimmed.length > 50) {
-      return { isValid: false, isAvailable: false, message: 'Username must be less than 50 characters' };
+      return { isValid: false, isAvailable: false, message: 'Username maksimal 50 karakter' };
     }
     
     // Enhanced regex to match backend validation (lowercase only)
     const usernameRegex = /^[a-z0-9_]+$/;
     if (!usernameRegex.test(normalized)) {
-      return { isValid: false, isAvailable: false, message: 'Username can only contain lowercase letters, numbers, and underscores' };
+      return { isValid: false, isAvailable: false, message: 'Username hanya boleh berisi huruf kecil, angka, dan underscore' };
     }
     
     // If it's the same as current username, it's valid
@@ -173,12 +172,12 @@ export default function ProfilePage() {
       console.log(`✅ Frontend: Username "${normalized}" available:`, isAvailable);
       
       if (!isAvailable) {
-        return { isValid: false, isAvailable: false, message: 'Username is already taken' };
+        return { isValid: false, isAvailable: false, message: 'Username sudah digunakan' };
       }
       return { isValid: true, isAvailable: true, message: '' };
     } catch (error) {
       console.error('Username validation error:', error);
-      return { isValid: false, isAvailable: false, message: 'Error checking username availability' };
+      return { isValid: false, isAvailable: false, message: 'Gagal memeriksa ketersediaan username' };
     }
   }, [profile?.username, checkUsernameAvailability]);
 
@@ -219,52 +218,128 @@ export default function ProfilePage() {
     }
   }, [usernameCheckTimeout, validateUsername]);
 
-  const handleAvatarUpload = async (file: File) => {
-    if (!profile) return;
-
-    // Validate file
+  // Open avatar modal when file is selected
+  const handleFileSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload an image file');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB
+    if (file.size > 5 * 1024 * 1024) {
       toast.error('Image must be smaller than 5MB');
       return;
     }
 
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setTempImageUrl(url);
+    setTempImageFile(file);
+    setImageScale(1);
+    setImageRotation(0);
+    setShowAvatarModal(true);
+  };
+
+  // Apply crop and upload
+  const handleAvatarConfirm = async () => {
+    if (!profile || !tempImageFile || !canvasRef.current) return;
+
     setUploadingAvatar(true);
+    setShowAvatarModal(false);
 
     try {
-      // Create unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `avatar-${profile.id}-${Date.now()}.${fileExt}`;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context not available');
+
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = tempImageUrl;
+      });
+
+      // Preserve aspect ratio - max width/height 800px
+      const maxSize = 800;
+      const aspectRatio = img.width / img.height;
+      let canvasWidth, canvasHeight;
+      
+      if (aspectRatio > 1) {
+        // Landscape
+        canvasWidth = Math.min(img.width, maxSize);
+        canvasHeight = canvasWidth / aspectRatio;
+      } else {
+        // Portrait or square
+        canvasHeight = Math.min(img.height, maxSize);
+        canvasWidth = canvasHeight * aspectRatio;
+      }
+      
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      // Clear and fill with white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // Apply transformations
+      ctx.save();
+      ctx.translate(canvasWidth / 2 + imagePosition.x, canvasHeight / 2 + imagePosition.y);
+      ctx.rotate((imageRotation * Math.PI) / 180);
+      ctx.scale(imageScale, imageScale);
+
+      // Draw image centered with original aspect ratio
+      ctx.drawImage(img, -canvasWidth / 2, -canvasHeight / 2, canvasWidth, canvasHeight);
+      ctx.restore();
+
+      // Convert to blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => b ? resolve(b) : reject(new Error('Failed to create blob')), 'image/jpeg', 0.9);
+      });
 
       // Upload to Supabase Storage
+      const fileName = `avatar-${profile.id}-${Date.now()}.jpg`;
       const { data: uploadData, error: uploadError } = await supabaseClient.storage
         .from('profile')
-        .upload(fileName, file, {
+        .upload(fileName, blob, {
           cacheControl: '3600',
-          upsert: true
+          upsert: true,
+          contentType: 'image/jpeg'
         });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: { publicUrl } } = supabaseClient.storage
         .from('profile')
         .getPublicUrl(uploadData.path);
 
-      // Update form data
       setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
-      toast.success('Avatar uploaded successfully');
+      
+      // Auto-save avatar to profile
+      await updateProfile({ avatar_url: publicUrl });
+      
+      toast.success('Foto profil berhasil diunggah');
 
     } catch (err) {
       console.error('Avatar upload error:', err);
-      toast.error('Failed to upload avatar');
+      toast.error('Gagal mengunggah foto profil');
     } finally {
       setUploadingAvatar(false);
+      URL.revokeObjectURL(tempImageUrl);
+      setTempImageUrl('');
+      setTempImageFile(null);
     }
+  };
+
+  const handleAvatarCancel = () => {
+    setShowAvatarModal(false);
+    URL.revokeObjectURL(tempImageUrl);
+    setTempImageUrl('');
+    setTempImageFile(null);
+    setImageScale(1);
+    setImageRotation(0);
+    setImagePosition({ x: 0, y: 0 });
+    setIsDragging(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -275,7 +350,7 @@ export default function ProfilePage() {
     const usernameValidation = await validateUsername(formData.username);
 
     if (!fullNameValidation.isValid || !usernameValidation.isValid) {
-      toast.error('Please fix validation errors');
+      toast.error('Mohon perbaiki kesalahan validasi');
       return;
     }
 
@@ -289,7 +364,13 @@ export default function ProfilePage() {
     const success = await updateProfile(updates);
     
     if (success) {
-      toast.success('Profile updated successfully');
+      toast.success('Profil berhasil disimpan!');
+      // Redirect to home after 1 second
+      setTimeout(() => {
+        router.push('/');
+      }, 1000);
+    } else {
+      toast.error('Gagal menyimpan profil. Silakan coba lagi.');
     }
   };
 
@@ -351,16 +432,13 @@ export default function ProfilePage() {
         >
           {/* Header */}
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center">
               <User className="h-6 w-6 text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Edit Profile
+                Edit Profil
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Customize your profile information
-              </p>
             </div>
           </div>
 
@@ -371,7 +449,7 @@ export default function ProfilePage() {
               
               {/* Avatar Section */}
               <div className="space-y-3">
-                <Label className="text-base font-medium">Profile Picture</Label>
+                <Label className="text-base font-medium">Foto Profil</Label>
                 <div className="flex items-center gap-6">
                   <div className="relative w-20 h-20 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
                     {formData.avatar_url ? (
@@ -379,7 +457,7 @@ export default function ProfilePage() {
                         src={formData.avatar_url}
                         alt="Profile picture"
                         fill
-                        className="object-cover"
+                        className="object-contain"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -399,7 +477,7 @@ export default function ProfilePage() {
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
-                      onChange={(e) => e.target.files?.[0] && handleAvatarUpload(e.target.files[0])}
+                      onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
                       className="hidden"
                     />
                     <Button
@@ -414,10 +492,10 @@ export default function ProfilePage() {
                       ) : (
                         <Camera className="h-4 w-4" />
                       )}
-                      Change Picture
+                      Ubah Foto
                     </Button>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      JPG, PNG up to 5MB
+                      JPG, PNG maksimal 5MB
                     </p>
                   </div>
                 </div>
@@ -434,14 +512,14 @@ export default function ProfilePage() {
                   className="bg-gray-50 dark:bg-gray-900 cursor-not-allowed"
                 />
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Email cannot be changed
+                  Email tidak dapat diubah
                 </p>
               </div>
 
               {/* Full Name */}
               <div className="space-y-2">
                 <Label htmlFor="full_name" className="text-base font-medium">
-                  Full Name *
+                  Nama Lengkap *
                 </Label>
                 <div className="relative">
                   <Input
@@ -456,7 +534,7 @@ export default function ProfilePage() {
                         ? 'border-red-300 focus:border-red-500'
                         : ''
                     }`}
-                    placeholder="Enter your full name"
+                    placeholder="Masukkan nama lengkap Anda"
                   />
                   {formData.full_name && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -495,7 +573,7 @@ export default function ProfilePage() {
                         ? 'border-red-300 focus:border-red-500'
                         : ''
                     }`}
-                    placeholder="Enter your username"
+                    placeholder="Masukkan username Anda"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     {checkingUsername ? (
@@ -517,27 +595,27 @@ export default function ProfilePage() {
                   </p>
                 )}
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Username can only contain letters, numbers, and underscores
+                  Username hanya boleh berisi huruf kecil, angka, dan underscore
                 </p>
               </div>
 
               {/* Gender */}
               <div className="space-y-2">
-                <Label htmlFor="gender" className="text-base font-medium">Gender</Label>
+                <Label htmlFor="gender" className="text-base font-medium">Jenis Kelamin</Label>
                 <Select
                   value={formData.gender}
                   onValueChange={(value) => handleInputChange('gender', value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select your gender" />
+                    <SelectValue placeholder="Pilih jenis kelamin" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="male">Laki-laki</SelectItem>
+                    <SelectItem value="female">Perempuan</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  This information is optional
+                  Informasi ini opsional
                 </p>
               </div>
 
@@ -546,26 +624,16 @@ export default function ProfilePage() {
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <Button
                     type="submit"
-                    disabled={
-                      !hasChanges || 
-                      !validation.full_name.isValid || 
-                      !validation.username.isValid || 
-                      updating ||
-                      checkingUsername
-                    }
-                    className={`w-full sm:w-auto transition-all ${
-                      (!hasChanges || !validation.full_name.isValid || !validation.username.isValid || updating || checkingUsername)
-                        ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed text-gray-600'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }`}
+                    disabled={updating}
+                    className="w-full sm:w-auto transition-all bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed disabled:text-gray-600"
                   >
                     {updating ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Updating...
+                        Menyimpan...
                       </>
                     ) : (
-                      'Update Profile'
+                      'Simpan'
                     )}
                   </Button>
                   
@@ -576,7 +644,7 @@ export default function ProfilePage() {
                     disabled={updating}
                     className="w-full sm:w-auto border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                   >
-                    Cancel
+                    Batal
                   </Button>
                 </div>
               </div>
@@ -586,6 +654,128 @@ export default function ProfilePage() {
 
         </motion.div>
       </div>
+
+      {/* Avatar Crop Modal */}
+      <Dialog open={showAvatarModal} onOpenChange={setShowAvatarModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atur Foto Profil</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Preview */}
+            <div className="flex justify-center">
+              <div className="relative w-64 h-64 overflow-hidden bg-gray-100 dark:bg-gray-700 border-2 border-dashed border-gray-300 rounded-full">
+                {tempImageUrl && (
+                  <div 
+                    className="relative cursor-move select-none"
+                    style={{
+                      transform: `translate(${imagePosition.x}px, ${imagePosition.y}px) scale(${imageScale}) rotate(${imageRotation}deg)`,
+                      transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+                    }}
+                    onMouseDown={(e) => {
+                      setIsDragging(true);
+                      setDragStart({ x: e.clientX - imagePosition.x, y: e.clientY - imagePosition.y });
+                    }}
+                    onMouseMove={(e) => {
+                      if (isDragging) {
+                        setImagePosition({
+                          x: e.clientX - dragStart.x,
+                          y: e.clientY - dragStart.y
+                        });
+                      }
+                    }}
+                    onMouseUp={() => setIsDragging(false)}
+                    onMouseLeave={() => setIsDragging(false)}
+                  >
+                    <Image
+                      src={tempImageUrl}
+                      alt="Preview"
+                      width={400}
+                      height={300}
+                      className="max-w-full h-auto pointer-events-none"
+                      style={{ maxHeight: '384px' }}
+                      unoptimized
+                      draggable={false}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Zoom Control */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Perbesar</Label>
+                <span className="text-sm text-gray-500">{Math.round(imageScale * 100)}%</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <ZoomOut className="h-4 w-4 text-gray-400" />
+                <Slider
+                  value={[imageScale]}
+                  onValueChange={(values: number[]) => setImageScale(values[0])}
+                  min={0.5}
+                  max={2}
+                  step={0.1}
+                  className="flex-1"
+                />
+                <ZoomIn className="h-4 w-4 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex justify-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setImageRotation((prev) => (prev + 90) % 360)}
+                className="flex items-center gap-2"
+              >
+                <RotateCw className="h-4 w-4" />
+                Putar 90°
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setImagePosition({ x: 0, y: 0 });
+                  setImageScale(1);
+                  setImageRotation(0);
+                }}
+                className="flex items-center gap-2"
+              >
+                Reset
+              </Button>
+            </div>
+            
+            {/* Instructions */}
+            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+              Klik dan seret untuk menggeser foto, gunakan slider untuk memperbesar
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleAvatarCancel}>
+              Batal
+            </Button>
+            <Button onClick={handleAvatarConfirm} disabled={uploadingAvatar}>
+              {uploadingAvatar ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Mengunggah...
+                </>
+              ) : (
+                'Terapkan'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hidden canvas for image processing */}
+      <canvas ref={canvasRef} className="hidden" />
     </ModernLayout>
   );
 }
