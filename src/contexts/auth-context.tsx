@@ -20,6 +20,12 @@ type AuthState = {
   loading: boolean;
   error: string | null;
   openLogin: boolean;
+  /**
+   * True ketika proses inisialisasi auth pertama (restore session + fetch role)
+   * sudah selesai. Bisa digunakan komponen UI untuk mencegah flicker antara
+   * tampilan guest vs logged-in saat halaman pertama kali dimuat.
+   */
+  initialized: boolean;
   setOpenLogin: (open: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithOAuth: (provider: 'google' | 'github') => Promise<void>;
@@ -40,7 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // 🚀 PERFORMANCE: Non-blocking auth initialization
     const initializeAuth = async () => {
       try {
         // Check if there are any Supabase auth keys in localStorage
@@ -92,11 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // 🚀 CRITICAL: Set initialized immediately to prevent UI blocking
-    setIsInitialized(true);
-    
-    // Initialize auth state in background (non-blocking)
-    initializeAuth();
+    void initializeAuth();
 
     // Set up auth state change listener
     const { data: authListener } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
@@ -445,13 +446,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     openLogin,
+    initialized: isInitialized,
     setOpenLogin,
     signIn,
     signInWithOAuth,
     signOut,
     localSignOut,
     refreshRole,
-  }), [role, email, loading, error, openLogin, signIn, signInWithOAuth, signOut, localSignOut, refreshRole]);
+  }), [role, email, loading, error, openLogin, isInitialized, signIn, signInWithOAuth, signOut, localSignOut, refreshRole]);
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

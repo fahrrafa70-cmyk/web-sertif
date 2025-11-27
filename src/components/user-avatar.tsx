@@ -12,16 +12,16 @@ import Image from "next/image";
 const UserAvatar = memo(function UserAvatar() {
   const { t } = useLanguage();
   const { isAuthenticated, localSignOut, email, role } = useAuth();
-  const { profile, fetchProfile } = useProfile();
+  const { profile, loading, fetchProfile } = useProfile();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch profile on mount
+  // Fetch profile on mount (satu kali) jika belum ada di cache/state
   useEffect(() => {
-    if (isAuthenticated && email) {
-      fetchProfile();
+    if (isAuthenticated && email && !profile && !loading) {
+      void fetchProfile();
     }
-  }, [isAuthenticated, email, fetchProfile]);
+  }, [isAuthenticated, email, profile, loading, fetchProfile]);
 
   // Get user initials from email or full_name - memoized to prevent recalculation
   const getInitials = useMemo(() => {

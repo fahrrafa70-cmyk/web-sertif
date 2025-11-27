@@ -17,9 +17,13 @@ interface UseProfileActions {
   clearError: () => void;
 }
 
+// Simple in-memory cache so profile tetap tersedia lintas remount
+// tanpa perlu refetch kecuali benar-benar diperlukan.
+let cachedProfile: UserProfile | null = null;
+
 export function useProfile(): UseProfileState & UseProfileActions {
   const [state, setState] = useState<UseProfileState>({
-    profile: null,
+    profile: cachedProfile,
     loading: false,
     error: null,
     updating: false,
@@ -31,6 +35,12 @@ export function useProfile(): UseProfileState & UseProfileActions {
   }, []);
 
   const fetchProfile = useCallback(async () => {
+    // Jika sudah ada profile di cache dan state, tidak perlu refetch
+    if (cachedProfile) {
+      setState((prev) => ({ ...prev, profile: cachedProfile }));
+      return;
+    }
+
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
@@ -60,6 +70,8 @@ export function useProfile(): UseProfileState & UseProfileActions {
         throw new Error(data.error || "Failed to fetch profile");
       }
 
+      cachedProfile = data.data;
+
       setState((prev) => ({
         ...prev,
         profile: data.data,
@@ -67,6 +79,8 @@ export function useProfile(): UseProfileState & UseProfileActions {
         error: null,
       }));
     } catch (err) {
+      cachedProfile = null;
+
       setState((prev) => ({
         ...prev,
         profile: null,

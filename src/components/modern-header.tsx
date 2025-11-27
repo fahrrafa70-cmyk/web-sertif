@@ -24,12 +24,10 @@ interface ModernHeaderProps {
 }
 
 const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSidebar = false }: ModernHeaderProps) {
-  const { setOpenLogin, isAuthenticated, refreshRole, role } = useAuth();
+  const { setOpenLogin, isAuthenticated, refreshRole, role, initialized } = useAuth();
   const { isModalOpen } = useModal();
   const pathname = usePathname();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [globalRole, setGlobalRole] = useState<"owner" | "manager" | "staff" | "user" | null>(null);
-  const [roleLoaded, setRoleLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -49,10 +47,11 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
   }, []);
 
   useEffect(() => {
-    const loadUserAndRole = async () => {
+    const loadUserProfile = async () => {
       if (!isAuthenticated) {
         setUserId(null);
-        setGlobalRole(null);
+        setSubscriberEmail("");
+        setSubscriberName("");
         return;
       }
 
@@ -66,24 +65,10 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
       const fullName =
         (session?.user?.user_metadata as { full_name?: string } | null)?.full_name || "";
       setSubscriberName(fullName);
-
-      if (!currentUserId) {
-        setGlobalRole(null);
-        return;
-      }
-
-      const normalizedRole = role ?? null;
-      if (normalizedRole === "owner" || normalizedRole === "manager" || normalizedRole === "staff" || normalizedRole === "user") {
-        setGlobalRole(normalizedRole);
-      } else {
-        setGlobalRole(null);
-      }
-
-      setRoleLoaded(true);
     };
 
-    void loadUserAndRole();
-  }, [isAuthenticated, role]);
+    void loadUserProfile();
+  }, [isAuthenticated]);
 
   const handleFakeSubscribe = useCallback(async () => {
     if (!userId) return;
@@ -108,7 +93,6 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
           );
       }
 
-      setGlobalRole("owner");
       await refreshRole();
       setSubscriptionOpen(false);
       toast.success("Akun kamu sekarang menjadi Owner. Semua fitur telah dibuka.");
@@ -195,7 +179,7 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
                 <LanguageSwitcher variant="compact" />
               </div>
 
-              {roleLoaded && isAuthenticated && (globalRole === null || globalRole === "user") && (
+              {initialized && isAuthenticated && role === "user" && (
                 <Button
                   size="sm"
                   className="hidden lg:inline-flex bg-gradient-to-r from-blue-500 via-blue-500 to-indigo-500 hover:from-blue-600 hover:via-blue-600 hover:to-indigo-600 text-white font-bold tracking-wide border-0 shadow-lg hover:shadow-xl h-8 sm:h-9 md:h-10 text-xs sm:text-sm md:text-[0.9rem] px-3 sm:px-3.5 md:px-4 rounded-full transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -206,16 +190,18 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
               )}
 
               {/* User Avatar or Login Button */}
-              {isAuthenticated ? (
-                <UserAvatar />
-              ) : (
-                <Button
-                  size="sm"
-                  className="gradient-primary text-white border-0 shadow-md h-7 sm:h-8 md:h-9 text-xs sm:text-sm px-2 sm:px-3 md:px-4"
-                  onClick={() => setOpenLogin(true)}
-                >
-                  Login
-                </Button>
+              {initialized && (
+                isAuthenticated ? (
+                  <UserAvatar />
+                ) : (
+                  <Button
+                    size="sm"
+                    className="gradient-primary text-white border-0 shadow-md h-7 sm:h-8 md:h-9 text-xs sm:text-sm px-2 sm:px-3 md:px-4"
+                    onClick={() => setOpenLogin(true)}
+                  >
+                    Login
+                  </Button>
+                )
               )}
             </div>
           )}
