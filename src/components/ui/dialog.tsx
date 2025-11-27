@@ -83,6 +83,8 @@ function DialogContent({
         style={{
           transform: 'translate(-50%, -50%)',
         }}
+        // Explicitly opt out of having a description to avoid Radix console warning
+        aria-describedby={undefined}
         onOpenAutoFocus={(e) => {
           // Prevent auto-focus on first focusable element when modal opens
           e.preventDefault();

@@ -972,11 +972,22 @@ function CertificatesContent(): ReactElement {
       let text = '';
       let processedRichText = layer.richText;
       const certDataMap = certData as unknown as Record<string, string>;
+      const nilaiFromCert = certDataMap && Object.prototype.hasOwnProperty.call(certDataMap, 'nilai')
+        ? (certDataMap['nilai'] as string | undefined)
+        : undefined;
+
       const variableData: Record<string, string> = {
         // Common certificate fields
         name: member.name || '',
+        // Localized alias so template can use {nama}
+        nama: member.name || '',
         certificate_no: finalCertData.certificate_no || '',
         description: finalCertData.description || '',
+        // Alias untuk hasil/nilai deskriptif di dalam description text layer
+        // Sekarang HANYA mengambil dari field khusus `nilai`; jika kosong, biarkan {nilai} tidak terisi
+        nilai: (nilaiFromCert !== undefined && nilaiFromCert !== null
+          ? String(nilaiFromCert)
+          : ''),
         issue_date: formatDateString(finalCertData.issue_date, dateFormat),
         expired_date: finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '',
         // All manual fill fields from certificateData (including custom ones)
@@ -1393,46 +1404,75 @@ function CertificatesContent(): ReactElement {
           
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
-            if (scoreData && 
-                scoreData[layer.id] !== undefined && 
-                scoreData[layer.id] !== null && 
-                scoreData[layer.id] !== '' &&
-                String(scoreData[layer.id]).trim() !== '') {
-              text = String(scoreData[layer.id]).trim();
-              
-              // DEBUG: Log score layer text assignment
-              console.log(`🎨 [RENDER LAYER] "${layer.id}":`, {
-                text: text.substring(0, 50),
-                fontSize: layer.fontSize,
-                textAlign: layer.textAlign,
-                xPercent: layer.xPercent,
-                yPercent: layer.yPercent
-              });
+
+            const certDataMap = certData as unknown as Record<string, string>;
+
+            const isStandardAutoField =
+              layer.id === 'name' ||
+              layer.id === 'certificate_no' ||
+              layer.id === 'description' ||
+              layer.id === 'issue_date' ||
+              layer.id === 'expired_date' ||
+              layer.id === 'score_date' ||
+              layer.id === 'expiry_date';
+
+            const hasScoreValue = !!(
+              scoreData &&
+              scoreData[layer.id] !== undefined &&
+              scoreData[layer.id] !== null &&
+              String(scoreData[layer.id]).trim() !== ''
+            );
+
+            const hasCertDataKey = !isStandardAutoField && !!(
+              certDataMap && Object.prototype.hasOwnProperty.call(certDataMap, layer.id)
+            );
+
+            // PRIORITAS DATA (paling kuat di atas):
+            // 1) Data score eksplisit (manual / Excel score)
+            if (hasScoreValue) {
+              text = String(scoreData![layer.id]).trim();
             }
-            else if (layer.id === 'name') {
-              text = member.name;
+            // 2) Manual fill dari certificateData/certData by layer.id (untuk field tambahan di wizard)
+            else if (hasCertDataKey) {
+              const raw = certDataMap[layer.id];
+              text = raw === undefined || raw === null ? '' : String(raw);
             }
-            else if (layer.id === 'certificate_no') {
-              text = finalCertData.certificate_no || '';
+            // 3) Auto fields standar di sisi back (name, certificate_no, issue_date, expired_date, score_date)
+            else if (isStandardAutoField) {
+              if (layer.id === 'name') text = member.name;
+              else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
+              else if (layer.id === 'description') text = finalCertData.description || '';
+              else if (layer.id === 'issue_date' || layer.id === 'score_date') {
+                text = formatDateString(finalCertData.issue_date, dateFormat);
+              } else if (layer.id === 'expired_date' || layer.id === 'expiry_date') {
+                text = finalCertData.expired_date
+                  ? formatDateString(finalCertData.expired_date, dateFormat)
+                  : '';
+              }
             }
-            else if (layer.id === 'issue_date' || layer.id === 'score_date') {
-              text = formatDateString(finalCertData.issue_date, dateFormat);
-            }
-            else if (layer.id === 'expired_date' || layer.id === 'expiry_date') {
-              text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
-            }
-            else if (layer.useDefaultText && layer.defaultText) {
+
+            // 4) Fallback ke defaultText untuk semua text layer tambahan
+            if (!text && layer.defaultText) {
               text = layer.defaultText;
             }
+
             const variableData: Record<string, string> = {
               // Common certificate fields
               name: member.name || '',
+              // Localized alias so template can use {nama} on back/score side as well
+              nama: member.name || '',
               certificate_no: finalCertData.certificate_no || '',
               description: finalCertData.description || '',
               issue_date: formatDateString(finalCertData.issue_date, dateFormat),
-              expired_date: finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '',
-              // All score data
-              ...(scoreData || {})
+              expired_date: finalCertData.expired_date
+                ? formatDateString(finalCertData.expired_date, dateFormat)
+                : '',
+              // Semua field manual dari certificateData (wizard)
+              ...(certDataMap || {}),
+              // Excel row data (e.g. perusahaan, jurusan, dll) - same as front side
+              ...(excelRowData || {}),
+              // All score data (manual/Excel score fields) override Excel/manual if key sama
+              ...(scoreData || {}),
             };
             
             let processedRichText = layer.richText;

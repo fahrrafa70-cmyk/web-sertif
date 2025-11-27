@@ -263,6 +263,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const { user } = await signInWithEmailPassword(normalized, password);
       console.log("Auth success", user?.id);
+
+      // After a successful email/password login, sync to email_whitelist so
+      // only confirmed and authenticated users are stored there.
+      if (user?.email) {
+        try {
+          await fetch('/api/email-whitelist/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: user.email,
+              full_name: (user.user_metadata as { full_name?: string } | null)?.full_name,
+            }),
+          });
+        } catch (syncErr) {
+          console.error('Failed to sync email_whitelist after login:', syncErr);
+        }
+      }
       
       // Wait for auth state to be updated before closing modal
       // Give the auth state listener time to process the SIGNED_IN event

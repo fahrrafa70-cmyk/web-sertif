@@ -12,12 +12,24 @@ import { useLanguage } from "@/contexts/language-context";
 export function LoginModal() {
   const { openLogin, setOpenLogin, signIn, signInWithOAuth, loading } = useAuth();
   const { t } = useLanguage();
+  const safeT = (key: string, fallback: string) => {
+    const value = t(key);
+    if (!value || value === key) return fallback;
+    return value;
+  };
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [fullNameError, setFullNameError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [isMobile, setIsMobile] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [infoMessage, setInfoMessage] = useState("");
 
   // Detect mobile screen size
   useEffect(() => {
@@ -33,11 +45,18 @@ export function LoginModal() {
   useEffect(() => {
     if (!openLogin) {
       // Reset form when modal closes
+      setMode("login");
       setEmail("");
       setPassword("");
+      setFullName("");
+      setConfirmPassword("");
       setShowPassword(false);
       setEmailError("");
       setPasswordError("");
+      setFullNameError("");
+      setConfirmPasswordError("");
+      setSubmitLoading(false);
+      setInfoMessage("");
     }
   }, [openLogin]);
 
@@ -45,6 +64,8 @@ export function LoginModal() {
     e.preventDefault();
     setEmailError("");
     setPasswordError("");
+    setFullNameError("");
+    setConfirmPasswordError("");
     
     // Client-side validation
     let hasError = false;
@@ -53,16 +74,57 @@ export function LoginModal() {
       setEmailError(t('error.login.invalidEmail'));
       hasError = true;
     }
-    
+
     if (!password || password.length < 6) {
-      setPasswordError(t('error.login.invalidPassword'));
+      const msg = mode === "register" ? t('error.login.invalidPassword') : t('error.login.invalidPassword');
+      setPasswordError(msg);
       hasError = true;
+    }
+
+    if (mode === "register") {
+      if (!fullName.trim()) {
+        setFullNameError(t('profile.fullNameRequired') || 'Full name is required');
+        hasError = true;
+      }
+
+      if (confirmPassword !== password) {
+        setConfirmPasswordError(t('error.login.invalidPassword') || 'Passwords do not match');
+        hasError = true;
+      }
     }
     
     if (hasError) return;
-    
+
+    setSubmitLoading(true);
+
     try {
-      await signIn(email, password);
+      if (mode === "login") {
+        await signIn(email, password);
+      } else {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, full_name: fullName }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const message = typeof data?.error === 'string' ? data.error : 'Registration failed';
+          setEmailError(message);
+          return;
+        }
+
+        // Registration successful: show info message and switch to login mode
+        setInfoMessage(
+          safeT(
+            'login.registerCheckEmail',
+            'Pendaftaran berhasil. Silakan cek email Anda dan konfirmasi akun sebelum login.',
+          ),
+        );
+        setMode('login');
+        setFullNameError("");
+        setConfirmPasswordError("");
+      }
     } catch (err: unknown) {
       // Check if error is related to invalid credentials
       const errorMessage = err instanceof Error ? err.message.toLowerCase() : '';
@@ -84,6 +146,8 @@ export function LoginModal() {
         setEmailError(t('error.login.invalidCredentials'));
         setPasswordError(t('error.login.invalidCredentials'));
       }
+    } finally {
+      setSubmitLoading(false);
     }
   }
 
@@ -122,9 +186,15 @@ export function LoginModal() {
                 <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-lg flex items-center justify-center">
                   <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
-                {t('login.welcomeBack')}
+                {mode === "login"
+                  ? t('login.welcomeBack')
+                  : safeT('login.createAccount', 'Buat akun')}
               </DialogTitle>
-              <p className="text-white text-xs sm:text-sm mt-1">{t('login.signInMessage')}</p>
+              <p className="text-white text-xs sm:text-sm mt-1">
+                {mode === "login"
+                  ? t('login.signInMessage')
+                  : safeT('login.registerMessage', 'Daftar dengan email dan kata sandi Anda')}
+              </p>
             </DialogHeader>
           </motion.div>
 
@@ -173,7 +243,7 @@ export function LoginModal() {
                     fill="#EA4335"
                   />
                 </svg>
-                Continue with Google
+                {safeT('login.continueWithGoogle', 'Continue with Google')}
               </Button>
             </motion.div>
 
@@ -195,6 +265,44 @@ export function LoginModal() {
             </motion.div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {mode === "register" && (
+                <motion.div
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.25 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                    {safeT('profile.fullName', 'Nama lengkap')}
+                  </label>
+                  <Input
+                    type="text"
+                    autoComplete="name"
+                    value={fullName}
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      setFullNameError("");
+                    }}
+                    required
+                    className={`h-11 sm:h-12 rounded-lg transition-all duration-200 dark:bg-gray-900 dark:text-gray-100 ${
+                      fullNameError
+                        ? "border-red-300 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500 focus:ring-red-500/20 dark:focus:ring-red-500/20"
+                        : "border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500/20 dark:focus:ring-blue-500/20"
+                    }`}
+                    placeholder={safeT('profile.fullNamePlaceholder', 'Masukkan nama lengkap Anda')}
+                  />
+                  {fullNameError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-sm text-red-600 mt-1"
+                    >
+                      {fullNameError}
+                    </motion.p>
+                  )}
+                </motion.div>
+              )}
+
               <motion.div 
                 className="space-y-2"
                 initial={{ opacity: 0, x: -20 }}
@@ -278,25 +386,97 @@ export function LoginModal() {
                 )}
               </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
+              {mode === "register" && (
+                <motion.div
+                  className="space-y-2"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.45 }}
+                >
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                    {safeT('login.confirmPassword', 'Konfirmasi kata sandi')}
+                  </label>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setConfirmPasswordError("");
+                    }}
+                    required
+                    className={`h-11 sm:h-12 rounded-lg transition-all duration-200 dark:bg-gray-900 dark:text-gray-100 ${
+                      confirmPasswordError
+                        ? "border-red-300 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500 focus:ring-red-500/20 dark:focus:ring-red-500/20"
+                        : "border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500/20 dark:focus:ring-blue-500/20"
+                    }`}
+                    placeholder={safeT('login.confirmPasswordPlaceholder', 'Konfirmasi kata sandi Anda')}
+                  />
+                  {confirmPasswordError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-sm text-red-600 mt-1"
+                    >
+                      {confirmPasswordError}
+                    </motion.p>
+                  )}
+                </motion.div>
+              )}
+
+              <motion.div 
+                className="pt-2 space-y-2"
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.5 }}
               >
-                <Button 
-                  type="submit" 
-                  disabled={loading} 
-                  className="w-full h-11 sm:h-12 gradient-primary text-white font-semibold rounded-lg shadow-lg"
+                <Button
+                  type="submit"
+                  disabled={loading || submitLoading}
+                  className="w-full h-11 sm:h-12 rounded-lg gradient-primary text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
-                  {loading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      {t('login.signingIn')}
-                    </div>
-                  ) : (
-                    t('login.signIn')
-                  )}
+                  {loading || submitLoading
+                    ? (mode === "login"
+                        ? safeT('login.signingIn', 'Sedang login...')
+                        : safeT('login.registering', 'Sedang mendaftar...'))
+                    : (mode === "login"
+                        ? safeT('login.signInButton', 'Login')
+                        : safeT('login.registerButton', 'Daftar'))}
                 </Button>
+
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
+                  {mode === "login" ? (
+                    <>
+                      {safeT('login.noAccount', 'Belum punya akun?')} {" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode('register');
+                          setEmailError("");
+                          setPasswordError("");
+                        }}
+                        className="font-semibold text-blue-600 hover:underline"
+                      >
+                        {safeT('login.registerNow', 'Daftar Sekarang')}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {safeT('login.haveAccount', 'Sudah punya akun?')} {" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode('login');
+                          setFullNameError("");
+                          setConfirmPasswordError("");
+                        }}
+                        className="font-semibold text-blue-600 hover:underline"
+                      >
+                        {safeT('login.signInNow', 'Login')}
+                      </button>
+                    </>
+                  )}
+                </p>
               </motion.div>
             </form>
           </motion.div>

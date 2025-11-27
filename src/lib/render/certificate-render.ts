@@ -331,12 +331,21 @@ export async function renderCertificateToDataURL(
           : (layer.y || 0) / STANDARD_CANVAS_HEIGHT;
 
       // Apply percentage to actual template dimensions (resolution-independent)
-      const x = Math.round(xPercent * finalWidth);
+      let x = Math.round(xPercent * finalWidth);
       let y = Math.round(yPercent * finalHeight);
 
-      // UBIG-only: shift all text layers slightly downward for better visual balance
+      // UBIG-only: global vertical micro-adjustment for all text layers
       if (isUbigTemplate) {
         y += 8;
+      }
+
+      // UBIG-specific fine-tuning for the `date_new` layer with font size ~19px.
+      // The user observed a slight 1px left and 2px down shift in the generated
+      // certificate compared to the visual template. To correct this, we apply
+      // a precise canvas-only offset here so preview layout remains unchanged.
+      if (isUbigTemplate && layer.id === "date_new") {
+        x += 5; // shift 5px to the right (fine-tuned)
+        y -= 2; // shift 2px up
       }
 
       // SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
@@ -390,7 +399,17 @@ export async function renderCertificateToDataURL(
       // Scale fontSize based on template resolution
       const fontWeight = layer.fontWeight || "normal";
       const baseFontSize = Math.max(1, layer.fontSize || 16);
-      const scaledFontSize = Math.round(baseFontSize * scaleFactor);
+      const scaledFontSizeBase = baseFontSize * scaleFactor;
+
+      // Default: use integer font sizes for consistency
+      let scaledFontSize = Math.round(scaledFontSizeBase);
+
+      // UBIG-only: fine-tune font size for `date_new` so generated output
+      // matches the configure preview. We use a 0.5px step (slightly smaller
+      // than the previous +1px) by adding 0.5 before rounding.
+      if (isUbigTemplate && layer.id === "date_new") {
+        scaledFontSize = scaledFontSizeBase + 0.5;
+      }
       const fontFamily = layer.fontFamily || "Arial";
 
       // Handle fontStyle: italic/oblique for CSS fontStyle, underline/line-through for textDecoration

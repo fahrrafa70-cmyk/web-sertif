@@ -54,7 +54,10 @@ export async function POST(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('users')
-      .upsert(payload, { onConflict: 'id' })
+      // Use email (unique key) as the upsert conflict target so we truly perform
+      // an "upsert by email". This avoids duplicate key violations on
+      // users_email_key when the auth user.id changes but the email stays the same.
+      .upsert(payload, { onConflict: 'email' })
       .select()
       .single();
 

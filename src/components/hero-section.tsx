@@ -29,6 +29,11 @@ import {
 
 export default function HeroSection() {
   const { t, language } = useLanguage();
+  const safeT = (key: string, fallback: string) => {
+    const value = t(key);
+    if (!value || value === key) return fallback;
+    return value;
+  };
   const { role: authRole } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -614,7 +619,7 @@ export default function HeroSection() {
     const q = certificateId.trim();
     if (!q) {
       // Show validation error for empty search
-      setSearchError(t('error.search.empty'));
+      setSearchError(safeT('error.search.empty', 'Please enter a keyword to search'));
       setSearchResults([]);
       setShowResults(false);
       return;
@@ -628,7 +633,9 @@ export default function HeroSection() {
     // Apply minimum character validation only for keyword searches (not direct ID/link searches)
     if (!publicLinkMatch && !oldLinkMatch && !isCertId) {
       if (q.length < 3) {
-        setSearchError('Search must be at least 3 characters long');
+        setSearchError(
+          safeT('error.search.tooShort', 'Search must be at least 3 characters long'),
+        );
         setSearchResults([]);
         setShowResults(false);
         return;
@@ -637,7 +644,9 @@ export default function HeroSection() {
       // Check if it contains at least 3 letters (for meaningful text search)
       const letterCount = (q.match(/[a-zA-Z]/g) || []).length;
       if (letterCount < 3) {
-        setSearchError('Search must contain at least 3 letters');
+        setSearchError(
+          safeT('error.search.tooFewLetters', 'Search must contain at least 3 letters'),
+        );
         setSearchResults([]);
         setShowResults(false);
         return;
@@ -647,7 +656,9 @@ export default function HeroSection() {
     // Pastikan tenant untuk search sudah ada
     const tenantIdForSearch = filters.tenant_id || selectedTenantId;
     if (!tenantIdForSearch) {
-      setSearchError(t('error.search.emptyTenant') || 'Please select an organization first');
+      setSearchError(
+        safeT('error.search.emptyTenant', 'Please select an organization first'),
+      );
       setSearchResults([]);
       setShowResults(false);
       return;

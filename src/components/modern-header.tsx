@@ -74,23 +74,22 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
     if (!userId) return;
     try {
       setSubscriptionLoading(true);
+
+      const normalizedEmail = subscriberEmail.toLowerCase().trim();
+      if (!normalizedEmail) {
+        throw new Error("Email pengguna tidak ditemukan. Silakan login ulang.");
+      }
+
+      // Demo subscription: hanya update role di email_whitelist, tidak lagi menyentuh tabel users.
       const { error } = await supabaseClient
-        .from("users")
-        .update({ role: "owner" })
-        .eq("id", userId);
+        .from("email_whitelist")
+        .upsert(
+          { email: normalizedEmail, role: "owner" },
+          { onConflict: "email" }
+        );
 
       if (error) {
         throw error;
-      }
-
-      const normalizedEmail = subscriberEmail.toLowerCase().trim();
-      if (normalizedEmail) {
-        await supabaseClient
-          .from("email_whitelist")
-          .upsert(
-            { email: normalizedEmail, role: "owner" },
-            { onConflict: "email" }
-          );
       }
 
       await refreshRole();
