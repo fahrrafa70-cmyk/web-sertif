@@ -25,13 +25,14 @@ import {
   FileText,
   Image as ImageIcon
 } from "lucide-react";
-import { Template, getTemplatePreviewUrl } from "@/lib/supabase/templates";
+import { Template, getTemplatePreviewUrl, getTemplateLayout } from "@/lib/supabase/templates";
 import { Member } from "@/lib/supabase/members";
 import { QuickGenerateParams } from "./QuickGenerateModal";
 import { ExcelUploadWizard } from "./ExcelUploadWizard";
 import { useLanguage } from "@/contexts/language-context";
 import { toast } from "sonner";
 import Image from "next/image";
+import type { TemplateLayoutConfig } from "@/types/template-layout";
 
 interface WizardGenerateModalProps {
   open: boolean;
@@ -65,6 +66,8 @@ export function WizardGenerateModal({
   
   // Step 1: Template Selection
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [layoutConfig, setLayoutConfig] = useState<TemplateLayoutConfig | null>(null);
+  const [loadingLayout, setLoadingLayout] = useState(false);
   
   // Step 2: Data Source
   const [dataSource, setDataSource] = useState<'excel' | 'member'>('member');
@@ -92,12 +95,41 @@ export function WizardGenerateModal({
     if (open) {
       setCurrentStep(1);
       setSelectedTemplate(null);
+      setLayoutConfig(null);
       setDataSource('member');
       setExcelData([]);
       setSelectedMembers([]);
       setCertificateData({ certificate_no: '', description: '' });
     }
   }, [open]);
+
+  // Load layout config for selected template so Wizard uses the same layout
+  // source as the renderer (generateSingleCertificate)
+  useEffect(() => {
+    const loadLayout = async () => {
+      if (!selectedTemplate) {
+        setLayoutConfig(null);
+        return;
+      }
+
+      try {
+        setLoadingLayout(true);
+        const layout = await getTemplateLayout(selectedTemplate.id);
+        if (layout && (layout as TemplateLayoutConfig).certificate) {
+          setLayoutConfig(layout as TemplateLayoutConfig);
+        } else {
+          setLayoutConfig(null);
+        }
+      } catch (error) {
+        console.error('Failed to load template layout for wizard:', error);
+        setLayoutConfig(null);
+      } finally {
+        setLoadingLayout(false);
+      }
+    };
+
+    void loadLayout();
+  }, [selectedTemplate]);
 
   // Auto-update expired date when issue date changes
   useEffect(() => {
@@ -124,7 +156,9 @@ export function WizardGenerateModal({
   const canProceedFromStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        return !!selectedTemplate;
+        // Only allow next if template selected AND its layout has been loaded,
+        // so that Step 3 fields always reflect the same layout as renderer.
+        return !!selectedTemplate && !loadingLayout;
       case 2:
         return dataSource === 'excel' ? excelData.length > 0 : selectedMembers.length > 0;
       case 3:
@@ -167,12 +201,16 @@ export function WizardGenerateModal({
           dataSource: 'member',
           dateFormat,
           members: selectedMemberObjects,
+          // Pass ALL manual fill fields (template fields + basic data)
+          // while satisfying the required certificateData shape
           certificateData: {
-            certificate_no: certificateData.certificate_no,
-            description: certificateData.description,
+            certificate_no: certificateData.certificate_no || '',
+            description: certificateData.description || '',
             issue_date: issueDate,
             expired_date: expiredDate,
-          }
+            // extra fields keyed by text layer id (sekolah, tempat/tgl_lahir, dll)
+            ...certificateData,
+          },
         };
 
         await onGenerate(params);
@@ -490,9 +528,9 @@ export function WizardGenerateModal({
 
   // Get template fields for manual input
   const getTemplateFields = React.useMemo(() => {
-    if (!selectedTemplate?.layout_config) return [];
-    
-    const config = selectedTemplate.layout_config;
+    // Use fetched layoutConfig (same source as renderer). If missing, no fields.
+    if (!layoutConfig) return [];
+    const config = layoutConfig;
     const allFields = [];
     
     // Debug logging
@@ -519,12 +557,20 @@ export function WizardGenerateModal({
     }
     
     // Get score (back) fields if dual template
-    if (selectedTemplate.is_dual_template && config.score?.textLayers) {
+    if (selectedTemplate?.is_dual_template && config.score?.textLayers) {
       console.log('🔍 Score textLayers:', config.score.textLayers);
       
       const backFields = config.score.textLayers.filter((layer) => {
-        const shouldSkip = layer.useDefaultText;
-        console.log(`🔍 Score Layer ${layer.id}: useDefaultText=${layer.useDefaultText}, shouldSkip=${shouldSkip}`);
+        // Selalu skip field otomatis seperti issue_date/certificate_no/expired_date/score_date
+        const isAutoField =
+          layer.id === 'certificate_no' ||
+          layer.id === 'issue_date' ||
+          layer.id === 'expired_date' ||
+          layer.id === 'score_date' ||
+          layer.id === 'name';
+
+        const shouldSkip = !!layer.useDefaultText || isAutoField;
+        console.log(`🔍 Score Layer ${layer.id}: useDefaultText=${layer.useDefaultText}, isAutoField=${isAutoField}, shouldSkip=${shouldSkip}`);
         return !shouldSkip;
       });
       
@@ -534,7 +580,7 @@ export function WizardGenerateModal({
     
     console.log('🔍 Final allFields:', allFields);
     return allFields;
-  }, [selectedTemplate, dataSource]);
+  }, [selectedTemplate, layoutConfig, dataSource]);
 
   const renderStep3 = () => {
     const templateFields = getTemplateFields;

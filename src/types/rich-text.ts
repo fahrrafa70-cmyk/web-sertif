@@ -53,13 +53,14 @@ export function applyStyleToRange(
     const overlapStart = Math.max(spanStart, startOffset);
     const overlapEnd = Math.min(spanEnd, endOffset);
     
-    // CRITICAL: Extract inline formatting only (fontWeight, fontFamily, color)
+    // CRITICAL: Extract inline formatting only (fontWeight, fontFamily, color, fontStyle, textAlign)
     // DO NOT copy fontSize - it should inherit from layer, not be stored in spans
     const inlineFormatting = {
       fontWeight: span.fontWeight,
       fontFamily: span.fontFamily,
       color: span.color,
       textAlign: span.textAlign,
+      fontStyle: span.fontStyle,
       // fontSize explicitly excluded - inherit from layer
     };
     
@@ -110,7 +111,8 @@ export function mergeAdjacentSpans(richText: RichText): RichText {
       prev.fontFamily === curr.fontFamily &&
       prev.fontSize === curr.fontSize &&
       prev.color === curr.color &&
-      prev.textAlign === curr.textAlign;
+      prev.textAlign === curr.textAlign &&
+      prev.fontStyle === curr.fontStyle;
     
     if (stylesMatch) {
       // Merge text

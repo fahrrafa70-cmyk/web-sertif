@@ -727,6 +727,14 @@ function CertificatesContent(): ReactElement {
       }
 
       if (params.dataSource === 'member') {
+        // DEBUG: lihat certificateData yang dikirim dari Wizard/QuickGenerate
+        if (params.certificateData) {
+          console.log('🧪 DEBUG handleQuickGenerate certificateData:', {
+            keys: Object.keys(params.certificateData),
+            raw: params.certificateData,
+          });
+        }
+
         // Member-based generation (single or multiple)
         if (params.members && params.members.length > 0 && params.certificateData) {
           // Multiple members - show progress like Excel
@@ -963,6 +971,7 @@ function CertificatesContent(): ReactElement {
       .map((layer) => {
       let text = '';
       let processedRichText = layer.richText;
+      const certDataMap = certData as unknown as Record<string, string>;
       const variableData: Record<string, string> = {
         // Common certificate fields
         name: member.name || '',
@@ -970,21 +979,61 @@ function CertificatesContent(): ReactElement {
         description: finalCertData.description || '',
         issue_date: formatDateString(finalCertData.issue_date, dateFormat),
         expired_date: finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '',
+        // All manual fill fields from certificateData (including custom ones)
+        ...certDataMap,
         // CRITICAL FIX: Include ALL Excel row data for variables like {perusahaan}
         ...(excelRowData || {}),
         // Score data (manual input or Excel) - spread last to override if needed
         ...(scoreData || {})
       };
-      if (scoreData && 
-          scoreData[layer.id] !== undefined && 
-          scoreData[layer.id] !== null && 
-          scoreData[layer.id] !== '' &&
-          String(scoreData[layer.id]).trim() !== '') {
-        text = String(scoreData[layer.id]).trim();
+
+      const isStandardAutoField =
+        layer.id === 'name' ||
+        layer.id === 'certificate_no' ||
+        layer.id === 'description' ||
+        layer.id === 'issue_date' ||
+        layer.id === 'expired_date';
+
+      const hasExcelValue = !!(
+        excelRowData &&
+        excelRowData[layer.id] !== undefined &&
+        excelRowData[layer.id] !== null &&
+        String(excelRowData[layer.id]).trim() !== ''
+      );
+
+      const hasScoreValue = !!(
+        scoreData &&
+        scoreData[layer.id] !== undefined &&
+        scoreData[layer.id] !== null &&
+        String(scoreData[layer.id]).trim() !== ''
+      );
+
+      // Hanya anggap certData sebagai sumber data eksplisit untuk field NON-standar.
+      // Field standar (name, certificate_no, description, issue_date, expired_date)
+      // SELALU harus mengikuti finalCertData agar konsisten dengan data di DB.
+      const hasCertDataKey = !isStandardAutoField && !!(
+        certDataMap && Object.prototype.hasOwnProperty.call(certDataMap, layer.id)
+      );
+
+      // PRIORITAS DATA (paling kuat di atas):
+      // 1) Excel mapping by layer.id
+      if (hasExcelValue) {
+        text = String(excelRowData![layer.id]).trim();
       }
-      else if (layer.useDefaultText && layer.defaultText) {
-        text = layer.defaultText;
-      } else {
+      // 2) Score data langsung (untuk kasus tertentu)
+      else if (hasScoreValue) {
+        text = String(scoreData![layer.id]).trim();
+      }
+      // 3) Manual fill dari certificateData/certData by layer.id (untuk extra fields wizard)
+      //    Di sini, SELAMA key ada di certDataMap, kita anggap ini override penuh
+      //    meskipun nilainya kosong string. Artinya: kalau field sudah disediakan
+      //    di wizard/quick-generate, defaultText TIDAK boleh muncul lagi.
+      else if (hasCertDataKey) {
+        const raw = certDataMap[layer.id];
+        text = raw === undefined || raw === null ? '' : String(raw);
+      }
+      // 4) Fallback khusus ID standar (auto-field)
+      else if (isStandardAutoField) {
         if (layer.id === 'name') text = member.name;
         else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
         else if (layer.id === 'description') text = finalCertData.description || '';
@@ -993,8 +1042,36 @@ function CertificatesContent(): ReactElement {
         } else if (layer.id === 'expired_date') {
           text = finalCertData.expired_date ? formatDateString(finalCertData.expired_date, dateFormat) : '';
         }
-        else if (layer.defaultText) text = layer.defaultText;
       }
+
+      const hasAnyExplicitData =
+        hasExcelValue || hasScoreValue || hasCertDataKey || isStandardAutoField;
+
+      // Jika layer ini punya richText tapi kita sudah punya data eksplisit
+      // (Excel/score/certData) DAN richText TIDAK mengandung variabel,
+      // abaikan richText supaya renderer memakai `text` hasil mapping,
+      // bukan default text dari template.
+      if (
+        hasAnyExplicitData &&
+        processedRichText &&
+        processedRichText.length > 0
+      ) {
+        const hasVarsInRich = processedRichText.some((span) =>
+          span.text.includes('{'),
+        );
+        if (!hasVarsInRich) {
+          processedRichText = undefined;
+        }
+      }
+
+      // 5) Backward-compatible defaultText behaviour untuk SEMUA layer tambahan:
+      //    Jika TIDAK ada data eksplisit dari Excel/score/certData
+      //    dan layer memiliki defaultText, gunakan defaultText sebagai fallback
+      //    (tanpa bergantung ketat pada flag useDefaultText).
+      if (!hasAnyExplicitData && !isStandardAutoField && !text && layer.defaultText) {
+        text = layer.defaultText;
+      }
+
       if (processedRichText && processedRichText.length > 0) {
         const hasVars = processedRichText.some(span => span.text.includes('{'));
         if (hasVars) {
@@ -1071,7 +1148,7 @@ function CertificatesContent(): ReactElement {
     // ✅ BUG FIX: Don't generate new XID for file naming!
     // We'll get proper filenames after saving certificate with real XID
     const { cert: certFileName, xid } = generatePairedXIDFilenames();
-    
+
     const certificateImageDataUrl = await renderCertificateToDataURL({
       templateImageUrl,
       textLayers,

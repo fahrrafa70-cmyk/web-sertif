@@ -195,7 +195,7 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
                 <LanguageSwitcher variant="compact" />
               </div>
 
-              {roleLoaded && isAuthenticated && globalRole !== "owner" && (
+              {roleLoaded && isAuthenticated && (globalRole === null || globalRole === "user") && (
                 <Button
                   size="sm"
                   className="hidden lg:inline-flex bg-gradient-to-r from-blue-500 via-blue-500 to-indigo-500 hover:from-blue-600 hover:via-blue-600 hover:to-indigo-600 text-white font-bold tracking-wide border-0 shadow-lg hover:shadow-xl h-8 sm:h-9 md:h-10 text-xs sm:text-sm md:text-[0.9rem] px-3 sm:px-3.5 md:px-4 rounded-full transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
