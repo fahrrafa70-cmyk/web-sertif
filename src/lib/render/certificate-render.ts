@@ -425,18 +425,11 @@ export async function renderCertificateToDataURL(
       }
 
       // Set color and baseline
-<<<<<<< HEAD
       ctx.fillStyle = layer.color || "#000000";
       ctx.textBaseline = "top";
 
-=======
-      ctx.fillStyle = layer.color || '#000000';
-      ctx.textBaseline = 'top';
-
       // Scale letter spacing based on template resolution (pixels in final canvas)
       const scaledLetterSpacing = (layer.letterSpacing || 0) * scaleFactor;
-      
->>>>>>> bb4aaf05f9241537bbf5aab6336ad8f5fe5aa02f
       // Render text (rich text or regular)
       if (layer.richText && layer.hasInlineFormatting) {
         // CRITICAL: Pass scaleFactor so span fontSizes can be scaled correctly
@@ -453,10 +446,7 @@ export async function renderCertificateToDataURL(
           layer.id, // Pass layer ID for Y-adjustment
           isDecoration ? style : undefined, // Pass decoration style
           isUbigTemplate,
-<<<<<<< HEAD
-=======
-          scaledLetterSpacing
->>>>>>> bb4aaf05f9241537bbf5aab6336ad8f5fe5aa02f
+          scaledLetterSpacing,
         );
       } else {
         drawWrappedText(
@@ -471,10 +461,7 @@ export async function renderCertificateToDataURL(
           layer.id,
           isDecoration ? style : undefined, // Pass decoration style
           isUbigTemplate,
-<<<<<<< HEAD
-=======
-          scaledLetterSpacing
->>>>>>> bb4aaf05f9241537bbf5aab6336ad8f5fe5aa02f
+          scaledLetterSpacing,
         );
       }
     }
@@ -514,14 +501,9 @@ function drawWrappedText(
   lineHeight: number,
   textAlign: "left" | "center" | "right" | "justify",
   layerId?: string, // Optional layer ID for debugging
-<<<<<<< HEAD
   textDecoration?: "underline" | "line-through" | "overline", // Optional text decoration
   isUbigTemplate: boolean = false,
-=======
-  textDecoration?: 'underline' | 'line-through' | 'overline', // Optional text decoration
-  isUbigTemplate: boolean = false,
-  letterSpacing: number = 0
->>>>>>> bb4aaf05f9241537bbf5aab6336ad8f5fe5aa02f
+  letterSpacing: number = 0,
 ) {
   // CRITICAL: For "name" layer, prevent wrapping - text should shift left instead of wrapping down
   // If text is longer than maxWidth, keep it as single line and adjust x position to shift left
@@ -853,14 +835,9 @@ function drawRichText(
   textAlign: "left" | "center" | "right" | "justify",
   scaleFactor: number = 1,
   layerId?: string, // Optional layer ID for Y-adjustment
-<<<<<<< HEAD
   _textDecoration?: "underline" | "line-through" | "overline", // Optional text decoration (not yet implemented for rich text)
   isUbigTemplate: boolean = false,
-=======
-  _textDecoration?: 'underline' | 'line-through' | 'overline', // Optional text decoration (not yet implemented for rich text)
-  isUbigTemplate: boolean = false,
-  letterSpacing: number = 0
->>>>>>> bb4aaf05f9241537bbf5aab6336ad8f5fe5aa02f
+  letterSpacing: number = 0,
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
 
@@ -997,12 +974,6 @@ function drawRichText(
 
       ctx.font = `${spanFontStyle} ${spanFontWeight} ${spanFontSize}px ${spanFontFamily}`;
       ctx.fillStyle = spanColor;
-<<<<<<< HEAD
-      ctx.fillText(span.text, currentX, lineY);
-
-      // Move X position for next span
-      currentX += ctx.measureText(span.text).width;
-=======
 
       if (!letterSpacing) {
         ctx.fillText(span.text, currentX, lineY);
@@ -1014,7 +985,6 @@ function drawRichText(
           currentX += ctx.measureText(ch).width + letterSpacing;
         }
       }
->>>>>>> bb4aaf05f9241537bbf5aab6336ad8f5fe5aa02f
     });
   });
 }
@@ -1322,14 +1292,9 @@ async function renderQRLayer(
   const qrDataURL = await generateQRCodeDataURL(layer.qrData, {
     width,
     height,
-<<<<<<< HEAD
-    errorCorrectionLevel: layer.errorCorrectionLevel || "M",
-    margin: layer.margin ?? 4,
-=======
-    errorCorrectionLevel: layer.errorCorrectionLevel || 'M',
+    errorCorrectionLevel: layer.errorCorrectionLevel ||  "M",
     // Use 0 as default margin so QR code fully occupies the configured box size
     margin: layer.margin ?? 0,
->>>>>>> bb4aaf05f9241537bbf5aab6336ad8f5fe5aa02f
     color: {
       dark: layer.foregroundColor || "#000000",
       light: layer.backgroundColor || "#FFFFFF",

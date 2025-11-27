@@ -31,6 +31,7 @@ export interface TenantMember {
     id: string;
     email: string;
     full_name: string | null;
+    username?: string | null;
     avatar_url: string | null;
   } | null;
 }
@@ -65,7 +66,7 @@ export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
     .from("tenant_members")
     .select(
       `
-      tenants:tenant_id (
+      tenants (
         id,
         name,
         slug,
@@ -168,17 +169,38 @@ export async function getTenantMembers(
     throw new Error("Tenant ID is required");
   }
 
-  const { data, error } = await supabaseClient
-    .from("tenant_members")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: true });
+  console.log(`🔍 Fetching members for tenant: ${tenantId}`);
 
-  if (error) {
-    throw new Error(`Failed to fetch tenant members: ${error.message}`);
+  try {
+    const apiUrl = `/api/tenants/${tenantId}/members`;
+    console.log(`📡 Calling API: ${apiUrl}`);
+
+    const response = await fetch(apiUrl);
+    console.log(
+      `📥 API Response status: ${response.status} ${response.statusText}`,
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ API Error response:`, errorText);
+      throw new Error(`API returned ${response.status}: ${errorText}`);
+    }
+
+    const responseData = await response.json();
+    console.log(`📦 API Response data:`, responseData);
+
+    const { members } = responseData;
+    console.log(`✅ Received ${members?.length || 0} members from API`);
+
+    if (members && members.length > 0) {
+      console.log(`👥 First member sample:`, members[0]);
+    }
+
+    return members as TenantMember[];
+  } catch (error) {
+    console.error("💥 Error fetching tenant members:", error);
+    throw error;
   }
-
-  return (data as TenantMember[]) || [];
 }
 
 async function assertTenantOwner(tenantId: string): Promise<string> {
@@ -247,8 +269,10 @@ export async function getCurrentUserTenantRole(
     throw new Error(`Failed to get tenant role: ${error.message}`);
   }
 
-  const role = (data?.role as string | null)?.toLowerCase() as TenantRole | null;
-  return (role === "owner" || role === "manager" || role === "staff")
+  const role = (
+    data?.role as string | null
+  )?.toLowerCase() as TenantRole | null;
+  return role === "owner" || role === "manager" || role === "staff"
     ? role
     : null;
 }
@@ -452,7 +476,9 @@ export async function getTenantInvites(
   return (data as TenantInvite[]) || [];
 }
 
-export async function getTenantInviteByToken(token: string): Promise<TenantInvite | null> {
+export async function getTenantInviteByToken(
+  token: string,
+): Promise<TenantInvite | null> {
   if (!token) {
     throw new Error("Invite token is required");
   }
