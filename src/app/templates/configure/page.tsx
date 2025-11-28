@@ -2981,7 +2981,7 @@ function ConfigureLayoutContent() {
                           opacity: layer.opacity,
                           zIndex: layer.zIndex,
                           cursor: isSelected ? 'move' : 'pointer',
-                          backgroundColor: layer.backgroundColor || '#FFFFFF',
+                          backgroundColor: '#FFFFFF',
                           border: isSelected ? '3px solid #3b82f6' : '1px solid #e5e7eb'
                         }}
                         onClick={(e) => {
@@ -3010,10 +3010,7 @@ function ConfigureLayoutContent() {
                           className="w-full h-full object-contain p-1"
                           style={{
                             opacity: layer.opacity,
-                            transform: `rotate(${layer.rotation}deg)`,
-                            filter: layer.foregroundColor !== '#000000' 
-                              ? `brightness(0) saturate(100%) invert(${layer.foregroundColor === '#FFFFFF' ? '100%' : '0%'})`
-                              : 'none'
+                            transform: `rotate(${layer.rotation}deg)`
                           }}
                           onError={(e) => {
                             // Fallback to icon if image fails to load
@@ -3027,12 +3024,10 @@ function ConfigureLayoutContent() {
                         {/* Fallback icon (hidden by default, shown if image fails) */}
                         <div className="flex flex-col items-center justify-center w-full h-full p-2" style={{ display: 'none' }}>
                           <QrCode 
-                            className="w-1/2 h-1/2" 
-                            style={{ color: layer.foregroundColor || '#000000' }}
+                            className="w-1/2 h-1/2 text-black" 
                           />
                           <span 
-                            className="text-[8px] mt-1 font-mono"
-                            style={{ color: layer.foregroundColor || '#000000' }}
+                            className="text-[8px] mt-1 font-mono text-black"
                           >
                             QR Code
                           </span>
@@ -3692,7 +3687,7 @@ function ConfigureLayoutContent() {
 
                       {/* Size */}
                       <div>
-                        <Label className="text-xs">Size (px) - Square Only</Label>
+                        <Label className="text-xs">Size (px)</Label>
                         <Input
                           type="number"
                           min="50"
@@ -3714,45 +3709,6 @@ function ConfigureLayoutContent() {
                         />
                       </div>
 
-                      {/* Colors */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Foreground Color</Label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={selectedQR.foregroundColor || '#000000'}
-                              onChange={(e) => updateQRLayer(selectedQR.id, { foregroundColor: e.target.value })}
-                              className="h-8 w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
-                            />
-                            <Input
-                              type="text"
-                              value={selectedQR.foregroundColor || '#000000'}
-                              onChange={(e) => updateQRLayer(selectedQR.id, { foregroundColor: e.target.value })}
-                              className="h-8 text-xs flex-1"
-                              placeholder="#000000"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Background Color</Label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={selectedQR.backgroundColor || '#FFFFFF'}
-                              onChange={(e) => updateQRLayer(selectedQR.id, { backgroundColor: e.target.value })}
-                              className="h-8 w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
-                            />
-                            <Input
-                              type="text"
-                              value={selectedQR.backgroundColor || '#FFFFFF'}
-                              onChange={(e) => updateQRLayer(selectedQR.id, { backgroundColor: e.target.value })}
-                              className="h-8 text-xs flex-1"
-                              placeholder="#FFFFFF"
-                            />
-                          </div>
-                        </div>
-                      </div>
 
                       {/* Layer Order */}
                       <div>

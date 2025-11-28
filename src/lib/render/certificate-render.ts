@@ -1233,10 +1233,6 @@ async function renderPhotoLayer(
   ctx.restore();
 }
 
-/**
- * Render QR code layer
- * Generates QR code and renders it at specified position
- */
 async function renderQRLayer(
   ctx: CanvasRenderingContext2D,
   layer: RenderQRLayer,
@@ -1263,17 +1259,20 @@ async function renderQRLayer(
       ? Math.round(layer.heightPercent * canvasHeight)
       : layer.height || 100;
 
-  // Generate QR code as data URL
+  const minQRSize = 150;
+  const maxQRSize = 800;
+  const optimalSize = Math.max(
+    minQRSize,
+    Math.min(maxQRSize, Math.max(width, height)),
+  );
+
+  // Generate QR code as data URL at optimal size
   const qrDataURL = await generateQRCodeDataURL(layer.qrData, {
-    width,
-    height,
+    width: optimalSize,
+    height: optimalSize,
     errorCorrectionLevel: layer.errorCorrectionLevel || "M",
-    // Use 0 as default margin so QR code fully occupies the configured box size
-    margin: layer.margin ?? 0,
-    color: {
-      dark: layer.foregroundColor || "#000000",
-      light: layer.backgroundColor || "#FFFFFF",
-    },
+    // Use margin from layer config, default to 4 for better compatibility
+    margin: layer.margin ?? 4,
   });
 
   // Load QR code image
@@ -1293,13 +1292,13 @@ async function renderQRLayer(
     ctx.translate(-(x + width / 2), -(y + height / 2));
   }
 
-  // Draw QR code
+  // CRITICAL: Draw QR code scaled to exact size matching preview
+  // This ensures the QR code size in generated certificate matches preview exactly
   ctx.drawImage(qrImage, x, y, width, height);
 
   // Restore context state
   ctx.restore();
 }
-
 /**
  * Save PNG DataURL to public folder (optional, for persistent storage)
  * This is a client-side helper that generates filename
