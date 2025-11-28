@@ -448,8 +448,8 @@ export async function renderCertificateToDataURL(
           isDecoration ? style : undefined, // Pass decoration style
           isUbigTemplate,
           scaledLetterSpacing,
-          fontStyle, // Pass layer's fontStyle for inheritance
-          fontWeight, // Pass layer's fontWeight for inheritance
+          layer.fontStyle || "normal",
+          fontWeight, // Pass layer's
         );
       } else {
         drawWrappedText(
@@ -970,8 +970,10 @@ function drawRichText(
 
     // Draw each span
     line.spans.forEach((span) => {
+      // CRITICAL: fontWeight inheritance works correctly, but fontStyle should not inherit
+      // This ensures only selected/formatted text gets italic styling, not the entire layer
       const spanFontWeight = span.fontWeight || layerFontWeight || "normal";
-      const spanFontStyle = span.fontStyle || layerFontStyle || "normal";
+      const spanFontStyle = span.fontStyle || "normal"; // Don't inherit fontStyle from layer
       // CRITICAL: Scale span fontSize if provided, otherwise use base (already scaled)
       const spanFontSize = span.fontSize
         ? Math.round(span.fontSize * scaleFactor)

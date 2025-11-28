@@ -16,7 +16,7 @@ import type { TemplateLayoutConfig, TextLayerConfig, PhotoLayerConfig, QRCodeLay
 import { STANDARD_CANVAS_WIDTH, STANDARD_CANVAS_HEIGHT } from "@/lib/constants/canvas";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { plainTextToRichText, applyStyleToRange, richTextToPlainText, getCommonStyleValue, hasMixedStyle } from "@/types/rich-text";
+import { plainTextToRichText, applyStyleToRange, richTextToPlainText, getCommonStyleValue, hasMixedStyle, type TextSpan } from "@/types/rich-text";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { 
   FontWeightSelect, 
@@ -4032,8 +4032,58 @@ function ConfigureLayoutContent() {
                       <div>
                         <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.fontStyle')}</Label>
                         <FontStyleSelect
-                          value={selectedLayer.fontStyle || 'normal'}
-                          onValueChange={(value) => updateLayer(selectedLayer.id, { fontStyle: value as TextLayer['fontStyle'] })}
+                          value={(() => {
+                            const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '');
+                            const { start, end } = richTextSelection;
+                            
+                            // If has selection, check selection range
+                            if (start !== end) {
+                              const commonValue = getCommonStyleValue(currentRichText, start, end, 'fontStyle');
+                              return commonValue === 'mixed' ? 'mixed' : (commonValue || selectedLayer.fontStyle || 'normal');
+                            }
+                            
+                            // No selection - check if whole richText has mixed styles
+                            if (selectedLayer.richText && selectedLayer.richText.length > 1) {
+                              if (hasMixedStyle(currentRichText, 'fontStyle')) {
+                                return 'mixed';
+                              }
+                            }
+                            
+                            return selectedLayer.fontStyle || 'normal';
+                          })()}
+                          onValueChange={(value) => {
+                            const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
+                              fontStyle: selectedLayer.fontStyle as TextSpan['fontStyle'],
+                              fontFamily: selectedLayer.fontFamily
+                            });
+                            const { start, end } = richTextSelection;
+                            
+                            if (start === end) {
+                              // No selection - update whole layer AND apply to richText
+                              const newRichText = currentRichText.map(span => ({
+                                ...span,
+                                fontStyle: value as TextSpan['fontStyle']
+                              }));
+                              updateLayer(selectedLayer.id, { 
+                                fontStyle: value as TextLayer['fontStyle'],
+                                richText: newRichText
+                              });
+                            } else {
+                              // Has selection - apply to selected text only
+                              const newRichText = applyStyleToRange(currentRichText, start, end, { fontStyle: value as TextSpan['fontStyle'] });
+                              const plainText = richTextToPlainText(newRichText);
+                              updateLayer(selectedLayer.id, { 
+                                richText: newRichText, 
+                                defaultText: plainText,
+                                hasInlineFormatting: true 
+                              });
+                              // Update preview text as well
+                              setPreviewTexts(prev => ({
+                                ...prev,
+                                [selectedLayer.id]: plainText
+                              }));
+                            }
+                          }}
                           className="h-7 sm:h-8 text-xs"
                         />
                       </div>
