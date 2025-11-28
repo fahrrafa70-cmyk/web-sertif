@@ -153,23 +153,125 @@ export function WizardGenerateModal({
   // Get main text layers for mapping
   const getMainTextLayers = React.useCallback((): TextLayerConfig[] => {
     if (!layoutConfig?.certificate?.textLayers) return [];
-    return layoutConfig.certificate.textLayers.filter(layer => {
-      // Exclude useDefaultText layers and auto-generated fields
+    
+    // Get direct text layers
+    const directLayers = layoutConfig.certificate.textLayers.filter(layer => {
+      // Exclude useDefaultText layers
       if (layer.useDefaultText) return false;
-      if (['certificate_no', 'issue_date', 'expired_date'].includes(layer.id)) return false;
+      
+      // For member data source: exclude certificate_no, issue_date, expired_date
+      if (dataSource === 'member' && ['certificate_no', 'issue_date', 'expired_date'].includes(layer.id)) {
+        return false;
+      }
+      
+      // For Excel data source: only exclude issue_date, expired_date (allow certificate_no)
+      if (dataSource === 'excel' && ['issue_date', 'expired_date'].includes(layer.id)) {
+        return false;
+      }
+      
       return true;
     });
-  }, [layoutConfig]);
+    
+    // For Excel data source, also include dynamic variable fields
+    if (dataSource === 'excel') {
+      const variableNames: string[] = [];
+      const certificateLayers = layoutConfig.certificate.textLayers || [];
+      
+      // Extract variables from all certificate layers (including useDefaultText layers)
+      for (const layer of certificateLayers) {
+        const vars = extractVariablesFromLayer(layer);
+        for (const v of vars) {
+          if (!variableNames.includes(v)) {
+            variableNames.push(v);
+          }
+        }
+      }
+      
+      // Create variable fields
+      const variableFields = variableNames.map((varName) => ({
+        id: varName,
+        x: 0,
+        y: 0,
+        xPercent: 0,
+        yPercent: 0,
+        defaultText: `{${varName}}`,
+        useDefaultText: false,
+        fontSize: 16,
+        color: '#000000',
+        fontWeight: '400' as const,
+        fontFamily: 'Arial',
+      }));
+      
+      // Filter out variables that already exist as direct layers
+      const existingIds = new Set(directLayers.map(l => l.id));
+      const uniqueVariableFields = variableFields.filter(field => !existingIds.has(field.id));
+      
+      return [...directLayers, ...uniqueVariableFields];
+    }
+    
+    return directLayers;
+  }, [layoutConfig, dataSource]);
 
   // Get score text layers for dual template
   const getScoreTextLayers = React.useCallback((): TextLayerConfig[] => {
     if (!layoutConfig?.score?.textLayers) return [];
-    return layoutConfig.score.textLayers.filter(layer => {
+    
+    // Get direct text layers
+    const directLayers = layoutConfig.score.textLayers.filter(layer => {
       if (layer.useDefaultText) return false;
-      if (['certificate_no', 'issue_date', 'expired_date', 'score_date', 'name'].includes(layer.id)) return false;
+      
+      // For member data source: exclude certificate_no, issue_date, expired_date, score_date, name
+      if (dataSource === 'member' && ['certificate_no', 'issue_date', 'expired_date', 'score_date', 'name'].includes(layer.id)) {
+        return false;
+      }
+      
+      // For Excel data source: exclude issue_date, expired_date, score_date, name (allow certificate_no)
+      if (dataSource === 'excel' && ['issue_date', 'expired_date', 'score_date', 'name'].includes(layer.id)) {
+        return false;
+      }
+      
       return true;
     });
-  }, [layoutConfig]);
+    
+    // For Excel data source, also include dynamic variable fields
+    if (dataSource === 'excel') {
+      const variableNames: string[] = [];
+      const scoreLayers = layoutConfig.score.textLayers || [];
+      
+      // Extract variables from all score layers (including useDefaultText layers)
+      for (const layer of scoreLayers) {
+        const vars = extractVariablesFromLayer(layer);
+        for (const v of vars) {
+          if (!variableNames.includes(v)) {
+            variableNames.push(v);
+          }
+        }
+      }
+      
+      // Create variable fields
+      const variableFields = variableNames.map((varName) => ({
+        id: varName,
+        x: 0,
+        y: 0,
+        xPercent: 0,
+        yPercent: 0,
+        defaultText: `{${varName}}`,
+        useDefaultText: false,
+        fontSize: 16,
+        color: '#000000',
+        fontWeight: '400' as const,
+        fontFamily: 'Arial',
+      }));
+      
+      // Filter out variables that already exist as direct layers
+      const existingIds = new Set(directLayers.map(l => l.id));
+      const uniqueVariableFields = variableFields.filter(field => !existingIds.has(field.id));
+      
+      return [...directLayers, ...uniqueVariableFields];
+    }
+    
+    return directLayers;
+  }, [layoutConfig, dataSource]);
 
   // Auto-mapping when Excel data is loaded
   useEffect(() => {
@@ -628,12 +730,12 @@ export function WizardGenerateModal({
     if (certificateLayers.length > 0) {
       const frontFields = certificateLayers.filter((layer) => {
         const shouldSkip =
-          layer.id === 'certificate_no' ||
           layer.id === 'issue_date' ||
           layer.id === 'expired_date' ||
           layer.id === 'description' || // description text stays in template only
           layer.useDefaultText === true || // respect "Use default text" toggle
-          (dataSource === 'member' && layer.id === 'name');
+          (dataSource === 'member' && layer.id === 'name') ||
+          (dataSource === 'member' && layer.id === 'certificate_no'); // exclude certificate_no only for member mode
         return !shouldSkip;
       });
       allFields.push(...frontFields);
@@ -646,11 +748,11 @@ export function WizardGenerateModal({
     if (scoreLayers.length > 0) {
       const backFields = scoreLayers.filter((layer) => {
         const isAutoField =
-          layer.id === 'certificate_no' ||
           layer.id === 'issue_date' ||
           layer.id === 'expired_date' ||
           layer.id === 'score_date' ||
-          layer.id === 'name';
+          layer.id === 'name' ||
+          (dataSource === 'member' && layer.id === 'certificate_no'); // exclude certificate_no only for member mode
         const shouldSkip = isAutoField || layer.useDefaultText === true;
         return !shouldSkip;
       });
@@ -802,15 +904,18 @@ export function WizardGenerateModal({
                 </h4>
                 
                 <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">{t('wizardGenerate.certificateNoLabel')}</Label>
-                    <Input
-                      value={certificateData.certificate_no}
-                      onChange={(e) => setCertificateData(prev => ({ ...prev, certificate_no: e.target.value }))}
-                      placeholder={t('wizardGenerate.certificateNoPlaceholder')}
-                      className="h-9 bg-white dark:bg-gray-800"
-                    />
-                  </div>
+                  {/* Only show certificate number input for member data source */}
+                  {dataSource === 'member' && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">{t('wizardGenerate.certificateNoLabel')}</Label>
+                      <Input
+                        value={certificateData.certificate_no}
+                        onChange={(e) => setCertificateData(prev => ({ ...prev, certificate_no: e.target.value }))}
+                        placeholder={t('wizardGenerate.certificateNoPlaceholder')}
+                        className="h-9 bg-white dark:bg-gray-800"
+                      />
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">{t('wizardGenerate.dateFormatLabel')}</Label>
@@ -1013,8 +1118,8 @@ export function WizardGenerateModal({
               </div>
             </div>
             
-            {/* Additional Info if exists */}
-            {certificateData.certificate_no && (
+            {/* Additional Info if exists - only for member data source */}
+            {dataSource === 'member' && certificateData.certificate_no && (
               <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
                 <div>
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Nomor Sertifikat</span>
@@ -1024,6 +1129,7 @@ export function WizardGenerateModal({
                 </div>
               </div>
             )}
+            
           </div>
         </div>
       </div>

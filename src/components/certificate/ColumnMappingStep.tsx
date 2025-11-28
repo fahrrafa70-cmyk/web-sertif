@@ -93,7 +93,7 @@ export function ColumnMappingStep({
   scoreColumns = [],
   scoreLayers = [],
   scoreMapping = {},
-  _scorePreviewData = {},
+  _scorePreviewData = {}, // eslint-disable-line @typescript-eslint/no-unused-vars
   onScoreMappingChange
 }: ColumnMappingStepProps) {
   const { t } = useLanguage();
@@ -106,14 +106,15 @@ export function ColumnMappingStep({
         return false;
       }
       
-      // For Member mode: also exclude auto-generated fields
+      // For Member mode: exclude auto-generated fields (except certificate_no which can be manual)
       if (dataSource === 'member') {
-        if (['certificate_no', 'issue_date', 'expired_date'].includes(layer.id)) {
+        if (['issue_date', 'expired_date'].includes(layer.id)) {
           return false;
         }
       }
       
-      // For Excel mode: include all other layers (auto-generated fields can be mapped from Excel)
+      // For Excel mode: include ALL layers including certificate_no (can be mapped from Excel)
+      // This allows certificate number to be sourced from Excel instead of manual input
       return true;
     });
   }, [dataSource, mainLayers]);
@@ -126,13 +127,14 @@ export function ColumnMappingStep({
         return false;
       }
       
-      // For Member mode: also exclude auto-generated fields
+      // For Member mode: exclude auto-generated fields (except certificate_no which can be manual)
       if (dataSource === 'member') {
-        if (['certificate_no', 'issue_date', 'expired_date', 'score_date'].includes(layer.id)) {
+        if (['issue_date', 'expired_date', 'score_date'].includes(layer.id)) {
           return false;
         }
       }
       
+      // For Excel mode: include ALL layers including certificate_no (can be mapped from Excel)
       return true;
     });
   }, [dataSource, scoreLayers]);

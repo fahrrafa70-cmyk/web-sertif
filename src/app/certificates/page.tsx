@@ -807,16 +807,26 @@ function CertificatesContent(): ReactElement {
           try {
             // Extract data from Excel row
             const name = String(row.name || row.recipient || '');
-            const description = String(row.description || '');
-            let issueDate = String(row.issue_date || row.date || '');
+            const description = String(row.description || params.certificateData?.description || '');
+            let issueDate = String(row.issue_date || row.date || params.certificateData?.issue_date || '');
             
             // CRITICAL: Auto-generate issue_date if empty (use current date)
             if (!issueDate) {
               issueDate = new Date().toISOString().split('T')[0];
             }
             
-            const certNo = String(row.certificate_no || row.cert_no || '');
-            const expiredDate = String(row.expired_date || row.expiry || '');
+            // CRITICAL FIX: Use excelMainMapping for certificate_no
+            let certNo = '';
+            if (params.excelMainMapping && params.excelMainMapping['certificate_no']) {
+              // Use mapped column for certificate_no
+              const certColumn = params.excelMainMapping['certificate_no'];
+              certNo = String(row[certColumn] || '');
+            } else {
+              // Fallback: Direct mapping
+              certNo = String(row.certificate_no || row.cert_no || params.certificateData?.certificate_no || '');
+            }
+            
+            const expiredDate = String(row.expired_date || row.expiry || params.certificateData?.expired_date || '');
             
             // Create temporary member object from Excel data
             const tempMember: Member = {
@@ -834,51 +844,59 @@ function CertificatesContent(): ReactElement {
               updated_at: new Date().toISOString()
             };
             
-            // Extract ALL Excel data for variable replacement (including {perusahaan}, etc.)
+            // CRITICAL FIX: Use excelMainMapping to extract mapped data
             const excelRowData: Record<string, string> = {};
-            for (const [key, value] of Object.entries(row)) {
-              // Skip standard fields that are handled separately
-              if (!['name', 'certificate_no', 'issue_date', 'expired_date', 'description', 'email', 'organization', 'phone', 'job', 'address', 'city'].includes(key)) {
-                if (value !== undefined && value !== null && value !== '') {
-                  excelRowData[key] = String(value);
+            
+            if (params.excelMainMapping && Object.keys(params.excelMainMapping).length > 0) {
+              // Use mapping from WizardGenerateModal
+              for (const [layerId, excelColumn] of Object.entries(params.excelMainMapping)) {
+                if (excelColumn && row[excelColumn] !== undefined && row[excelColumn] !== null && row[excelColumn] !== '') {
+                  excelRowData[layerId] = String(row[excelColumn]);
+                }
+              }
+            } else {
+              // Fallback: Direct mapping for backward compatibility
+              for (const [key, value] of Object.entries(row)) {
+                // Skip standard fields that are handled separately
+                if (!['name', 'certificate_no', 'issue_date', 'expired_date', 'description', 'email', 'organization', 'phone', 'job', 'address', 'city'].includes(key)) {
+                  if (value !== undefined && value !== null && value !== '') {
+                    excelRowData[key] = String(value);
+                  }
                 }
               }
             }
             
-            // DUAL TEMPLATE: Extract score data from Excel row for score certificate
+            // DUAL TEMPLATE: Extract score data using excelScoreMapping
             let excelScoreData: Record<string, string> | undefined;
             if (params.template.score_image_url && layoutConfig?.score) {
               excelScoreData = {};
-              // The row data comes from mergeExcelData() which maps Excel columns to layer IDs
-              const scoreTextLayers = layoutConfig.score.textLayers || [];
               
-              // DEBUG: Log available Excel columns
-              console.log('📊 [EXCEL DEBUG] Available Excel columns:', Object.keys(row));
-              console.log('📊 [EXCEL DEBUG] Score text layers:', scoreTextLayers.map(l => l.id));
-              
-              for (const layer of scoreTextLayers) {
-                // Only skip standard certificate fields that are handled separately
-                // DO NOT skip based on useDefaultText - we need Excel data for ALL layers!
-                if (layer.id === 'name' || 
-                    layer.id === 'certificate_no' || 
-                    layer.id === 'issue_date' || 
-                    layer.id === 'score_date') {
-                  continue;
+              if (params.excelScoreMapping && Object.keys(params.excelScoreMapping).length > 0) {
+                // Use score mapping from WizardGenerateModal
+                for (const [layerId, excelColumn] of Object.entries(params.excelScoreMapping)) {
+                  if (excelColumn && row[excelColumn] !== undefined && row[excelColumn] !== null && row[excelColumn] !== '') {
+                    excelScoreData[layerId] = String(row[excelColumn]);
+                  }
                 }
+              } else {
+                // Fallback: Direct mapping for backward compatibility
+                const scoreTextLayers = layoutConfig.score.textLayers || [];
                 
-                // Extract Excel data for ALL other layers (including those with useDefaultText)
-                if (row[layer.id] !== undefined && row[layer.id] !== null && row[layer.id] !== '') {
-                  excelScoreData[layer.id] = String(row[layer.id]);
+                for (const layer of scoreTextLayers) {
+                  // Only skip standard certificate fields that are handled separately
+                  if (layer.id === 'name' || 
+                      layer.id === 'certificate_no' || 
+                      layer.id === 'issue_date' || 
+                      layer.id === 'score_date') {
+                    continue;
+                  }
                   
-                  // DEBUG: Log extracted data
-                  console.log(`✅ [EXCEL EXTRACTED] Layer "${layer.id}":`, String(row[layer.id]));
-                } else {
-                  // DEBUG: Log missing data
-                  console.log(`❌ [EXCEL MISSING] Layer "${layer.id}" not found in Excel row`);
+                  // Extract Excel data for ALL other layers (including those with useDefaultText)
+                  if (row[layer.id] !== undefined && row[layer.id] !== null && row[layer.id] !== '') {
+                    excelScoreData[layer.id] = String(row[layer.id]);
+                  }
                 }
               }
-              
-              console.log('📦 [EXCEL SCORE DATA]:', excelScoreData);
             }
             
             // generateSingleCertificate will auto-generate certificate_no and expired_date if empty
@@ -1030,23 +1048,24 @@ function CertificatesContent(): ReactElement {
       );
 
       // PRIORITAS DATA (paling kuat di atas):
-      // 1) Excel mapping by layer.id
-      if (hasExcelValue) {
-        text = String(excelRowData![layer.id]).trim();
-      }
-      // 2) Score data langsung (untuk kasus tertentu)
-      else if (hasScoreValue) {
+      // 1) Score data langsung (untuk kasus tertentu)
+      if (hasScoreValue) {
         text = String(scoreData![layer.id]).trim();
       }
-      // 3) Manual fill dari certificateData/certData by layer.id (untuk extra fields wizard)
-      //    Di sini, SELAMA key ada di certDataMap, kita anggap ini override penuh
-      //    meskipun nilainya kosong string. Artinya: kalau field sudah disediakan
-      //    di wizard/quick-generate, defaultText TIDAK boleh muncul lagi.
+      // 2) Excel mapping by layer.id (direct layer mapping)
+      else if (hasExcelValue) {
+        text = String(excelRowData![layer.id]).trim();
+      }
+      // 3) Check if layer.id exists in variableData (for dynamic variables like {perusahaan})
+      else if (variableData[layer.id] && String(variableData[layer.id]).trim() !== '') {
+        text = String(variableData[layer.id]).trim();
+      }
+      // 4) Manual fill dari certificateData/certData by layer.id (untuk extra fields wizard)
       else if (hasCertDataKey) {
         const raw = certDataMap[layer.id];
         text = raw === undefined || raw === null ? '' : String(raw);
       }
-      // 4) Fallback khusus ID standar (auto-field)
+      // 5) Fallback khusus ID standar (auto-field)
       else if (isStandardAutoField) {
         if (layer.id === 'name') text = member.name;
         else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
@@ -1058,8 +1077,10 @@ function CertificatesContent(): ReactElement {
         }
       }
 
+      const hasVariableData = !!(variableData[layer.id] && String(variableData[layer.id]).trim() !== '');
+      
       const hasAnyExplicitData =
-        hasExcelValue || hasScoreValue || hasCertDataKey || isStandardAutoField;
+        hasExcelValue || hasScoreValue || hasVariableData || hasCertDataKey || isStandardAutoField;
 
       // Jika layer ini punya richText tapi kita sudah punya data eksplisit
       // (Excel/score/certData) DAN richText TIDAK mengandung variabel,
@@ -1422,6 +1443,26 @@ function CertificatesContent(): ReactElement {
 
             const certDataMap = certData as unknown as Record<string, string>;
 
+            // CRITICAL FIX: Define variableData BEFORE priority logic so it can be used
+            const variableData: Record<string, string> = {
+              // Common certificate fields
+              name: member.name || '',
+              // Localized alias so template can use {nama} on back/score side as well
+              nama: member.name || '',
+              certificate_no: finalCertData.certificate_no || '',
+              description: finalCertData.description || '',
+              issue_date: formatDateString(finalCertData.issue_date, dateFormat),
+              expired_date: finalCertData.expired_date
+                ? formatDateString(finalCertData.expired_date, dateFormat)
+                : '',
+              // Semua field manual dari certificateData (wizard)
+              ...(certDataMap || {}),
+              // Excel row data (e.g. perusahaan, jurusan, dll) - same as front side
+              ...(excelRowData || {}),
+              // All score data (manual/Excel score fields) override Excel/manual if key sama
+              ...(scoreData || {}),
+            };
+
             const isStandardAutoField =
               layer.id === 'name' ||
               layer.id === 'certificate_no' ||
@@ -1447,12 +1488,16 @@ function CertificatesContent(): ReactElement {
             if (hasScoreValue) {
               text = String(scoreData![layer.id]).trim();
             }
-            // 2) Manual fill dari certificateData/certData by layer.id (untuk field tambahan di wizard)
+            // 2) Check if layer.id exists in variableData (for dynamic variables like {perusahaan})
+            else if (variableData[layer.id] && String(variableData[layer.id]).trim() !== '') {
+              text = String(variableData[layer.id]).trim();
+            }
+            // 3) Manual fill dari certificateData/certData by layer.id (untuk field tambahan di wizard)
             else if (hasCertDataKey) {
               const raw = certDataMap[layer.id];
               text = raw === undefined || raw === null ? '' : String(raw);
             }
-            // 3) Auto fields standar di sisi back (name, certificate_no, issue_date, expired_date, score_date)
+            // 4) Auto fields standar di sisi back (name, certificate_no, issue_date, expired_date, score_date)
             else if (isStandardAutoField) {
               if (layer.id === 'name') text = member.name;
               else if (layer.id === 'certificate_no') text = finalCertData.certificate_no || '';
@@ -1466,7 +1511,8 @@ function CertificatesContent(): ReactElement {
               }
             }
 
-            const hasAnyExplicitData = hasScoreValue || hasCertDataKey || isStandardAutoField;
+            const hasScoreVariableData = !!(variableData[layer.id] && String(variableData[layer.id]).trim() !== '');
+            const hasAnyExplicitData = hasScoreValue || hasScoreVariableData || hasCertDataKey || isStandardAutoField;
 
             // Handle richText preservation similar to main certificate
             if (
@@ -1492,24 +1538,6 @@ function CertificatesContent(): ReactElement {
               }
             }
 
-            const variableData: Record<string, string> = {
-              // Common certificate fields
-              name: member.name || '',
-              // Localized alias so template can use {nama} on back/score side as well
-              nama: member.name || '',
-              certificate_no: finalCertData.certificate_no || '',
-              description: finalCertData.description || '',
-              issue_date: formatDateString(finalCertData.issue_date, dateFormat),
-              expired_date: finalCertData.expired_date
-                ? formatDateString(finalCertData.expired_date, dateFormat)
-                : '',
-              // Semua field manual dari certificateData (wizard)
-              ...(certDataMap || {}),
-              // Excel row data (e.g. perusahaan, jurusan, dll) - same as front side
-              ...(excelRowData || {}),
-              // All score data (manual/Excel score fields) override Excel/manual if key sama
-              ...(scoreData || {}),
-            };
             
             if (processedRichText && processedRichText.length > 0) {
               const hasVars = processedRichText.some(span => span.text.includes('{'));
