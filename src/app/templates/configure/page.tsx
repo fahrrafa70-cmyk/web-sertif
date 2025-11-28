@@ -3717,44 +3717,22 @@ function ConfigureLayoutContent() {
                         />
                       </div>
 
-                      {/* Colors */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Foreground Color</Label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={selectedQR.foregroundColor || '#000000'}
-                              onChange={(e) => updateQRLayer(selectedQR.id, { foregroundColor: e.target.value })}
-                              className="h-8 w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
-                            />
-                            <Input
-                              type="text"
-                              value={selectedQR.foregroundColor || '#000000'}
-                              onChange={(e) => updateQRLayer(selectedQR.id, { foregroundColor: e.target.value })}
-                              className="h-8 text-xs flex-1"
-                              placeholder="#000000"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Background Color</Label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={selectedQR.backgroundColor || '#FFFFFF'}
-                              onChange={(e) => updateQRLayer(selectedQR.id, { backgroundColor: e.target.value })}
-                              className="h-8 w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
-                            />
-                            <Input
-                              type="text"
-                              value={selectedQR.backgroundColor || '#FFFFFF'}
-                              onChange={(e) => updateQRLayer(selectedQR.id, { backgroundColor: e.target.value })}
-                              className="h-8 text-xs flex-1"
-                              placeholder="#FFFFFF"
-                            />
-                          </div>
-                        </div>
+                      {/* Background Transparency */}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Transparent Background</Label>
+                        <label className="flex items-center gap-2 text-[11px]">
+                          <input
+                            type="checkbox"
+                            checked={selectedQR.backgroundColor === 'transparent'}
+                            onChange={(e) =>
+                              updateQRLayer(selectedQR.id, {
+                                backgroundColor: e.target.checked ? 'transparent' : '#FFFFFF',
+                              })
+                            }
+                            className="h-3 w-3 rounded border-gray-300 dark:border-gray-600"
+                          />
+                          <span className="text-gray-600 dark:text-gray-300">No white box</span>
+                        </label>
                       </div>
 
                       {/* Layer Order */}
