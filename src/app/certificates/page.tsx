@@ -1418,25 +1418,7 @@ function CertificatesContent(): ReactElement {
           
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
-<<<<<<< HEAD
             let processedRichText = layer.richText;
-            
-            if (scoreData && 
-                scoreData[layer.id] !== undefined && 
-                scoreData[layer.id] !== null && 
-                scoreData[layer.id] !== '' &&
-                String(scoreData[layer.id]).trim() !== '') {
-              text = String(scoreData[layer.id]).trim();
-              
-              // DEBUG: Log score layer text assignment
-              console.log(`🎨 [RENDER LAYER] "${layer.id}":`, {
-                text: text.substring(0, 50),
-                fontSize: layer.fontSize,
-                textAlign: layer.textAlign,
-                xPercent: layer.xPercent,
-                yPercent: layer.yPercent
-              });
-=======
 
             const certDataMap = certData as unknown as Record<string, string>;
 
@@ -1464,7 +1446,6 @@ function CertificatesContent(): ReactElement {
             // 1) Data score eksplisit (manual / Excel score)
             if (hasScoreValue) {
               text = String(scoreData![layer.id]).trim();
->>>>>>> 37295bd6832a8c63ca4909611724399aa8ac3c0c
             }
             // 2) Manual fill dari certificateData/certData by layer.id (untuk field tambahan di wizard)
             else if (hasCertDataKey) {
@@ -1485,11 +1466,30 @@ function CertificatesContent(): ReactElement {
               }
             }
 
+            const hasAnyExplicitData = hasScoreValue || hasCertDataKey || isStandardAutoField;
+
+            // Handle richText preservation similar to main certificate
+            if (
+              hasAnyExplicitData &&
+              processedRichText &&
+              processedRichText.length > 0 &&
+              !layer.hasInlineFormatting
+            ) {
+              const hasVarsInRich = processedRichText.some((span) =>
+                span.text.includes('{'),
+              );
+              if (!hasVarsInRich) {
+                processedRichText = undefined;
+              }
+            }
+
             // 4) Fallback ke defaultText untuk semua text layer tambahan
-            if (!text && layer.defaultText) {
+            if (!hasAnyExplicitData && !text && layer.defaultText) {
               text = layer.defaultText;
-              // CRITICAL FIX: Clear richText when using defaultText to ensure fontStyle from layer is applied
-              processedRichText = undefined;
+              // CRITICAL FIX: Only clear richText if layer doesn't have inline formatting
+              if (!layer.hasInlineFormatting) {
+                processedRichText = undefined;
+              }
             }
 
             const variableData: Record<string, string> = {

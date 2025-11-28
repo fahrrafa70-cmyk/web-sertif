@@ -349,38 +349,8 @@ export async function renderCertificateToDataURL(
       }
 
       // SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
-      const isScoreLayer = (layer: RenderTextLayer) => {
-        // Check by ID first (including "Nilai / Prestasi" with space and slash)
-        if (
-          layer.id === "nilai" ||
-          layer.id === "prestasi" ||
-          layer.id === "Nilai / Prestasi"
-        ) {
-          return true;
-        }
-
-        // Check by text content (more reliable for custom layers)
-        if (layer.text) {
-          const text = layer.text.toLowerCase();
-          const scoreKeywords = ["nilai", "prestasi", "score", "skor"];
-          const hasScoreKeyword = scoreKeywords.some((keyword) =>
-            text.includes(keyword),
-          );
-          const hasNumbers = /\d+/.test(layer.text);
-
-          // Score layer characteristics:
-          // 1. Contains score keywords OR numbers
-          // 2. Font size typically 20-30px
-          // 3. Not a default layer
-          return (
-            (hasScoreKeyword || hasNumbers) &&
-            layer.fontSize >= 18 &&
-            layer.fontSize <= 30 &&
-            !["certificate_no", "issue_date", "name"].includes(layer.id)
-          );
-        }
-        return false;
-      };
+      // Note: isScoreLayer function defined but not currently used in this context
+      // Keeping for potential future Y-axis adjustments
 
       // Y-adjustment is now applied directly in drawWrappedText() function
       // No adjustment needed here - pure percentage positioning
@@ -860,7 +830,7 @@ function drawRichText(
   scaleFactor: number = 1,
   layerId?: string, // Optional layer ID for Y-adjustment
   _textDecoration?: "underline" | "line-through" | "overline", // Optional text decoration (not yet implemented for rich text)
-  isUbigTemplate: boolean = false,
+  _isUbigTemplate: boolean = false, // Currently unused, keeping for future UBIG-specific adjustments
   letterSpacing: number = 0,
   layerFontStyle: string = "normal",
   layerFontWeight: string = "normal",

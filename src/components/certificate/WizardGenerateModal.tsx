@@ -34,11 +34,8 @@ import { useLanguage } from "@/contexts/language-context";
 import { toast } from "sonner";
 import Image from "next/image";
 import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
-<<<<<<< HEAD
 import { autoMapColumns, validateMapping, mergeExcelData } from "@/lib/utils/excel-mapping";
-=======
 import { extractVariablesFromLayer } from "@/lib/utils/variable-parser";
->>>>>>> 37295bd6832a8c63ca4909611724399aa8ac3c0c
 
 interface WizardGenerateModalProps {
   open: boolean;
@@ -706,20 +703,16 @@ export function WizardGenerateModal({
 
   const renderStep3 = () => {
     const templateFields = getTemplateFields;
-<<<<<<< HEAD
-    const hasFields = templateFields.length > 0;
     const mainLayers = getMainTextLayers();
     const scoreLayers = getScoreTextLayers();
     const excelColumns = Object.keys(excelData[0] || {});
     const hasExcelMapping = dataSource === 'excel' && excelData.length > 0;
-=======
     // Pastikan field "description" (paragraf penuh) tidak pernah muncul sebagai input wizard,
     // tapi BIARKAN field dinamis seperti {nilai}, {juara}, dll tetap muncul.
     const filteredTemplateFields = templateFields.filter(
       (field) => field.id !== 'description',
     );
     const hasFields = filteredTemplateFields.length > 0;
->>>>>>> 37295bd6832a8c63ca4909611724399aa8ac3c0c
     
     return (
       <div className="space-y-4">
