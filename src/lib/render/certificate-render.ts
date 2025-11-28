@@ -1288,8 +1288,8 @@ async function renderQRLayer(
     width,
     height,
     errorCorrectionLevel: layer.errorCorrectionLevel || "M",
-    // Use 0 as default margin so QR code fully occupies the configured box size
-    margin: layer.margin ?? 0,
+    // Force margin 0 so QR code fully occupies the configured box size
+    margin: 0,
     color: {
       dark: layer.foregroundColor || "#000000",
       light: layer.backgroundColor || "#FFFFFF",

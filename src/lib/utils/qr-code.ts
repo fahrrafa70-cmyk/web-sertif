@@ -31,10 +31,16 @@ export async function generateQRCodeDataURL(
   options: QRCodeGenerationOptions = {}
 ): Promise<string> {
   try {
+    const targetWidth =
+      typeof options.width === 'number' && !Number.isNaN(options.width) && options.width > 0
+        ? options.width
+        : 300;
+
     const qrOptions: QRCode.QRCodeToDataURLOptions = {
       errorCorrectionLevel: options.errorCorrectionLevel || 'M',
       type: 'image/png',
-      width: options.width || 300,
+      // Use explicit width from caller when provided; only fallback to 300 when missing.
+      width: targetWidth,
       margin: options.margin ?? 4,
       color: {
         dark: options.color?.dark || '#000000',
@@ -61,10 +67,16 @@ export async function generateQRCodeBuffer(
   options: QRCodeGenerationOptions = {}
 ): Promise<Buffer> {
   try {
+    const targetWidth =
+      typeof options.width === 'number' && !Number.isNaN(options.width) && options.width > 0
+        ? options.width
+        : 300;
+
     const qrOptions: QRCode.QRCodeToBufferOptions = {
       errorCorrectionLevel: options.errorCorrectionLevel || 'M',
       type: 'png',
-      width: options.width || 300,
+      // Use explicit width from caller when provided; only fallback to 300 when missing.
+      width: targetWidth,
       margin: options.margin ?? 4,
       color: {
         dark: options.color?.dark || '#000000',
