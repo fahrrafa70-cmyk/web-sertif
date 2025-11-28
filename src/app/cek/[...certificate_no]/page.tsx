@@ -395,8 +395,11 @@ export default function PublicCertificatePage() {
       {/* Header - Use ModernHeader without auth and mobile sidebar */}
       <ModernHeader hideAuth={true} hideMobileSidebar={true} />
 
-      {/* Main Content - Add padding-top for fixed header */}
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 md:py-12" style={{ paddingTop: 'var(--header-height-mobile, 72px)' }}>
+      {/* Main Content - Add padding-top for fixed header plus extra gap for status badge */}
+      <main
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 md:py-12"
+        style={{ paddingTop: 'calc(var(--header-height-mobile, 72px) + 24px)' }}
+      >
         <div className="w-full max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
