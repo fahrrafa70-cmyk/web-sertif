@@ -676,6 +676,9 @@ function CertificatesContent(): ReactElement {
           yPercent: layer.yPercent !== undefined ? layer.yPercent : (layer.y || 0) / STANDARD_CANVAS_HEIGHT,
           maxWidth: layer.maxWidth || 300, // Default maxWidth if missing
           lineHeight: layer.lineHeight || 1.2, // Default lineHeight if missing
+          // CRITICAL FIX: Ensure fontStyle exists (default to 'normal' for old data)
+          fontStyle: layer.fontStyle || 'normal',
+          fontWeight: layer.fontWeight || 'normal',
         }));
         
         // CRITICAL FIX: Handle both nested and flat photoLayers structure for backward compatibility
@@ -1062,10 +1065,12 @@ function CertificatesContent(): ReactElement {
       // (Excel/score/certData) DAN richText TIDAK mengandung variabel,
       // abaikan richText supaya renderer memakai `text` hasil mapping,
       // bukan default text dari template.
+      // CRITICAL FIX: Preserve richText if layer has inline formatting
       if (
         hasAnyExplicitData &&
         processedRichText &&
-        processedRichText.length > 0
+        processedRichText.length > 0 &&
+        !layer.hasInlineFormatting
       ) {
         const hasVarsInRich = processedRichText.some((span) =>
           span.text.includes('{'),
@@ -1081,6 +1086,11 @@ function CertificatesContent(): ReactElement {
       //    (tanpa bergantung ketat pada flag useDefaultText).
       if (!hasAnyExplicitData && !isStandardAutoField && !text && layer.defaultText) {
         text = layer.defaultText;
+        // CRITICAL FIX: Only clear richText if layer doesn't have inline formatting
+        // Rich text with formatting should be preserved as it's part of template design
+        if (!layer.hasInlineFormatting) {
+          processedRichText = undefined;
+        }
       }
 
       if (processedRichText && processedRichText.length > 0) {
@@ -1380,6 +1390,10 @@ function CertificatesContent(): ReactElement {
             yPercent: layer.yPercent !== undefined ? layer.yPercent : (layer.y || 0) / STANDARD_CANVAS_HEIGHT,
             maxWidth: layer.maxWidth || 300,
             lineHeight: layer.lineHeight || 1.2,
+            // CRITICAL FIX: Ensure fontStyle exists (default to 'normal' for old data)
+            fontStyle: layer.fontStyle || 'normal',
+            // CRITICAL FIX: Ensure fontWeight exists (default to 'normal' for old data)
+            fontWeight: layer.fontWeight || 'normal',
           }));
           const scorePhotoLayersRaw = scoreLayoutConfig.photoLayers || [];
           const scorePhotoLayersForRender = scorePhotoLayersRaw.map(layer => ({
@@ -1404,6 +1418,7 @@ function CertificatesContent(): ReactElement {
           
           const scoreTextLayers: RenderTextLayer[] = migratedScoreLayers.map((layer: TextLayerConfig) => {
             let text = '';
+            let processedRichText = layer.richText;
 
             const certDataMap = certData as unknown as Record<string, string>;
 
@@ -1451,9 +1466,30 @@ function CertificatesContent(): ReactElement {
               }
             }
 
+            const hasAnyExplicitData = hasScoreValue || hasCertDataKey || isStandardAutoField;
+
+            // Handle richText preservation similar to main certificate
+            if (
+              hasAnyExplicitData &&
+              processedRichText &&
+              processedRichText.length > 0 &&
+              !layer.hasInlineFormatting
+            ) {
+              const hasVarsInRich = processedRichText.some((span) =>
+                span.text.includes('{'),
+              );
+              if (!hasVarsInRich) {
+                processedRichText = undefined;
+              }
+            }
+
             // 4) Fallback ke defaultText untuk semua text layer tambahan
-            if (!text && layer.defaultText) {
+            if (!hasAnyExplicitData && !text && layer.defaultText) {
               text = layer.defaultText;
+              // CRITICAL FIX: Only clear richText if layer doesn't have inline formatting
+              if (!layer.hasInlineFormatting) {
+                processedRichText = undefined;
+              }
             }
 
             const variableData: Record<string, string> = {
@@ -1475,7 +1511,6 @@ function CertificatesContent(): ReactElement {
               ...(scoreData || {}),
             };
             
-            let processedRichText = layer.richText;
             if (processedRichText && processedRichText.length > 0) {
               const hasVars = processedRichText.some(span => span.text.includes('{'));
               if (hasVars) {

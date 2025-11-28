@@ -349,38 +349,8 @@ export async function renderCertificateToDataURL(
       }
 
       // SMART LAYER DETECTION & Y-AXIS ADJUSTMENT
-      const isScoreLayer = (layer: RenderTextLayer) => {
-        // Check by ID first (including "Nilai / Prestasi" with space and slash)
-        if (
-          layer.id === "nilai" ||
-          layer.id === "prestasi" ||
-          layer.id === "Nilai / Prestasi"
-        ) {
-          return true;
-        }
-
-        // Check by text content (more reliable for custom layers)
-        if (layer.text) {
-          const text = layer.text.toLowerCase();
-          const scoreKeywords = ["nilai", "prestasi", "score", "skor"];
-          const hasScoreKeyword = scoreKeywords.some((keyword) =>
-            text.includes(keyword),
-          );
-          const hasNumbers = /\d+/.test(layer.text);
-
-          // Score layer characteristics:
-          // 1. Contains score keywords OR numbers
-          // 2. Font size typically 20-30px
-          // 3. Not a default layer
-          return (
-            (hasScoreKeyword || hasNumbers) &&
-            layer.fontSize >= 18 &&
-            layer.fontSize <= 30 &&
-            !["certificate_no", "issue_date", "name"].includes(layer.id)
-          );
-        }
-        return false;
-      };
+      // Note: isScoreLayer function defined but not currently used in this context
+      // Keeping for potential future Y-axis adjustments
 
       // Y-adjustment is now applied directly in drawWrappedText() function
       // No adjustment needed here - pure percentage positioning
@@ -452,6 +422,7 @@ export async function renderCertificateToDataURL(
       // Render text (rich text or regular)
       if (layer.richText && layer.hasInlineFormatting) {
         // CRITICAL: Pass scaleFactor so span fontSizes can be scaled correctly
+        // CRITICAL FIX: Pass layer's fontStyle so spans without their own fontStyle inherit from layer
         drawRichText(
           ctx,
           layer.richText,
@@ -466,6 +437,8 @@ export async function renderCertificateToDataURL(
           isDecoration ? style : undefined, // Pass decoration style
           isUbigTemplate,
           scaledLetterSpacing,
+          fontStyle, // Pass layer's fontStyle for inheritance
+          fontWeight, // Pass layer's fontWeight for inheritance
         );
       } else {
         drawWrappedText(
@@ -842,6 +815,8 @@ function drawWrappedText(
  * @param _textDecoration Optional text decoration (not yet implemented for rich text)
  * @param isUbigTemplate Whether the template is UBIG
  * @param letterSpacing Letter spacing (optional, default: 0)
+ * @param layerFontStyle Layer's fontStyle to inherit when span doesn't have its own
+ * @param layerFontWeight Layer's fontWeight to inherit when span doesn't have its own
  */
 function drawRichText(
   ctx: CanvasRenderingContext2D,
@@ -855,8 +830,10 @@ function drawRichText(
   scaleFactor: number = 1,
   layerId?: string, // Optional layer ID for Y-adjustment
   _textDecoration?: "underline" | "line-through" | "overline", // Optional text decoration (not yet implemented for rich text)
-  isUbigTemplate: boolean = false,
+  _isUbigTemplate: boolean = false, // Currently unused, keeping for future UBIG-specific adjustments
   letterSpacing: number = 0,
+  layerFontStyle: string = "normal",
+  layerFontWeight: string = "normal",
 ) {
   const lineHeightPx = baseFontSize * lineHeight;
 
@@ -960,8 +937,8 @@ function drawRichText(
       const spanFontSize = span.fontSize
         ? Math.round(span.fontSize * scaleFactor)
         : baseFontSize;
-      const spanFontStyle = span.fontStyle || "normal";
-      const spanFontWeight = span.fontWeight || "normal";
+      const spanFontStyle = span.fontStyle || layerFontStyle || "normal";
+      const spanFontWeight = span.fontWeight || layerFontWeight || "normal";
       const spanFont = `${spanFontStyle} ${spanFontWeight} ${spanFontSize}px ${span.fontFamily || "Arial"}`;
       ctx.font = spanFont;
       const baseWidth = ctx.measureText(span.text).width;
@@ -982,8 +959,8 @@ function drawRichText(
 
     // Draw each span
     line.spans.forEach((span) => {
-      const spanFontWeight = span.fontWeight || "normal";
-      const spanFontStyle = span.fontStyle || "normal";
+      const spanFontWeight = span.fontWeight || layerFontWeight || "normal";
+      const spanFontStyle = span.fontStyle || layerFontStyle || "normal";
       // CRITICAL: Scale span fontSize if provided, otherwise use base (already scaled)
       const spanFontSize = span.fontSize
         ? Math.round(span.fontSize * scaleFactor)
@@ -1311,7 +1288,7 @@ async function renderQRLayer(
   const qrDataURL = await generateQRCodeDataURL(layer.qrData, {
     width,
     height,
-    errorCorrectionLevel: layer.errorCorrectionLevel ||  "M",
+    errorCorrectionLevel: layer.errorCorrectionLevel || "M",
     // Use 0 as default margin so QR code fully occupies the configured box size
     margin: layer.margin ?? 0,
     color: {

@@ -6,7 +6,7 @@
  * Step 4: Preview & Generate
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,10 +29,12 @@ import { Template, getTemplatePreviewUrl, getTemplateLayout } from "@/lib/supaba
 import { Member } from "@/lib/supabase/members";
 import { QuickGenerateParams } from "./QuickGenerateModal";
 import { ExcelUploadWizard } from "./ExcelUploadWizard";
+import { ColumnMappingStep } from "./ColumnMappingStep";
 import { useLanguage } from "@/contexts/language-context";
 import { toast } from "sonner";
 import Image from "next/image";
 import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
+import { autoMapColumns, validateMapping, mergeExcelData } from "@/lib/utils/excel-mapping";
 import { extractVariablesFromLayer } from "@/lib/utils/variable-parser";
 
 interface WizardGenerateModalProps {
@@ -75,6 +77,10 @@ export function WizardGenerateModal({
   const [excelData, setExcelData] = useState<Array<Record<string, unknown>>>([]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   
+  // Excel column mapping state
+  const [excelMainMapping, setExcelMainMapping] = useState<Record<string, string>>({});
+  const [excelScoreMapping, setExcelScoreMapping] = useState<Record<string, string>>({});
+  
   // Step 3: Fill Data & Dates
   const [dateFormat, setDateFormat] = useState<DateFormat>('dd-mm-yyyy');
   const [issueDate, setIssueDate] = useState(() => {
@@ -87,7 +93,7 @@ export function WizardGenerateModal({
     expiry.setFullYear(expiry.getFullYear() + 3);
     return expiry.toISOString().split('T')[0];
   });
-  const [certificateData, setCertificateData] = useState<Record<string, any>>({
+  const [certificateData, setCertificateData] = useState<Record<string, string>>({
     certificate_no: ''
   });
 
@@ -101,6 +107,8 @@ export function WizardGenerateModal({
       setExcelData([]);
       setSelectedMembers([]);
       setCertificateData({ certificate_no: '', description: '' });
+      setExcelMainMapping({});
+      setExcelScoreMapping({});
     }
   }, [open]);
 
@@ -141,6 +149,50 @@ export function WizardGenerateModal({
       setExpiredDate(expiry.toISOString().split('T')[0]);
     }
   }, [issueDate]);
+
+  // Get main text layers for mapping
+  const getMainTextLayers = React.useCallback((): TextLayerConfig[] => {
+    if (!layoutConfig?.certificate?.textLayers) return [];
+    return layoutConfig.certificate.textLayers.filter(layer => {
+      // Exclude useDefaultText layers and auto-generated fields
+      if (layer.useDefaultText) return false;
+      if (['certificate_no', 'issue_date', 'expired_date'].includes(layer.id)) return false;
+      return true;
+    });
+  }, [layoutConfig]);
+
+  // Get score text layers for dual template
+  const getScoreTextLayers = React.useCallback((): TextLayerConfig[] => {
+    if (!layoutConfig?.score?.textLayers) return [];
+    return layoutConfig.score.textLayers.filter(layer => {
+      if (layer.useDefaultText) return false;
+      if (['certificate_no', 'issue_date', 'expired_date', 'score_date', 'name'].includes(layer.id)) return false;
+      return true;
+    });
+  }, [layoutConfig]);
+
+  // Auto-mapping when Excel data is loaded
+  useEffect(() => {
+    if (excelData.length > 0 && layoutConfig) {
+      const mainColumns = Object.keys(excelData[0] || {});
+      const mainLayers = getMainTextLayers();
+      
+      // Auto-map main columns
+      if (mainLayers.length > 0 && mainColumns.length > 0) {
+        const autoMapping = autoMapColumns(mainColumns, mainLayers);
+        setExcelMainMapping(autoMapping);
+      }
+      
+      // Auto-map score columns for dual template
+      if (selectedTemplate?.is_dual_template) {
+        const scoreLayers = getScoreTextLayers();
+        if (scoreLayers.length > 0 && mainColumns.length > 0) {
+          const scoreAutoMapping = autoMapColumns(mainColumns, scoreLayers);
+          setExcelScoreMapping(scoreAutoMapping);
+        }
+      }
+    }
+  }, [excelData, layoutConfig, selectedTemplate, getMainTextLayers, getScoreTextLayers]);
 
   const handleNext = () => {
     if (currentStep < 4) {
@@ -183,6 +235,13 @@ export function WizardGenerateModal({
           if (hasEmptyRequiredField) return false;
         }
 
+        // When using Excel data, validate that mapping is complete
+        if (dataSource === 'excel') {
+          const mainLayers = getMainTextLayers();
+          const validation = validateMapping(excelMainMapping, mainLayers);
+          if (!validation.valid) return false;
+        }
+
         return true;
       default:
         return true;
@@ -219,11 +278,42 @@ export function WizardGenerateModal({
 
         await onGenerate(params);
       } else {
+        // Transform Excel data using mapping before sending
+        let finalExcelData: Array<Record<string, unknown>>;
+        
+        if (selectedTemplate?.is_dual_template) {
+          // For dual template, merge main and score mappings
+          finalExcelData = mergeExcelData(
+            excelData,
+            excelData, // Use same data for both (single Excel file)
+            excelMainMapping,
+            excelScoreMapping
+          );
+        } else {
+          // Transform main data only using mapping
+          finalExcelData = excelData.map(row => {
+            const transformed: Record<string, unknown> = {};
+            for (const [layerId, excelCol] of Object.entries(excelMainMapping)) {
+              transformed[layerId] = row[excelCol];
+            }
+            // Keep original columns for reference
+            return { ...row, ...transformed };
+          });
+        }
+        
         const params: QuickGenerateParams = {
           template: selectedTemplate,
           dataSource: 'excel',
           dateFormat,
-          excelData
+          excelData: finalExcelData,
+          excelMainMapping,
+          excelScoreMapping: selectedTemplate?.is_dual_template ? excelScoreMapping : undefined,
+          certificateData: {
+            certificate_no: certificateData.certificate_no || '',
+            description: certificateData.description || '',
+            issue_date: issueDate,
+            expired_date: expiredDate,
+          }
         };
         
         await onGenerate(params);
@@ -613,6 +703,10 @@ export function WizardGenerateModal({
 
   const renderStep3 = () => {
     const templateFields = getTemplateFields;
+    const mainLayers = getMainTextLayers();
+    const scoreLayers = getScoreTextLayers();
+    const excelColumns = Object.keys(excelData[0] || {});
+    const hasExcelMapping = dataSource === 'excel' && excelData.length > 0;
     // Pastikan field "description" (paragraf penuh) tidak pernah muncul sebagai input wizard,
     // tapi BIARKAN field dinamis seperti {nilai}, {juara}, dll tetap muncul.
     const filteredTemplateFields = templateFields.filter(
@@ -624,11 +718,40 @@ export function WizardGenerateModal({
       <div className="space-y-4">
         <div className="text-center">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            {t('wizardGenerate.step3Title')}
+            {dataSource === 'excel' ? t('wizardGenerate.step3TitleExcel') || 'Map Data & Settings' : t('wizardGenerate.step3Title')}
           </h3>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Column Mapping (for Excel) or Template Fields (for Member) */}
+          {hasExcelMapping && (
+            <div className="lg:col-span-1">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-4">
+                  <FileSpreadsheet className="w-5 h-5 text-green-500" />
+                  Column Mapping
+                </h4>
+                
+                <div className="max-h-[300px] overflow-y-auto">
+                  <ColumnMappingStep
+                    isDualTemplate={selectedTemplate?.is_dual_template || false}
+                    dataSource={dataSource}
+                    mainColumns={excelColumns}
+                    mainLayers={mainLayers}
+                    mainMapping={excelMainMapping}
+                    mainPreviewData={excelData[0] || {}}
+                    onMainMappingChange={setExcelMainMapping}
+                    scoreColumns={excelColumns}
+                    scoreLayers={scoreLayers}
+                    scoreMapping={excelScoreMapping}
+                    _scorePreviewData={excelData[0] || {}}
+                    onScoreMappingChange={setExcelScoreMapping}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Left Column - Template Fields (only for member data) */}
           {dataSource === 'member' && hasFields && (
             <div className="lg:col-span-1">
@@ -669,7 +792,7 @@ export function WizardGenerateModal({
           )}
 
           {/* Right Column - Date Settings & Basic Data */}
-          <div className={`${dataSource === 'member' && hasFields ? 'lg:col-span-1' : 'lg:col-span-2'}`}>
+          <div className={`${(hasExcelMapping || (dataSource === 'member' && hasFields)) ? 'lg:col-span-1' : 'lg:col-span-2'}`}>
             <div className="space-y-4">
               {/* Basic Certificate Data */}
               <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
