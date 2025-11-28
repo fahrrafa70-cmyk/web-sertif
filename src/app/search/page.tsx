@@ -1683,17 +1683,17 @@ function SearchResultsContent() {
                                         className="max-w-full max-h-full"
                                         style={{
                                           objectFit: 'contain',
-                                          opacity: 0.85,
-                                          pointerEvents: 'none',
-                                          width: 'auto',
+                                          width: '100%',
                                           height: 'auto',
                                         }}
+                                        width={800}
+                                        height={600}
                                         onError={(e) => {
                                           console.error('Failed to load expired overlay image:', expiredOverlayUrl);
                                           e.currentTarget.style.display = 'none';
                                         }}
                                         onLoad={() => {
-                                          console.log('Expired overlay image loaded successfully');
+                                          // Overlay loaded successfully
                                         }}
                                       />
                                     </div>

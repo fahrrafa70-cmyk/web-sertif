@@ -664,49 +664,31 @@ export default function HeroSection() {
       return;
     }
 
-    // Jalankan search dulu di landing supaya ketika diarahkan ke /search,
-    // data sudah pasti ada (atau sudah pasti tidak ada).
+    // Set loading state for button and clear previous errors
     setSearching(true);
     setSearchError("");
 
-    const searchFilters: SearchFilters = {
-      keyword: q,
-      category: filters.category,
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      tenant_id: tenantIdForSearch,
-    };
+    // Bangun query string untuk halaman /search
+    const params = new URLSearchParams();
+    params.set('q', q);
+    if (filters.category) params.set('category', filters.category);
+    if (filters.startDate) params.set('startDate', filters.startDate);
+    if (filters.endDate) params.set('endDate', filters.endDate);
 
-    try {
-      const results = await advancedSearchCertificates(searchFilters);
-      setSearchResults(results);
-      setShowResults(results.length > 0);
-
-      // Bangun query string untuk halaman /search
-      const params = new URLSearchParams();
-      params.set('q', q);
-      if (filters.category) params.set('category', filters.category);
-      if (filters.startDate) params.set('startDate', filters.startDate);
-      if (filters.endDate) params.set('endDate', filters.endDate);
-
-      // Smooth transition: scroll to top first, then navigate
-      if (typeof window !== 'undefined') {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        setTimeout(() => {
-          router.push(`/search?${params.toString()}`);
-        }, 150);
-      } else {
+    // Smooth transition: scroll to top first, then navigate
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
         router.push(`/search?${params.toString()}`);
-      }
-    } catch (err) {
-      console.error('Hero search error:', err);
-      setSearchError(t('error.search.failed'));
-      setSearchResults([]);
-      setShowResults(false);
-    } finally {
-      setSearching(false);
+      }, 150);
+    } else {
+      router.push(`/search?${params.toString()}`);
     }
-  }, [certificateId, filters, selectedTenantId, router, t]);
+    // IMPORTANT: Do NOT setSearching(false) here.
+    // The hero section will unmount after navigation to /search,
+    // so we keep the loading state true until unmount to avoid
+    // the loading animation stopping prematurely.
+  }, [certificateId, filters.category, filters.startDate, filters.endDate, filters.tenant_id, selectedTenantId, router, safeT, t]);
 
   // Remove auto-search on typing - only search when button clicked
 
@@ -863,20 +845,17 @@ export default function HeroSection() {
                       suppressHydrationWarning
                     />
                   </div>
-                  <Button
+                  <LoadingButton
                     type="button"
                     onClick={handleSearch}
-                    disabled={searching}
+                    isLoading={searching}
+                    loadingText={t('search.searching') || 'Searching...'}
                     className="h-9 sm:h-10 px-3 sm:px-4 md:h-11 md:px-5 gradient-primary text-white rounded-lg sm:rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex items-center gap-1 sm:gap-2"
                   >
-                    <span className="hidden sm:inline" suppressHydrationWarning>{mounted ? t('hero.searchButton') : 'Search'}</span>
-                    <span className="sm:hidden" suppressHydrationWarning>{mounted ? t('hero.searchButton') : 'Search'}</span>
-                    {searching ? (
-                      <div className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 border-b-2 border-white rounded-full animate-spin" />
-                    ) : (
-                      <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                    )}
-                  </Button>
+                    <span className="hidden sm:inline">{t('search.search')}</span>
+                    <span className="sm:hidden">{t('search.searchShort') || 'Search'}</span>
+                    <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </LoadingButton>
                 </div>
                 
                 {/* Filter Icon Button */}
