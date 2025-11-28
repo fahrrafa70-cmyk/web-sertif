@@ -16,7 +16,13 @@ export default function PublicCertificatePage() {
   const params = useParams();
   const router = useRouter();
   const { language } = useLanguage();
-  const certificate_no = params?.certificate_no as string;
+
+  // Support catch-all route: /cek/[...certificate_no]
+  // params.certificate_no can be string | string[]
+  const rawCertParam = params?.certificate_no as string | string[] | undefined;
+  const certificate_no = Array.isArray(rawCertParam)
+    ? rawCertParam.join("/")
+    : (rawCertParam || "");
   
   const [certificate, setCertificate] = useState<Certificate | null>(null);
   const [loading, setLoading] = useState(true);
