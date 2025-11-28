@@ -222,6 +222,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               window.localStorage.setItem("ecert-role", fetchedRole || "public");
             } catch {}
             
+            // If registration was just confirmed via email link, a flag will be set
+            // by /auth/callback. Detect it here so UI layers can show a one-time
+            // success message if desired.
+            try {
+              if (typeof window !== 'undefined') {
+                const confirmed = window.localStorage.getItem('auth_registration_confirmed');
+                if (confirmed === '1') {
+                  window.localStorage.removeItem('auth_registration_confirmed');
+                  console.log('✅ Registration email confirmed and session established.');
+                }
+              }
+            } catch {
+              // Ignore storage errors; auth will still work without the flag.
+            }
+            
             // Clear cache on auth change to ensure fresh data
             try {
               const { dataCache } = await import('@/lib/cache/data-cache');

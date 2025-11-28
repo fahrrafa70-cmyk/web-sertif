@@ -138,13 +138,13 @@ function AuthCallbackContent() {
           return;
         }
 
-        // Process OAuth user immediately (don't wait for listener)
+        // Process auth user immediately (don't wait for listener)
         const normalizedEmail = user.email?.toLowerCase().trim();
         if (normalizedEmail) {
           try {
             setStatus(t('auth.callback.settingUpAccount'));
             
-            // Check if OAuth user
+            // Check if OAuth or email user
             const identity = user.identities?.[0];
             const authProvider = identity?.provider as 'google' | 'github' | 'email' | undefined;
             
@@ -154,6 +154,18 @@ function AuthCallbackContent() {
                 console.error('Error creating/updating OAuth user:', err);
                 // Continue anyway - might already exist
               });
+            }
+
+            // If this is an email-based confirmation (no OAuth provider or provider is 'email'),
+            // set a flag so the auth context can later show a one-time success toast.
+            if (!authProvider || authProvider === 'email') {
+              try {
+                if (typeof window !== 'undefined') {
+                  window.localStorage.setItem('auth_registration_confirmed', '1');
+                }
+              } catch {
+                // Ignore storage errors, confirmation will still succeed without toast
+              }
             }
 
             // Wait for auth state to be ready (user exists and role is set)

@@ -650,7 +650,7 @@ export async function deleteCertificate(id: string): Promise<void> {
     }
 
     if (!session) {
-      throw new Error("No active session. Please sign in again.");
+      throw new Error("No active session. Please Login again.");
     }
 
     // Delete images from Supabase Storage BEFORE deleting from database

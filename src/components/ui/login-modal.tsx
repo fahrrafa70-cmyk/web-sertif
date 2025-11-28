@@ -88,7 +88,10 @@ export function LoginModal() {
       }
 
       if (confirmPassword !== password) {
-        setConfirmPasswordError(t('error.login.invalidPassword') || 'Passwords do not match');
+        // Use a specific key for password mismatch to make the validation clearer
+        setConfirmPasswordError(
+          safeT('error.login.passwordMismatch', 'Passwords do not match')
+        );
         hasError = true;
       }
     }
@@ -118,7 +121,7 @@ export function LoginModal() {
         setInfoMessage(
           safeT(
             'login.registerCheckEmail',
-            'Pendaftaran berhasil. Silakan cek email Anda dan konfirmasi akun sebelum login.',
+            'Registration successful. Please check your email and confirm your account before logging in.',
           ),
         );
         setMode('login');
@@ -188,12 +191,12 @@ export function LoginModal() {
                 </div>
                 {mode === "login"
                   ? t('login.welcomeBack')
-                  : safeT('login.createAccount', 'Buat akun')}
+                  : safeT('login.createAccount', 'Create account')}
               </DialogTitle>
               <p className="text-white text-xs sm:text-sm mt-1">
                 {mode === "login"
                   ? t('login.signInMessage')
-                  : safeT('login.registerMessage', 'Daftar dengan email dan kata sandi Anda')}
+                  : safeT('login.registerMessage', 'Register with your email and password')}
               </p>
             </DialogHeader>
           </motion.div>
@@ -273,7 +276,7 @@ export function LoginModal() {
                   transition={{ duration: 0.3, delay: 0.25 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                    {safeT('profile.fullName', 'Nama lengkap')}
+                    {safeT('profile.fullName', 'Full name')}
                   </label>
                   <Input
                     type="text"
@@ -289,7 +292,7 @@ export function LoginModal() {
                         ? "border-red-300 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500 focus:ring-red-500/20 dark:focus:ring-red-500/20"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500/20 dark:focus:ring-blue-500/20"
                     }`}
-                    placeholder={safeT('profile.fullNamePlaceholder', 'Masukkan nama lengkap Anda')}
+                    placeholder={safeT('profile.fullNamePlaceholder', 'Enter your full name')}
                   />
                   {fullNameError && (
                     <motion.p
@@ -394,7 +397,7 @@ export function LoginModal() {
                   transition={{ duration: 0.3, delay: 0.45 }}
                 >
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                    {safeT('login.confirmPassword', 'Konfirmasi kata sandi')}
+                    {safeT('login.confirmPassword', 'Confirm password')}
                   </label>
                   <Input
                     type="password"
@@ -410,7 +413,7 @@ export function LoginModal() {
                         ? "border-red-300 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500 focus:ring-red-500/20 dark:focus:ring-red-500/20"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500/20 dark:focus:ring-blue-500/20"
                     }`}
-                    placeholder={safeT('login.confirmPasswordPlaceholder', 'Konfirmasi kata sandi Anda')}
+                    placeholder={safeT('login.confirmPasswordPlaceholder', 'Confirm your password')}
                   />
                   {confirmPasswordError && (
                     <motion.p
@@ -437,17 +440,17 @@ export function LoginModal() {
                 >
                   {loading || submitLoading
                     ? (mode === "login"
-                        ? safeT('login.signingIn', 'Sedang login...')
-                        : safeT('login.registering', 'Sedang mendaftar...'))
+                        ? safeT('login.signingIn', 'Loging in...')
+                        : safeT('login.registering', 'Registering...'))
                     : (mode === "login"
                         ? safeT('login.signInButton', 'Login')
-                        : safeT('login.registerButton', 'Daftar'))}
+                        : safeT('login.registerButton', 'Register'))}
                 </Button>
 
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
                   {mode === "login" ? (
                     <>
-                      {safeT('login.noAccount', 'Belum punya akun?')} {" "}
+                      {safeT('login.noAccount', "Don't have an account?")} {" "}
                       <button
                         type="button"
                         onClick={() => {
@@ -457,12 +460,12 @@ export function LoginModal() {
                         }}
                         className="font-semibold text-blue-600 hover:underline"
                       >
-                        {safeT('login.registerNow', 'Daftar Sekarang')}
+                        {safeT('login.registerNow', 'Register now')}
                       </button>
                     </>
                   ) : (
                     <>
-                      {safeT('login.haveAccount', 'Sudah punya akun?')} {" "}
+                      {safeT('login.haveAccount', 'Already have an account?')} {" "}
                       <button
                         type="button"
                         onClick={() => {
