@@ -1714,9 +1714,14 @@ function ConfigureLayoutContent() {
         updates.xPercent = newX / templateWidth;
       }
       
-      return prev.map(l => 
-        l.id === layerId ? { ...l, ...updates } : l
-      );
+      const result = prev.map(l => {
+        if (l.id === layerId) {
+          const updated = { ...l, ...updates };
+          return updated;
+        }
+        return l;
+      });
+      return result;
     });
   };
 
