@@ -459,30 +459,9 @@ export async function renderCertificateToDataURL(
     }
   }
 
-  // Convert to PNG DataURL with maximum quality for master file
-  // PNG ensures lossless quality for professional use (download/email/PDF)
-  // WebP preview will be generated separately from this PNG master
   return canvas.toDataURL("image/png", 1.0);
 }
 
-/**
- * Draw text with word wrapping
- *
- * CRITICAL POSITIONING LOGIC:
- * - The stored y coordinate represents the CENTER of the entire text block (matching configure page behavior)
- * - Configure page uses CSS transform: translate(..., -50%) which centers vertically
- * - We use textBaseline='top' and calculate startY to center the entire text block at y
- *
- * CRITICAL X POSITIONING LOGIC:
- * - For left: x is the LEFT edge of the text block (matching CSS left edge)
- * - For center: x is the CENTER of the text block (matching CSS center)
- * - For right: x is the RIGHT edge of the text block (matching CSS right edge)
- *
- * IMPORTANT: For text with maxWidth, CSS creates a container with width=maxWidth and aligns text inside it.
- * Canvas aligns each line independently. To match CSS behavior:
- * - For center/right with maxWidth: we need to align text within the maxWidth container
- * - The stored x coordinate represents the anchor point of the container, not individual lines
- */
 function drawWrappedText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -497,8 +476,6 @@ function drawWrappedText(
   isUbigTemplate: boolean = false,
   letterSpacing: number = 0,
 ) {
-  // CRITICAL: For "name" layer, prevent wrapping - text should shift left instead of wrapping down
-  // If text is longer than maxWidth, keep it as single line and adjust x position to shift left
   const isNameLayer = layerId === "name";
 
   const words = text.split(" ");
