@@ -2855,10 +2855,10 @@ function CertificatesContent(): ReactElement {
                             const isData = srcRaw.startsWith('data:');
                             const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
-                            // CRITICAL: Use WebP thumbnail for view full image (faster loading), fallback to PNG master
-                            const imageUrl = previewMode === 'score' 
-                              ? (previewCertificate?.score_thumbnail_url || previewCertificate?.score_image_url)
-                              : (previewCertificate.certificate_thumbnail_url || previewCertificate.certificate_image_url);
+                            // For full view, always use PNG master from Supabase; thumbnails (src) may be WebP.
+                            const imageUrl = previewMode === 'score'
+                              ? previewCertificate?.score_image_url
+                              : previewCertificate?.certificate_image_url;
                             return (
                               <div 
                                 className={`relative w-full h-full ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}

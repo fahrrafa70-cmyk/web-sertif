@@ -20,22 +20,7 @@ export function confirmToast(message: string, options: ConfirmOptions = {}): Pro
     
     toast.custom((t) => (
       <div 
-        className="!fixed !inset-0 !z-[9999] !flex !items-center !justify-center !p-4 pointer-events-none"
-        style={{ 
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '1rem',
-          margin: 0,
-          transform: 'none',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        }}
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none bg-black/30"
       >
         <div 
           className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl p-6 text-gray-800 dark:text-gray-100 pointer-events-auto"
@@ -89,18 +74,9 @@ export function confirmToast(message: string, options: ConfirmOptions = {}): Pro
     ), {
       duration: Infinity,
       id: toastId,
-      className: "!fixed !inset-0 !m-0 !p-0 !w-full !h-full !max-w-full !flex !items-center !justify-center",
+      // Neutralize Sonner's transform for this toast so our fixed overlay stays centered,
+      // without forcing full-screen width/height on the toast root.
       style: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        margin: 0,
-        padding: 0,
-        width: '100%',
-        height: '100%',
-        maxWidth: '100%',
         transform: 'none',
         zIndex: 9999,
       },

@@ -1632,25 +1632,25 @@ function SearchResultsContent() {
                     {previewCert.certificate_image_url ? (
                       (() => {
                         const isExpired = isCertificateExpired(previewCert);
-                        // CRITICAL: Use WebP thumbnail for view full image (faster loading), fallback to PNG master
-                        // Priority: 1) certificate_thumbnail_url from DB, 2) Auto-generated from master URL, 3) PNG master
+                        // Thumbnail (may be WebP) is only for in-app preview. Full image must use PNG master from Supabase.
                         const thumbnailUrl = previewCert.certificate_thumbnail_url || getThumbnailUrl(previewCert.certificate_image_url);
-                        const imageUrl = thumbnailUrl || previewCert.certificate_image_url;
+                        const fullImageUrl = previewCert.certificate_image_url;
+                        const imageUrl = thumbnailUrl || fullImageUrl || previewCert.certificate_image_url;
                         return (
                           <div
                             className={`relative w-full ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
                             role={isExpired ? undefined : "button"}
                             tabIndex={isExpired ? undefined : 0}
                             onClick={() => {
-                              if (!isExpired && imageUrl) {
-                                handleOpenImagePreview(imageUrl, previewCert.updated_at);
+                              if (!isExpired && fullImageUrl) {
+                                handleOpenImagePreview(fullImageUrl, previewCert.updated_at);
                               }
                             }}
                             onKeyDown={(e) => {
                               if (!isExpired && (e.key === 'Enter' || e.key === ' ')) {
                                 e.preventDefault();
-                                if (imageUrl) {
-                                  handleOpenImagePreview(imageUrl, previewCert.updated_at);
+                                if (fullImageUrl) {
+                                  handleOpenImagePreview(fullImageUrl, previewCert.updated_at);
                                 }
                               }
                             }}
