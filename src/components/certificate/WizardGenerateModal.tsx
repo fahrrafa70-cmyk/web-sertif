@@ -34,7 +34,11 @@ import { useLanguage } from "@/contexts/language-context";
 import { toast } from "sonner";
 import Image from "next/image";
 import type { TemplateLayoutConfig, TextLayerConfig } from "@/types/template-layout";
+<<<<<<< HEAD
 import { autoMapColumns, validateMapping, mergeExcelData } from "@/lib/utils/excel-mapping";
+=======
+import { extractVariablesFromLayer } from "@/lib/utils/variable-parser";
+>>>>>>> 37295bd6832a8c63ca4909611724399aa8ac3c0c
 
 interface WizardGenerateModalProps {
   open: boolean;
@@ -220,7 +224,10 @@ export function WizardGenerateModal({
         // When using member data, all template fields that appear in the manual fill section
         // must have a non-empty value in certificateData
         if (dataSource === 'member') {
-          const templateFields = getTemplateFields;
+          // Selaraskan dengan renderStep3: abaikan field "description" yang tidak ditampilkan
+          const templateFields = getTemplateFields.filter(
+            (field) => field.id !== 'description',
+          );
 
           const hasEmptyRequiredField = templateFields.some((field) => {
             const rawValue = certificateData[field.id as keyof typeof certificateData];
@@ -325,7 +332,7 @@ export function WizardGenerateModal({
   };
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-center mb-8">
+    <div className="hidden sm:flex items-center justify-center mb-8">
       {[1, 2, 3, 4].map((step) => (
         <React.Fragment key={step}>
           <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
@@ -350,7 +357,7 @@ export function WizardGenerateModal({
   );
 
   const renderStep1 = () => (
-    <div className="space-y-4">
+    <div className="space-y-4 px-1 sm:px-0">
       <div className="text-center">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
           {t('wizardGenerate.step1Title')}
@@ -367,36 +374,37 @@ export function WizardGenerateModal({
           templates.map(template => {
             const imageUrl = getTemplatePreviewUrl(template);
             const isSelected = selectedTemplate?.id === template.id;
-            
+
             return (
               <div
                 key={template.id}
                 onClick={() => setSelectedTemplate(template)}
-                className={`group bg-white dark:bg-gray-800 rounded-lg border overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 ease-out cursor-pointer flex flex-row h-[140px] w-full transform will-change-transform ${
+                className={`group bg-white dark:bg-gray-800 rounded-lg border overflow-hidden shadow-sm hover:shadow-md transition-transform duration-150 ease-out cursor-pointer flex flex-col sm:flex-row w-full min-h-[140px] ${
                   isSelected
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-lg ring-2 ring-blue-200 dark:ring-blue-800'
+                    ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 shadow-md'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                 }`}
               >
-                {/* Template Thumbnail - HIGHLIGHTED Left Side */}
-                <div className={`relative w-[120px] h-full flex-shrink-0 overflow-hidden border-r ${
-                  isSelected 
-                    ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-400 ring-2 ring-blue-300 ring-inset' 
-                    : 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700'
-                }`}>
+                {/* Template Thumbnail */}
+                <div
+                  className={`relative w-full sm:w-[120px] h-[150px] sm:h-[150px] flex-shrink-0 overflow-hidden border-b sm:border-b-0 sm:border-r ${
+                    isSelected
+                      ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700'
+                      : 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700'
+                  }`}
+                >
                   {imageUrl ? (
                     <Image
                       src={imageUrl}
                       alt={template.name}
                       width={120}
-                      height={140}
-                      className={`w-full h-full object-contain transition-all duration-300 ${
-                        isSelected ? 'scale-110 brightness-110' : 'group-hover:scale-105'
+                      height={150}
+                      className={`w-full h-full object-contain transition-transform duration-300 ${
+                        isSelected ? 'brightness-110' : 'group-hover:scale-105'
                       }`}
                       sizes="120px"
                       priority={false}
                       loading="lazy"
-                      quality={85}
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -420,16 +428,11 @@ export function WizardGenerateModal({
                     )}
                   </div>
 
-                  {/* Selected Indicator - Top Right */}
+                  {/* Selected Indicator - Top Right (simple check badge) */}
                   {isSelected && (
-                    <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center z-10 shadow-lg animate-pulse">
-                      <CheckCircle className="w-4 h-4 text-white" />
+                    <div className="absolute top-2 right-2 flex items-center justify-center rounded-full bg-blue-500 text-white w-6 h-6 shadow-sm">
+                      <CheckCircle className="w-4 h-4" />
                     </div>
-                  )}
-
-                  {/* Enhanced highlight overlay when selected */}
-                  {isSelected && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-blue-500/10 to-transparent border-2 border-blue-400 border-dashed animate-pulse" />
                   )}
                 </div>
 
@@ -492,27 +495,27 @@ export function WizardGenerateModal({
   );
 
   const renderStep2 = () => (
-    <div className="space-y-4">
+    <div className="space-y-4 px-1 sm:px-0">
       <div className="text-center">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
           {t('wizardGenerate.step2Title')}
         </h3>
       </div>
 
-      <div className="flex gap-4 justify-center">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
         {/* Excel Option */}
         <div
           onClick={() => setDataSource('excel')}
-          className={`border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md flex items-center gap-3 min-w-[200px] ${
+          className={`border-2 rounded-lg p-3 sm:p-4 cursor-pointer transition-all hover:shadow-md flex items-center gap-3 min-w-[0] w-full sm:w-auto ${
             dataSource === 'excel'
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-md'
               : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
           }`}
         >
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
             dataSource === 'excel' ? 'bg-blue-500' : 'bg-gray-100 dark:bg-gray-800'
           }`}>
-            <FileSpreadsheet className={`w-6 h-6 ${
+            <FileSpreadsheet className={`w-5 h-5 sm:w-6 sm:h-6 ${
               dataSource === 'excel' ? 'text-white' : 'text-gray-500'
             }`} />
           </div>
@@ -535,16 +538,16 @@ export function WizardGenerateModal({
         {/* Member Option */}
         <div
           onClick={() => setDataSource('member')}
-          className={`border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md flex items-center gap-3 min-w-[200px] ${
+          className={`border-2 rounded-lg p-3 sm:p-4 cursor-pointer transition-all hover:shadow-md flex items-center gap-3 min-w-[0] w-full sm:w-auto ${
             dataSource === 'member'
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-md'
               : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
           }`}
         >
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
             dataSource === 'member' ? 'bg-blue-500' : 'bg-gray-100 dark:bg-gray-800'
           }`}>
-            <Users className={`w-6 h-6 ${
+            <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${
               dataSource === 'member' ? 'text-white' : 'text-gray-500'
             }`} />
           </div>
@@ -586,8 +589,8 @@ export function WizardGenerateModal({
                 {t('wizardGenerate.noMembers')}
               </div>
             ) : (
-              members.map(member => (
-                <label 
+              members.map((member) => (
+                <label
                   key={member.id}
                   className="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                 >
@@ -598,7 +601,7 @@ export function WizardGenerateModal({
                       if (e.target.checked) {
                         setSelectedMembers([...selectedMembers, member.id]);
                       } else {
-                        setSelectedMembers(selectedMembers.filter(id => id !== member.id));
+                        setSelectedMembers(selectedMembers.filter((id) => id !== member.id));
                       }
                     }}
                     className="rounded"
@@ -621,64 +624,102 @@ export function WizardGenerateModal({
     // Use fetched layoutConfig (same source as renderer). If missing, no fields.
     if (!layoutConfig) return [];
     const config = layoutConfig;
-    const allFields = [];
-    
-    // Debug logging
-    console.log('🔍 Template config:', config);
-    console.log('🔍 Data source:', dataSource);
-    
-    // Get certificate (front) fields
-    if (config.certificate?.textLayers) {
-      console.log('🔍 Certificate textLayers:', config.certificate.textLayers);
-      
-      const frontFields = config.certificate.textLayers.filter((layer) => {
-        const shouldSkip = layer.useDefaultText || 
-                          layer.id === 'certificate_no' || 
-                          layer.id === 'issue_date' || 
-                          layer.id === 'expired_date' ||
-                          (dataSource === 'member' && layer.id === 'name');
-        
-        console.log(`🔍 Layer ${layer.id}: useDefaultText=${layer.useDefaultText}, shouldSkip=${shouldSkip}`);
+    const allFields: TextLayerConfig[] = [];
+
+    // Front-side text layers (direct fields)
+    const certificateLayers = config.certificate?.textLayers || [];
+    if (certificateLayers.length > 0) {
+      const frontFields = certificateLayers.filter((layer) => {
+        const shouldSkip =
+          layer.id === 'certificate_no' ||
+          layer.id === 'issue_date' ||
+          layer.id === 'expired_date' ||
+          layer.id === 'description' || // description text stays in template only
+          layer.useDefaultText === true || // respect "Use default text" toggle
+          (dataSource === 'member' && layer.id === 'name');
         return !shouldSkip;
       });
-      
-      console.log('🔍 Front fields after filter:', frontFields);
       allFields.push(...frontFields);
     }
-    
-    // Get score (back) fields if dual template
-    if (selectedTemplate?.is_dual_template && config.score?.textLayers) {
-      console.log('🔍 Score textLayers:', config.score.textLayers);
-      
-      const backFields = config.score.textLayers.filter((layer) => {
-        // Selalu skip field otomatis seperti issue_date/certificate_no/expired_date/score_date
+
+    // Back/score text layers (direct fields for dual templates)
+    const scoreLayers = selectedTemplate?.is_dual_template && config.score?.textLayers
+      ? config.score.textLayers
+      : [];
+    if (scoreLayers.length > 0) {
+      const backFields = scoreLayers.filter((layer) => {
         const isAutoField =
           layer.id === 'certificate_no' ||
           layer.id === 'issue_date' ||
           layer.id === 'expired_date' ||
           layer.id === 'score_date' ||
           layer.id === 'name';
-
-        const shouldSkip = !!layer.useDefaultText || isAutoField;
-        console.log(`🔍 Score Layer ${layer.id}: useDefaultText=${layer.useDefaultText}, isAutoField=${isAutoField}, shouldSkip=${shouldSkip}`);
+        const shouldSkip = isAutoField || layer.useDefaultText === true;
         return !shouldSkip;
       });
-      
-      console.log('🔍 Back fields after filter:', backFields);
       allFields.push(...backFields);
     }
-    
-    console.log('🔍 Final allFields:', allFields);
+
+    // Dynamic variable fields from any {variable} in defaultText / richText (front + back).
+    // Di sini kita BOLEHKAN variable yang berasal dari layer "description" (mis. {juara}, {nilai}),
+    // sehingga user tetap bisa mengisi bagian dinamisnya, sementara layer description-nya sendiri
+    // tidak muncul sebagai input terpisah.
+    const variableNames: string[] = [];
+    const pushVarsFromLayers = (layers: TextLayerConfig[]) => {
+      for (const layer of layers) {
+        const vars = extractVariablesFromLayer(layer);
+        for (const v of vars) {
+          if (!variableNames.includes(v)) {
+            variableNames.push(v);
+          }
+        }
+      }
+    };
+
+    pushVarsFromLayers(certificateLayers);
+    pushVarsFromLayers(scoreLayers as TextLayerConfig[]);
+
+    const createVariableFields = (variables: string[]): TextLayerConfig[] => {
+      return variables.map((varName) => ({
+        id: varName,
+        x: 0,
+        y: 0,
+        xPercent: 0,
+        yPercent: 0,
+        defaultText: `{${varName}}`,
+        useDefaultText: false,
+        fontSize: 16,
+        color: '#000000',
+        fontWeight: '400',
+        fontFamily: 'Arial',
+      }));
+    };
+
+    const existingIds = new Set(allFields.map((f) => f.id));
+    const variableFields = createVariableFields(variableNames).filter(
+      (field) => !existingIds.has(field.id),
+    );
+    allFields.push(...variableFields);
+
     return allFields;
   }, [selectedTemplate, layoutConfig, dataSource]);
 
   const renderStep3 = () => {
     const templateFields = getTemplateFields;
+<<<<<<< HEAD
     const hasFields = templateFields.length > 0;
     const mainLayers = getMainTextLayers();
     const scoreLayers = getScoreTextLayers();
     const excelColumns = Object.keys(excelData[0] || {});
     const hasExcelMapping = dataSource === 'excel' && excelData.length > 0;
+=======
+    // Pastikan field "description" (paragraf penuh) tidak pernah muncul sebagai input wizard,
+    // tapi BIARKAN field dinamis seperti {nilai}, {juara}, dll tetap muncul.
+    const filteredTemplateFields = templateFields.filter(
+      (field) => field.id !== 'description',
+    );
+    const hasFields = filteredTemplateFields.length > 0;
+>>>>>>> 37295bd6832a8c63ca4909611724399aa8ac3c0c
     
     return (
       <div className="space-y-4">
@@ -728,12 +769,18 @@ export function WizardGenerateModal({
                 </h4>
                 
                 <div className="grid grid-cols-1 gap-3 max-h-[250px] overflow-y-auto">
-                  {templateFields.map((field) => (
-                    <div key={field.id} className="space-y-1">
-                      <Label className="text-xs font-medium capitalize">
-                        {field.id.replace(/_/g, ' ')}
-                        {field.id.includes('nilai') || field.id.includes('score') ? ' *' : ''}
-                      </Label>
+                  {filteredTemplateFields.map((field) => {
+                    const isVariableField = !!field.defaultText && field.defaultText.includes('{');
+                    const labelText = isVariableField
+                      ? field.defaultText
+                      : field.id.replace(/_/g, ' ');
+
+                    return (
+                      <div key={field.id} className="space-y-1">
+                        <Label className="text-xs font-medium capitalize">
+                          {labelText}
+                          {field.id.includes('nilai') || field.id.includes('score') ? ' *' : ''}
+                        </Label>
                       <Input
                         value={certificateData[field.id as keyof typeof certificateData] || ''}
                         onChange={(e) => setCertificateData(prev => ({ 
@@ -743,8 +790,9 @@ export function WizardGenerateModal({
                         placeholder={t('wizardGenerate.inputFieldPlaceholder').replace('{field}', field.id.replace(/_/g, ' '))}
                         className="h-8"
                       />
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -991,9 +1039,9 @@ export function WizardGenerateModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[90vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-[calc(100vw-1.5rem)] sm:max-w-5xl sm:w-[90vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle className="text-2xl text-center">
+          <DialogTitle className="text-lg sm:text-2xl text-center">
             {t('quickGenerate.title')}
           </DialogTitle>
         </DialogHeader>
@@ -1034,7 +1082,17 @@ export function WizardGenerateModal({
               onClick={handleGenerate}
               isLoading={generating}
               loadingText="Generating..."
-              className="gradient-primary text-white"
+              className="
+                inline-flex items-center justify-center
+                rounded-full px-6 py-2 text-sm font-semibold
+                bg-blue-600 text-white
+                hover:bg-blue-700
+                dark:bg-blue-600 dark:hover:bg-blue-500
+                shadow-sm hover:shadow-md
+                hover:-translate-y-0.5
+                transition-all duration-150
+                disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-sm
+              "
             >
               Generate Sertifikat
               {dataSource === 'excel' && excelData.length > 0 && ` (${excelData.length})`}

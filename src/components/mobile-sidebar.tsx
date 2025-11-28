@@ -29,7 +29,7 @@ interface NavItem {
   icon: React.ReactNode;
   label: string;
   href: string;
-  roles?: ("admin" | "team")[];
+  roles?: ("owner" | "manager" | "staff")[];
 }
 
 export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
@@ -47,19 +47,19 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
       icon: <FileText className="w-5 h-5" />,
       label: t("nav.certificates"),
       href: "/certificates",
-      roles: ["admin", "team"],
+      roles: ["owner", "manager", "staff"],
     },
     {
       icon: <Layout className="w-5 h-5" />,
       label: t("nav.templates"),
       href: "/templates",
-      roles: ["admin", "team"],
+      roles: ["owner", "manager", "staff"],
     },
     {
       icon: <Users className="w-5 h-5" />,
       label: "Data",
       href: "/data",
-      roles: ["admin", "team"],
+      roles: ["owner", "manager", "staff"],
     },
     {
       icon: <Info className="w-5 h-5" />,
@@ -76,7 +76,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   // Filter items based on role
   const filteredItems = navItems.filter((item) => {
     if (!item.roles) return true;
-    return item.roles.includes(role as "admin" | "team");
+    return role !== null && item.roles.includes(role as "owner" | "manager" | "staff");
   });
 
   const isActive = (href: string) => {
