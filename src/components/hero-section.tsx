@@ -29,6 +29,11 @@ import {
 
 export default function HeroSection() {
   const { t, language } = useLanguage();
+  const safeT = (key: string, fallback: string) => {
+    const value = t(key);
+    if (!value || value === key) return fallback;
+    return value;
+  };
   const { role: authRole } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -84,50 +89,7 @@ export default function HeroSection() {
   const resultsContainerRef = useRef<HTMLDivElement>(null);
   const [scrollableHeight, setScrollableHeight] = useState<string>('calc(80vh - 7rem)');
   
-  // Calculate scrollable area height dynamically with proper measurement
-  useEffect(() => {
-    if (showResults && searchResults.length > 0) {
-      const calculateHeight = () => {
-        if (resultsHeaderRef.current && resultsContainerRef.current) {
-          // Measure actual rendered heights
-          const headerHeight = resultsHeaderRef.current.offsetHeight;
-          const containerMaxHeight = window.innerHeight * 0.8 - 32; // 80vh - 2rem (mt-2)
-          
-          // Calculate available height: container max height minus header
-          // Use actual container height if available for more accuracy
-          const actualContainerHeight = resultsContainerRef.current.offsetHeight || containerMaxHeight;
-          
-          // Calculate available height: use full available space
-          // No buffer reduction to maximize scroll area height
-          const availableHeight = actualContainerHeight - headerHeight;
-          
-          // Set height with pixel value for accuracy
-          setScrollableHeight(`${Math.max(availableHeight, 200)}px`);
-        }
-      };
-      
-      // Calculate multiple times to ensure accurate measurement
-      const timeoutId1 = setTimeout(calculateHeight, 0);
-      const timeoutId2 = setTimeout(calculateHeight, 50);
-      
-      // Use requestAnimationFrame for DOM measurement
-      requestAnimationFrame(() => {
-        calculateHeight();
-        requestAnimationFrame(() => {
-          calculateHeight();
-        });
-      });
-      
-      // Recalculate on window resize
-      window.addEventListener('resize', calculateHeight);
-      
-      return () => {
-        clearTimeout(timeoutId1);
-        clearTimeout(timeoutId2);
-        window.removeEventListener('resize', calculateHeight);
-      };
-    }
-  }, [showResults, searchResults.length]);
+  // Dropdown hasil search di hero tidak lagi digunakan - semua hasil hanya di halaman /search.
   
   // Load tenants for current user
   useEffect(() => {
@@ -657,7 +619,7 @@ export default function HeroSection() {
     const q = certificateId.trim();
     if (!q) {
       // Show validation error for empty search
-      setSearchError(t('error.search.empty'));
+      setSearchError(safeT('error.search.empty', 'Please enter a keyword to search'));
       setSearchResults([]);
       setShowResults(false);
       return;
@@ -671,7 +633,9 @@ export default function HeroSection() {
     // Apply minimum character validation only for keyword searches (not direct ID/link searches)
     if (!publicLinkMatch && !oldLinkMatch && !isCertId) {
       if (q.length < 3) {
-        setSearchError('Search must be at least 3 characters long');
+        setSearchError(
+          safeT('error.search.tooShort', 'Search must be at least 3 characters long'),
+        );
         setSearchResults([]);
         setShowResults(false);
         return;
@@ -680,35 +644,69 @@ export default function HeroSection() {
       // Check if it contains at least 3 letters (for meaningful text search)
       const letterCount = (q.match(/[a-zA-Z]/g) || []).length;
       if (letterCount < 3) {
-        setSearchError('Search must contain at least 3 letters');
+        setSearchError(
+          safeT('error.search.tooFewLetters', 'Search must contain at least 3 letters'),
+        );
         setSearchResults([]);
         setShowResults(false);
         return;
       }
     }
-    
-    // Keyword search - redirect to search results page with smooth transition
-    setSearching(true); // Show loading state during redirect
-    setSearchError("");
-    
-    const params = new URLSearchParams();
-    params.set('q', q);
-    if (filters.category) params.set('category', filters.category);
-    if (filters.startDate) params.set('startDate', filters.startDate);
-    if (filters.endDate) params.set('endDate', filters.endDate);
-    
-    // Smooth transition: scroll to top first, then navigate
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Small delay for smooth transition before navigation
-      setTimeout(() => {
-        router.push(`/search?${params.toString()}`);
-        // Note: searching state will persist until page navigation completes
-      }, 150);
-    } else {
-      router.push(`/search?${params.toString()}`);
+
+    // Pastikan tenant untuk search sudah ada
+    const tenantIdForSearch = filters.tenant_id || selectedTenantId;
+    if (!tenantIdForSearch) {
+      setSearchError(
+        safeT('error.search.emptyTenant', 'Please select an organization first'),
+      );
+      setSearchResults([]);
+      setShowResults(false);
+      return;
     }
-  }, [certificateId, filters, router, t]);
+
+    // Jalankan search dulu di landing supaya ketika diarahkan ke /search,
+    // data sudah pasti ada (atau sudah pasti tidak ada).
+    setSearching(true);
+    setSearchError("");
+
+    const searchFilters: SearchFilters = {
+      keyword: q,
+      category: filters.category,
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      tenant_id: tenantIdForSearch,
+    };
+
+    try {
+      const results = await advancedSearchCertificates(searchFilters);
+      setSearchResults(results);
+      setShowResults(results.length > 0);
+
+      // Bangun query string untuk halaman /search
+      const params = new URLSearchParams();
+      params.set('q', q);
+      if (filters.category) params.set('category', filters.category);
+      if (filters.startDate) params.set('startDate', filters.startDate);
+      if (filters.endDate) params.set('endDate', filters.endDate);
+
+      // Smooth transition: scroll to top first, then navigate
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => {
+          router.push(`/search?${params.toString()}`);
+        }, 150);
+      } else {
+        router.push(`/search?${params.toString()}`);
+      }
+    } catch (err) {
+      console.error('Hero search error:', err);
+      setSearchError(t('error.search.failed'));
+      setSearchResults([]);
+      setShowResults(false);
+    } finally {
+      setSearching(false);
+    }
+  }, [certificateId, filters, selectedTenantId, router, t]);
 
   // Remove auto-search on typing - only search when button clicked
 
@@ -952,93 +950,6 @@ export default function HeroSection() {
                   </motion.p>
                 )}
               </>
-            )}
-
-            {/* Search Results - Absolute positioned to prevent layout shift */}
-            {showResults && searchResults.length > 0 && (
-              <div 
-                ref={resultsContainerRef}
-                className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 flex flex-col overflow-hidden"
-                style={{ 
-                  maxHeight: 'calc(80vh - 2rem)',
-                  height: 'calc(80vh - 2rem)'
-                }}
-              >
-                {/* Header - Fixed height, measured for calculation */}
-                <div 
-                  ref={resultsHeaderRef}
-                  className="text-sm text-gray-600 dark:text-gray-400 p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0"
-                >
-                  {t('search.showingResults')}: {searchResults.length} {searchResults.length === 1 ? t('hero.certificate') : t('hero.certificates')}
-                </div>
-                {/* Scrollable Content - Explicit height calculation for accurate scrolling */}
-                <div 
-                  className="overflow-y-auto overscroll-contain"
-                  style={{ 
-                    height: scrollableHeight,
-                    WebkitOverflowScrolling: 'touch',
-                    overflowX: 'hidden'
-                  }}
-                >
-                  <div className="p-3" style={{ paddingBottom: '23rem' }}>
-                    <div className="grid grid-cols-1 gap-3" style={{ marginBottom: '2rem' }}>
-                    {searchResults.map((cert) => (
-                      <motion.div
-                        key={cert.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer text-left"
-                        onClick={() => {
-                          setPreviewCert(cert);
-                          setPreviewOpen(true);
-                        }}
-                      >
-                        <div className="flex items-start gap-4 p-4">
-                          {/* Certificate Thumbnail */}
-                          {cert.certificate_image_url ? (
-                            <div className="flex-shrink-0 w-32 h-24 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img 
-                                src={cert.certificate_image_url} 
-                                alt={cert.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  // Hide image if failed to load
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex-shrink-0 w-32 h-24 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center">
-                              <FileText className="w-8 h-8 text-blue-400" />
-                            </div>
-                          )}
-                          
-                          {/* Certificate Info */}
-                          <div className="flex-1 min-w-0 text-left">
-                            <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{cert.members?.name || cert.name}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{cert.certificate_no}</div>
-                            <div className="flex items-center gap-2 mt-2">
-                              {cert.category && (
-                                <span className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
-                                  {cert.category}
-                                </span>
-                              )}
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatReadableDate(cert.issue_date, language)}
-                              </span>
-                            </div>
-                            {cert.members?.organization && (
-                              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">{cert.members.organization}</div>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
             )}
           </motion.div>
         </motion.div>

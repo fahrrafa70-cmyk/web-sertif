@@ -414,7 +414,7 @@ function SearchResultsContent() {
                   ? `${t('search.noResults')} ${t('search.inCategory')} "${searchFilters.category}"`
                   : t('search.noResultsGeneral');
               setSearchError(errorMsg);
-              toast.info(errorMsg);
+              toast.info(errorMsg, { id: 'search-no-results' });
             } else {
               setSearchError('');
             }
@@ -422,7 +422,7 @@ function SearchResultsContent() {
             console.error('Invalid search results format:', results);
             const errorMsg = t('error.search.failed') || 'Search failed. Please try again.';
             setSearchError(errorMsg);
-            toast.error(errorMsg);
+            toast.error(errorMsg, { id: 'search-error' });
             searchResultsRef.current = [];
             setSearchResults([]);
           }
@@ -436,7 +436,7 @@ function SearchResultsContent() {
           console.error('Advanced search error:', searchError);
           const errorMsg = t('error.search.failed') || 'Search failed. Please try again.';
           setSearchError(errorMsg);
-          toast.error(errorMsg);
+          toast.error(errorMsg, { id: 'search-error' });
           setSearchResults([]);
         }
       }
@@ -448,8 +448,10 @@ function SearchResultsContent() {
       }
       
       console.error('Unexpected search error:', error);
-      setSearchError(t('error.search.failed') || 'Search failed. Please try again.');
+      const errorMsg = t('error.search.failed') || 'Search failed. Please try again.';
+      setSearchError(errorMsg);
       setSearchResults([]);
+      toast.error(errorMsg, { id: 'search-error' });
     } finally {
       // DIAGNOSIS 1.2: Clear loading timeout and reset loading state
       if (loadingTimeoutRef.current) {
@@ -464,87 +466,71 @@ function SearchResultsContent() {
     }
   }, [t, router, abortPreviousSearch]);
 
-  // Search on mount if query exists (from URL) - for backward compatibility
-  // URL will stay as /search without query params going forward
+  // Search once on mount if query exists (from URL) - used by hero section.
+  // Penting: tunggu sampai tenants selesai dimuat dan selectedTenantId tersedia,
+  // supaya search pertama langsung memakai tenant yang benar.
+  const hasRunInitialSearchRef = useRef(false);
+
   useEffect(() => {
-    if (initialQuery && initialQuery.trim()) {
-      try {
-        const urlCategory = searchParams.get('category') || '';
-        const urlStartDate = searchParams.get('startDate') || '';
-        const urlEndDate = searchParams.get('endDate') || '';
-        setFilters({
-          keyword: initialQuery,
-          category: urlCategory,
-          startDate: urlStartDate,
-          endDate: urlEndDate,
-          tenant_id: selectedTenantId, // SECURITY: Always filter by tenant
-        });
-        performSearch({
-          keyword: initialQuery,
-          category: urlCategory,
-          startDate: urlStartDate,
-          endDate: urlEndDate,
-          tenant_id: selectedTenantId, // SECURITY: Always filter by tenant
-        }, true); // Mark as searched after initial search from URL
-        setHasSearched(true); // Set immediately since this is from URL (user already searched)
-        // Clean URL to /search without query params after reading from URL
-        if (typeof window !== 'undefined') {
-          window.history.replaceState({}, '', '/search');
-        }
-      } catch (error) {
-        console.error('Error during initial search:', error);
-        setSearchError(t('error.search.failed') || 'Search failed. Please try again.');
-        setSearching(false);
-      }
-    } else {
-      // If no initial query, ensure hasSearched is false
+    // Tidak ada query dari URL -> tidak ada initial search
+    if (!initialQuery || !initialQuery.trim()) {
       setHasSearched(false);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+
+    // Jangan jalan sebelum tenants selesai diload atau tenant belum diketahui
+    if (loadingTenants || !selectedTenantId) {
+      return;
+    }
+
+    // Pastikan hanya dijalankan sekali
+    if (hasRunInitialSearchRef.current) {
+      return;
+    }
+
+    try {
+      const urlCategory = searchParams.get('category') || '';
+      const urlStartDate = searchParams.get('startDate') || '';
+      const urlEndDate = searchParams.get('endDate') || '';
+
+      const initialFilters: SearchFilters = {
+        keyword: initialQuery,
+        category: urlCategory,
+        startDate: urlStartDate,
+        endDate: urlEndDate,
+        tenant_id: selectedTenantId, // SECURITY: Always filter by tenant
+      };
+
+      setFilters(initialFilters);
+      performSearch(initialFilters, true); // Mark as searched after initial search from URL
+      setHasSearched(true); // Set immediately since this is from URL (user already searched)
+
+      // Clean URL to /search tanpa query params setelah dibaca
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', '/search');
+      }
+
+      hasRunInitialSearchRef.current = true;
+    } catch (error) {
+      console.error('Error during initial search:', error);
+      setSearchError(t('error.search.failed') || 'Search failed. Please try again.');
+      setSearching(false);
+    }
+  }, [initialQuery, searchParams, selectedTenantId, loadingTenants, performSearch, t]);
 
   // Mark initial mount as complete after first render
   useEffect(() => {
     isInitialMount.current = false;
   }, []);
 
-  // Auto-search only after first search has been performed (when user edits input)
-  // IMPORTANT: This should NOT trigger on initial mount or when user first types
-  // Only trigger if user has explicitly searched before (hasSearched = true)
+  // Auto-search-on-typing dinonaktifkan: pencarian hanya jalan via handleSearch
   useEffect(() => {
-    // CRITICAL: Skip on initial mount
-    if (isInitialMount.current) {
-      return;
-    }
-    
-    // CRITICAL: Skip entirely if user hasn't performed a manual search yet
-    // This prevents auto-search when user first types
-    if (!hasSearched) {
-      return;
-    }
-    
-    // Additional check: if debouncedSearchQuery is empty, don't search
-    if (!debouncedSearchQuery.trim()) {
-      return;
-    }
-    
-    // Only auto-search if the debounced query is different from current keyword in filters
-    // This prevents duplicate searches
-    if (debouncedSearchQuery.trim() === filters.keyword) {
-      return;
-    }
-    
-    // All conditions met: perform auto-search
-    const newFilters: SearchFilters = {
-      keyword: debouncedSearchQuery.trim(),
-      category: filters.category,
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      tenant_id: filters.tenant_id, // SECURITY: Always filter by tenant
-    };
-    setFilters(newFilters);
-    performSearch(newFilters, true); // Mark as searched for auto-search
-  }, [debouncedSearchQuery, hasSearched, filters.category, filters.startDate, filters.endDate, filters.keyword, performSearch]);
+    // Intentionally left blank to disable previous auto-search behavior
+    // This ensures searches only occur when user menekan Enter atau klik tombol Search.
+    void debouncedSearchQuery; // avoid unused var lint
+    void hasSearched;
+    void filters;
+  }, [debouncedSearchQuery, hasSearched, filters]);
 
   // Handle search submission
   const handleSearch = useCallback(() => {
@@ -576,17 +562,25 @@ function SearchResultsContent() {
       }
     }
 
+    // Pastikan tenant_id terisi dengan benar sebelum search
+    const tenantIdForSearch = filters.tenant_id || selectedTenantId;
+    if (!tenantIdForSearch) {
+      setSearchError(t('error.search.emptyTenant') || 'Please select a workspace/tenant first');
+      setSearchResults([]);
+      return;
+    }
+
     // Update filters and perform search (URL stays as /search without query params)
     const newFilters: SearchFilters = {
       keyword: q,
       category: filters.category,
       startDate: filters.startDate,
       endDate: filters.endDate,
-      tenant_id: filters.tenant_id, // SECURITY: Always filter by tenant
+      tenant_id: tenantIdForSearch, // SECURITY: Always filter by tenant
     };
     setFilters(newFilters);
     performSearch(newFilters, true); // Mark as searched after user clicks search or presses Enter
-  }, [searchQuery, filters, performSearch, t]);
+  }, [searchQuery, filters, performSearch, t, selectedTenantId]);
 
   // Handle Enter key
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -1568,8 +1562,13 @@ function SearchResultsContent() {
           </div>
         )}
 
-        {/* Empty State - Only show when NOT typing */}
-        {!isTyping && !searching && searchResults.length === 0 && !searchError && initialQuery && (
+        {/* Empty State - Only show when NOT typing, AFTER at least one search, and when TIDAK ada search baru yang sedang dipending (loadingTimeoutRef === null). */}
+        {!isTyping &&
+          !searching &&
+          !loadingTimeoutRef.current &&
+          hasSearched &&
+          searchResults.length === 0 &&
+          !searchError && (
           <div className="text-center py-12 sm:py-16">
             <div className="max-w-md mx-auto">
               <div className="text-6xl mb-4">🔍</div>
@@ -1633,25 +1632,25 @@ function SearchResultsContent() {
                     {previewCert.certificate_image_url ? (
                       (() => {
                         const isExpired = isCertificateExpired(previewCert);
-                        // CRITICAL: Use WebP thumbnail for view full image (faster loading), fallback to PNG master
-                        // Priority: 1) certificate_thumbnail_url from DB, 2) Auto-generated from master URL, 3) PNG master
+                        // Thumbnail (may be WebP) is only for in-app preview. Full image must use PNG master from Supabase.
                         const thumbnailUrl = previewCert.certificate_thumbnail_url || getThumbnailUrl(previewCert.certificate_image_url);
-                        const imageUrl = thumbnailUrl || previewCert.certificate_image_url;
+                        const fullImageUrl = previewCert.certificate_image_url;
+                        const imageUrl = thumbnailUrl || fullImageUrl || previewCert.certificate_image_url;
                         return (
                           <div
                             className={`relative w-full ${isExpired ? 'cursor-default' : 'cursor-zoom-in group'}`}
                             role={isExpired ? undefined : "button"}
                             tabIndex={isExpired ? undefined : 0}
                             onClick={() => {
-                              if (!isExpired && imageUrl) {
-                                handleOpenImagePreview(imageUrl, previewCert.updated_at);
+                              if (!isExpired && fullImageUrl) {
+                                handleOpenImagePreview(fullImageUrl, previewCert.updated_at);
                               }
                             }}
                             onKeyDown={(e) => {
                               if (!isExpired && (e.key === 'Enter' || e.key === ' ')) {
                                 e.preventDefault();
-                                if (imageUrl) {
-                                  handleOpenImagePreview(imageUrl, previewCert.updated_at);
+                                if (fullImageUrl) {
+                                  handleOpenImagePreview(fullImageUrl, previewCert.updated_at);
                                 }
                               }
                             }}

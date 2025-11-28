@@ -67,8 +67,8 @@ function InviteContent() {
 
         if (insertError) {
           // If already a member, ignore unique violation
-          const code = (insertError as any).code as string | undefined;
-          if (code && ["23505", "PGRST116"].includes(code) === false) {
+          const code = 'code' in insertError ? insertError.code as string : undefined;
+          if (code && !["23505", "PGRST116"].includes(code)) {
             throw insertError;
           }
         }
