@@ -4,12 +4,15 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabaseClient } from "@/lib/supabase/client";
 import { getTenantInviteByToken, type TenantInvite } from "@/lib/supabase/tenants";
+import { useAuth } from "@/contexts/auth-context";
 
 function InviteContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = params?.token as string | undefined;
+
+  const { setOpenLogin } = useAuth();
 
   const [status, setStatus] = useState<string>("Memproses undangan...");
   const [error, setError] = useState<string | null>(null);
@@ -42,10 +45,11 @@ function InviteContent() {
         const { data: { session } } = await supabaseClient.auth.getSession();
 
         if (!session?.user) {
-          // Not logged in yet: user should click login (Google/GitHub) as usual.
-          // After login, auth/callback will redirect back here (via `next`),
+          // User is not logged in: force them to login/register via global login modal.
+          // After successful login, auth/callback will redirect back (via `next`)
           // and this effect will run again with an active session.
           setStatus("Silakan login untuk menerima undangan tenant ini...");
+          setOpenLogin(true);
           return;
         }
 
