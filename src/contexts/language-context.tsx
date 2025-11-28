@@ -642,6 +642,8 @@ const translations: Translations = {
     'hero.clearFilters': 'Clear Filters',
     'hero.applyFilters': 'Apply Filters',
     'search.tenant': 'Organization',
+    'search.search':'search',
+    'search.searching':'searchhing...'
   },
   id: {
     // Navigation

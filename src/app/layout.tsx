@@ -87,7 +87,7 @@ export default function RootLayout({
                     {/* <ScrollbarVisibility /> */}
                     {children}
                     <LoginModal />
-                    <Toaster position="top-right" richColors />
+                    <Toaster position="top-right" richColors duration={2000} />
                   </ModalProvider>
                 </AuthProvider>
               </LanguageProvider>

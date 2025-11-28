@@ -344,7 +344,7 @@ export async function renderCertificateToDataURL(
       // certificate compared to the visual template. To correct this, we apply
       // a precise canvas-only offset here so preview layout remains unchanged.
       if (isUbigTemplate && layer.id === "date_new") {
-        x += 5; // shift 5px to the right (fine-tuned)
+        x += 4.7; // shift 4.7px to the right (fine-tuned, 0.3px left from original)
         y -= 2; // shift 2px up
       }
 
@@ -1253,15 +1253,35 @@ async function renderQRLayer(
       ? Math.round(layer.yPercent * canvasHeight)
       : layer.y || 0;
 
-  // Calculate size (percentage-first)
-  const width =
-    layer.widthPercent !== undefined && layer.widthPercent !== null
-      ? Math.round(layer.widthPercent * canvasWidth)
-      : layer.width || 100;
-  const height =
-    layer.heightPercent !== undefined && layer.heightPercent !== null
-      ? Math.round(layer.heightPercent * canvasHeight)
-      : layer.height || 100;
+  // Calculate size
+  // IMPORTANT: Use absolute pixel size from layout configure as primary source.
+  // Layout editor always stores the latest QR size in `width`/`height` (pixels),
+  // and also maintains widthPercent/heightPercent for reference.
+  // If we prioritize percentages here, a stale widthPercent/heightPercent can
+  // cause the generated QR code to keep using the OLD size even after the
+  // user resizes it in the layout.
+
+  // 1) If width/height are defined, trust them as the single source of truth.
+  // 2) Only fall back to percentage when pixel values are missing (old layouts).
+  const widthRaw =
+    (typeof layer.width === "number" && !Number.isNaN(layer.width))
+      ? layer.width
+      : layer.widthPercent !== undefined && layer.widthPercent !== null
+        ? Math.round(layer.widthPercent * canvasWidth)
+        : 100;
+
+  const heightRaw =
+    (typeof layer.height === "number" && !Number.isNaN(layer.height))
+      ? layer.height
+      : layer.heightPercent !== undefined && layer.heightPercent !== null
+        ? Math.round(layer.heightPercent * canvasHeight)
+        : 100;
+
+  // Enforce a minimum size so QR generator never falls back to its own default
+  // when given 0/NaN or extremely small values.
+  const minQRSize = 16;
+  const width = Math.max(minQRSize, Math.round(widthRaw));
+  const height = Math.max(minQRSize, Math.round(heightRaw));
 
   // Generate QR code as data URL
   const qrDataURL = await generateQRCodeDataURL(layer.qrData, {

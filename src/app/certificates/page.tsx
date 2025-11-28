@@ -287,6 +287,11 @@ function CertificatesContent(): ReactElement {
 
   // Export both certificate and score as a single PDF (main first, score second)
   async function exportToPDF(certificate: Certificate) {
+    // Block export for expired certificates
+    if (isCertificateExpired(certificate)) {
+      toast.error(language === 'id' ? 'Sertifikat yang sudah kadaluarsa tidak dapat diexport' : 'Expired certificates cannot be exported', { duration: 2000 });
+      return;
+    }
     if (!certificate.certificate_image_url) {
       toast.error("Certificate image not available to export", { duration: 2000 });
       return;
@@ -368,6 +373,11 @@ function CertificatesContent(): ReactElement {
 
   // Export both certificate and score to PNG (two files)
   async function exportToPNG(certificate: Certificate) {
+    // Block export for expired certificates
+    if (isCertificateExpired(certificate)) {
+      toast.error(language === 'id' ? 'Sertifikat yang sudah kadaluarsa tidak dapat diunduh PNG-nya' : 'Expired certificates cannot be downloaded as PNG', { duration: 2000 });
+      return;
+    }
     if (!certificate.certificate_image_url) {
       toast.error("Certificate image not available to export", { duration: 2000 });
       return;
@@ -2896,7 +2906,8 @@ function CertificatesContent(): ReactElement {
                             // Use Next.js Image for all cases. For remote/data URLs, disable optimization.
                             const isRemote = /^https?:\/\//i.test(srcRaw);
                             const isData = srcRaw.startsWith('data:');
-                            const isExpired = previewMode === 'certificate' && previewCertificate ? isCertificateExpired(previewCertificate) : false;
+                            // Treat certificate as expired for BOTH front and back preview
+                            const isExpired = previewCertificate ? isCertificateExpired(previewCertificate) : false;
                             const expiredOverlayUrl = isExpired ? getExpiredOverlayUrl() : null;
                             // For full view, always use PNG master from Supabase; thumbnails (src) may be WebP.
                             const imageUrl = previewMode === 'score'
@@ -2942,17 +2953,17 @@ function CertificatesContent(): ReactElement {
                                       className="max-w-full max-h-full"
                                       style={{
                                         objectFit: 'contain',
-                                        opacity: 0.85,
-                                        pointerEvents: 'none',
-                                        width: 'auto',
+                                        width: '100%',
                                         height: 'auto',
                                       }}
+                                      width={800}
+                                      height={600}
                                       onError={(e) => {
                                         console.error('Failed to load expired overlay image:', expiredOverlayUrl);
                                         e.currentTarget.style.display = 'none';
                                       }}
                                       onLoad={() => {
-                                        console.log('Expired overlay image loaded successfully');
+                                        // Overlay loaded successfully
                                       }}
                                     />
                                   </div>

@@ -2036,8 +2036,11 @@ function ConfigureLayoutContent() {
     }
     
     // If only widthPercent is updated (from size input), maintain square in pixels
+    // and ensure a reasonable minimum size so QR never collapses to 0px.
     if (updates.widthPercent !== undefined && updates.width === undefined) {
-      const pixelWidth = Math.round(updates.widthPercent * templateWidth);
+      const rawPixelWidth = updates.widthPercent * templateWidth;
+      // Minimum visual size for QR in layout (avoid 0 or 1px which breaks generate)
+      const pixelWidth = Math.max(16, Math.round(rawPixelWidth));
       updates.width = pixelWidth;
       updates.height = pixelWidth; // Same pixels
       updates.heightPercent = pixelWidth / templateHeight;
