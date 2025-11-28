@@ -120,7 +120,9 @@ export function ExcelUploadWizard({ onDataLoaded, dataCount, templateFields = []
             </p>
             {templateFields.length > 0 && (
               <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm space-y-0.5">
-                <p className="font-medium">• Required template columns:</p>
+                <p className="font-medium">
+                  • {t('excelWizard.templateColumnsTitle')}
+                </p>
                 <div className="flex flex-wrap gap-1.5 mt-0.5">
                   {templateFields.map((field) => (
                     <span

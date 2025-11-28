@@ -530,7 +530,7 @@ const translations: Translations = {
     'excelWizard.uploadSuccessDescription': '{count} rows are ready to be generated',
     'excelWizard.formatTitle': 'Required Excel Format:',
     'excelWizard.certificateNoNote': 'The certificate_no column can be left empty, the system will generate a number automatically if not filled.',
-    'excelWizard.templateColumnsTitle': 'Columns according to the selected template:',
+    'excelWizard.templateColumnsTitle': 'Required columns:',
 
     // Wizard Generate Modal
     'wizardGenerate.step1Title': 'Choose Certificate Template',
@@ -1157,7 +1157,7 @@ const translations: Translations = {
     'excelWizard.uploadSuccessDescription': '{count} data siap untuk di-generate',
     'excelWizard.formatTitle': 'Format Excel yang Diperlukan:',
     'excelWizard.certificateNoNote': 'Kolom certificate_no boleh dikosongkan, sistem akan membuat nomor otomatis jika tidak diisi.',
-    'excelWizard.templateColumnsTitle': 'Kolom sesuai template yang dipilih:',
+    'excelWizard.templateColumnsTitle': 'Kolom yang diperlukan:',
 
     // Wizard Generate Modal
     'wizardGenerate.step1Title': 'Pilih Template Sertifikat',
@@ -1198,6 +1198,9 @@ const translations: Translations = {
     'wizardGenerate.summaryTemplateFieldsCount': '{count} field',
     'wizardGenerate.summaryTemplateTypeDual': 'Dual template',
     'wizardGenerate.summaryTemplateTypeSingle': 'Single template',
+    'wizardGenerate.backButton': 'Kembali',
+    'wizardGenerate.nextButton': 'Lanjut',
+    'wizardGenerate.generateButton': 'Generate',
     // Categories
     'categories.title': 'Kategori',
     'categories.subtitle': 'Kelola kategori sertifikat',
