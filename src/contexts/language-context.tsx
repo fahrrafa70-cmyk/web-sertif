@@ -571,6 +571,8 @@ const translations: Translations = {
     'wizardGenerate.summaryTemplateFieldsCount': '{count} fields',
     'wizardGenerate.summaryTemplateTypeDual': 'Dual template',
     'wizardGenerate.summaryTemplateTypeSingle': 'Single template',
+    'wizardGenerate.mappingFrontTab': 'Front mapping ({mapped}/{total})',
+    'wizardGenerate.mappingBackTab': 'Back mapping ({mapped}/{total})',
     // Categories
     'categories.title': 'Categories',
     'categories.subtitle': 'Manage certificate categories',
@@ -1201,6 +1203,8 @@ const translations: Translations = {
     'wizardGenerate.backButton': 'Kembali',
     'wizardGenerate.nextButton': 'Lanjut',
     'wizardGenerate.generateButton': 'Generate',
+    'wizardGenerate.mappingFrontTab': 'Mapping depan ({mapped}/{total})',
+    'wizardGenerate.mappingBackTab': 'Mapping belakang ({mapped}/{total})',
     // Categories
     'categories.title': 'Kategori',
     'categories.subtitle': 'Kelola kategori sertifikat',
