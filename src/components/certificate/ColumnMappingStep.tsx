@@ -149,7 +149,9 @@ export function ColumnMappingStep({
         {/* Auto-mapping info */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <p className="text-sm text-blue-800">
-            ✨ Auto-mapping menemukan {mappedMainCount}/{mappableMainLayers.length} kolom
+            {t('wizardGenerate.autoMappingInfo')
+              .replace('{mapped}', String(mappedMainCount))
+              .replace('{total}', String(mappableMainLayers.length))}
           </p>
         </div>
 
@@ -200,11 +202,15 @@ export function ColumnMappingStep({
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="main" className="flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4" />
-            Front Side ({mappedMainCount}/{mappableMainLayers.length})
+            {t('wizardGenerate.mappingFrontTab')
+              .replace('{mapped}', String(mappedMainCount))
+              .replace('{total}', String(mappableMainLayers.length))}
           </TabsTrigger>
           <TabsTrigger value="score" className="flex items-center gap-2">
             <Award className="w-4 h-4" />
-            Back Side ({mappedScoreCount}/{mappableScoreLayers.length})
+            {t('wizardGenerate.mappingBackTab')
+              .replace('{mapped}', String(mappedScoreCount))
+              .replace('{total}', String(mappableScoreLayers.length))}
           </TabsTrigger>
         </TabsList>
 

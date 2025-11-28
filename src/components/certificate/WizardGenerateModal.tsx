@@ -62,6 +62,11 @@ export function WizardGenerateModal({
   onGenerate 
 }: WizardGenerateModalProps) {
   const { t } = useLanguage();
+  const safeT = (key: string, fallback: string) => {
+    const value = t(key);
+    if (!value || value === key) return fallback;
+    return value;
+  };
   
   // Wizard Steps
   const [currentStep, setCurrentStep] = useState(1);
@@ -509,7 +514,9 @@ export function WizardGenerateModal({
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
                         <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <div className="text-xs text-gray-500">No Image</div>
+                        <div className="text-xs text-gray-500">
+                          {safeT('wizardGenerate.noImage', 'No image')}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -820,7 +827,9 @@ export function WizardGenerateModal({
       <div className="space-y-4">
         <div className="text-center">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            {dataSource === 'excel' ? t('wizardGenerate.step3TitleExcel') || 'Map Data & Settings' : t('wizardGenerate.step3Title')}
+            {dataSource === 'excel'
+              ? safeT('wizardGenerate.step3TitleExcel', 'Map data & settings')
+              : safeT('wizardGenerate.step3Title', 'Fill data & settings')}
           </h3>
         </div>
 
@@ -1016,7 +1025,9 @@ export function WizardGenerateModal({
                   <h5 className="font-medium text-sm text-gray-900 dark:text-gray-100">{selectedTemplate.name}</h5>
                   <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                     <Badge variant={selectedTemplate.is_dual_template ? "default" : "secondary"} className="text-xs px-2 py-0.5">
-                      {selectedTemplate.is_dual_template ? "Dual" : "Single"}
+                      {selectedTemplate.is_dual_template
+                        ? safeT('wizardGenerate.templateTypeDual', 'Dual')
+                        : safeT('wizardGenerate.templateTypeSingle', 'Single')}
                     </Badge>
                     <span>•</span>
                     <span>{selectedTemplate.orientation}</span>
@@ -1095,7 +1106,9 @@ export function WizardGenerateModal({
             <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Tanggal Terbit</span>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {safeT('wizardGenerate.issueDateSummaryLabel', 'Issue date')}
+                  </span>
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {new Date(issueDate).toLocaleDateString('id-ID', { 
                       day: 'numeric', 
@@ -1106,7 +1119,9 @@ export function WizardGenerateModal({
                 </div>
                 
                 <div>
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Tanggal Kadaluarsa</span>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {safeT('wizardGenerate.expiredDateSummaryLabel', 'Expiry date')}
+                  </span>
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {new Date(expiredDate).toLocaleDateString('id-ID', { 
                       day: 'numeric', 
@@ -1122,7 +1137,9 @@ export function WizardGenerateModal({
             {dataSource === 'member' && certificateData.certificate_no && (
               <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
                 <div>
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Nomor Sertifikat</span>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {safeT('wizardGenerate.certificateNoSummaryLabel', 'Certificate number')}
+                  </span>
                   <p className="text-sm text-gray-900 dark:text-gray-100">
                     {certificateData.certificate_no}
                   </p>
@@ -1164,7 +1181,7 @@ export function WizardGenerateModal({
             disabled={currentStep === 1 || generating}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Kembali
+            {safeT('wizardGenerate.backButton', 'Previous')}
           </Button>
           
           {currentStep < 4 ? (
@@ -1173,14 +1190,14 @@ export function WizardGenerateModal({
               disabled={!canProceedFromStep(currentStep)}
               className="gradient-primary text-white"
             >
-              Lanjut
+              {safeT('wizardGenerate.nextButton', 'Next')}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
             <LoadingButton
               onClick={handleGenerate}
               isLoading={generating}
-              loadingText="Generating..."
+              loadingText={safeT('wizardGenerate.generatingLoading', 'Generating...')}
               className="
                 inline-flex items-center justify-center
                 rounded-full px-6 py-2 text-sm font-semibold
@@ -1193,7 +1210,7 @@ export function WizardGenerateModal({
                 disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-sm
               "
             >
-              Generate Sertifikat
+              {safeT('wizardGenerate.generateButton', 'Generate')}
               {dataSource === 'excel' && excelData.length > 0 && ` (${excelData.length})`}
               {dataSource === 'member' && selectedMembers.length > 0 && ` (${selectedMembers.length})`}
             </LoadingButton>
