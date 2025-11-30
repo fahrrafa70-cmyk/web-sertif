@@ -12,6 +12,7 @@ import {
   updateTenant,
   deleteTenant,
   updateTenantMemberRole,
+  removeTenantMember,
   type Tenant,
   type TenantMember,
   type TenantInvite,
@@ -46,6 +47,7 @@ export default function TenantDetailPage() {
   const [editTenantDescription, setEditTenantDescription] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   const handleEditTenant = async () => {
     if (!tenant) return;
@@ -83,6 +85,35 @@ export default function TenantDetailPage() {
       toast.error(message);
     } finally {
       setUpdatingMemberId(null);
+    }
+  };
+
+  const handleRemoveMember = async (member: TenantMember) => {
+    if (!tenant || !tenant.id) return;
+    if (!member.id) return;
+
+    if (member.role.toLowerCase() === "owner") {
+      toast.error("Owner tidak dapat dihapus dari tenant.");
+      return;
+    }
+
+    const ok = await confirmToast(
+      `Keluarkan ${member.user?.full_name || member.user?.email || "member"} dari tenant?`,
+      { confirmText: "Kick", cancelText: "Batal", tone: "destructive" },
+    );
+    if (!ok) return;
+
+    try {
+      setRemovingMemberId(member.id);
+      await removeTenantMember(tenant.id, member.id);
+      setMembers((prev) => prev.filter((m) => m.id !== member.id));
+      toast.success("Member berhasil dikeluarkan dari tenant.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to remove member";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setRemovingMemberId(null);
     }
   };
 
@@ -270,7 +301,7 @@ export default function TenantDetailPage() {
                   onClick={() => router.push("/tenants")}
                 >
                   <ArrowLeft className="w-3 h-3" />
-                  <span>Back to Tenants</span>
+                  <span>Back</span>
                 </Button>
               </div>
             </div>
@@ -327,22 +358,34 @@ export default function TenantDetailPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1 min-w-[120px]">
+                        <div className="flex flex-col items-end gap-1 min-w-[150px]">
                           {tenant &&
                             currentUserId &&
                             tenant.owner_user_id === currentUserId &&
                             member.role.toLowerCase() !== "owner" ? (
-                              <div className="relative inline-flex">
-                                <select
-                                  className="appearance-none text-[11px] uppercase tracking-wide px-2 py-0.5 pr-6 rounded-full border border-input bg-background text-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                  value={member.role}
-                                  disabled={updatingMemberId === member.id}
-                                  onChange={(e) => handleChangeMemberRole(member, e.target.value)}
+                              <div className="flex items-center gap-2">
+                                <div className="relative inline-flex">
+                                  <select
+                                    className="appearance-none text-[11px] uppercase tracking-wide px-2 py-0.5 pr-6 rounded-full border border-input bg-background text-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                    value={member.role}
+                                    disabled={updatingMemberId === member.id}
+                                    onChange={(e) => handleChangeMemberRole(member, e.target.value)}
+                                  >
+                                    <option value="manager">MANAGER</option>
+                                    <option value="staff">STAFF</option>
+                                  </select>
+                                  <ChevronDown className="absolute right-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  className="h-7 px-2 text-[11px] bg-red-500 hover:bg-red-600 text-white border-none"
+                                  disabled={removingMemberId === member.id}
+                                  onClick={() => handleRemoveMember(member)}
                                 >
-                                  <option value="manager">MANAGER</option>
-                                  <option value="staff">STAFF</option>
-                                </select>
-                                <ChevronDown className="absolute right-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                                  {removingMemberId === member.id ? "Removing..." : "Kick"}
+                                </Button>
                               </div>
                             ) : (
                               <Badge

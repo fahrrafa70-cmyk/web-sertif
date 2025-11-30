@@ -565,6 +565,27 @@ export async function updateTenantMemberRole(
   return data as TenantMember;
 }
 
+export async function removeTenantMember(
+  tenantId: string,
+  memberId: string,
+): Promise<void> {
+  if (!tenantId || !memberId) {
+    throw new Error("Tenant ID and member ID are required");
+  }
+
+  await assertTenantOwner(tenantId);
+
+  const { error } = await supabaseClient
+    .from("tenant_members")
+    .delete()
+    .eq("id", memberId)
+    .eq("tenant_id", tenantId);
+
+  if (error) {
+    throw new Error(`Failed to remove tenant member: ${error.message}`);
+  }
+}
+
 export async function checkTenantHasData(tenantId: string): Promise<boolean> {
   if (!tenantId) {
     throw new Error("Tenant ID is required");
