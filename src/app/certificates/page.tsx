@@ -2079,10 +2079,10 @@ function CertificatesContent(): ReactElement {
   return (
       <ModernLayout>
         <section 
-          className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8"
+          className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 overflow-x-hidden"
           style={{ backgroundColor: 'var(--background, #f9fafb)' } as React.CSSProperties}
         >
-          <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
+          <div className="w-full max-w-[1280px] mx-auto px-3 sm:px-4 md:px-6 lg:px-4 xl:px-0 relative overflow-x-hidden">
             {/* Header */}
             <div className="mb-3">
               <div className="flex flex-col gap-3 mb-4">
@@ -2356,57 +2356,57 @@ function CertificatesContent(): ReactElement {
 
 
                 {/* Mobile & Tablet Card View */}
-                <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                <div className="xl:hidden grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                   {currentCertificates.map((certificate) => {
                     const isExpired = isCertificateExpired(certificate);
                     return (
                     <div
                       key={certificate.id}
                       onClick={() => openPreview(certificate)}
-                      className={`rounded-lg border p-4 shadow-md dark:shadow-lg cursor-pointer transition-colors ${
+                      className={`rounded-lg border p-4 sm:p-5 shadow-md dark:shadow-lg cursor-pointer transition-colors w-full min-w-0 ${
                         isExpired 
                           ? 'bg-red-500/30 dark:bg-red-600/30 border-2 border-red-400 dark:border-red-500 hover:bg-red-500/40 dark:hover:bg-red-600/40' 
                           : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-700/50'
                       }`}
                     >
                       {/* Certificate Details - Compact Layout */}
-                      <div className="space-y-2 mb-3">
+                      <div className="space-y-2 sm:space-y-2.5 mb-3 sm:mb-4 overflow-hidden">
                         {/* Certificate Number */}
                         <div className="space-y-0.5">
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                             {t("certificates.certificateId")}
                           </div>
-                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words">
                             {certificate.certificate_no}
                           </div>
                         </div>
 
                         {/* Recipient */}
                         <div className="space-y-0.5">
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                             {t("certificates.recipient")}
                           </div>
-                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words">
                             {certificate.name}
                           </div>
                         </div>
 
                         {/* Category */}
                         <div className="space-y-0.5">
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                             {t("certificates.category")}
                           </div>
-                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words">
                             {certificate.category || "—"}
                           </div>
                         </div>
 
                         {/* Issued Date */}
                         <div className="space-y-0.5">
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                             {t("certificates.issuedDate")}
                           </div>
-                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">
                             {formatDateShort(certificate.issue_date)}
                           </div>
                         </div>
@@ -2414,10 +2414,10 @@ function CertificatesContent(): ReactElement {
                         {/* Expiry Date */}
                         {certificate.expired_date && (
                           <div className="space-y-0.5">
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                               {t("certificates.expiryDate")}
                             </div>
-                            <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                            <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">
                               {formatDateShort(certificate.expired_date)}
                             </div>
                           </div>
@@ -2425,17 +2425,17 @@ function CertificatesContent(): ReactElement {
                       </div>
 
                       {/* Action Buttons - Compact 2 Column Grid */}
-                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
-                        <div className="grid grid-cols-2 gap-2">
+                      <div className="pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className={`border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8 w-full ${isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs sm:text-sm h-8 sm:h-9 w-full ${isCertificateExpired(certificate) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 disabled={isCertificateExpired(certificate)}
                               >
-                                <Download className="w-3 h-3 mr-1" />
+                                <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1" />
                                 {t("certificates.export")}
                               </Button>
                             </DropdownMenuTrigger>
@@ -2486,28 +2486,28 @@ function CertificatesContent(): ReactElement {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs sm:text-sm h-8 sm:h-9 disabled:opacity-50 disabled:cursor-not-allowed"
                             onClick={() => openEdit(certificate)}
                             disabled={tenantRole === "staff" || !tenantRole}
                           >
-                            <Edit className="w-3 h-3 mr-1" />
+                            <Edit className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1" />
                             {t("common.edit")}
                           </Button>
                           
                           <button
-                            className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg text-xs font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 h-8 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 h-8 sm:h-9 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                             onClick={() => requestDelete(certificate.id)}
                             disabled={!canDelete || deletingCertificateId === certificate.id}
                             style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                           >
                             {deletingCertificateId === certificate.id ? (
                               <>
-                                <div className="w-3 h-3 border-b-2 border-white rounded-full animate-spin"></div>
-                                <span className="hidden sm:inline">Deleting...</span>
+                                <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 border-b-2 border-white rounded-full animate-spin"></div>
+                                <span className="hidden md:inline">Deleting...</span>
                               </>
                             ) : (
                               <>
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                 <span>{t("common.delete")}</span>
                               </>
                             )}

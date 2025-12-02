@@ -95,6 +95,8 @@ export async function POST(req: NextRequest) {
       email: normalizedEmail,
       full_name: trimmedName || normalizedEmail.split("@")[0],
       role: finalRole, // Use protected role instead of default
+      is_verified: true, // Mark as verified since they successfully logged in
+      last_login_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 

@@ -163,6 +163,16 @@ function AuthCallbackContent() {
                 if (typeof window !== 'undefined') {
                   window.localStorage.setItem('auth_registration_confirmed', '1');
                 }
+                
+                // CRITICAL FIX: Mark user as verified in email_whitelist after email confirmation
+                await fetch('/api/email-whitelist/verify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: normalizedEmail }),
+                }).catch(err => {
+                  console.error('Failed to mark user as verified:', err);
+                  // Continue anyway - user can still login
+                });
               } catch {
                 // Ignore storage errors, confirmation will still succeed without toast
               }

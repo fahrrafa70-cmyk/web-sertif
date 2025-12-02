@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 // Registration endpoint: creates a Supabase Auth user (email/password)
 // and upserts a corresponding profile row into email_whitelist.
@@ -8,15 +8,21 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(req: NextRequest) {
   try {
     const text = await req.text();
-    if (!text || text.trim() === '') {
-      return NextResponse.json({ error: 'Request body is required' }, { status: 400 });
+    if (!text || text.trim() === "") {
+      return NextResponse.json(
+        { error: "Request body is required" },
+        { status: 400 },
+      );
     }
 
     let body: unknown;
     try {
       body = JSON.parse(text);
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 },
+      );
     }
 
     const { email, password, full_name } = (body || {}) as {
@@ -25,23 +31,26 @@ export async function POST(req: NextRequest) {
       full_name?: string;
     };
 
-    const normalizedEmail = email?.toLowerCase().trim() || '';
-    const trimmedName = (full_name || '').trim();
+    const normalizedEmail = email?.toLowerCase().trim() || "";
+    const trimmedName = (full_name || "").trim();
 
     if (!normalizedEmail || !password) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: "Email and password are required" },
         { status: 400 },
       );
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid email format" },
+        { status: 400 },
+      );
     }
 
     if (password.length < 6) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
+        { error: "Password must be at least 6 characters long" },
         { status: 400 },
       );
     }
@@ -51,9 +60,9 @@ export async function POST(req: NextRequest) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-      console.error('Supabase env not configured for register endpoint');
+      console.error("Supabase env not configured for register endpoint");
       return NextResponse.json(
-        { error: 'Server configuration error. Please contact support.' },
+        { error: "Server configuration error. Please contact support." },
         { status: 500 },
       );
     }
@@ -67,45 +76,117 @@ export async function POST(req: NextRequest) {
     });
 
     // 1) Create Auth user (Supabase handles password hashing internally)
-    const { data: signUpData, error: signUpError } = await authClient.auth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        data: {
-          full_name: trimmedName || normalizedEmail.split('@')[0],
+    const { data: signUpData, error: signUpError } =
+      await authClient.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          data: {
+            full_name: trimmedName || normalizedEmail.split("@")[0],
+          },
         },
-      },
-    });
+      });
 
     if (signUpError) {
       // If user already exists in auth, surface a clear message
-      if (signUpError.message.toLowerCase().includes('user already registered')) {
+      if (
+        signUpError.message.toLowerCase().includes("user already registered")
+      ) {
         return NextResponse.json(
-          { error: 'This email is already registered. Please login instead.' },
+          { error: "This email is already registered. Please login instead." },
           { status: 409 },
         );
       }
 
-      console.error('Supabase signUp error:', signUpError);
+      console.error("Supabase signUp error:", signUpError);
       return NextResponse.json({ error: signUpError.message }, { status: 500 });
     }
 
     const authUser = signUpData.user;
     if (!authUser) {
       return NextResponse.json(
-        { error: 'Registration failed: missing auth user.' },
+        { error: "Registration failed: missing auth user." },
         { status: 500 },
       );
     }
 
-    // Do NOT write to email_whitelist here. We only sync to whitelist
-    // after a successful email/password login (which implies the email
-    // has been confirmed).
+    // CRITICAL FIX: Sync to email_whitelist immediately after registration
+    // This ensures the user account is created in the database even before email confirmation
+    // The user will be marked as unverified until they confirm their email
+    console.log(`🔄 [REGISTER] Starting database sync for: ${normalizedEmail}`);
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    try {
+      // Insert user data + required fields
+      const payload = {
+        email: normalizedEmail,
+        full_name: trimmedName || normalizedEmail.split("@")[0],
+        role: "user",
+        subscription: false,
+      };
+
+      console.log(`📦 [REGISTER] Payload:`, JSON.stringify(payload, null, 2));
+
+      const { data: syncData, error: syncError } = await adminClient
+        .from("email_whitelist")
+        .upsert(payload, { onConflict: "email" })
+        .select();
+
+      if (syncError) {
+        console.error(
+          "❌ [REGISTER] Failed to sync user to email_whitelist:",
+          JSON.stringify(syncError, null, 2),
+        );
+        console.error("❌ [REGISTER] Error code:", syncError.code);
+        console.error("❌ [REGISTER] Error message:", syncError.message);
+        console.error("❌ [REGISTER] Error details:", syncError.details);
+        console.error("❌ [REGISTER] Error hint:", syncError.hint);
+
+        // CRITICAL: Return error to user so they know sync failed
+        return NextResponse.json(
+          {
+            error: `Registration succeeded but failed to create profile: ${syncError.message}`,
+            details:
+              syncError.details || syncError.hint || "Unknown database error",
+            authCreated: true,
+            profileCreated: false,
+          },
+          { status: 500 },
+        );
+      } else {
+        console.log(
+          `✅ [REGISTER] User synced to email_whitelist: ${normalizedEmail}`,
+        );
+        console.log(
+          `✅ [REGISTER] Sync result:`,
+          JSON.stringify(syncData, null, 2),
+        );
+      }
+    } catch (syncErr) {
+      console.error(
+        "❌ [REGISTER] Exception during email_whitelist sync:",
+        syncErr,
+      );
+
+      // CRITICAL: Return error to user
+      return NextResponse.json(
+        {
+          error: `Registration succeeded but failed to create profile: ${syncErr instanceof Error ? syncErr.message : "Unknown error"}`,
+          authCreated: true,
+          profileCreated: false,
+        },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('Unexpected error in /api/auth/register:', err);
+    console.error("Unexpected error in /api/auth/register:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 },
     );
   }

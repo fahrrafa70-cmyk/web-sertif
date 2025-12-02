@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const { data: profile, error } = await supabase
       .from("email_whitelist")
       .select(
-        "id, email, full_name, username, gender, avatar_url, organization, phone, role, auth_provider, is_active, is_verified, created_at, updated_at",
+        "id, email, full_name, username, gender, avatar_url, organization, phone, role, is_active, is_verified, created_at, updated_at",
       )
       .eq("email", email.trim().toLowerCase())
       .eq("is_active", true)
