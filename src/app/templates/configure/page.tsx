@@ -3712,6 +3712,26 @@ function ConfigureLayoutContent() {
                         />
                       </div>
 
+<<<<<<< HEAD
+=======
+                      {/* Background Transparency */}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Transparent Background</Label>
+                        <label className="flex items-center gap-2 text-[11px]">
+                          <input
+                            type="checkbox"
+                            checked={selectedQR.backgroundColor === 'transparent'}
+                            onChange={(e) =>
+                              updateQRLayer(selectedQR.id, {
+                                backgroundColor: e.target.checked ? 'transparent' : '#FFFFFF',
+                              })
+                            }
+                            className="h-3 w-3 rounded border-gray-300 dark:border-gray-600"
+                          />
+                          <span className="text-gray-600 dark:text-gray-300">No white box</span>
+                        </label>
+                      </div>
+>>>>>>> e5c95decf3668df704c4b516e89a79ef56eb61ed
 
                       {/* Layer Order */}
                       <div>

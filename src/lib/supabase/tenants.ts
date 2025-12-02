@@ -40,9 +40,14 @@ export interface TenantInvite {
   id: string;
   tenant_id: string;
   token: string;
-  role: TenantRole | string;
+  // Role is no longer stored as a dedicated column in tenant_invites schema.
+  // Keep it optional for backward compatibility with old rows.
+  role?: TenantRole | string;
   status: string;
-  created_by_user_id: string;
+  // In current schema this is stored as invited_by_user_id
+  invited_by_user_id?: string;
+  // Keep created_by_user_id optional for backward compatibility with old data
+  created_by_user_id?: string;
   expires_at: string | null;
   created_at: string;
 }
@@ -519,9 +524,7 @@ export async function createTenantInvite(
         tenant_id: tenantId,
         invited_by_user_id: userId,
         token,
-        role,
         status: "pending",
-        created_by_user_id: userId,
         expires_at: null,
       },
     ])
@@ -560,6 +563,27 @@ export async function updateTenantMemberRole(
   }
 
   return data as TenantMember;
+}
+
+export async function removeTenantMember(
+  tenantId: string,
+  memberId: string,
+): Promise<void> {
+  if (!tenantId || !memberId) {
+    throw new Error("Tenant ID and member ID are required");
+  }
+
+  await assertTenantOwner(tenantId);
+
+  const { error } = await supabaseClient
+    .from("tenant_members")
+    .delete()
+    .eq("id", memberId)
+    .eq("tenant_id", tenantId);
+
+  if (error) {
+    throw new Error(`Failed to remove tenant member: ${error.message}`);
+  }
 }
 
 export async function checkTenantHasData(tenantId: string): Promise<boolean> {

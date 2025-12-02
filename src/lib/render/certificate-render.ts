@@ -1290,8 +1290,17 @@ async function renderQRLayer(
     width: optimalSize,
     height: optimalSize,
     errorCorrectionLevel: layer.errorCorrectionLevel || "M",
+<<<<<<< HEAD
     // Use margin from layer config, default to 4 for better compatibility
     margin: layer.margin ?? 4,
+=======
+    // Force margin 0 so QR code fully occupies the configured box size
+    margin: 0,
+    color: {
+      dark: layer.foregroundColor || "#000000",
+      light: layer.backgroundColor || "#FFFFFF",
+    },
+>>>>>>> e5c95decf3668df704c4b516e89a79ef56eb61ed
   });
 
   // Load QR code image
