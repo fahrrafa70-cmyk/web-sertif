@@ -14,10 +14,10 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tenantId: string } },
+  { params }: { params: Promise<{ tenantId: string }> },
 ) {
   try {
-    const tenantId = params.tenantId;
+    const { tenantId } = await params;
 
     if (!tenantId) {
       return NextResponse.json(

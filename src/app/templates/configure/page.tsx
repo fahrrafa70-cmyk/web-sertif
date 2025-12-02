@@ -3389,10 +3389,11 @@ function ConfigureLayoutContent() {
               </div>
 
               {/* Photo Layer Properties */}
-              {selectedPhotoLayerId && photoLayers.find(l => l.id === selectedPhotoLayerId) && (() => {
-                const selectedPhoto = photoLayers.find(l => l.id === selectedPhotoLayerId)!;
-                
-                return (
+              {selectedPhotoLayerId && photoLayers.find(l => l.id === selectedPhotoLayerId) && (
+                (() => {
+                  const selectedPhoto = photoLayers.find(l => l.id === selectedPhotoLayerId)!;
+                  
+                  return (
                   <div className="border-t border-gray-200 dark:border-gray-800 pt-3 sm:pt-4">
                     <div className="flex items-center justify-between mb-2 sm:mb-3">
                       <h3 className="text-[10px] sm:text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide truncate">
@@ -3565,8 +3566,9 @@ function ConfigureLayoutContent() {
 
                     </div>
                   </div>
-                );
-              })()}
+                  );
+                })()
+              )}
 
               {/* QR Code Layers Section */}
               <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
@@ -3712,8 +3714,6 @@ function ConfigureLayoutContent() {
                         />
                       </div>
 
-<<<<<<< HEAD
-=======
                       {/* Background Transparency */}
                       <div className="flex items-center justify-between">
                         <Label className="text-xs">Transparent Background</Label>
@@ -3731,7 +3731,6 @@ function ConfigureLayoutContent() {
                           <span className="text-gray-600 dark:text-gray-300">No white box</span>
                         </label>
                       </div>
->>>>>>> e5c95decf3668df704c4b516e89a79ef56eb61ed
 
                       {/* Layer Order */}
                       <div>
