@@ -653,17 +653,9 @@ export default function HeroSection() {
       }
     }
 
-    // Pastikan tenant untuk search sudah ada
-    const tenantIdForSearch = filters.tenant_id || selectedTenantId;
-    if (!tenantIdForSearch) {
-      setSearchError(
-        safeT('error.search.emptyTenant', 'Please select an organization first'),
-      );
-      setSearchResults([]);
-      setShowResults(false);
-      return;
-    }
-
+    // tenant_id is optional for public search (unauthenticated users)
+    // Will be handled by search page - no need to validate here
+    
     // Set loading state for button and clear previous errors
     setSearching(true);
     setSearchError("");

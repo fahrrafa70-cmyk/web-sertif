@@ -181,6 +181,16 @@ export default function TenantsPage() {
   };
 
   useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        document.title = "Tenants | Certify - Certificate Platform";
+      }
+    };
+    
+    setTitle();
+  }, []);
+
+  useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);

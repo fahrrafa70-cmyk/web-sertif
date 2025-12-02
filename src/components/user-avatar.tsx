@@ -98,7 +98,7 @@ const UserAvatar = memo(function UserAvatar() {
               alt={profile.full_name || 'Avatar'}
               width={28}
               height={28}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover"
               unoptimized
             />
           ) : (
@@ -128,7 +128,7 @@ const UserAvatar = memo(function UserAvatar() {
                       alt={profile.full_name || 'Avatar'}
                       width={40}
                       height={40}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                       unoptimized
                     />
                   ) : (
@@ -151,10 +151,10 @@ const UserAvatar = memo(function UserAvatar() {
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
                           : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                       }`}>
-                        {role === 'owner' ? 'Owner' 
-                         : role === 'manager' ? 'Manager' 
-                         : role === 'staff' ? 'Staff'
-                         : 'User'}
+                        {role === 'owner' ? t('userAvatar.owner') 
+                         : role === 'manager' ? t('userAvatar.manager') 
+                         : role === 'staff' ? t('userAvatar.staff')
+                         : t('userAvatar.user')}
                       </span>
                     )}
                   </div>
@@ -173,7 +173,7 @@ const UserAvatar = memo(function UserAvatar() {
                 className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <User className="w-4 h-4" />
-                <span>Profil</span>
+                <span>{t("userAvatar.profile")}</span>
               </Link>
             </div>
 

@@ -319,4 +319,80 @@ export async function getUserRoleByEmail(email: string): Promise<"owner" | "mana
   return null;
 }
 
+// Get user subscription status from email_whitelist
+export async function getUserSubscriptionStatus(email: string): Promise<boolean> {
+  try {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    const { data, error } = await supabaseClient
+      .from("email_whitelist")
+      .select("subscription")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
 
+    if (error) {
+      console.error('Subscription status check error:', error);
+      return false;
+    }
+
+    return data?.subscription === true;
+  } catch (err) {
+    console.error('Error checking subscription status:', err);
+    return false;
+  }
+}
+
+// Get user role and subscription info
+export async function getUserRoleAndSubscription(email: string): Promise<{
+  role: "owner" | "manager" | "staff" | "user" | null;
+  hasSubscription: boolean;
+}> {
+  const normalizedEmail = email.toLowerCase().trim();
+  console.log('🔍 [AUTH] Getting role and subscription for:', normalizedEmail);
+
+  // 1) Whitelist as primary source (absolute when present)
+  try {
+    const { data, error } = await supabaseClient
+      .from("email_whitelist")
+      .select("role, subscription")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    console.log('🔍 [AUTH] Whitelist query result:', { data, error });
+
+    if (!error && data) {
+      const role = data.role?.toLowerCase();
+      const hasSubscription = data.subscription === true;
+      
+      console.log('🔍 [AUTH] Raw data from whitelist:', { 
+        rawRole: data.role, 
+        rawSubscription: data.subscription,
+        normalizedRole: role,
+        hasSubscription 
+      });
+      
+      let mappedRole: "owner" | "manager" | "staff" | "user" | null = null;
+      
+      if (role === "owner" || role === "manager" || role === "staff" || role === "user") {
+        mappedRole = role;
+      } else if (role === "admin") {
+        mappedRole = "owner";
+      } else if (role === "team" || role === "member") {
+        mappedRole = "manager";
+      } else if (role === "public") {
+        mappedRole = "user";
+      }
+      
+      console.log('🔍 [AUTH] Final result from whitelist:', { role: mappedRole, hasSubscription });
+      return { role: mappedRole, hasSubscription };
+    }
+  } catch (err) {
+    console.error("Error checking whitelist in getUserRoleAndSubscription:", err);
+  }
+
+  // 2) Fallback to users.role (no subscription info available)
+  console.log('🔍 [AUTH] Falling back to users table');
+  const role = await getUserRoleByEmail(normalizedEmail);
+  console.log('🔍 [AUTH] Fallback result:', { role, hasSubscription: false });
+  return { role, hasSubscription: false };
+}

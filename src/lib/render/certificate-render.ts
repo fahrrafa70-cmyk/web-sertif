@@ -1279,7 +1279,6 @@ async function renderQRLayer(
   const width = Math.max(minQRSize, Math.round(widthRaw));
   const height = Math.max(minQRSize, Math.round(heightRaw));
 
-  const minQRSize = 150;
   const maxQRSize = 800;
   const optimalSize = Math.max(
     minQRSize,

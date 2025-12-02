@@ -23,6 +23,7 @@ export interface Certificate {
   created_by: string | null;
   public_id: string;
   xid?: string | null; // NEW: Short XID for compact URLs (/c/{xid})
+  check_number?: string | null; // NEW: Custom sequential number for /cek/ URLs (e.g., 001, 002)
   is_public: boolean;
   // Optional joined relations
   members?: {
@@ -64,9 +65,7 @@ export async function getCertificatesByMember(
     .order("created_at", { ascending: false });
 
   if (error) {
-    throw new Error(
-      `Failed to fetch certificates by member: ${error.message}`,
-    );
+    throw new Error(`Failed to fetch certificates by member: ${error.message}`);
   }
 
   return data || [];
@@ -83,7 +82,7 @@ export interface TextLayer {
   color: string;
   fontWeight: string;
   fontFamily: string;
-  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  textAlign?: "left" | "center" | "right" | "justify";
   maxWidth?: number;
   lineHeight?: number;
   isEditing?: boolean;
@@ -91,6 +90,7 @@ export interface TextLayer {
 
 export interface CreateCertificateData {
   certificate_no?: string; // Optional - will be auto-generated if not provided
+  check_number?: string; // Optional - will be auto-generated for templates using custom numbering
   name: string;
   description?: string;
   issue_date: string;
@@ -109,6 +109,7 @@ export interface CreateCertificateData {
 
 export interface UpdateCertificateData {
   certificate_no?: string;
+  check_number?: string;
   name?: string;
   description?: string;
   issue_date?: string;
@@ -149,19 +150,27 @@ async function getCurrentUserTenantRoleForCertificate(
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to check tenant role for certificate: ${error.message}`);
+    throw new Error(
+      `Failed to check tenant role for certificate: ${error.message}`,
+    );
   }
 
-  const role = (data?.role as string | null)?.toLowerCase() as TenantRole | null;
-  return role === "owner" || role === "manager" || role === "staff" ? role : null;
+  const role = (
+    data?.role as string | null
+  )?.toLowerCase() as TenantRole | null;
+  return role === "owner" || role === "manager" || role === "staff"
+    ? role
+    : null;
 }
 
 // Get all certificates with optional caching and request deduplication
-export async function getCertificates(useCache: boolean = true): Promise<Certificate[]> {
-  if (useCache && typeof window !== 'undefined') {
+export async function getCertificates(
+  useCache: boolean = true,
+): Promise<Certificate[]> {
+  if (useCache && typeof window !== "undefined") {
     try {
-      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
-      
+      const { dataCache, CACHE_KEYS } = await import("@/lib/cache/data-cache");
+
       // Use getOrFetch for automatic deduplication and caching
       return dataCache.getOrFetch<Certificate[]>(
         CACHE_KEYS.CERTIFICATES,
@@ -195,7 +204,7 @@ export async function getCertificates(useCache: boolean = true): Promise<Certifi
 
           return data || [];
         },
-        5 * 60 * 1000 // 5 minutes cache
+        5 * 60 * 1000, // 5 minutes cache
       );
     } catch {
       // Cache module not available, continue with fetch
@@ -261,11 +270,13 @@ export async function getCertificate(id: string): Promise<Certificate | null> {
   return data;
 }
 
-// Get certificate by certificate number
+// Get certificate by certificate number OR check_number
+// First tries certificate_no, then falls back to check_number for /cek/ URLs
 export async function getCertificateByNumber(
-  certificate_no: string,
+  identifier: string,
 ): Promise<Certificate | null> {
-  const { data, error } = await supabaseClient
+  // First try by certificate_no
+  const { data: certByNo, error: errByNo } = await supabaseClient
     .from("certificates")
     .select(
       `
@@ -279,17 +290,40 @@ export async function getCertificateByNumber(
       members:members(*)
     `,
     )
-    .eq("certificate_no", certificate_no)
-    .single();
+    .eq("certificate_no", identifier)
+    .maybeSingle();
 
-  if (error) {
-    if (error.code === "PGRST116") {
-      return null; // Certificate not found
-    }
-    throw new Error(`Failed to fetch certificate: ${error.message}`);
+  if (errByNo && errByNo.code !== "PGRST116") {
+    throw new Error(`Failed to fetch certificate: ${errByNo.message}`);
   }
 
-  return data;
+  if (certByNo) {
+    return certByNo;
+  }
+
+  // Fallback: try by check_number (for /cek/001 style URLs)
+  const { data: certByCheck, error: errByCheck } = await supabaseClient
+    .from("certificates")
+    .select(
+      `
+      *,
+      templates (
+        id,
+        name,
+        category,
+        orientation
+      ),
+      members:members(*)
+    `,
+    )
+    .eq("check_number", identifier)
+    .maybeSingle();
+
+  if (errByCheck && errByCheck.code !== "PGRST116") {
+    throw new Error(`Failed to fetch certificate: ${errByCheck.message}`);
+  }
+
+  return certByCheck || null;
 }
 
 // Get certificate by public_id (for public access)
@@ -359,14 +393,14 @@ export async function getCertificateByXID(
 // Generate unique public_id using crypto
 export function generatePublicId(): string {
   // Use crypto.randomUUID if available (modern browsers and Node 16+)
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  
+
   // Fallback: generate UUID v4 manually
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -375,13 +409,13 @@ export function generatePublicId(): string {
 // YY = year (2 digits), MM = month, DD = day, XXX = sequence (001-999)
 export async function generateCertificateNumber(date?: Date): Promise<string> {
   const targetDate = date || new Date();
-  
+
   // Format: YYMMDD
   const year = targetDate.getFullYear().toString().slice(-2); // Last 2 digits of year
-  const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-  const day = String(targetDate.getDate()).padStart(2, '0');
+  const month = String(targetDate.getMonth() + 1).padStart(2, "0");
+  const day = String(targetDate.getDate()).padStart(2, "0");
   const prefix = `${year}${month}${day}`;
-  
+
   // Find all certificates with the same date prefix
   const { data, error } = await supabaseClient
     .from("certificates")
@@ -389,36 +423,40 @@ export async function generateCertificateNumber(date?: Date): Promise<string> {
     .like("certificate_no", `${prefix}%`)
     .order("certificate_no", { ascending: false })
     .limit(1);
-  
+
   if (error) {
     // If error, start with 001
     return `${prefix}001`;
   }
-  
+
   // If no certificates found for this date, start with 001
   if (!data || data.length === 0) {
     return `${prefix}001`;
   }
-  
+
   // Extract the sequence number from the last certificate
   const lastCertNo = data[0].certificate_no;
   const lastSequence = parseInt(lastCertNo.slice(-3), 10);
-  
+
   // Increment sequence number
   const newSequence = lastSequence + 1;
-  
+
   // Check if sequence exceeds 999
   if (newSequence > 999) {
-    throw new Error(`Certificate sequence limit reached for date ${prefix}. Maximum 999 certificates per day.`);
+    throw new Error(
+      `Certificate sequence limit reached for date ${prefix}. Maximum 999 certificates per day.`,
+    );
   }
-  
+
   // Format new certificate number with padded sequence
-  const sequenceStr = String(newSequence).padStart(3, '0');
+  const sequenceStr = String(newSequence).padStart(3, "0");
   return `${prefix}${sequenceStr}`;
 }
 
 // Check if certificate number is available
-export async function isCertificateNumberAvailable(certificateNo: string): Promise<boolean> {
+export async function isCertificateNumberAvailable(
+  certificateNo: string,
+): Promise<boolean> {
   const existing = await getCertificateByNumber(certificateNo);
   return existing === null;
 }
@@ -427,13 +465,9 @@ export async function isCertificateNumberAvailable(certificateNo: string): Promi
 export async function createCertificate(
   certificateData: CreateCertificateData,
 ): Promise<Certificate> {
-
   try {
     // Validate required fields (name and issue_date are required, certificate_no will be auto-generated if not provided)
-    if (
-      !certificateData.name?.trim() ||
-      !certificateData.issue_date
-    ) {
+    if (!certificateData.name?.trim() || !certificateData.issue_date) {
       throw new Error(
         "Missing required fields: name and issue_date are required",
       );
@@ -456,7 +490,7 @@ export async function createCertificate(
 
     // Generate unique public_id for the certificate
     const publicId = generatePublicId();
-    
+
     // Generate unique XID for compact URLs
     const xid = generateXID();
 
@@ -475,7 +509,8 @@ export async function createCertificate(
         certificateData.certificate_image_url ||
         certificateData.merged_image ||
         null,
-      certificate_thumbnail_url: certificateData.certificate_thumbnail_url || null,
+      certificate_thumbnail_url:
+        certificateData.certificate_thumbnail_url || null,
       // NEW: Handle score image URL for dual templates
       score_image_url: certificateData.score_image_url || null,
       score_thumbnail_url: certificateData.score_thumbnail_url || null,
@@ -519,15 +554,17 @@ export async function createCertificate(
     }
 
     // Invalidate cache after successful creation
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
+        const { dataCache, CACHE_KEYS } = await import(
+          "@/lib/cache/data-cache"
+        );
         dataCache.delete(CACHE_KEYS.CERTIFICATES);
       } catch {
         // Cache module not available, ignore
       }
     }
-    
+
     return data;
   } catch (error) {
     throw error;
@@ -619,9 +656,9 @@ export async function updateCertificate(
   }
 
   // Invalidate cache after successful update
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     try {
-      const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
+      const { dataCache, CACHE_KEYS } = await import("@/lib/cache/data-cache");
       dataCache.delete(CACHE_KEYS.CERTIFICATES);
     } catch {
       // Cache module not available, ignore
@@ -633,7 +670,6 @@ export async function updateCertificate(
 
 // Delete certificate
 export async function deleteCertificate(id: string): Promise<void> {
-
   try {
     // Check if certificate exists
     const certificate = await getCertificate(id);
@@ -641,9 +677,11 @@ export async function deleteCertificate(id: string): Promise<void> {
       throw new Error("Certificate not found");
     }
 
-
     // Check current user session
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabaseClient.auth.getSession();
 
     if (sessionError) {
       throw new Error(`Authentication error: ${sessionError.message}`);
@@ -654,39 +692,43 @@ export async function deleteCertificate(id: string): Promise<void> {
     }
 
     // Delete images from Supabase Storage BEFORE deleting from database
-    
+
     // Extract filenames from URLs
     const deleteStorageFiles = async () => {
       const filesToDelete: string[] = [];
-      
+
       // Extract filename from certificate_image_url
       if (certificate.certificate_image_url) {
-        const certMatch = certificate.certificate_image_url.match(/certificates\/([^?]+)/);
+        const certMatch = certificate.certificate_image_url.match(
+          /certificates\/([^?]+)/,
+        );
         if (certMatch && certMatch[1]) {
           filesToDelete.push(certMatch[1]);
         }
       }
-      
+
       // Extract filename from score_image_url
       if (certificate.score_image_url) {
-        const scoreMatch = certificate.score_image_url.match(/certificates\/([^?]+)/);
+        const scoreMatch = certificate.score_image_url.match(
+          /certificates\/([^?]+)/,
+        );
         if (scoreMatch && scoreMatch[1]) {
           filesToDelete.push(scoreMatch[1]);
         }
       }
-      
+
       // Delete files from storage
       if (filesToDelete.length > 0) {
         const { error: storageError } = await supabaseClient.storage
-          .from('certificates')
+          .from("certificates")
           .remove(filesToDelete);
-        
+
         if (storageError) {
           // Don't throw - continue with database deletion even if storage deletion fails
         }
       }
     };
-    
+
     await deleteStorageFiles();
 
     // Delete certificate from database
@@ -699,11 +741,12 @@ export async function deleteCertificate(id: string): Promise<void> {
       throw new Error(`Failed to delete certificate: ${error.message}`);
     }
 
-    
     // Invalidate cache after successful deletion
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        const { dataCache, CACHE_KEYS } = await import('@/lib/cache/data-cache');
+        const { dataCache, CACHE_KEYS } = await import(
+          "@/lib/cache/data-cache"
+        );
         dataCache.delete(CACHE_KEYS.CERTIFICATES);
       } catch {
         // Cache module not available, ignore
@@ -717,7 +760,7 @@ export async function deleteCertificate(id: string): Promise<void> {
 // Search certificates with tenant filtering
 export async function searchCertificates(
   query: string,
-  tenant_id?: string
+  tenant_id?: string,
 ): Promise<Certificate[]> {
   let queryBuilder = supabaseClient
     .from("certificates")
@@ -738,11 +781,13 @@ export async function searchCertificates(
     );
 
   // CRITICAL: Add tenant filter for multi-tenant isolation
-  if (tenant_id && typeof tenant_id === 'string' && tenant_id.trim()) {
+  if (tenant_id && typeof tenant_id === "string" && tenant_id.trim()) {
     queryBuilder = queryBuilder.eq("tenant_id", tenant_id.trim());
   }
 
-  const { data, error } = await queryBuilder.order("created_at", { ascending: false });
+  const { data, error } = await queryBuilder.order("created_at", {
+    ascending: false,
+  });
 
   if (error) {
     throw new Error(`Failed to search certificates: ${error.message}`);
@@ -764,24 +809,34 @@ export async function advancedSearchCertificates(
   filters: SearchFilters,
 ): Promise<Certificate[]> {
   try {
-    // SECURITY: MUST have tenant_id to prevent cross-tenant data access
-    if (!filters.tenant_id || typeof filters.tenant_id !== 'string' || !filters.tenant_id.trim()) {
-      console.warn('advancedSearchCertificates: tenant_id is required for security');
-      return [];
+    // If no tenant_id provided, use public search instead
+    if (
+      !filters.tenant_id ||
+      typeof filters.tenant_id !== "string" ||
+      !filters.tenant_id.trim()
+    ) {
+      // Fallback to public search for unauthenticated users
+      return publicSearchCertificates({
+        keyword: filters.keyword,
+        category: filters.category,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+      });
     }
-    
+
     // Check if keyword is provided
-    const hasKeyword = filters.keyword && typeof filters.keyword === 'string' && filters.keyword.trim();
-    
+    const hasKeyword =
+      filters.keyword &&
+      typeof filters.keyword === "string" &&
+      filters.keyword.trim();
+
     // MUST have keyword to search - filters only narrow down search results
     if (!hasKeyword) {
       return [];
     }
 
-    let query = supabaseClient
-      .from("certificates")
-      .select(
-        `
+    let query = supabaseClient.from("certificates").select(
+      `
         *,
         templates (
           id,
@@ -791,38 +846,46 @@ export async function advancedSearchCertificates(
         ),
         members:members(*)
       `,
-      );
+    );
 
     // Keyword search - search in certificate_no and name (participant name in certificates table)
     // Note: We'll also filter by member name on client side after fetching
     const keyword = filters.keyword!.trim();
-    
+
     // Sanitize keyword to prevent SQL injection
-    const sanitizedKeyword = keyword.replace(/[%_]/g, '');
+    const sanitizedKeyword = keyword.replace(/[%_]/g, "");
     if (!sanitizedKeyword) {
       return [];
     }
-    
+
     query = query.or(
       `certificate_no.ilike.%${sanitizedKeyword}%,name.ilike.%${sanitizedKeyword}%`,
     );
 
     // CRITICAL: Tenant filter for multi-tenant isolation
     // If tenant_id is provided, ONLY show certificates from that tenant
-    if (filters.tenant_id && typeof filters.tenant_id === 'string' && filters.tenant_id.trim()) {
+    if (
+      filters.tenant_id &&
+      typeof filters.tenant_id === "string" &&
+      filters.tenant_id.trim()
+    ) {
       query = query.eq("tenant_id", filters.tenant_id.trim());
     }
 
     // Category filter (optional - to narrow down results)
-    if (filters.category && typeof filters.category === 'string' && filters.category.trim()) {
+    if (
+      filters.category &&
+      typeof filters.category === "string" &&
+      filters.category.trim()
+    ) {
       query = query.eq("category", filters.category.trim());
     }
 
     // Date range filter (optional - to narrow down results)
-    if (filters.startDate && typeof filters.startDate === 'string') {
+    if (filters.startDate && typeof filters.startDate === "string") {
       query = query.gte("issue_date", filters.startDate);
     }
-    if (filters.endDate && typeof filters.endDate === 'string') {
+    if (filters.endDate && typeof filters.endDate === "string") {
       query = query.lte("issue_date", filters.endDate);
     }
 
@@ -848,15 +911,17 @@ export async function advancedSearchCertificates(
     let results = data || [];
     if (hasKeyword) {
       const keywordLower = filters.keyword!.trim().toLowerCase();
-      results = results.filter(cert => {
+      results = results.filter((cert) => {
         try {
-          const certNo = (cert?.certificate_no || '').toLowerCase();
-          const certName = (cert?.name || '').toLowerCase();
-          const memberName = (cert?.members?.name || '').toLowerCase();
-          
-          return certNo.includes(keywordLower) || 
-                 certName.includes(keywordLower) || 
-                 memberName.includes(keywordLower);
+          const certNo = (cert?.certificate_no || "").toLowerCase();
+          const certName = (cert?.name || "").toLowerCase();
+          const memberName = (cert?.members?.name || "").toLowerCase();
+
+          return (
+            certNo.includes(keywordLower) ||
+            certName.includes(keywordLower) ||
+            memberName.includes(keywordLower)
+          );
         } catch (filterError) {
           return false;
         }
@@ -870,8 +935,123 @@ export async function advancedSearchCertificates(
   }
 }
 
+// PUBLIC search - for unauthenticated users searching across all tenants
+// This function does NOT require tenant_id
+export interface PublicSearchFilters {
+  keyword?: string;
+  category?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export async function publicSearchCertificates(
+  filters: PublicSearchFilters,
+): Promise<Certificate[]> {
+  try {
+    // Check if keyword is provided
+    const hasKeyword =
+      filters.keyword &&
+      typeof filters.keyword === "string" &&
+      filters.keyword.trim();
+
+    // MUST have keyword to search - filters only narrow down search results
+    if (!hasKeyword) {
+      return [];
+    }
+
+    let query = supabaseClient.from("certificates").select(
+      `
+        *,
+        templates (
+          id,
+          name,
+          category,
+          orientation
+        ),
+        members:members(*)
+      `,
+    );
+
+    // Keyword search - search in certificate_no and name
+    const keyword = filters.keyword!.trim();
+
+    // Sanitize keyword to prevent SQL injection
+    const sanitizedKeyword = keyword.replace(/[%_]/g, "");
+    if (!sanitizedKeyword) {
+      return [];
+    }
+
+    query = query.or(
+      `certificate_no.ilike.%${sanitizedKeyword}%,name.ilike.%${sanitizedKeyword}%`,
+    );
+
+    // Category filter (optional)
+    if (
+      filters.category &&
+      typeof filters.category === "string" &&
+      filters.category.trim()
+    ) {
+      query = query.eq("category", filters.category.trim());
+    }
+
+    // Date range filter (optional)
+    if (filters.startDate && typeof filters.startDate === "string") {
+      query = query.gte("issue_date", filters.startDate);
+    }
+    if (filters.endDate && typeof filters.endDate === "string") {
+      query = query.lte("issue_date", filters.endDate);
+    }
+
+    // Limit results to prevent overwhelming the UI
+    query = query.limit(100);
+
+    // Order by most recent
+    query = query.order("created_at", { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Public search error:", error);
+      return [];
+    }
+
+    // Validate data
+    if (!data || !Array.isArray(data)) {
+      return [];
+    }
+
+    // Filter by member name on client side
+    let results = data || [];
+    if (hasKeyword) {
+      const keywordLower = filters.keyword!.trim().toLowerCase();
+      results = results.filter((cert) => {
+        try {
+          const certNo = (cert?.certificate_no || "").toLowerCase();
+          const certName = (cert?.name || "").toLowerCase();
+          const memberName = (cert?.members?.name || "").toLowerCase();
+
+          return (
+            certNo.includes(keywordLower) ||
+            certName.includes(keywordLower) ||
+            memberName.includes(keywordLower)
+          );
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.error("Public search error:", error);
+    return [];
+  }
+}
+
 // Get unique categories from certificates and templates with tenant filtering
-export async function getCertificateCategories(tenant_id?: string): Promise<string[]> {
+export async function getCertificateCategories(
+  tenant_id?: string,
+): Promise<string[]> {
   try {
     const categoriesSet = new Set<string>();
 
@@ -881,18 +1061,23 @@ export async function getCertificateCategories(tenant_id?: string): Promise<stri
       .select("category")
       .not("category", "is", null)
       .limit(1000);
-    
+
     // Add tenant filter if provided
-    if (tenant_id && typeof tenant_id === 'string' && tenant_id.trim()) {
+    if (tenant_id && typeof tenant_id === "string" && tenant_id.trim()) {
       certQuery = certQuery.eq("tenant_id", tenant_id.trim());
     }
-    
+
     const { data: certData, error: certError } = await certQuery;
 
     if (certError) {
     } else if (certData && Array.isArray(certData)) {
       certData.forEach((item) => {
-        if (item && item.category && typeof item.category === 'string' && item.category.trim()) {
+        if (
+          item &&
+          item.category &&
+          typeof item.category === "string" &&
+          item.category.trim()
+        ) {
           categoriesSet.add(item.category.trim());
         }
       });
@@ -904,18 +1089,23 @@ export async function getCertificateCategories(tenant_id?: string): Promise<stri
       .select("category")
       .not("category", "is", null)
       .limit(1000);
-    
+
     // Add tenant filter if provided
-    if (tenant_id && typeof tenant_id === 'string' && tenant_id.trim()) {
+    if (tenant_id && typeof tenant_id === "string" && tenant_id.trim()) {
       templateQuery = templateQuery.eq("tenant_id", tenant_id.trim());
     }
-    
+
     const { data: templateData, error: templateError } = await templateQuery;
 
     if (templateError) {
     } else if (templateData && Array.isArray(templateData)) {
       templateData.forEach((item) => {
-        if (item && item.category && typeof item.category === 'string' && item.category.trim()) {
+        if (
+          item &&
+          item.category &&
+          typeof item.category === "string" &&
+          item.category.trim()
+        ) {
           categoriesSet.add(item.category.trim());
         }
       });
@@ -926,7 +1116,6 @@ export async function getCertificateCategories(tenant_id?: string): Promise<stri
     return [];
   }
 }
-  
 
 // Get certificates by category
 export async function getCertificatesByCategory(
@@ -986,4 +1175,54 @@ export async function getCertificatesByTemplate(
   }
 
   return data || [];
+}
+
+// Generate sequential check number (001, 002, 003, etc.)
+// Used for templates that require simple sequential numbering for /cek/ URLs
+export async function generateCheckNumber(
+  templateId?: string,
+): Promise<string> {
+  // Build query to find the highest check_number
+  let query = supabaseClient
+    .from("certificates")
+    .select("check_number")
+    .not("check_number", "is", null)
+    .order("check_number", { ascending: false })
+    .limit(1);
+
+  // If templateId is provided, scope the sequence to that template
+  if (templateId) {
+    query = query.eq("template_id", templateId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    // If error, start with 001
+    return "001";
+  }
+
+  // If no certificates found with check_number, start with 001
+  if (!data || data.length === 0 || !data[0].check_number) {
+    return "001";
+  }
+
+  // Extract the sequence number from the last check_number
+  const lastCheckNo = data[0].check_number;
+  const lastSequence = parseInt(lastCheckNo, 10);
+
+  // Increment sequence number
+  const newSequence = lastSequence + 1;
+
+  // Format with leading zeros (supports up to 999, extend as needed)
+  const digits = Math.max(3, lastCheckNo.length);
+  return String(newSequence).padStart(digits, "0");
+}
+
+// Check if check_number is available
+export async function isCheckNumberAvailable(
+  checkNumber: string,
+): Promise<boolean> {
+  const existing = await getCertificateByNumber(checkNumber);
+  return existing === null;
 }

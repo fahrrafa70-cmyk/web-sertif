@@ -4,7 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabase/client";
 import { 
-  getUserRoleByEmail, 
+  getUserRoleByEmail,
+  getUserRoleAndSubscription,
   signInWithEmailPassword,
   signInWithGoogle,
   signInWithGitHub,
@@ -17,14 +18,10 @@ type AuthState = {
   role: Role;
   email: string | null;
   isAuthenticated: boolean;
+  hasSubscription: boolean;
   loading: boolean;
   error: string | null;
   openLogin: boolean;
-  /**
-   * True ketika proses inisialisasi auth pertama (restore session + fetch role)
-   * sudah selesai. Bisa digunakan komponen UI untuk mencegah flicker antara
-   * tampilan guest vs logged-in saat halaman pertama kali dimuat.
-   */
   initialized: boolean;
   setOpenLogin: (open: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
@@ -40,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [role, setRole] = useState<Role>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [hasSubscription, setHasSubscription] = useState(false); // NEW: Track subscription
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openLogin, setOpenLogin] = useState(false);
@@ -80,13 +78,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const normalized = session.user.email.toLowerCase().trim();
           setEmail(normalized);
           try {
-            const fetchedRole = await getUserRoleByEmail(normalized);
+            const { role: fetchedRole, hasSubscription: fetchedSubscription } = await getUserRoleAndSubscription(normalized);
             setRole(fetchedRole);
+            setHasSubscription(fetchedSubscription);
             setError(null);
-            console.log('Auth state restored from session:', { email: normalized, role: fetchedRole });
+            console.log('🔍 [AUTH INIT] Auth state restored from session:', { 
+              email: normalized, 
+              role: fetchedRole, 
+              hasSubscription: fetchedSubscription 
+            });
           } catch (err) {
             console.error('Error fetching user role on init:', err);
             setRole(null);
+            setHasSubscription(false);
             setError("Failed to fetch user role. Please try signing in again.");
           }
         }
@@ -125,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setRole(null);
         setEmail(null);
+        setHasSubscription(false);
         setError(null);
         setLoading(false); // Ensure loading is reset on sign out
       } else if (event === "SIGNED_IN" && session?.user?.email) {
@@ -413,12 +418,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!email) return;
     try {
       const normalized = email.toLowerCase().trim();
-      const fetchedRole = await getUserRoleByEmail(normalized);
+      const { role: fetchedRole, hasSubscription: fetchedSubscription } = await getUserRoleAndSubscription(normalized);
       setRole(fetchedRole);
+      setHasSubscription(fetchedSubscription);
 
       try {
         window.localStorage.setItem("ecert-role", fetchedRole || "public");
       } catch {}
+      
+      console.log('🔄 [REFRESH] Role and subscription refreshed:', { 
+        email: normalized, 
+        role: fetchedRole, 
+        hasSubscription: fetchedSubscription 
+      });
     } catch (err) {
       console.error("Error refreshing user role:", err);
     }
@@ -429,6 +441,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear state immediately first
       setRole(null);
       setEmail(null);
+      setHasSubscription(false);
       setError(null);
       
       // Clear ALL Supabase storage keys
@@ -475,6 +488,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role,
     email,
     isAuthenticated: !!email,
+    hasSubscription,
     loading,
     error,
     openLogin,
@@ -485,7 +499,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     localSignOut,
     refreshRole,
-  }), [role, email, loading, error, openLogin, isInitialized, signIn, signInWithOAuth, signOut, localSignOut, refreshRole]);
+  }), [role, email, hasSubscription, loading, error, openLogin, isInitialized, signIn, signInWithOAuth, signOut, localSignOut, refreshRole]);
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

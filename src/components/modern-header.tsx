@@ -8,6 +8,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { useModal } from "@/contexts/modal-context";
+import { useLanguage } from "@/contexts/language-context";
 import { LanguageSwitcher } from "./language-switcher";
 import { ThemeSwitcher } from "./theme-switcher";
 import UserAvatar from "./user-avatar";
@@ -24,7 +25,16 @@ interface ModernHeaderProps {
 }
 
 const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSidebar = false }: ModernHeaderProps) {
-  const { setOpenLogin, isAuthenticated, refreshRole, role, initialized } = useAuth();
+  const { t } = useLanguage();
+  const { 
+    role, 
+    email, 
+    isAuthenticated, 
+    hasSubscription,
+    initialized, 
+    setOpenLogin, 
+    refreshRole 
+  } = useAuth();
   const { isModalOpen } = useModal();
   const pathname = usePathname();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -77,14 +87,18 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
 
       const normalizedEmail = subscriberEmail.toLowerCase().trim();
       if (!normalizedEmail) {
-        throw new Error("Email pengguna tidak ditemukan. Silakan login ulang.");
+        throw new Error(t("error.emailNotFound"));
       }
 
-      // Demo subscription: hanya update role di email_whitelist, tidak lagi menyentuh tabel users.
+      // Demo subscription: update role AND subscription status di email_whitelist
       const { error } = await supabaseClient
         .from("email_whitelist")
         .upsert(
-          { email: normalizedEmail, role: "owner" },
+          { 
+            email: normalizedEmail, 
+            role: "owner",
+            subscription: true  // Set subscription to true
+          },
           { onConflict: "email" }
         );
 
@@ -94,10 +108,10 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
 
       await refreshRole();
       setSubscriptionOpen(false);
-      toast.success("Akun kamu sekarang menjadi Owner. Semua fitur telah dibuka.");
+      toast.success(t("success.ownerUpgrade"));
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Gagal memproses subscription demo.";
+        error instanceof Error ? error.message : t("error.subscriptionProcessFailed");
       toast.error(message);
     } finally {
       setSubscriptionLoading(false);
@@ -129,7 +143,7 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
             <button
               onClick={handleMobileSidebarToggle}
               className="lg:hidden flex-shrink-0 p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative z-20"
-              aria-label="Open Menu"
+              aria-label={t("header.openMenu")}
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -142,7 +156,7 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
               <Link href="/" className="flex items-center group">
                 <Image
                   src="/headerdark.png"
-                  alt="Certify Logo"
+                  alt={t("header.certifyLogo")}
                   width={200}
                   height={60}
                   className="h-10 sm:h-11 md:h-12 w-auto object-contain transition-all duration-300 group-hover:scale-105"
@@ -156,7 +170,7 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
               <Link href="/" className="flex items-center group">
                 <Image
                   src="/headerdark.png"
-                  alt="Certify Logo"
+                  alt={t("header.certifyLogo")}
                   width={320}
                   height={120}
                   className="h-12 w-auto object-contain transition-all duration-300 group-hover:scale-105"
@@ -178,13 +192,23 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
                 <LanguageSwitcher variant="compact" />
               </div>
 
-              {initialized && isAuthenticated && role === "user" && (
+              {(() => {
+                const shouldShowButton = initialized && isAuthenticated && role === "user" && !hasSubscription;
+                console.log('🔍 [HEADER] Subscription button visibility check:', {
+                  initialized,
+                  isAuthenticated,
+                  role,
+                  hasSubscription,
+                  shouldShowButton
+                });
+                return shouldShowButton;
+              })() && (
                 <Button
                   size="sm"
                   className="hidden lg:inline-flex bg-gradient-to-r from-blue-500 via-blue-500 to-indigo-500 hover:from-blue-600 hover:via-blue-600 hover:to-indigo-600 text-white font-bold tracking-wide border-0 shadow-lg hover:shadow-xl h-8 sm:h-9 md:h-10 text-xs sm:text-sm md:text-[0.9rem] px-3 sm:px-3.5 md:px-4 rounded-full transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   onClick={() => setSubscriptionOpen(true)}
                 >
-                  Subscription
+                  {t("header.subscription")}
                 </Button>
               )}
 
@@ -198,7 +222,7 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
                     className="gradient-primary text-white border-0 shadow-md h-7 sm:h-8 md:h-9 text-xs sm:text-sm px-2 sm:px-3 md:px-4"
                     onClick={() => setOpenLogin(true)}
                   >
-                    Login
+                    {t("header.login")}
                   </Button>
                 )
               )}
@@ -219,7 +243,13 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
         <DialogContent className="sm:max-w-[720px]">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl font-bold">
-              Upgrade ke <span className="text-blue-600">Owner</span>
+              {t("subscription.upgradeToOwner").split(" ").map((word, index, array) => 
+                word === "Owner" ? (
+                  <span key={index} className="text-blue-600">{word}</span>
+                ) : (
+                  <span key={index}>{word}{index < array.length - 1 ? " " : ""}</span>
+                )
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -231,21 +261,20 @@ const ModernHeader = memo(function ModernHeader({ hideAuth = false, hideMobileSi
                   <div className="flex items-baseline justify-between gap-2 mb-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                        Paket Owner
+                        {t("subscription.ownerPackage")}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">
-                        Paket lengkap untuk pemilik akun yang membutuhkan kontrol penuh atas struktur
-                        organisasi, data peserta, dan penerbitan sertifikat.
+                        {t("subscription.packageDescription")}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-[11px] uppercase tracking-wide text-gray-400 line-through">
-                        Rp199.000
+                        {t("subscription.originalPrice")}
                       </p>
                       <p className="text-xl sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400">
-                        Rp0
+                        {t("subscription.demoPrice")}
                         <span className="ml-1 text-xs font-semibold text-blue-500 dark:text-blue-300">
-                          / demo
+                          {t("subscription.demoSuffix")}
                         </span>
                       </p>
                     </div>

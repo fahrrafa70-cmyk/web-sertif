@@ -642,8 +642,114 @@ const translations: Translations = {
     'hero.clearFilters': 'Clear Filters',
     'hero.applyFilters': 'Apply Filters',
     'search.tenant': 'Organization',
-    'search.search':'search',
-    'search.searching':'searchhing...'
+    'search.search': 'Search',
+    'search.searchShort': 'Search',
+    'search.searching': 'Searching...',
+    
+    // Header & Navigation
+    'header.subscription': 'Subscription',
+    'header.login': 'Login',
+    'header.openMenu': 'Open Menu',
+    'header.certifyLogo': 'Certify Logo',
+    
+    // Subscription Modal
+    'subscription.upgradeToOwner': 'Upgrade to Owner',
+    'subscription.ownerPackage': 'Owner Package',
+    'subscription.packageDescription': 'Complete package for account owners who need full control over organizational structure, participant data, and certificate issuance.',
+    'subscription.originalPrice': 'Rp199,000',
+    'subscription.demoPrice': 'Rp0',
+    'subscription.demoSuffix': '/ demo',
+    'subscription.unlimitedTenants': 'Unlimited tenants for one account – manage multiple institutions/brands in one dashboard.',
+    'subscription.designTemplates': 'Design and save various certificate templates, then reuse them for future events.',
+    'subscription.importParticipants': 'Import participant data, manage participant lists, and generate certificates in bulk from Excel.',
+    'subscription.teamStructure': 'Set up team structure with Owner / Manager / Staff roles for each tenant without mixing.',
+    'subscription.monitoring': 'Neat monitoring: participant data, created certificates, and team activities centralized in one place.',
+    'subscription.howItWorks': 'How it works in 3 steps:',
+    'subscription.step1': 'Create tenant for organization / event you want to manage.',
+    'subscription.step2': 'Add team members and set their roles (Owner / Manager / Staff).',
+    'subscription.step3': 'Import participant data then generate certificates automatically from templates.',
+    'subscription.whatYouGet': 'What do you get?',
+    'subscription.whatYouGetDesc': 'One account with full control: create separate workspaces (tenants), manage teams in each workspace, and handle the entire certificate cycle from one dashboard.',
+    'subscription.nextSteps': 'Next Steps',
+    'subscription.nextStepsDesc': 'Click Continue to payment to fill in brief data before your Owner package is activated.',
+    'subscription.cancel': 'Cancel',
+    'subscription.continueToPayment': 'Continue to Payment',
+    'subscription.packageSummary': 'Package Summary',
+    'subscription.packageSummaryDesc': 'Owner Package – Rp0 / demo',
+    'subscription.allFeaturesActive': 'All Owner features will be active immediately after you press the confirmation button below.',
+    'subscription.multiTenant': '• Multi-tenant and team management',
+    'subscription.reusableTemplates': '• Reusable certificate templates',
+    'subscription.bulkGeneration': '• Import participants & bulk generation',
+    'subscription.fullName': 'Full Name',
+    'subscription.fullNamePlaceholder': 'Name according to account',
+    'subscription.email': 'Email',
+    'subscription.emailPlaceholder': 'email@example.com',
+    'subscription.paymentMethod': 'Payment Method (demo)',
+    'subscription.creditCard': 'Credit / Debit Card (simulation)',
+    'subscription.bankTransfer': 'Bank Transfer (simulation)',
+    'subscription.eWallet': 'E-Wallet (simulation)',
+    'subscription.back': 'Back',
+    'subscription.processing': 'Processing...',
+    'subscription.activateOwner': 'Activate Owner Package (Demo)',
+    
+    // Profile Page
+    'profile.pageTitle': 'Profile | Certify - Certificate Platform',
+    'profile.profilePhoto': 'Profile Photo',
+    'profile.profilePicture': 'Profile picture',
+    'profile.changePhoto': 'Change Photo',
+    'profile.fullName': 'Full Name',
+    'profile.fullNamePlaceholder': 'Enter your full name',
+    'profile.username': 'Username',
+    'profile.usernamePlaceholder': 'Enter your username',
+    'profile.usernameHelp': 'Username can only contain lowercase letters, numbers, and underscores',
+    'profile.gender': 'Jenis Kelamin',
+    'profile.selectGender': 'Select gender',
+    'profile.male': 'Male',
+    'profile.female': 'Female',
+    'profile.updateProfile': 'Update Profile',
+    'profile.setupPhoto': 'Setup Profile Photo',
+    'profile.zoom': 'Zoom',
+    'profile.rotate90': 'Rotate 90°',
+    'profile.reset': 'Reset',
+    'profile.dragInstructions': 'Click and drag to move photo, use slider to zoom',
+    'profile.apply': 'Apply',
+    'profile.uploading': 'Uploading...',
+    
+    // Profile Validation
+    'profile.validation.nameRequired': 'Full name is required',
+    'profile.validation.nameMinLength': 'Name must be at least 2 characters',
+    'profile.validation.usernameRequired': 'Username is required',
+    'profile.validation.usernameMinLength': 'Username must be at least 3 characters',
+    'profile.validation.usernameMaxLength': 'Username must be at most 50 characters',
+    'profile.validation.usernameFormat': 'Username can only contain lowercase letters, numbers, and underscores',
+    'profile.validation.usernameTaken': 'Username is already taken',
+    'profile.validation.usernameCheckFailed': 'Failed to check username availability',
+    
+    // Profile Messages
+    'profile.messages.photoUploaded': 'Profile photo uploaded successfully',
+    'profile.messages.photoUploadFailed': 'Failed to upload profile photo',
+    'profile.messages.invalidFileType': 'Please upload an image file',
+    'profile.messages.profileUpdated': 'Profile updated successfully!',
+    'profile.messages.profileUpdateFailed': 'Failed to update profile',
+    
+    // User Avatar
+    'userAvatar.profile': 'Profile',
+    'userAvatar.owner': 'Owner',
+    'userAvatar.manager': 'Manager',
+    'userAvatar.staff': 'Staff',
+    'userAvatar.user': 'User',
+    'userAvatar.userMenu': 'User menu',
+    'userAvatar.avatar': 'Avatar',
+    
+    // Certificates Page
+    'certificates.pageTitle': 'Certificates | Certify - Certificate Platform',
+    
+    // Error Messages
+    'error.emailNotFound': 'User email not found. Please login again.',
+    'error.subscriptionProcessFailed': 'Failed to process demo subscription.',
+    
+    // Success Messages
+    'success.ownerUpgrade': 'Your account is now Owner. All features have been unlocked.'
   },
   id: {
     // Navigation
@@ -1276,6 +1382,114 @@ const translations: Translations = {
     'hero.endDate': 'Tanggal Akhir',
     'hero.clearFilters': 'Hapus Filter',
     'hero.applyFilters': 'Terapkan Filter',
+    'search.search': 'Cari',
+    'search.searchShort': 'Cari',
+    'search.searching': 'Mencari...',
+    
+    // Header & Navigation
+    'header.subscription': 'Berlangganan',
+    'header.login': 'Masuk',
+    'header.openMenu': 'Buka Menu',
+    'header.certifyLogo': 'Logo Certify',
+    
+    // Subscription Modal
+    'subscription.upgradeToOwner': 'Upgrade ke Owner',
+    'subscription.ownerPackage': 'Paket Owner',
+    'subscription.packageDescription': 'Paket lengkap untuk pemilik akun yang membutuhkan kontrol penuh atas struktur organisasi, data peserta, dan penerbitan sertifikat.',
+    'subscription.originalPrice': 'Rp199.000',
+    'subscription.demoPrice': 'Rp0',
+    'subscription.demoSuffix': '/ demo',
+    'subscription.unlimitedTenants': 'Unlimited tenants untuk satu akun – kelola banyak institusi/brand dalam satu dashboard.',
+    'subscription.designTemplates': 'Desain dan simpan berbagai templates sertifikat, lalu gunakan kembali untuk event berikutnya.',
+    'subscription.importParticipants': 'Impor data peserta, kelola daftar peserta, dan generate sertifikat secara massal dari Excel.',
+    'subscription.teamStructure': 'Atur struktur tim dengan role Owner / Manager / Staff untuk setiap tenant tanpa saling bercampur.',
+    'subscription.monitoring': 'Monitoring yang rapi: data peserta, sertifikat yang sudah dibuat, dan aktivitas tim terpusat dalam satu tempat.',
+    'subscription.howItWorks': 'Cara kerja dalam 3 langkah:',
+    'subscription.step1': 'Buat tenant untuk organisasi / event yang ingin dikelola.',
+    'subscription.step2': 'Tambahkan anggota tim dan atur role mereka (Owner / Manager / Staff).',
+    'subscription.step3': 'Impor data peserta lalu generate sertifikat otomatis dari templates.',
+    'subscription.whatYouGet': 'Apa yang kamu dapatkan?',
+    'subscription.whatYouGetDesc': 'Satu akun dengan kendali penuh: buat beberapa ruang kerja (tenant) terpisah, atur tim di masing-masing ruang kerja, dan kelola seluruh siklus sertifikat dari satu dashboard.',
+    'subscription.nextSteps': 'Langkah selanjutnya',
+    'subscription.nextStepsDesc': 'Klik Lanjut ke pembayaran untuk mengisi data singkat sebelum paket Owner kamu diaktifkan.',
+    'subscription.cancel': 'Batal',
+    'subscription.continueToPayment': 'Lanjut ke pembayaran',
+    'subscription.packageSummary': 'Ringkasan paket',
+    'subscription.packageSummaryDesc': 'Paket Owner – Rp0 / demo',
+    'subscription.allFeaturesActive': 'Semua fitur Owner akan langsung aktif setelah kamu menekan tombol konfirmasi di bawah.',
+    'subscription.multiTenant': '• Multi-tenant dan manajemen tim',
+    'subscription.reusableTemplates': '• Templates sertifikat reusable',
+    'subscription.bulkGeneration': '• Import peserta & generate massal',
+    'subscription.fullName': 'Nama lengkap',
+    'subscription.fullNamePlaceholder': 'Nama sesuai akun',
+    'subscription.email': 'Email',
+    'subscription.emailPlaceholder': 'email@example.com',
+    'subscription.paymentMethod': 'Metode pembayaran (demo)',
+    'subscription.creditCard': 'Kartu Kredit / Debit (simulasi)',
+    'subscription.bankTransfer': 'Transfer Bank (simulasi)',
+    'subscription.eWallet': 'E-Wallet (simulasi)',
+    'subscription.back': 'Kembali',
+    'subscription.processing': 'Memproses...',
+    'subscription.activateOwner': 'Aktifkan Paket Owner (Demo)',
+    
+    // Profile Page
+    'profile.pageTitle': 'Profile | Certify - Certificate Platform',
+    'profile.profilePhoto': 'Foto Profil',
+    'profile.profilePicture': 'Profile picture',
+    'profile.changePhoto': 'Ubah Foto',
+    'profile.fullName': 'Nama Lengkap',
+    'profile.fullNamePlaceholder': 'Masukkan nama lengkap Anda',
+    'profile.username': 'Username',
+    'profile.usernamePlaceholder': 'Masukkan username Anda',
+    'profile.usernameHelp': 'Username hanya boleh berisi huruf kecil, angka, dan underscore',
+    'profile.gender': 'Jenis Kelamin',
+    'profile.selectGender': 'Pilih jenis kelamin',
+    'profile.male': 'Male',
+    'profile.female': 'Female',
+    'profile.updateProfile': 'Update Profile',
+    'profile.setupPhoto': 'Atur Foto Profil',
+    'profile.zoom': 'Perbesar',
+    'profile.rotate90': 'Putar 90°',
+    'profile.reset': 'Reset',
+    'profile.dragInstructions': 'Klik dan seret untuk menggeser foto, gunakan slider untuk memperbesar',
+    'profile.apply': 'Terapkan',
+    'profile.uploading': 'Mengunggah...',
+    
+    // Profile Validation
+    'profile.validation.nameRequired': 'Nama lengkap wajib diisi',
+    'profile.validation.nameMinLength': 'Nama minimal 2 karakter',
+    'profile.validation.usernameRequired': 'Username wajib diisi',
+    'profile.validation.usernameMinLength': 'Username minimal 3 karakter',
+    'profile.validation.usernameMaxLength': 'Username maksimal 50 karakter',
+    'profile.validation.usernameFormat': 'Username hanya boleh berisi huruf kecil, angka, dan underscore',
+    'profile.validation.usernameTaken': 'Username sudah digunakan',
+    'profile.validation.usernameCheckFailed': 'Gagal memeriksa ketersediaan username',
+    
+    // Profile Messages
+    'profile.messages.photoUploaded': 'Foto profil berhasil diunggah',
+    'profile.messages.photoUploadFailed': 'Gagal mengunggah foto profil',
+    'profile.messages.invalidFileType': 'Please upload an image file',
+    'profile.messages.profileUpdated': 'Profile updated successfully!',
+    'profile.messages.profileUpdateFailed': 'Failed to update profile',
+    
+    // User Avatar
+    'userAvatar.profile': 'Profil',
+    'userAvatar.owner': 'Owner',
+    'userAvatar.manager': 'Manager',
+    'userAvatar.staff': 'Staff',
+    'userAvatar.user': 'User',
+    'userAvatar.userMenu': 'User menu',
+    'userAvatar.avatar': 'Avatar',
+    
+    // Certificates Page
+    'certificates.pageTitle': 'Certificates | Certify - Certificate Platform',
+    
+    // Error Messages
+    'error.emailNotFound': 'Email pengguna tidak ditemukan. Silakan login ulang.',
+    'error.subscriptionProcessFailed': 'Gagal memproses subscription demo.',
+    
+    // Success Messages
+    'success.ownerUpgrade': 'Akun kamu sekarang menjadi Owner. Semua fitur telah dibuka.'
   }
 };
 

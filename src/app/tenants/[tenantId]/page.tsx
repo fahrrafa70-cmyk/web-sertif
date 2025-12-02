@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ModernLayout from "@/components/modern-layout";
-import { useLanguage } from "@/contexts/language-context";
 import {
   getTenantById,
   getTenantMembers,
@@ -31,7 +30,6 @@ import { confirmToast } from "@/lib/ui/confirm";
 export default function TenantDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { t } = useLanguage();
   const tenantId = params?.tenantId as string | undefined;
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -170,6 +168,17 @@ export default function TenantDetailPage() {
 
     void load();
   }, [tenantId]);
+
+  useEffect(() => {
+    const setTitle = () => {
+      if (typeof document !== 'undefined') {
+        const tenantName = tenant?.name || 'Tenant';
+        document.title = `${tenantName} | Certify - Certificate Platform`;
+      }
+    };
+    
+    setTitle();
+  }, [tenant]);
 
   useEffect(() => {
     const loadUser = async () => {

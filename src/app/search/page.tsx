@@ -13,10 +13,12 @@ import { getTenantsForCurrentUser, type Tenant } from "@/lib/supabase/tenants";
 import { useDebounce } from "@/hooks/use-debounce";
 import ModernHeader from "@/components/modern-header";
 import { 
-  advancedSearchCertificates, 
+  advancedSearchCertificates,
+  publicSearchCertificates,
   getCertificateCategories, 
   Certificate, 
   SearchFilters,
+  PublicSearchFilters,
   getCertificateByNumber
 } from "@/lib/supabase/certificates";
 import Image from "next/image";
@@ -389,7 +391,23 @@ function SearchResultsContent() {
         }
         
         try {
-          const results = await advancedSearchCertificates(searchFilters);
+          // Use publicSearchCertificates if no tenant (unauthenticated user)
+          // Use advancedSearchCertificates if tenant selected (authenticated user)
+          let results: Certificate[];
+          
+          if (!searchFilters.tenant_id || !searchFilters.tenant_id.trim()) {
+            // Public search - no tenant required
+            const publicFilters: PublicSearchFilters = {
+              keyword: searchFilters.keyword,
+              category: searchFilters.category,
+              startDate: searchFilters.startDate,
+              endDate: searchFilters.endDate,
+            };
+            results = await publicSearchCertificates(publicFilters);
+          } else {
+            // Authenticated search with tenant filter
+            results = await advancedSearchCertificates(searchFilters);
+          }
           
           // Validate results
           if (Array.isArray(results)) {
@@ -467,8 +485,8 @@ function SearchResultsContent() {
   }, [t, router, abortPreviousSearch]);
 
   // Search once on mount if query exists (from URL) - used by hero section.
-  // Penting: tunggu sampai tenants selesai dimuat dan selectedTenantId tersedia,
-  // supaya search pertama langsung memakai tenant yang benar.
+  // For authenticated users: wait for tenant to load
+  // For public users (no tenants): proceed immediately after loading completes
   const hasRunInitialSearchRef = useRef(false);
 
   useEffect(() => {
@@ -478,8 +496,8 @@ function SearchResultsContent() {
       return;
     }
 
-    // Jangan jalan sebelum tenants selesai diload atau tenant belum diketahui
-    if (loadingTenants || !selectedTenantId) {
+    // Wait for tenants loading to complete
+    if (loadingTenants) {
       return;
     }
 
@@ -493,12 +511,13 @@ function SearchResultsContent() {
       const urlStartDate = searchParams.get('startDate') || '';
       const urlEndDate = searchParams.get('endDate') || '';
 
+      // Use selectedTenantId if available, otherwise empty for public search
       const initialFilters: SearchFilters = {
         keyword: initialQuery,
         category: urlCategory,
         startDate: urlStartDate,
         endDate: urlEndDate,
-        tenant_id: selectedTenantId, // SECURITY: Always filter by tenant
+        tenant_id: selectedTenantId || "", // Empty = public search
       };
 
       setFilters(initialFilters);
@@ -562,13 +581,9 @@ function SearchResultsContent() {
       }
     }
 
-    // Pastikan tenant_id terisi dengan benar sebelum search
-    const tenantIdForSearch = filters.tenant_id || selectedTenantId;
-    if (!tenantIdForSearch) {
-      setSearchError(t('error.search.emptyTenant') || 'Please select a workspace/tenant first');
-      setSearchResults([]);
-      return;
-    }
+    // tenant_id is optional for public search (unauthenticated users)
+    // Only require tenant_id for authenticated users who should search within their workspace
+    const tenantIdForSearch = filters.tenant_id || selectedTenantId || "";
 
     // Update filters and perform search (URL stays as /search without query params)
     const newFilters: SearchFilters = {
@@ -576,7 +591,7 @@ function SearchResultsContent() {
       category: filters.category,
       startDate: filters.startDate,
       endDate: filters.endDate,
-      tenant_id: tenantIdForSearch, // SECURITY: Always filter by tenant
+      tenant_id: tenantIdForSearch, // Will use public search if empty
     };
     setFilters(newFilters);
     performSearch(newFilters, true); // Mark as searched after user clicks search or presses Enter
