@@ -1012,7 +1012,7 @@ function CertificatesContent(): ReactElement {
         ...certDataMap,
         // CRITICAL FIX: Include ALL Excel row data for variables like {perusahaan}
         ...(excelRowData || {}),
-        // Score data (manual input or Excel) - spread last to override if needed
+
         ...(scoreData || {})
       };
 
@@ -1308,18 +1308,12 @@ function CertificatesContent(): ReactElement {
     // Save certificate to get proper XID from database
     const savedCertificate = await createCertificate(certificateDataToSave);
 
-    // Tahap lanjutan (re-render + upload ulang dengan XID asli + update URL) 
-    // TIDAK boleh menggagalkan status sukses generate, karena sertifikat
-    // sudah tersimpan di database pada titik ini.
     try {
       // Now use the REAL certificate XID for filenames
       const certificateXid = savedCertificate.xid;
       // Use certificateXid to update existing filenames
       const finalCertFileName = `${certificateXid}_cert.png`;
       const finalScoreFileName = `${certificateXid}_score.png`;
-
-      // QR layers already have correct certificate_no URL, no need to update
-
       // Re-render certificate and upload with proper filename
       const finalCertificateImageDataUrl = await renderCertificateToDataURL({
         templateImageUrl,
@@ -1384,7 +1378,6 @@ function CertificatesContent(): ReactElement {
       }
     } catch (postSaveError) {
       console.error('⚠️ Post-save render/upload error (certificate already created):', postSaveError);
-      // Jangan lempar ulang error, supaya perhitungan generated tetap dianggap sukses
     }
     
     // DUAL TEMPLATE: Always generate back/score PNG whenever template has score_image_url

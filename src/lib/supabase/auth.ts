@@ -385,6 +385,10 @@ export async function getUserRoleAndSubscription(email: string): Promise<{
       
       console.log('🔍 [AUTH] Final result from whitelist:', { role: mappedRole, hasSubscription });
       return { role: mappedRole, hasSubscription };
+    } else {
+      console.log('🔍 [AUTH] No data found in whitelist or error occurred');
+      console.log('🔍 [AUTH] Error details:', error);
+      console.log('🔍 [AUTH] Data details:', data);
     }
   } catch (err) {
     console.error("Error checking whitelist in getUserRoleAndSubscription:", err);

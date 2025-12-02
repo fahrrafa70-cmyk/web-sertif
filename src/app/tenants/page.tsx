@@ -24,7 +24,7 @@ import { confirmToast } from "@/lib/ui/confirm";
 export default function TenantsPage() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { role: authRole } = useAuth();
+  const { role: authRole, hasSubscription } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);

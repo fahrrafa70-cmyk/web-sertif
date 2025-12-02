@@ -183,7 +183,7 @@ TemplateCard.displayName = 'TemplateCard';
 export default function TemplatesPage() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { role: authRole } = useAuth();
+  const { role: authRole, hasSubscription } = useAuth();
   const [role, setRole] = useState<"owner" | "manager" | "staff" | "user" | "public">("public");
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");

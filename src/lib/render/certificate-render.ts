@@ -1275,7 +1275,7 @@ async function renderQRLayer(
 
   // Enforce a minimum size so QR generator never falls back to its own default
   // when given 0/NaN or extremely small values.
-  const minQRSize = 16;
+  const minQRSize = 14;
   const width = Math.max(minQRSize, Math.round(widthRaw));
   const height = Math.max(minQRSize, Math.round(heightRaw));
 

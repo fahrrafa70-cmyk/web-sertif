@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabase/client";
 import { 
-  getUserRoleByEmail,
   getUserRoleAndSubscription,
   signInWithEmailPassword,
   signInWithGoogle,
@@ -69,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Initializing auth state:', { session: !!session, error });
         
         if (error) {
-          console.error('Session initialization error:', error);
+          console.error('Session initialization error :', error);
           setIsInitialized(true);
           return;
         }
@@ -209,7 +208,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   console.error("Error ensuring email_whitelist record exists:", ensureWhitelistErr);
                 }
 
-                fetchedRole = await getUserRoleByEmail(normalized);
+                const { role: roleFromApi, hasSubscription: subscriptionFromApi } = await getUserRoleAndSubscription(normalized);
+                fetchedRole = roleFromApi;
+                
+                // Update subscription status
+                setHasSubscription(subscriptionFromApi);
+                
                 if (fetchedRole === null && retries > 1) {
                   // Wait a bit before retrying (user might still be created)
                   await new Promise(resolve => setTimeout(resolve, 500));

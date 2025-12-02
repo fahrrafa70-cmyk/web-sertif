@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/auth-context";
 
 export default function MembersPage() {
   const { t, language } = useLanguage();
-  const { role: authRole } = useAuth();
+  const { role: authRole, hasSubscription } = useAuth();
   const [role, setRole] = useState<"owner" | "manager" | "staff" | "user" | "public">("public");
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
@@ -271,8 +271,18 @@ export default function MembersPage() {
 
         setRole(mapped);
 
-        // Load members if authorized (owner/manager/staff)
-        if (mapped === "owner" || mapped === "manager" || mapped === "staff") {
+        // Load members if authorized (owner/manager/staff OR user with subscription)
+        const hasAccess = mapped === "owner" || mapped === "manager" || mapped === "staff" || 
+                         (mapped === "user" && hasSubscription);
+        
+        console.log('🔍 [DATA PAGE] Access check:', {
+          authRole: normalized,
+          mapped,
+          hasSubscription,
+          hasAccess
+        });
+
+        if (hasAccess) {
           await loadMembers();
         } else {
           setLoading(false);
@@ -288,7 +298,7 @@ export default function MembersPage() {
     };
 
     void initializeComponent();
-  }, [authRole, loadMembers]);
+  }, [authRole, hasSubscription, loadMembers]);
 
   // Handle keyboard events for edit modal
   useEffect(() => {

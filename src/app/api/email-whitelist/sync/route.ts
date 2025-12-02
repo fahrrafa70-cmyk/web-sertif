@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 // Sync a verified user's email into email_whitelist.
 // This endpoint is intended to be called AFTER a successful email/password login.
@@ -7,15 +7,21 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(req: NextRequest) {
   try {
     const text = await req.text();
-    if (!text || text.trim() === '') {
-      return NextResponse.json({ error: 'Request body is required' }, { status: 400 });
+    if (!text || text.trim() === "") {
+      return NextResponse.json(
+        { error: "Request body is required" },
+        { status: 400 },
+      );
     }
 
     let body: unknown;
     try {
       body = JSON.parse(text);
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 },
+      );
     }
 
     const { email, full_name, role } = (body || {}) as {
@@ -24,20 +30,20 @@ export async function POST(req: NextRequest) {
       role?: string;
     };
 
-    const normalizedEmail = email?.toLowerCase().trim() || '';
-    const trimmedName = (full_name || '').trim();
+    const normalizedEmail = email?.toLowerCase().trim() || "";
+    const trimmedName = (full_name || "").trim();
 
     if (!normalizedEmail) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !serviceRoleKey) {
-      console.error('Supabase env not configured for whitelist sync');
+      console.error("Supabase env not configured for whitelist sync");
       return NextResponse.json(
-        { error: 'Server configuration error. Please contact support.' },
+        { error: "Server configuration error. Please contact support." },
         { status: 500 },
       );
     }
@@ -46,30 +52,69 @@ export async function POST(req: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // 🔒 CRITICAL PROTECTION: Check existing role before overwriting
+    // This prevents subscription users from losing their "owner" role during login
+    console.log(
+      "🔍 [WHITELIST-SYNC] Checking existing role for:",
+      normalizedEmail,
+    );
+
+    const { data: existingRecord } = await adminClient
+      .from("email_whitelist")
+      .select("role, subscription, email")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    console.log("🔍 [WHITELIST-SYNC] Existing record:", existingRecord);
+    console.log("🔍 [WHITELIST-SYNC] Incoming role from request:", role);
+
+    // Determine final role - PRESERVE privileged roles (owner/manager/staff)
+    let finalRole = role || "user";
+
+    if (existingRecord?.role) {
+      const existingRole = existingRecord.role.toLowerCase();
+
+      // CRITICAL: Never downgrade privileged roles to "user"
+      if (
+        existingRole === "owner" ||
+        existingRole === "manager" ||
+        existingRole === "staff"
+      ) {
+        console.log(
+          "🔒 [WHITELIST-SYNC] PROTECTED ROLE DETECTED - Preserving:",
+          existingRole,
+        );
+        console.log("🔒 [WHITELIST-SYNC] Preventing downgrade to:", finalRole);
+        finalRole = existingRole; // Keep existing privileged role
+      }
+    }
+
+    console.log("🔍 [WHITELIST-SYNC] Final role to be saved:", finalRole);
+
     const payload: Record<string, unknown> = {
       email: normalizedEmail,
-      full_name: trimmedName || normalizedEmail.split('@')[0],
-      role: (role || 'user').toString(),
+      full_name: trimmedName || normalizedEmail.split("@")[0],
+      role: finalRole, // Use protected role instead of default
       updated_at: new Date().toISOString(),
     };
 
     const { error } = await adminClient
-      .from('email_whitelist')
-      .upsert(payload, { onConflict: 'email' });
+      .from("email_whitelist")
+      .upsert(payload, { onConflict: "email" });
 
     if (error) {
-      console.error('email_whitelist sync failed:', error);
+      console.error("email_whitelist sync failed:", error);
       return NextResponse.json(
-        { error: 'Failed to sync whitelist entry.' },
+        { error: "Failed to sync whitelist entry." },
         { status: 500 },
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('Unexpected error in /api/email-whitelist/sync:', err);
+    console.error("Unexpected error in /api/email-whitelist/sync:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 },
     );
   }
