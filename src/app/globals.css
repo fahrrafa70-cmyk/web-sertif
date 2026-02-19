@@ -273,7 +273,8 @@
 @layer base {
   /* Global transition for all elements - synchronized change - INSTANT */
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
     /* INSTANT theme transition - NO DELAY to prevent flicker */
     transition-property: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, fill, stroke, box-shadow !important;
     transition-timing-function: linear !important;
