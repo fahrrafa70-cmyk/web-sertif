@@ -49,8 +49,8 @@ export async function GET() {
       .insert({
         email: testEmail,
         full_name: "Test User",
-        // Only insert minimal required fields
-        // Let database handle defaults for role, timestamps, etc.
+        role: "user",
+        subscription: false,
       })
       .select();
 
