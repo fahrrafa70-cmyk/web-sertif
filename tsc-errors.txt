@@ -1,0 +1,7 @@
+src/features/certificates/queries.ts(2,43): error TS2724: '"./types"' has no exported member named 'PublicSearchFilters'. Did you mean 'SearchFilters'?
+src/legacy/lib/supabase/certificates.ts(1,32): error TS2307: Cannot find module './client' or its corresponding type declarations.
+src/legacy/lib/supabase/members.ts(1,32): error TS2307: Cannot find module './client' or its corresponding type declarations.
+src/legacy/lib/supabase/templates.ts(1,32): error TS2307: Cannot find module './client' or its corresponding type declarations.
+src/legacy/lib/supabase/tenants.ts(1,32): error TS2307: Cannot find module './client' or its corresponding type declarations.
+src/legacy/lib/supabase/tenants.ts(2,36): error TS2307: Cannot find module './auth' or its corresponding type declarations.
+src/lib/supabase/certificates.ts(12,100): error TS2724: '"@/features/certificates/types"' has no exported member named 'PublicSearchFilters'. Did you mean 'SearchFilters'?
