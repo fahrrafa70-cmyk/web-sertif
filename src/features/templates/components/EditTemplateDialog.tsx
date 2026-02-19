@@ -82,21 +82,21 @@ export function EditTemplateDialog({
           {/* Single mode images */}
           {!isDualTemplate && (
             <>
-              <CurrentImageField label={t("templates.currentTemplateImage")} preview={imagePreview} draft={draft} getUrl={(d) => getTemplateImageUrl(d as Template)} noImageLabel={t("templates.noTemplateImage")} />
+              <CurrentImageField label={t("templates.currentTemplateImage")} preview={imagePreview} draft={draft} getUrl={(d) => getTemplateImageUrl(d)} noImageLabel={t("templates.noTemplateImage")} />
               <ChangeImageField label={t("templates.changeTemplateImage")} preview={imagePreview} onChange={handleImageUpload} removeLabel={t("templates.removeNewImage")} />
             </>
           )}
           {/* Dual mode images */}
           {isDualTemplate && (
             <>
-              <CurrentImageField label={t("templates.currentCertificateImage")} preview={certificateImagePreview} draft={draft} getUrl={(d) => (d as Template).certificate_image_url ? `${(d as Template).certificate_image_url}?v=${Date.now()}` : null} noImageLabel={t("templates.noCertificateImage")} />
+              <CurrentImageField label={t("templates.currentCertificateImage")} preview={certificateImagePreview} draft={draft} getUrl={(d) => d.certificate_image_url ? `${d.certificate_image_url}?v=${Date.now()}` : null} noImageLabel={t("templates.noCertificateImage")} />
               <ChangeImageField label={t("templates.changeCertificateImage")} preview={certificateImagePreview} onChange={handleCertificateImageUpload} removeLabel={t("templates.removeNewCertificateImage")} />
-              <CurrentImageField label={t("templates.currentScoreImage")} preview={scoreImagePreview} draft={draft} getUrl={(d) => (d as Template).score_image_url ? `${(d as Template).score_image_url}?v=${Date.now()}` : null} noImageLabel={t("templates.noScoreImage")} />
+              <CurrentImageField label={t("templates.currentScoreImage")} preview={scoreImagePreview} draft={draft} getUrl={(d) => d.score_image_url ? `${d.score_image_url}?v=${Date.now()}` : null} noImageLabel={t("templates.noScoreImage")} />
               <ChangeImageField label={t("templates.changeScoreImage")} preview={scoreImagePreview} onChange={handleScoreImageUpload} removeLabel={t("templates.removeNewScoreImage")} />
             </>
           )}
           {/* Preview image */}
-          <CurrentImageField label={t("templates.currentPreviewImage")} preview={previewImagePreview} draft={draft} getUrl={(d) => (d as Template).preview_image_path ? `${(d as Template).preview_image_path}?v=${Date.now()}` : null} noImageLabel={t("templates.noPreviewImage")} height="h-32" />
+          <CurrentImageField label={t("templates.currentPreviewImage")} preview={previewImagePreview} draft={draft} getUrl={(d) => d.preview_image_path ? `${d.preview_image_path}?v=${Date.now()}` : null} noImageLabel={t("templates.noPreviewImage")} height="h-32" />
           <ChangeImageField label={t("templates.changePreviewImage")} preview={previewImagePreview} onChange={handlePreviewImageUpload} removeLabel={t("templates.removeNewPreview")} />
           <div className="flex justify-end gap-3 pt-6">
             <Button variant="outline" className="dark:text-gray-100" onClick={() => setIsEditOpen(null)}>{t("common.cancel")}</Button>
@@ -111,8 +111,8 @@ export function EditTemplateDialog({
 }
 
 function CurrentImageField({ label, preview, draft, getUrl, noImageLabel, height = "h-40" }: {
-  label: string; preview: string | null; draft: Template | null;
-  getUrl: (d: Template) => string | null; noImageLabel: string; height?: string;
+  label: string; preview: string | null; draft: Partial<Template> | null;
+  getUrl: (d: Partial<Template>) => string | null; noImageLabel: string; height?: string;
 }) {
   const url = draft ? getUrl(draft) : null;
   return (

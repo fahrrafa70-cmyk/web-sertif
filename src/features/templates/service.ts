@@ -38,7 +38,7 @@ export async function uploadOriginalImage(
 
 // ─── URL helpers ──────────────────────────────────────────────────────────────
 
-export function getTemplateImageUrl(template: Template): string | null {
+export function getTemplateImageUrl(template: Partial<Template>): string | null {
   if (template.image_path) {
     const { data } = supabaseClient.storage
       .from("templates")
@@ -48,11 +48,11 @@ export function getTemplateImageUrl(template: Template): string | null {
   return template.certificate_image_url ?? null;
 }
 
-export function getTemplateImageUrlStatic(template: Template): string | null {
+export function getTemplateImageUrlStatic(template: Partial<Template>): string | null {
   return getTemplateImageUrl(template);
 }
 
-export function getTemplatePreviewUrl(template: Template): string | null {
+export function getTemplatePreviewUrl(template: Partial<Template>): string | null {
   if (template.preview_image_path) {
     const { data } = supabaseClient.storage
       .from("templates")
