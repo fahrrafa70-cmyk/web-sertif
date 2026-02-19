@@ -6,685 +6,54 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { Member, createMember, getMembers, updateMember, deleteMember as deleteMemberService } from "@/lib/supabase/members";
 import { toast, Toaster } from "sonner";
-import { useLanguage } from "@/contexts/language-context";
 import { formatReadableDate } from "@/lib/utils/certificate-formatters";
-import { useDebounce } from "@/hooks/use-debounce";
-import * as XLSX from "xlsx";
-import { FileSpreadsheet, Info, ChevronLeft, ChevronRight, Search, X, Users, Filter } from "lucide-react";
+import {
+  FileSpreadsheet, Info, ChevronLeft, ChevronRight,
+  Search, X, Users, Filter,
+} from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
-import { confirmToast } from "@/lib/ui/confirm";
-import { getTenantsForCurrentUser, type Tenant } from "@/lib/supabase/tenants";
-import { useAuth } from "@/contexts/auth-context";
+import { useMembers } from "@/features/members/hooks/useMembers";
 
 export default function MembersPage() {
-  const { t, language } = useLanguage();
-  const { role: authRole, hasSubscription } = useAuth();
-  const [role, setRole] = useState<"owner" | "manager" | "staff" | "user" | "public">("public");
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [selectedTenantId, setSelectedTenantId] = useState<string | "">("");
-  const [loadingTenants, setLoadingTenants] = useState<boolean>(true);
+  const {
+    role, initialized, canDelete,
+    tenants, selectedTenantId, loadingTenants, handleTenantChange,
+    membersData, loading, error, loadMembers, deleting, deleteMember,
+    searchQuery, setSearchQuery,
+    organizationFilter, cityFilter, jobFilter,
+    tempOrganizationFilter, setTempOrganizationFilter,
+    tempCityFilter, setTempCityFilter,
+    tempJobFilter, setTempJobFilter,
+    filterModalOpen, setFilterModalOpen,
+    openFilterModal, applyFilters, cancelFilters,
+    uniqueOrganizations, uniqueCities, uniqueJobs,
+    filteredMembers, currentMembers, currentPage, setCurrentPage,
+    totalPages, indexOfFirstItem, indexOfLastItem,
+    addModalOpen, setAddModalOpen, form, setForm, formErrors, setFormErrors, adding, onSubmit,
+    editOpen, setEditOpen, editingMember,
+    editForm, setEditForm, editFormErrors, setEditFormErrors, editSaving,
+    openEdit, submitEdit,
+    detailModalOpen, setDetailModalOpen, detailMember, openDetailModal,
+    showExcelInfoModal, setShowExcelInfoModal, importing,
+    excelInputRef, handleExcelImport,
+    t, language,
+  } = useMembers();
 
-  // Set document title robust untuk data/members page
-  useEffect(() => {
-    const setTitle = () => {
-      if (typeof document !== 'undefined') {
-        document.title = "Data | Certify - Certificate Platform";
-      }
-    };
-    
-    // Set immediately
-    setTitle();
-    
-    // Set with multiple delays to ensure override
-    const timeouts = [
-      setTimeout(setTitle, 50),
-      setTimeout(setTitle, 200),
-      setTimeout(setTitle, 500)
-    ];
-    
-    return () => {
-      timeouts.forEach(clearTimeout);
-    };
-  }, []);
-
-  const [membersData, setMembersData] = useState<Member[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [adding, setAdding] = useState<boolean>(false);
-  const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage] = useState<number>(10);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  
-  // Filter modal state
-  const [filterModalOpen, setFilterModalOpen] = useState<boolean>(false);
-  const [organizationFilter, setOrganizationFilter] = useState<string>("");
-  const [cityFilter, setCityFilter] = useState<string>("");
-  const [jobFilter, setJobFilter] = useState<string>("");
-  const [tempOrganizationFilter, setTempOrganizationFilter] = useState<string>("");
-  const [tempCityFilter, setTempCityFilter] = useState<string>("");
-  const [tempJobFilter, setTempJobFilter] = useState<string>("");
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    organization: "",
-    phone: "",
-    job: "",
-    date_of_birth: "",
-    address: "",
-    city: "",
-    notes: "",
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  // Detail modal state
-  const [detailModalOpen, setDetailModalOpen] = useState<boolean>(false);
-  const [detailMember, setDetailMember] = useState<Member | null>(null);
-
-  // Edit modal state
-  const [editOpen, setEditOpen] = useState<boolean>(false);
-  const [editingMember, setEditingMember] = useState<Member | null>(null);
-  const [editSaving, setEditSaving] = useState<boolean>(false);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    email: "",
-    organization: "",
-    phone: "",
-    job: "",
-    date_of_birth: "",
-    address: "",
-    city: "",
-    notes: "",
-  });
-  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
-
-  // Excel import state
-  const [importing, setImporting] = useState<boolean>(false);
-  const [showExcelInfoModal, setShowExcelInfoModal] = useState<boolean>(false);
-  const excelInputRef = useRef<HTMLInputElement>(null);
-
-  function openDetailModal(member: Member) {
-    setDetailMember(member);
-    setDetailModalOpen(true);
-  }
-
-  const loadMembers = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getMembers();
-      setMembersData(data);
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : t('members.loadMembersFailed');
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  // Load tenants for selector
-  useEffect(() => {
-    const loadTenants = async () => {
-      try {
-        setLoadingTenants(true);
-        const data = await getTenantsForCurrentUser();
-        setTenants(data);
-
-        let initialId = "";
-        try {
-          const stored = window.localStorage.getItem("ecert-selected-tenant-id") || "";
-          if (stored && data.some((t) => t.id === stored)) {
-            initialId = stored;
-          }
-        } catch {
-          // ignore
-        }
-
-        if (!initialId && data.length === 1) {
-          initialId = data[0].id;
-        }
-
-        setSelectedTenantId(initialId);
-      } finally {
-        setLoadingTenants(false);
-      }
-    };
-
-    void loadTenants();
-  }, []);
-
-  // Handle Excel import
-  const handleExcelImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Require tenant selection to ensure imported members are scoped to a tenant
-    if (!selectedTenantId) {
-      toast.error(language === 'id' ? 'Pilih tenant terlebih dahulu sebelum impor Excel' : 'Please select a tenant before importing Excel');
-      return;
-    }
-
-    try {
-      setImporting(true);
-      toast.info("Reading Excel file...");
-
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const data = event.target?.result;
-          const workbook = XLSX.read(data, { type: "binary" });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet) as Array<Record<string, unknown>>;
-
-          // Excel data parsed successfully
-
-          if (jsonData.length === 0) {
-            toast.error("Excel file is empty");
-            return;
-          }
-
-          let successCount = 0;
-          let errorCount = 0;
-
-          for (const row of jsonData) {
-            try {
-              // Map Excel columns to member fields
-              const memberData = {
-                name: String(row.Name || row.name || "").trim(),
-                tenant_id: selectedTenantId,
-                email: String(row.Email || row.email || "").trim() || undefined,
-                organization: String(row.Organization || row.organization || "").trim() || undefined,
-                phone: String(row.Phone || row.phone || "").trim() || undefined,
-                job: String(row.Job || row.job || "").trim() || undefined,
-                date_of_birth: String(row["Date of Birth"] || row.date_of_birth || "").trim() || undefined,
-                address: String(row.Address || row.address || "").trim() || undefined,
-                city: String(row.City || row.city || "").trim() || undefined,
-                notes: String(row.Notes || row.notes || "").trim() || undefined,
-              };
-
-              if (!memberData.name) {
-                console.warn("Skipping row without name:", row);
-                errorCount++;
-                continue;
-              }
-
-              await createMember(memberData);
-              successCount++;
-            } catch (error) {
-              console.error("Error creating member:", error);
-              errorCount++;
-            }
-          }
-
-          await loadMembers();
-          
-          if (successCount > 0) {
-            toast.success(`Successfully imported ${successCount} data${errorCount > 0 ? `, ${errorCount} failed` : ""}`);
-          } else {
-            toast.error(`Failed to import data. ${errorCount} error(s)`);
-          }
-        } catch (error) {
-          console.error("Error processing Excel:", error);
-          toast.error("Failed to process Excel file");
-        } finally {
-          setImporting(false);
-        }
-      };
-
-      reader.onerror = () => {
-        toast.error("Failed to read Excel file");
-        setImporting(false);
-      };
-
-      reader.readAsBinaryString(file);
-    } catch (error) {
-      console.error("Error importing Excel:", error);
-      toast.error("Failed to import Excel file");
-      setImporting(false);
-    }
-
-    // Reset input
-    if (excelInputRef.current) {
-      excelInputRef.current.value = "";
-    }
-  }, [loadMembers]);
-
-  // Initialize based on global role from AuthContext
-  useEffect(() => {
-    const initializeComponent = async () => {
-      try {
-        const normalized = (authRole || "user").toLowerCase();
-        const mapped: "owner" | "manager" | "staff" | "user" | "public" =
-          normalized === "owner" || normalized === "manager" || normalized === "staff"
-            ? (normalized as "owner" | "manager" | "staff")
-            : normalized === "user"
-              ? "user"
-              : "public";
-
-        setRole(mapped);
-
-        // Load members if authorized (owner/manager/staff OR user with subscription)
-        const hasAccess = mapped === "owner" || mapped === "manager" || mapped === "staff" || 
-                         (mapped === "user" && hasSubscription);
-        
-        console.log('🔍 [DATA PAGE] Access check:', {
-          authRole: normalized,
-          mapped,
-          hasSubscription,
-          hasAccess
-        });
-
-        if (hasAccess) {
-          await loadMembers();
-        } else {
-          setLoading(false);
-        }
-
-        setInitialized(true);
-      } catch (error) {
-        console.error("❌ Error initializing members page:", error);
-        setRole("public");
-        setLoading(false);
-        setInitialized(true);
-      }
-    };
-
-    void initializeComponent();
-  }, [authRole, hasSubscription, loadMembers]);
-
-  // Handle keyboard events for edit modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (editOpen) {
-        if (e.key === "Escape") {
-          setEditOpen(false);
-        }
-      }
-    };
-
-    if (editOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }
-  }, [editOpen]);
-
-  // Handle keyboard events for detail modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (detailModalOpen && e.key === "Escape") {
-        setDetailModalOpen(false);
-      }
-    };
-
-    if (detailModalOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }
-  }, [detailModalOpen]);
-
-  // Handle keyboard events for add modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (addModalOpen && e.key === "Escape") {
-        setAddModalOpen(false);
-      }
-    };
-
-    if (addModalOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }
-  }, [addModalOpen]);
-
-  function openEdit(member: Member) {
-    setEditingMember(member);
-    setEditForm({
-      name: member.name || "",
-      email: member.email || "",
-      organization: member.organization || "",
-      phone: member.phone || "",
-      job: member.job || "",
-      date_of_birth: member.date_of_birth || "",
-      address: member.address || "",
-      city: member.city || "",
-      notes: member.notes || "",
-    });
-    setEditOpen(true);
-  }
-
-  async function submitEdit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editingMember) return;
-    
-    // Clear previous errors
-    setEditFormErrors({});
-    
-    // Validate
-    const errors: Record<string, string> = {};
-    
-    // Name is required
-    if (!editForm.name.trim()) {
-      errors.name = language === 'id' ? 'Nama harus diisi' : 'Name is required';
-    } else if (editForm.name.trim().length < 3) {
-      errors.name = language === 'id' ? 'Nama minimal 3 karakter' : 'Name must be at least 3 characters';
-    }
-    
-    // Email validation
-    if (editForm.email && editForm.email.trim()) {
-      if (!editForm.email.includes('@')) {
-        errors.email = language === 'id' ? 'Email harus mengandung @' : 'Email must contain @';
-      } else {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(editForm.email.trim())) {
-          errors.email = language === 'id' ? 'Format email tidak valid (contoh: nama@domain.com)' : 'Invalid email format (example: name@domain.com)';
-        }
-      }
-    }
-    
-    // Phone validation if provided
-    if (editForm.phone && editForm.phone.trim()) {
-      const phoneRegex = /^[0-9+\-\s()]+$/;
-      if (!phoneRegex.test(editForm.phone.trim())) {
-        errors.phone = language === 'id' ? 'Nomor telepon hanya boleh berisi angka, +, -, (, ), dan spasi' : 'Phone number can only contain numbers, +, -, (, ), and spaces';
-      } else if (editForm.phone.replace(/[^0-9]/g, '').length < 8) {
-        errors.phone = language === 'id' ? 'Nomor telepon minimal 8 digit' : 'Phone number must be at least 8 digits';
-      }
-    }
-    
-    // Organization validation if provided
-    if (editForm.organization && editForm.organization.trim() && editForm.organization.trim().length < 2) {
-      errors.organization = language === 'id' ? 'Organisasi minimal 2 karakter' : 'Organization must be at least 2 characters';
-    }
-    
-    if (Object.keys(errors).length > 0) {
-      setEditFormErrors(errors);
-      const firstError = Object.values(errors)[0];
-      toast.error(firstError);
-      return;
-    }
-    try {
-      setEditSaving(true);
-      const updated = await updateMember(editingMember.id, {
-        name: editForm.name,
-        email: editForm.email || undefined,
-        organization: editForm.organization || undefined,
-        phone: editForm.phone || undefined,
-        job: editForm.job || undefined,
-        date_of_birth: editForm.date_of_birth || undefined,
-        address: editForm.address || undefined,
-        city: editForm.city || undefined,
-        notes: editForm.notes || undefined,
-      });
-      // Update local list
-      setMembersData((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
-      toast.success(t('members.updateSuccess'));
-      setEditOpen(false);
-      setEditingMember(null);
-    } catch (e) {
-      console.error(e);
-      toast.error(e instanceof Error ? e.message : t('members.updateFailed'));
-    } finally {
-      setEditSaving(false);
-    }
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // Ensure a tenant is selected for per-tenant members and RLS policies
-    if (!selectedTenantId) {
-      toast.error(language === 'id' ? 'Pilih tenant terlebih dahulu sebelum menambah data' : 'Please select a tenant before adding data');
-      return;
-    }
-    
-    // Clear previous errors
-    setFormErrors({});
-    
-    // Validate all required fields
-    const errors: Record<string, string> = {};
-    
-    // Name is required
-    if (!form.name.trim()) {
-      errors.name = language === 'id' ? 'Nama harus diisi' : 'Name is required';
-    } else if (form.name.trim().length < 3) {
-      errors.name = language === 'id' ? 'Nama minimal 3 karakter' : 'Name must be at least 3 characters';
-    }
-    
-    // Email validation
-    if (form.email && form.email.trim()) {
-      if (!form.email.includes('@')) {
-        errors.email = language === 'id' ? 'Email harus mengandung @' : 'Email must contain @';
-      } else {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(form.email.trim())) {
-          errors.email = language === 'id' ? 'Format email tidak valid (contoh: nama@domain.com)' : 'Invalid email format (example: name@domain.com)';
-        }
-      }
-    }
-    
-    // Phone validation if provided
-    if (form.phone && form.phone.trim()) {
-      const phoneRegex = /^[0-9+\-\s()]+$/;
-      if (!phoneRegex.test(form.phone.trim())) {
-        errors.phone = language === 'id' ? 'Nomor telepon hanya boleh berisi angka, +, -, (, ), dan spasi' : 'Phone number can only contain numbers, +, -, (, ), and spaces';
-      } else if (form.phone.replace(/[^0-9]/g, '').length < 8) {
-        errors.phone = language === 'id' ? 'Nomor telepon minimal 8 digit' : 'Phone number must be at least 8 digits';
-      }
-    }
-    
-    // Organization validation if provided
-    if (form.organization && form.organization.trim() && form.organization.trim().length < 2) {
-      errors.organization = language === 'id' ? 'Organisasi minimal 2 karakter' : 'Organization must be at least 2 characters';
-    }
-    
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      const firstError = Object.values(errors)[0];
-      toast.error(firstError);
-      return;
-    }
-    try {
-      setAdding(true);
-      const added = await createMember({
-        name: form.name,
-        tenant_id: selectedTenantId,
-        email: form.email || undefined,
-        organization: form.organization || undefined,
-        phone: form.phone || undefined,
-        job: form.job || undefined,
-        date_of_birth: form.date_of_birth || undefined,
-        address: form.address || undefined,
-        city: form.city || undefined,
-        notes: form.notes || undefined,
-      });
-      toast.success(t('members.addSuccess'));
-      setAddModalOpen(false);
-      setForm({ name: "", email: "", organization: "", phone: "", job: "", date_of_birth: "", address: "", city: "", notes: "" });
-      // optimistic update
-      setMembersData((prev) => [added, ...prev]);
-    } catch (e) {
-      console.error(e);
-      toast.error(e instanceof Error ? e.message : t('members.addFailed'));
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  // Delete member function (only for owner/manager)
-  async function deleteMember(id: string) {
-    if (role !== "owner" && role !== "manager") {
-      toast.error(t('members.deleteNoPermission'));
-      return;
-    }
-    
-    const member = membersData.find(m => m.id === id);
-    if (!member) return;
-    
-    const deleteMessage = language === 'id' 
-      ? `Apakah Anda yakin ingin menghapus data "${member.name}"? Tindakan ini tidak dapat dibatalkan.`
-      : `Are you sure you want to delete data "${member.name}"? This action cannot be undone.`;
-    
-    const confirmed = await confirmToast(
-      deleteMessage,
-      { confirmText: t("common.delete"), tone: "destructive" }
-    );
-    
-    if (!confirmed) return;
-    
-    try {
-      setDeleting(id);
-      // Call the actual delete function from members service
-      await deleteMemberService(id);
-      
-      // Remove from local state after successful deletion
-      setMembersData(prev => prev.filter(m => m.id !== id));
-      toast.success(t('members.deleteSuccess'));
-    } catch (error) {
-      console.error("Failed to delete data:", error);
-      toast.error(error instanceof Error ? error.message : t('members.deleteFailed'));
-    } finally {
-      setDeleting(null);
-    }
-  }
-
-  // Get unique values for filters
-  const uniqueOrganizations = useMemo(() => {
-    const orgs = new Set<string>();
-    membersData.forEach(member => {
-      if (member.organization) orgs.add(member.organization);
-    });
-    return Array.from(orgs).sort();
-  }, [membersData]);
-
-  const uniqueCities = useMemo(() => {
-    const cities = new Set<string>();
-    membersData.forEach(member => {
-      if (member.city) cities.add(member.city);
-    });
-    return Array.from(cities).sort();
-  }, [membersData]);
-
-  const uniqueJobs = useMemo(() => {
-    const jobs = new Set<string>();
-    membersData.forEach(member => {
-      if (member.job) jobs.add(member.job);
-    });
-    return Array.from(jobs).sort();
-  }, [membersData]);
-
-  // Filter modal handlers
-  const openFilterModal = () => {
-    setTempOrganizationFilter(organizationFilter);
-    setTempCityFilter(cityFilter);
-    setTempJobFilter(jobFilter);
-    setFilterModalOpen(true);
-  };
-
-  const applyFilters = () => {
-    setOrganizationFilter(tempOrganizationFilter);
-    setCityFilter(tempCityFilter);
-    setJobFilter(tempJobFilter);
-    setFilterModalOpen(false);
-    setCurrentPage(1); // Reset to first page when filters change
-  };
-
-  const cancelFilters = () => {
-    setTempOrganizationFilter(organizationFilter);
-    setTempCityFilter(cityFilter);
-    setTempJobFilter(jobFilter);
-    setFilterModalOpen(false);
-  };
-
-  // Filter members based on tenant, search query and filters
-  // Use debounced search query for filtering
-  const filteredMembers = useMemo(() => {
-    // If no tenant selected, do not show any members (new accounts should start empty)
-    if (!selectedTenantId) {
-      return [];
-    }
-
-    let filtered = membersData;
-
-    // Apply tenant filter (must match selected tenant)
-    filtered = filtered.filter((member) => member.tenant_id === selectedTenantId);
-
-    // Apply organization filter
-    if (organizationFilter) {
-      filtered = filtered.filter((member) => member.organization === organizationFilter);
-    }
-
-    // Apply city filter
-    if (cityFilter) {
-      filtered = filtered.filter((member) => member.city === cityFilter);
-    }
-
-    // Apply job filter
-    if (jobFilter) {
-      filtered = filtered.filter((member) => member.job === jobFilter);
-    }
-
-    // Apply search query
-    if (!debouncedSearchQuery.trim()) {
-      return filtered;
-    }
-
-    const query = debouncedSearchQuery.toLowerCase();
-    return filtered.filter((member) =>
-      member.name.toLowerCase().includes(query) ||
-      (member.email && member.email.toLowerCase().includes(query)) ||
-      (member.organization && member.organization.toLowerCase().includes(query)) ||
-      (member.phone && member.phone.toLowerCase().includes(query)) ||
-      (member.job && member.job.toLowerCase().includes(query)) ||
-      (member.city && member.city.toLowerCase().includes(query))
-    );
-  }, [membersData, debouncedSearchQuery, organizationFilter, cityFilter, jobFilter, selectedTenantId]);
-
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentMembers = useMemo(() => 
-    filteredMembers.slice(indexOfFirstItem, indexOfLastItem), 
-    [filteredMembers, indexOfFirstItem, indexOfLastItem]
-  );
-  const totalPages = useMemo(() => 
-    Math.ceil(filteredMembers.length / itemsPerPage), 
-    [filteredMembers, itemsPerPage]
-  );
-
-  // Reset to first page when search query changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-  
-  const canDelete = role === "owner" || role === "manager";
-
-  // Show loading while initializing
   if (!initialized) {
     return (
       <ModernLayout>
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-4">
           <div className="text-center">
             <div className="w-12 h-12 border-b-2 border-blue-600 rounded-full animate-spin mx-auto mb-6" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {t('members.loading')}
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              {t('members.loadingMessage')}
-            </p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{t("members.loading")}</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{t("members.loadingMessage")}</p>
           </div>
         </div>
       </ModernLayout>
     );
   }
 
-  // Redirect if not authorized
   if (role === "user" || role === "public") {
     return (
       <ModernLayout>
@@ -693,12 +62,8 @@ export default function MembersPage() {
             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-3xl">🔒</span>
             </div>
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {t('members.accessDenied.title')}
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              {t('members.accessDenied.message')}
-            </p>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">{t("members.accessDenied.title")}</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{t("members.accessDenied.message")}</p>
           </div>
         </div>
       </ModernLayout>
@@ -707,200 +72,141 @@ export default function MembersPage() {
 
   return (
     <ModernLayout>
-        <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
-          <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 mb-6">
-              {/* Title + Active Tenant Indicator */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
-                  <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">{t('members.title')}</h1>
-                </div>
-              </div>
+      <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+        <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
 
-              {/* Right side: Tenant selector (only if multiple) + Action Buttons */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                {tenants.length > 0 && (
-                  <div className="w-full sm:w-56">
-                    <select
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs sm:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                      value={selectedTenantId}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setSelectedTenantId(value);
-                        try {
-                          window.localStorage.setItem("ecert-selected-tenant-id", value);
-                        } catch {
-                          // ignore
-                        }
-                      }}
-                      disabled={loadingTenants || tenants.length === 0}
-                    >
-                      {loadingTenants && <option value="">Memuat tenant...</option>}
-                      {!loadingTenants && tenants.length > 0 && !selectedTenantId && (
-                        <option value="">Pilih tenant...</option>
-                      )}
-                      {!loadingTenants && tenants.map((tenant) => (
-                        <option key={tenant.id} value={tenant.id}>
-                          {tenant.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {(role === "owner" || role === "manager" || role === "staff") && (
-                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
-                    <Button
-                      onClick={() => setShowExcelInfoModal(true)}
-                      disabled={importing}
-                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 flex-shrink-0" />
-                      <span className="whitespace-nowrap">{importing ? (language === 'id' ? 'Mengimpor...' : 'Importing...') : (language === 'id' ? 'Impor Excel' : 'Import Excel')}</span>
-                    </Button>
-                    <input
-                      ref={excelInputRef}
-                      type="file"
-                      accept=".xlsx,.xls"
-                      onChange={handleExcelImport}
-                      className="hidden"
-                    />
-                    <Button
-                      onClick={() => {
-                        setAddModalOpen(true);
-                        setFormErrors({});
-                      }}
-                      className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                    >
-                      <span className="whitespace-nowrap">{language === 'id' ? 'Tambah Data' : 'Add Data'}</span>
-                    </Button>
-                  </div>
-                )}
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 mb-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
+              <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-[#2563eb] dark:text-blue-400">{t("members.title")}</h1>
             </div>
-            
-            {/* Search Bar and Filter */}
-              <div className="flex items-center gap-2 mt-6">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
-                  <Input
-                    placeholder="Search data by name, email, organization..."
-                    className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center justify-center"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                <Button
-                  onClick={openFilterModal}
-                  variant={organizationFilter || cityFilter || jobFilter ? "default" : "outline"}
-                  size="icon"
-                  className="flex-shrink-0 h-10 w-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex items-center justify-center relative"
-                >
-                  <Filter className="h-5 w-5" />
-                  {(organizationFilter || cityFilter || jobFilter) && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full" />
-                  )}
-                </Button>
-              </div>
 
-            {/* Loading State */}
-            {loading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="min-h-[400px] flex items-center justify-center"
-              >
-                <div className="text-center">
-                  <div className="w-12 h-12 border-b-2 border-blue-600 rounded-full animate-spin mx-auto mb-6" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    {t("members.loading")}
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    {t("members.loadingMessage")}
-                  </p>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Error State */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="min-h-[400px] flex items-center justify-center"
-              >
-                <div className="text-center max-w-md">
-                  <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <span className="text-3xl">⚠️</span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    {t("members.errorLoading")}
-                  </h3>
-                  <p className="text-gray-500 text-sm mb-6">{error}</p>
-                  <Button
-                    onClick={() => loadMembers()}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+              {tenants.length > 0 && (
+                <div className="w-full sm:w-56">
+                  <select
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs sm:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                    value={selectedTenantId}
+                    onChange={(e) => handleTenantChange(e.target.value)}
+                    disabled={loadingTenants || tenants.length === 0}
                   >
-                    {t("members.tryAgain")}
+                    {loadingTenants && <option value="">Memuat tenant...</option>}
+                    {!loadingTenants && tenants.length > 0 && !selectedTenantId && <option value="">Pilih tenant...</option>}
+                    {!loadingTenants && tenants.map((tenant) => (
+                      <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {(role === "owner" || role === "manager" || role === "staff") && (
+                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
+                  <Button
+                    onClick={() => setShowExcelInfoModal(true)}
+                    disabled={importing}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 flex-shrink-0" />
+                    <span className="whitespace-nowrap">
+                      {importing ? (language === "id" ? "Mengimpor..." : "Importing...") : (language === "id" ? "Impor Excel" : "Import Excel")}
+                    </span>
+                  </Button>
+                  <input ref={excelInputRef} type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="hidden" />
+                  <Button
+                    onClick={() => { setAddModalOpen(true); setFormErrors({}); }}
+                    className="gradient-primary text-white shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <span className="whitespace-nowrap">{language === "id" ? "Tambah Data" : "Add Data"}</span>
                   </Button>
                 </div>
-              </motion.div>
-            )}
+              )}
+            </div>
+          </div>
 
-            {/* Desktop Table View */}
-            {!loading && !error && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} 
-              whileInView={{ opacity: 1, y: 0 }} 
-              viewport={{ once: true }} 
-              transition={{ duration: 0.4 }} 
-              className="hidden xl:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md dark:shadow-lg overflow-hidden mt-4"
+          {/* Search + Filter */}
+          <div className="flex items-center gap-2 mt-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <Input
+                placeholder="Search data by name, email, organization..."
+                className="h-10 pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base flex items-center"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 flex items-center justify-center">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <Button
+              onClick={openFilterModal}
+              variant={organizationFilter || cityFilter || jobFilter ? "default" : "outline"}
+              size="icon"
+              className="flex-shrink-0 h-10 w-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex items-center justify-center relative"
             >
+              <Filter className="h-5 w-5" />
+              {(organizationFilter || cityFilter || jobFilter) && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full" />
+              )}
+            </Button>
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[400px] flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-12 h-12 border-b-2 border-blue-600 rounded-full animate-spin mx-auto mb-6" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{t("members.loading")}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">{t("members.loadingMessage")}</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[400px] flex items-center justify-center">
+              <div className="text-center max-w-md">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6"><span className="text-3xl">⚠️</span></div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{t("members.errorLoading")}</h3>
+                <p className="text-gray-500 text-sm mb-6">{error}</p>
+                <Button onClick={() => loadMembers()} className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">{t("members.tryAgain")}</Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Desktop Table */}
+          {!loading && !error && (
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }}
+              className="hidden xl:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md overflow-hidden mt-4">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
                       <TableHead className="w-10 text-center px-2">#</TableHead>
-                      <TableHead className="min-w-[120px] px-2">{t('members.table.name')}</TableHead>
-                      <TableHead className="min-w-[130px] px-2">{t('members.table.organization')}</TableHead>
-                      <TableHead className="min-w-[150px] px-2">{t('members.table.contact')}</TableHead>
-                      <TableHead className="min-w-[80px] px-2">{t('members.table.job')}</TableHead>
-                      <TableHead className="min-w-[100px] px-2">{t('members.table.city')}</TableHead>
+                      <TableHead className="min-w-[120px] px-2">{t("members.table.name")}</TableHead>
+                      <TableHead className="min-w-[130px] px-2">{t("members.table.organization")}</TableHead>
+                      <TableHead className="min-w-[150px] px-2">{t("members.table.contact")}</TableHead>
+                      <TableHead className="min-w-[80px] px-2">{t("members.table.job")}</TableHead>
+                      <TableHead className="min-w-[100px] px-2">{t("members.table.city")}</TableHead>
                       <TableHead className="min-w-[140px] px-2">
-                        <div className="w-full flex justify-center">
-                          <span className="text-center">{t('members.table.actions')}</span>
-                        </div>
+                        <div className="w-full flex justify-center"><span className="text-center">{t("members.table.actions")}</span></div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {currentMembers.map((m, index) => (
-                      <TableRow 
-                        key={m.id} 
-                        onClick={() => openDetailModal(m)}
-                        className="cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0"
-                      >
+                      <TableRow key={m.id} onClick={() => openDetailModal(m)} className="cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0">
                         <TableCell className="text-gray-500 text-center px-2 py-1.5">{indexOfFirstItem + index + 1}</TableCell>
                         <TableCell className="font-medium text-gray-900 dark:text-gray-100 px-2 py-1.5 break-words min-w-[120px]">{m.name}</TableCell>
                         <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[130px]">{m.organization || "—"}</TableCell>
                         <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 min-w-[150px]">
                           <div className="flex flex-col">
                             <span className="text-gray-900 dark:text-gray-100 break-words">{m.email || "—"}</span>
-                            {m.phone && (
-                              <span className="text-xs text-gray-500 mt-0.5 break-words">{m.phone}</span>
-                            )}
+                            {m.phone && <span className="text-xs text-gray-500 mt-0.5 break-words">{m.phone}</span>}
                           </div>
                         </TableCell>
                         <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[80px]">{m.job || "—"}</TableCell>
@@ -908,25 +214,14 @@ export default function MembersPage() {
                         <TableCell className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-center gap-1.5">
                             {(role === "owner" || role === "manager" || role === "staff") && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-gray-300"
-                                onClick={() => openEdit(m)}
-                              >
-                                {t('common.edit')}
-                              </Button>
+                              <Button variant="outline" size="sm" className="border-gray-300" onClick={() => openEdit(m)}>{t("common.edit")}</Button>
                             )}
-                            <LoadingButton 
-                              size="sm"
-                              className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed" 
-                              onClick={() => deleteMember(m.id)}
-                              isLoading={deleting === m.id}
-                              loadingText={language === 'id' ? 'Menghapus...' : 'Deleting...'}
-                              variant="destructive"
-                              disabled={!canDelete || deleting === m.id}
-                            >
-                              {t('common.delete')}
+                            <LoadingButton size="sm"
+                              className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={() => deleteMember(m.id)} isLoading={deleting === m.id}
+                              loadingText={language === "id" ? "Menghapus..." : "Deleting..."}
+                              variant="destructive" disabled={!canDelete || deleting === m.id}>
+                              {t("common.delete")}
                             </LoadingButton>
                           </div>
                         </TableCell>
@@ -936,33 +231,20 @@ export default function MembersPage() {
                       <TableRow>
                         <TableCell colSpan={7} className="text-center text-gray-500 dark:text-gray-400 py-16">
                           <div className="text-center">
-                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <span className="text-2xl text-gray-400 dark:text-gray-500">👥</span>
-                            </div>
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-2xl text-gray-400">👥</span></div>
                             {searchQuery ? (
                               <>
-                                <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('members.search.noResults')}</h3>
-                                <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.search.noMatch')} &quot;{searchQuery}&quot;</p>
-                                <button
-                                  onClick={() => setSearchQuery("")}
-                                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-500 font-medium"
-                                >
-                                  {t('members.search.clearSearch')}
-                                </button>
+                                <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t("members.search.noResults")}</h3>
+                                <p className="text-gray-500 dark:text-gray-400 mb-4">{t("members.search.noMatch")} &quot;{searchQuery}&quot;</p>
+                                <button onClick={() => setSearchQuery("")} className="text-blue-600 hover:text-blue-700 font-medium">{t("members.search.clearSearch")}</button>
                               </>
                             ) : (
                               <>
-                                <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('members.noMembersTitle')}</h3>
-                                <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.noMembersMessage')}</p>
+                                <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t("members.noMembersTitle")}</h3>
+                                <p className="text-gray-500 dark:text-gray-400 mb-4">{t("members.noMembersMessage")}</p>
                                 {(role === "owner" || role === "manager" || role === "staff") && (
-                                  <button
-                                    onClick={() => {
-                                      setAddModalOpen(true);
-                                      setFormErrors({});
-                                    }}
-                                    className="text-blue-600 hover:text-blue-700 font-medium"
-                                  >
-                                    {language === 'id' ? 'Tambah Data' : 'Add Data'}
+                                  <button onClick={() => { setAddModalOpen(true); setFormErrors({}); }} className="text-blue-600 hover:text-blue-700 font-medium">
+                                    {language === "id" ? "Tambah Data" : "Add Data"}
                                   </button>
                                 )}
                               </>
@@ -975,553 +257,222 @@ export default function MembersPage() {
                 </Table>
               </div>
             </motion.div>
-            )}
+          )}
 
-            {/* Mobile & Tablet Card View */}
-            {!loading && !error && (
-              <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-4">
-                {currentMembers.map((m) => (
-                  <div
-                    key={m.id}
-                    onClick={() => openDetailModal(m)}
-                    className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md hover:-translate-y-1 cursor-pointer transition-all duration-300 ease-in-out transform will-change-transform"
-                  >
-                    {/* Member Details - Compact Vertical Layout */}
-                    <div className="space-y-2 mb-3">
-                      {/* Name */}
-                      <div>
-                        <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-                          {t('members.table.name')}
-                        </div>
-                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                          {m.name}
-                        </div>
-                      </div>
-
-                      {/* Organization & Job */}
-                      <div className="grid grid-cols-2 gap-x-3">
-                        <div>
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-                            {t('members.table.organization')}
-                          </div>
-                          <div className="text-gray-700 dark:text-gray-300 text-xs">
-                            {m.organization || "—"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-                            {t('members.table.job')}
-                          </div>
-                          <div className="text-gray-700 dark:text-gray-300 text-xs">
-                            {m.job || "—"}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Email & Phone */}
-                      <div className="grid grid-cols-2 gap-x-3">
-                        <div>
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-                            Email
-                          </div>
-                          <div className="text-gray-700 dark:text-gray-300 text-xs break-words">
-                            {m.email || "—"}
-                          </div>
-                        </div>
-                        {m.phone && (
-                          <div>
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-                              Phone
-                            </div>
-                            <div className="text-gray-700 dark:text-gray-300 text-xs">
-                              {m.phone}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* City */}
-                      {m.city && (
-                        <div>
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-                            {t('members.table.city')}
-                          </div>
-                          <div className="text-gray-700 dark:text-gray-300 text-xs">
-                            {m.city}
-                          </div>
-                        </div>
-                      )}
+          {/* Mobile Card View */}
+          {!loading && !error && (
+            <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-4">
+              {currentMembers.map((m) => (
+                <div key={m.id} onClick={() => openDetailModal(m)}
+                  className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md hover:-translate-y-1 cursor-pointer transition-all duration-300">
+                  <div className="space-y-2 mb-3">
+                    <div><div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{t("members.table.name")}</div><div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{m.name}</div></div>
+                    <div className="grid grid-cols-2 gap-x-3">
+                      <div><div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{t("members.table.organization")}</div><div className="text-gray-700 dark:text-gray-300 text-xs">{m.organization || "—"}</div></div>
+                      <div><div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{t("members.table.job")}</div><div className="text-gray-700 dark:text-gray-300 text-xs">{m.job || "—"}</div></div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+                    <div className="grid grid-cols-2 gap-x-3">
+                      <div><div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Email</div><div className="text-gray-700 dark:text-gray-300 text-xs break-words">{m.email || "—"}</div></div>
+                      {m.phone && <div><div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Phone</div><div className="text-gray-700 dark:text-gray-300 text-xs">{m.phone}</div></div>}
+                    </div>
+                    {m.city && <div><div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{t("members.table.city")}</div><div className="text-gray-700 dark:text-gray-300 text-xs">{m.city}</div></div>}
+                  </div>
+                  <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+                    {(role === "owner" || role === "manager" || role === "staff") && (
+                      <Button variant="outline" size="sm" className="flex-1 border-gray-300" onClick={() => openEdit(m)}>{t("common.edit")}</Button>
+                    )}
+                    <LoadingButton size="sm"
+                      className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:opacity-50"
+                      onClick={() => deleteMember(m.id)} isLoading={deleting === m.id}
+                      loadingText={language === "id" ? "Menghapus..." : "Deleting..."}
+                      variant="destructive" disabled={!canDelete || deleting === m.id}>
+                      {t("common.delete")}
+                    </LoadingButton>
+                  </div>
+                </div>
+              ))}
+              {filteredMembers.length === 0 && (
+                <div className="col-span-full bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-2xl text-gray-400">👥</span></div>
+                  {searchQuery ? (
+                    <>
+                      <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t("members.search.noResults")}</h3>
+                      <p className="text-gray-500 mb-4">{t("members.search.noMatch")} &quot;{searchQuery}&quot;</p>
+                      <button onClick={() => setSearchQuery("")} className="text-blue-600 hover:text-blue-700 font-medium">{t("members.search.clearSearch")}</button>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t("members.noMembersTitle")}</h3>
+                      <p className="text-gray-500 mb-4">{t("members.noMembersMessage")}</p>
                       {(role === "owner" || role === "manager" || role === "staff") && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1 border-gray-300" 
-                          onClick={() => openEdit(m)}
-                        >
-                          {t('common.edit')}
-                        </Button>
-                      )}
-                      <LoadingButton 
-                        size="sm"
-                        className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed" 
-                        onClick={() => deleteMember(m.id)}
-                        isLoading={deleting === m.id}
-                        loadingText={language === 'id' ? 'Menghapus...' : 'Deleting...'}
-                        variant="destructive"
-                        disabled={!canDelete || deleting === m.id}
-                      >
-                        {t('common.delete')}
-                      </LoadingButton>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Empty State for Card View */}
-                {filteredMembers.length === 0 && (
-                  <div className="col-span-full bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
-                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-2xl text-gray-400 dark:text-gray-500">👥</span>
-                    </div>
-                    {searchQuery ? (
-                      <>
-                        <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('members.search.noResults')}</h3>
-                        <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.search.noMatch')} &quot;{searchQuery}&quot;</p>
-                        <button
-                          onClick={() => setSearchQuery("")}
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-500 font-medium"
-                        >
-                          {t('members.search.clearSearch')}
+                        <button onClick={() => { setAddModalOpen(true); setFormErrors({}); }} className="text-blue-600 hover:text-blue-700 font-medium">
+                          {language === "id" ? "Tambah Data" : "Add Data"}
                         </button>
-                      </>
-                    ) : (
-                      <>
-                        <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('members.noMembersTitle')}</h3>
-                        <p className="text-gray-500 dark:text-gray-400 mb-4">{t('members.noMembersMessage')}</p>
-                        {(role === "owner" || role === "manager" || role === "staff") && (
-                          <button
-                            onClick={() => {
-                              setAddModalOpen(true);
-                              setFormErrors({});
-                            }}
-                            className="text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            {language === 'id' ? 'Tambah Data' : 'Add Data'}
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && !error && filteredMembers.length > 0 && (
+            <div className="flex flex-row justify-between items-center gap-2 mt-4 px-2">
+              <div className="text-sm text-gray-500 flex-shrink-0">
+                Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredMembers.length)} of {filteredMembers.length} data
+                {searchQuery && <span className="ml-1 text-gray-400 hidden sm:inline">(filtered from {membersData.length})</span>}
               </div>
-            )}
-            
-            {/* Pagination Controls */}
-            {!loading && !error && filteredMembers.length > 0 && (
-              <div className="flex flex-row justify-between items-center gap-2 mt-4 px-2">
-                <div className="text-sm text-gray-500 flex-shrink-0">
-                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredMembers.length)} of {filteredMembers.length} data
-                  {searchQuery && <span className="ml-1 text-gray-400 hidden sm:inline">(filtered from {membersData.length})</span>}
-                </div>
-                {/* Mobile: Compact pagination with chevron only */}
-                <div className="flex items-center gap-2 sm:hidden flex-shrink-0">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="h-7 px-3"
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                  </Button>
-                  <div className="text-sm text-gray-600 px-2 whitespace-nowrap">
-                    Page {currentPage} of {totalPages}
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="h-7 px-3"
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                  </Button>
-                </div>
-                {/* Desktop: Full pagination with Previous/Next text */}
-                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                  </Button>
-                  <div className="text-sm text-gray-600 px-3">
-                    Page {currentPage} of {totalPages}
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
+              <div className="flex items-center gap-2 sm:hidden flex-shrink-0">
+                <Button variant="outline" size="sm" className="h-7 px-3" onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} disabled={currentPage === 1}><ChevronLeft className="h-3 w-3" /></Button>
+                <div className="text-sm text-gray-600 px-2 whitespace-nowrap">Page {currentPage} of {totalPages}</div>
+                <Button variant="outline" size="sm" className="h-7 px-3" onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}><ChevronRight className="h-3 w-3" /></Button>
               </div>
-            )}
-
-            {/* Add Data Modal */}
-            {addModalOpen && (
-              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in-0 duration-200" onClick={() => setAddModalOpen(false)}>
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === 'id' ? 'Tambah Data' : 'Add Data'}</h3>
-                    <Button variant="outline" onClick={() => setAddModalOpen(false)} size="icon" aria-label="Close">
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')} <span className="text-red-500">*</span></label>
-                      <Input 
-                        value={form.name} 
-                        placeholder={t('members.form.fullNamePlaceholder')} 
-                        onChange={(e) => {
-                          setForm({ ...form, name: e.target.value });
-                          if (formErrors.name) setFormErrors({ ...formErrors, name: '' });
-                        }}
-                        className={formErrors.name ? 'border-red-500 focus:border-red-500' : ''}
-                      />
-                      {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
-                      <Input 
-                        type="email" 
-                        value={form.email} 
-                        placeholder="name@example.com" 
-                        onChange={(e) => {
-                          setForm({ ...form, email: e.target.value });
-                          if (formErrors.email) setFormErrors({ ...formErrors, email: '' });
-                        }}
-                        className={formErrors.email ? 'border-red-500 focus:border-red-500' : ''}
-                      />
-                      {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
-                      <Input 
-                        value={form.organization} 
-                        placeholder={t('members.form.optional')} 
-                        onChange={(e) => {
-                          setForm({ ...form, organization: e.target.value });
-                          if (formErrors.organization) setFormErrors({ ...formErrors, organization: '' });
-                        }}
-                        className={formErrors.organization ? 'border-red-500 focus:border-red-500' : ''}
-                      />
-                      {formErrors.organization && <p className="text-xs text-red-500 mt-1">{formErrors.organization}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.phone')}</label>
-                      <Input 
-                        value={form.phone} 
-                        placeholder={t('members.form.optional')} 
-                        onChange={(e) => {
-                          setForm({ ...form, phone: e.target.value });
-                          if (formErrors.phone) setFormErrors({ ...formErrors, phone: '' });
-                        }}
-                        className={formErrors.phone ? 'border-red-500 focus:border-red-500' : ''}
-                      />
-                      {formErrors.phone && <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.job')}</label>
-                      <Input value={form.job} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, job: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.dob')}</label>
-                      <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.address')}</label>
-                      <Input value={form.address} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.city')}</label>
-                      <Input value={form.city} placeholder={t('members.form.optional')} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-                    </div>
-                    <div className="flex items-end lg:col-span-3">
-                      <LoadingButton 
-                        type="submit" 
-                        isLoading={adding}
-                        loadingText={language === 'id' ? 'Menyimpan...' : 'Saving...'}
-                        variant="primary"
-                        className="gradient-primary text-white"
-                      >
-                        {t('common.save')}
-                      </LoadingButton>
-                    </div>
-                  </form>
-                </div>
+              <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4 mr-1" />Previous</Button>
+                <div className="text-sm text-gray-600 px-3">Page {currentPage} of {totalPages}</div>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Next<ChevronRight className="h-4 w-4 ml-1" /></Button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Edit Data Modal */}
-            {editOpen && (
-              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in-0 duration-200" onClick={() => setEditOpen(false)}>
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === 'id' ? 'Edit Data' : 'Edit Data'}</h3>
-                    <Button variant="outline" onClick={() => setEditOpen(false)} size="icon" aria-label="Close">
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <form onSubmit={submitEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.fullName')} <span className="text-red-500">*</span></label>
-                      <Input 
-                        value={editForm.name} 
-                        onChange={(e) => {
-                          setEditForm({ ...editForm, name: e.target.value });
-                          if (editFormErrors.name) setEditFormErrors({ ...editFormErrors, name: '' });
-                        }}
-                        className={editFormErrors.name ? 'border-red-500 focus:border-red-500' : ''}
-                      />
-                      {editFormErrors.name && <p className="text-xs text-red-500 mt-1">{editFormErrors.name}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.email')}</label>
-                      <Input 
-                        type="email" 
-                        value={editForm.email} 
-                        onChange={(e) => {
-                          setEditForm({ ...editForm, email: e.target.value });
-                          if (editFormErrors.email) setEditFormErrors({ ...editFormErrors, email: '' });
-                        }}
-                        className={editFormErrors.email ? 'border-red-500 focus:border-red-500' : ''}
-                      />
-                      {editFormErrors.email && <p className="text-xs text-red-500 mt-1">{editFormErrors.email}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.organization')}</label>
-                      <Input 
-                        value={editForm.organization} 
-                        onChange={(e) => {
-                          setEditForm({ ...editForm, organization: e.target.value });
-                          if (editFormErrors.organization) setEditFormErrors({ ...editFormErrors, organization: '' });
-                        }}
-                        className={editFormErrors.organization ? 'border-red-500 focus:border-red-500' : ''}
-                      />
-                      {editFormErrors.organization && <p className="text-xs text-red-500 mt-1">{editFormErrors.organization}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.phone')}</label>
-                      <Input 
-                        value={editForm.phone} 
-                        onChange={(e) => {
-                          setEditForm({ ...editForm, phone: e.target.value });
-                          if (editFormErrors.phone) setEditFormErrors({ ...editFormErrors, phone: '' });
-                        }}
-                        className={editFormErrors.phone ? 'border-red-500 focus:border-red-500' : ''}
-                      />
-                      {editFormErrors.phone && <p className="text-xs text-red-500 mt-1">{editFormErrors.phone}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.job')}</label>
-                      <Input value={editForm.job} onChange={(e) => setEditForm({ ...editForm, job: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.dob')}</label>
-                      <Input type="date" value={editForm.date_of_birth} onChange={(e) => setEditForm({ ...editForm, date_of_birth: e.target.value })} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.address')}</label>
-                      <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('members.form.city')}</label>
-                      <Input value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
-                    </div>
-                    <div className="flex items-end">
-                      <LoadingButton 
-                        type="submit" 
-                        isLoading={editSaving}
-                        loadingText={language === 'id' ? 'Menyimpan...' : 'Saving...'}
-                        variant="primary"
-                        className="gradient-primary text-white"
-                      >
-                        {language === 'id' ? 'Simpan' : 'Save'}
-                      </LoadingButton>
-                    </div>
-                  </form>
+          {/* Add Data Modal */}
+          {addModalOpen && (
+            <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in-0 duration-200" onClick={() => setAddModalOpen(false)}>
+              <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === "id" ? "Tambah Data" : "Add Data"}</h3>
+                  <Button variant="outline" onClick={() => setAddModalOpen(false)} size="icon" aria-label="Close"><X className="w-4 h-4" /></Button>
                 </div>
-              </div>
-            )}
-
-            {/* Member Detail Modal */}
-            {detailModalOpen && detailMember && (
-              <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 sm:p-6">
-                  {/* Header - Fixed */}
-                  <DialogHeader className="px-4 sm:px-0 pt-4 sm:pt-0 pb-4 flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
-                    <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      {t('members.detail.title')}
-                    </DialogTitle>
-                  </DialogHeader>
-                  
-                  {/* Content - Scrollable */}
-                  <div className="flex-1 overflow-y-auto px-4 sm:px-0 py-4 sm:py-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                      {/* Name */}
-                      <div className="space-y-1">
-                        <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
-                        <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.name}</div>
-                      </div>
-
-                      {/* Email */}
-                      {detailMember.email && (
-                        <div className="space-y-1">
-                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
-                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{detailMember.email}</div>
-                        </div>
-                      )}
-
-                      {/* Phone */}
-                      {detailMember.phone && (
-                        <div className="space-y-1">
-                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
-                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.phone}</div>
-                        </div>
-                      )}
-
-                      {/* Organization */}
-                      {detailMember.organization && (
-                        <div className="space-y-1">
-                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Organization / School</label>
-                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.organization}</div>
-                        </div>
-                      )}
-
-                      {/* Job */}
-                      {detailMember.job && (
-                        <div className="space-y-1">
-                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Job / Position</label>
-                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.job}</div>
-                        </div>
-                      )}
-
-                      {/* Date of Birth */}
-                      {detailMember.date_of_birth && (
-                        <div className="space-y-1">
-                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth</label>
-                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
-                            {formatReadableDate(detailMember.date_of_birth, language)}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* City */}
-                      {detailMember.city && (
-                        <div className="space-y-1">
-                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">City</label>
-                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.city}</div>
-                        </div>
-                      )}
-
-                      {/* Address */}
-                      {detailMember.address && (
-                        <div className="space-y-1 sm:col-span-2">
-                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Address</label>
-                          <div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{detailMember.address}</div>
-                        </div>
-                      )}
-
-                      {/* Notes */}
-                      {detailMember.notes && (
-                        <div className="space-y-1 sm:col-span-2">
-                          <label className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Notes</label>
-                          <div className="text-sm sm:text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">{detailMember.notes}</div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Metadata */}
-                    {(detailMember.created_at || detailMember.updated_at) && (
-                      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                          <div>
-                            {detailMember.created_at && (
-                              <>
-                                <span className="font-medium">Created:</span>{' '}
-                                <span className="text-gray-600 dark:text-gray-300">
-                                  {formatReadableDate(detailMember.created_at, language)}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          <div>
-                            {detailMember.updated_at && (
-                              <>
-                                <span className="font-medium">Updated:</span>{' '}
-                                <span className="text-gray-600 dark:text-gray-300">
-                                  {formatReadableDate(detailMember.updated_at, language)}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.fullName")} <span className="text-red-500">*</span></label>
+                    <Input value={form.name} placeholder={t("members.form.fullNamePlaceholder")} onChange={(e) => { setForm({ ...form, name: e.target.value }); if (formErrors.name) setFormErrors({ ...formErrors, name: "" }); }} className={formErrors.name ? "border-red-500 focus:border-red-500" : ""} />
+                    {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
                   </div>
-                  
-                  {/* Action Buttons - Fixed at bottom */}
-                  {(role === "owner" || role === "manager" || role === "staff") && (
-                    <div className="flex-shrink-0 px-4 sm:px-0 pt-4 pb-4 sm:pb-0 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex justify-end gap-3">
-                        <Button
-                          className="gradient-primary text-white text-sm sm:text-base px-4 sm:px-6"
-                          onClick={() => {
-                            setDetailModalOpen(false);
-                            openEdit(detailMember);
-                          }}
-                        >
-                          Edit
-                        </Button>
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.email")}</label>
+                    <Input type="email" value={form.email} placeholder="name@example.com" onChange={(e) => { setForm({ ...form, email: e.target.value }); if (formErrors.email) setFormErrors({ ...formErrors, email: "" }); }} className={formErrors.email ? "border-red-500 focus:border-red-500" : ""} />
+                    {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.organization")}</label>
+                    <Input value={form.organization} placeholder={t("members.form.optional")} onChange={(e) => { setForm({ ...form, organization: e.target.value }); if (formErrors.organization) setFormErrors({ ...formErrors, organization: "" }); }} className={formErrors.organization ? "border-red-500 focus:border-red-500" : ""} />
+                    {formErrors.organization && <p className="text-xs text-red-500 mt-1">{formErrors.organization}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.phone")}</label>
+                    <Input value={form.phone} placeholder={t("members.form.optional")} onChange={(e) => { setForm({ ...form, phone: e.target.value }); if (formErrors.phone) setFormErrors({ ...formErrors, phone: "" }); }} className={formErrors.phone ? "border-red-500 focus:border-red-500" : ""} />
+                    {formErrors.phone && <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>}
+                  </div>
+                  <div className="space-y-2"><label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.job")}</label><Input value={form.job} placeholder={t("members.form.optional")} onChange={(e) => setForm({ ...form, job: e.target.value })} /></div>
+                  <div className="space-y-2"><label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.dob")}</label><Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} /></div>
+                  <div className="space-y-2 md:col-span-2"><label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.address")}</label><Input value={form.address} placeholder={t("members.form.optional")} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+                  <div className="space-y-2"><label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.city")}</label><Input value={form.city} placeholder={t("members.form.optional")} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                  <div className="flex items-end lg:col-span-3">
+                    <LoadingButton type="submit" isLoading={adding} loadingText={language === "id" ? "Menyimpan..." : "Saving..."} variant="primary" className="gradient-primary text-white">{t("common.save")}</LoadingButton>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Data Modal */}
+          {editOpen && (
+            <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in-0 duration-200" onClick={() => setEditOpen(false)}>
+              <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{language === "id" ? "Edit Data" : "Edit Data"}</h3>
+                  <Button variant="outline" onClick={() => setEditOpen(false)} size="icon" aria-label="Close"><X className="w-4 h-4" /></Button>
+                </div>
+                <form onSubmit={submitEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.fullName")} <span className="text-red-500">*</span></label>
+                    <Input value={editForm.name} onChange={(e) => { setEditForm({ ...editForm, name: e.target.value }); if (editFormErrors.name) setEditFormErrors({ ...editFormErrors, name: "" }); }} className={editFormErrors.name ? "border-red-500 focus:border-red-500" : ""} />
+                    {editFormErrors.name && <p className="text-xs text-red-500 mt-1">{editFormErrors.name}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.email")}</label>
+                    <Input type="email" value={editForm.email} onChange={(e) => { setEditForm({ ...editForm, email: e.target.value }); if (editFormErrors.email) setEditFormErrors({ ...editFormErrors, email: "" }); }} className={editFormErrors.email ? "border-red-500 focus:border-red-500" : ""} />
+                    {editFormErrors.email && <p className="text-xs text-red-500 mt-1">{editFormErrors.email}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.organization")}</label>
+                    <Input value={editForm.organization} onChange={(e) => { setEditForm({ ...editForm, organization: e.target.value }); if (editFormErrors.organization) setEditFormErrors({ ...editFormErrors, organization: "" }); }} className={editFormErrors.organization ? "border-red-500 focus:border-red-500" : ""} />
+                    {editFormErrors.organization && <p className="text-xs text-red-500 mt-1">{editFormErrors.organization}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.phone")}</label>
+                    <Input value={editForm.phone} onChange={(e) => { setEditForm({ ...editForm, phone: e.target.value }); if (editFormErrors.phone) setEditFormErrors({ ...editFormErrors, phone: "" }); }} className={editFormErrors.phone ? "border-red-500 focus:border-red-500" : ""} />
+                    {editFormErrors.phone && <p className="text-xs text-red-500 mt-1">{editFormErrors.phone}</p>}
+                  </div>
+                  <div className="space-y-2"><label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.job")}</label><Input value={editForm.job} onChange={(e) => setEditForm({ ...editForm, job: e.target.value })} /></div>
+                  <div className="space-y-2"><label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.dob")}</label><Input type="date" value={editForm.date_of_birth} onChange={(e) => setEditForm({ ...editForm, date_of_birth: e.target.value })} /></div>
+                  <div className="space-y-2 md:col-span-2"><label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.address")}</label><Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} /></div>
+                  <div className="space-y-2"><label className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t("members.form.city")}</label><Input value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} /></div>
+                  <div className="flex items-end">
+                    <LoadingButton type="submit" isLoading={editSaving} loadingText={language === "id" ? "Menyimpan..." : "Saving..."} variant="primary" className="gradient-primary text-white">{language === "id" ? "Simpan" : "Save"}</LoadingButton>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Member Detail Modal */}
+          {detailModalOpen && detailMember && (
+            <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+              <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 sm:p-6">
+                <DialogHeader className="px-4 sm:px-0 pt-4 sm:pt-0 pb-4 flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
+                  <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{t("members.detail.title")}</DialogTitle>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto px-4 sm:px-0 py-4 sm:py-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="space-y-1"><label className="text-xs sm:text-sm font-medium text-gray-500">Full Name</label><div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.name}</div></div>
+                    {detailMember.email && <div className="space-y-1"><label className="text-xs sm:text-sm font-medium text-gray-500">Email</label><div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{detailMember.email}</div></div>}
+                    {detailMember.phone && <div className="space-y-1"><label className="text-xs sm:text-sm font-medium text-gray-500">Phone</label><div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.phone}</div></div>}
+                    {detailMember.organization && <div className="space-y-1"><label className="text-xs sm:text-sm font-medium text-gray-500">Organization / School</label><div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.organization}</div></div>}
+                    {detailMember.job && <div className="space-y-1"><label className="text-xs sm:text-sm font-medium text-gray-500">Job / Position</label><div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.job}</div></div>}
+                    {detailMember.date_of_birth && <div className="space-y-1"><label className="text-xs sm:text-sm font-medium text-gray-500">Date of Birth</label><div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{formatReadableDate(detailMember.date_of_birth, language)}</div></div>}
+                    {detailMember.city && <div className="space-y-1"><label className="text-xs sm:text-sm font-medium text-gray-500">City</label><div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{detailMember.city}</div></div>}
+                    {detailMember.address && <div className="space-y-1 sm:col-span-2"><label className="text-xs sm:text-sm font-medium text-gray-500">Address</label><div className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{detailMember.address}</div></div>}
+                    {detailMember.notes && <div className="space-y-1 sm:col-span-2"><label className="text-xs sm:text-sm font-medium text-gray-500">Notes</label><div className="text-sm sm:text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">{detailMember.notes}</div></div>}
+                  </div>
+                  {(detailMember.created_at || detailMember.updated_at) && (
+                    <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                        <div>{detailMember.created_at && <><span className="font-medium">Created:</span> <span className="text-gray-600 dark:text-gray-300">{formatReadableDate(detailMember.created_at, language)}</span></>}</div>
+                        <div>{detailMember.updated_at && <><span className="font-medium">Updated:</span> <span className="text-gray-600 dark:text-gray-300">{formatReadableDate(detailMember.updated_at, language)}</span></>}</div>
                       </div>
                     </div>
                   )}
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-        </section>
+                </div>
+                {(role === "owner" || role === "manager" || role === "staff") && (
+                  <div className="flex-shrink-0 px-4 sm:px-0 pt-4 pb-4 sm:pb-0 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-end gap-3">
+                      <Button className="gradient-primary text-white text-sm sm:text-base px-4 sm:px-6" onClick={() => { setDetailModalOpen(false); openEdit(detailMember); }}>Edit</Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </section>
 
-        {/* Excel Import Info Modal */}
-        <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
+      {/* Excel Info Modal */}
+      <Dialog open={showExcelInfoModal} onOpenChange={setShowExcelInfoModal}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl text-gray-900 dark:text-gray-100">
               <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
-              {t('members.excel.title')}
+              {t("members.excel.title")}
             </DialogTitle>
           </DialogHeader>
-          
           <div className="space-y-3 sm:space-y-4">
-            {/* Columns To Fill */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4 bg-gray-50 dark:bg-gray-800/50">
-              <h3 className="font-semibold text-xs sm:text-sm mb-2 sm:mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.optionalColumns')}</h3>
+              <h3 className="font-semibold text-xs sm:text-sm mb-2 sm:mb-3 text-gray-900 dark:text-gray-100">{t("members.excel.optionalColumns")}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
-                <div className="flex items-start gap-1.5">
-                  <span className="text-red-500 font-bold">*</span>
-                  <span className="font-medium">Name</span>
-                </div>
+                <div className="flex items-start gap-1.5"><span className="text-red-500 font-bold">*</span><span className="font-medium">Name</span></div>
                 <div>• <span className="font-medium">Email</span></div>
                 <div>• <span className="font-medium">Organization</span></div>
                 <div>• <span className="font-medium">Phone</span></div>
@@ -1530,60 +481,30 @@ export default function MembersPage() {
                 <div>• <span className="font-medium">Address</span></div>
                 <div>• <span className="font-medium">City</span></div>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 sm:mt-3">
-                <span className="text-red-500">*</span> Required field
-              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 sm:mt-3"><span className="text-red-500">*</span> Required field</p>
             </div>
-
-            {/* Example Table */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4 bg-white dark:bg-gray-900">
-              <h3 className="font-semibold text-xs sm:text-sm mb-2 sm:mb-3 text-gray-900 dark:text-gray-100">{t('members.excel.exampleFormat')}</h3>
+              <h3 className="font-semibold text-xs sm:text-sm mb-2 sm:mb-3 text-gray-900 dark:text-gray-100">{t("members.excel.exampleFormat")}</h3>
               <div className="w-full overflow-x-auto">
                 <table className="w-full min-w-0 text-[10px] sm:text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-gray-100 dark:bg-gray-800">
-                      <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Name*</th>
-                      <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Email</th>
-                      <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100 hidden sm:table-cell">Organization</th>
-                      <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Phone</th>
-                    </tr>
-                  </thead>
+                  <thead><tr className="bg-gray-100 dark:bg-gray-800">
+                    <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Name*</th>
+                    <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Email</th>
+                    <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100 hidden sm:table-cell">Organization</th>
+                    <th className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-left text-gray-900 dark:text-gray-100">Phone</th>
+                  </tr></thead>
                   <tbody>
-                    <tr>
-                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">John Doe</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 break-words">john@example.com</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 hidden sm:table-cell">ABC Corp</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">08123456789</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">Jane Smith</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 break-words">jane@example.com</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 hidden sm:table-cell">XYZ Inc</td>
-                      <td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">08198765432</td>
-                    </tr>
+                    <tr><td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">John Doe</td><td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 break-words">john@example.com</td><td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 hidden sm:table-cell">ABC Corp</td><td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">08123456789</td></tr>
+                    <tr><td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">Jane Smith</td><td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 break-words">jane@example.com</td><td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100 hidden sm:table-cell">XYZ Inc</td><td className="border border-gray-300 dark:border-gray-600 p-1.5 sm:p-2 text-gray-900 dark:text-gray-100">08198765432</td></tr>
                   </tbody>
                 </table>
               </div>
             </div>
-
-            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-2 sm:justify-end pt-2 sm:pt-3 border-t border-gray-200 dark:border-gray-700">
-              <Button
-                variant="outline"
-                onClick={() => setShowExcelInfoModal(false)}
-                className="w-full sm:w-auto text-sm"
-              >
-                {t('members.excel.cancel')}
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowExcelInfoModal(false);
-                  excelInputRef.current?.click();
-                }}
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full sm:w-auto text-sm"
-              >
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                {t('members.excel.chooseFile')}
+              <Button variant="outline" onClick={() => setShowExcelInfoModal(false)} className="w-full sm:w-auto text-sm">{t("members.excel.cancel")}</Button>
+              <Button onClick={() => { setShowExcelInfoModal(false); excelInputRef.current?.click(); }}
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white w-full sm:w-auto text-sm">
+                <FileSpreadsheet className="w-4 h-4 mr-2" />{t("members.excel.chooseFile")}
               </Button>
             </div>
           </div>
@@ -1592,111 +513,43 @@ export default function MembersPage() {
 
       {/* Filter Modal */}
       <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
-        <DialogContent 
-          className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-[80vh] overflow-visible"
-          style={{ 
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            maxHeight: '80vh'
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              applyFilters();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              cancelFilters();
-            }
-          }}
-        >
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 max-h-[80vh] overflow-visible"
+          style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", maxHeight: "80vh" }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); applyFilters(); } else if (e.key === "Escape") { e.preventDefault(); cancelFilters(); } }}>
           <DialogHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
-            <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-blue-500" />
-              <DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle>
-            </div>
+            <div className="flex items-center gap-2"><Filter className="h-5 w-5 text-blue-500" /><DialogTitle className="text-gray-900 dark:text-white">Filter</DialogTitle></div>
           </DialogHeader>
-          
           <div className="space-y-4 py-4 overflow-y-auto max-h-[50vh]">
-            {/* Organization Filter */}
             <div className="space-y-2 relative">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Organization</label>
-              <select
-                value={tempOrganizationFilter}
-                onChange={(e) => setTempOrganizationFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                style={{ position: 'relative', zIndex: 1 }}
-              >
+              <select value={tempOrganizationFilter} onChange={(e) => setTempOrganizationFilter(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ position: "relative", zIndex: 1 }}>
                 <option value="">All</option>
-                {uniqueOrganizations.map((org) => (
-                  <option key={org} value={org}>
-                    {org}
-                  </option>
-                ))}
+                {uniqueOrganizations.map((org) => <option key={org} value={org}>{org}</option>)}
               </select>
             </div>
-
-            {/* City Filter */}
             <div className="space-y-2 relative">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">City</label>
-              <select
-                value={tempCityFilter}
-                onChange={(e) => setTempCityFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                style={{ position: 'relative', zIndex: 1 }}
-              >
+              <select value={tempCityFilter} onChange={(e) => setTempCityFilter(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ position: "relative", zIndex: 1 }}>
                 <option value="">All</option>
-                {uniqueCities.map((city) => (
-                  <option key={city} value={city}>
-                    {city}
-                  </option>
-                ))}
+                {uniqueCities.map((city) => <option key={city} value={city}>{city}</option>)}
               </select>
             </div>
-
-            {/* Job Filter */}
             <div className="space-y-2 relative">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Job</label>
-              <select
-                value={tempJobFilter}
-                onChange={(e) => setTempJobFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                style={{ position: 'relative', zIndex: 1 }}
-              >
+              <select value={tempJobFilter} onChange={(e) => setTempJobFilter(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ position: "relative", zIndex: 1 }}>
                 <option value="">All</option>
-                {uniqueJobs.map((job) => (
-                  <option key={job} value={job}>
-                    {job}
-                  </option>
-                ))}
+                {uniqueJobs.map((job) => <option key={job} value={job}>{job}</option>)}
               </select>
             </div>
           </div>
-
-          {/* Actions */}
           <div className="flex gap-2 pt-4">
-            <Button
-              onClick={cancelFilters}
-              variant="outline"
-              className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={applyFilters}
-              className="flex-1 gradient-primary text-white"
-            >
-              Apply
-            </Button>
+            <Button onClick={cancelFilters} variant="outline" className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</Button>
+            <Button onClick={applyFilters} className="flex-1 gradient-primary text-white">Apply</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Toast Notifications */}
       <Toaster position="top-right" richColors />
     </ModernLayout>
   );
 }
-
-
