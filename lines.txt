@@ -1,0 +1,17 @@
+693 src\app\cek\[...certificate_no]\page.tsx
+525 src\app\tenants\[tenantId]\page.tsx
+351 src\app\certificate\[certificate_no]\page.tsx
+294 src\app\auth\callback\page.tsx
+283 src\app\certificates\page.tsx
+271 src\app\tenants\page.tsx
+242 src\app\templates\configure\page.tsx
+238 src\app\profile\page.tsx
+231 src\app\about\page.tsx
+200 src\app\data\page.tsx
+178 src\app\search\page.tsx
+169 src\app\templates\page.tsx
+148 src\app\invite\[token]\page.tsx
+142 src\app\faq\page.tsx
+124 src\app\categories\page.tsx
+103 src\app\page.tsx
+70 src\app\c\redirect\[id]\page.tsx
