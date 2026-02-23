@@ -1,167 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/auth-context";
 import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { useLanguage } from "@/contexts/language-context";
+import { useLoginModal } from "@/features/auth/hooks/useLoginModal";
 
 export function LoginModal() {
-  const { openLogin, setOpenLogin, signIn, signInWithOAuth, loading } = useAuth();
-  const { t } = useLanguage();
-  const safeT = (key: string, fallback: string) => {
-    const value = t(key);
-    if (!value || value === key) return fallback;
-    return value;
-  };
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [fullNameError, setFullNameError] = useState("");
-  const [confirmPasswordError, setConfirmPasswordError] = useState("");
-  const [isMobile, setIsMobile] = useState(false);
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [infoMessage, setInfoMessage] = useState("");
-
-  // Detect mobile screen size
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Reset form and errors when modal opens/closes
-  useEffect(() => {
-    if (!openLogin) {
-      // Reset form when modal closes
-      setMode("login");
-      setEmail("");
-      setPassword("");
-      setFullName("");
-      setConfirmPassword("");
-      setShowPassword(false);
-      setEmailError("");
-      setPasswordError("");
-      setFullNameError("");
-      setConfirmPasswordError("");
-      setSubmitLoading(false);
-      setInfoMessage("");
-    }
-  }, [openLogin]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setEmailError("");
-    setPasswordError("");
-    setFullNameError("");
-    setConfirmPasswordError("");
-    
-    // Client-side validation
-    let hasError = false;
-    
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError(t('error.login.invalidEmail'));
-      hasError = true;
-    }
-
-    if (!password || password.length < 6) {
-      const msg = mode === "register" ? t('error.login.invalidPassword') : t('error.login.invalidPassword');
-      setPasswordError(msg);
-      hasError = true;
-    }
-
-    if (mode === "register") {
-      if (!fullName.trim()) {
-        setFullNameError(t('profile.fullNameRequired') || 'Full name is required');
-        hasError = true;
-      }
-
-      if (confirmPassword !== password) {
-        // Use a specific key for password mismatch to make the validation clearer
-        setConfirmPasswordError(
-          safeT('error.login.passwordMismatch', 'Passwords do not match')
-        );
-        hasError = true;
-      }
-    }
-    
-    if (hasError) return;
-
-    setSubmitLoading(true);
-
-    try {
-      if (mode === "login") {
-        await signIn(email, password);
-      } else {
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, full_name: fullName }),
-        });
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          const message = typeof data?.error === 'string' ? data.error : 'Registration failed';
-          setEmailError(message);
-          return;
-        }
-
-        // Registration successful: show info message and switch to login mode
-        setInfoMessage(
-          safeT(
-            'login.registerCheckEmail',
-            'Registration successful. Please check your email and confirm your account before logging in.',
-          ),
-        );
-        setMode('login');
-        setFullNameError("");
-        setConfirmPasswordError("");
-      }
-    } catch (err: unknown) {
-      // Check if error is related to invalid credentials
-      const errorMessage = err instanceof Error ? err.message.toLowerCase() : '';
-      
-      console.log('Login error:', errorMessage);
-      
-      // Handle specific error messages from Supabase
-      if (errorMessage.includes('invalid login') || 
-          errorMessage.includes('invalid email') || 
-          errorMessage.includes('email not confirmed')) {
-        setEmailError(t('error.login.invalidCredentials'));
-        setPasswordError(t('error.login.invalidCredentials'));
-      } else if (errorMessage.includes('password')) {
-        setPasswordError(t('error.login.invalidCredentials'));
-      } else if (errorMessage.includes('email') || errorMessage.includes('user')) {
-        setEmailError(t('error.login.invalidCredentials'));
-      } else {
-        // Generic error for both fields
-        setEmailError(t('error.login.invalidCredentials'));
-        setPasswordError(t('error.login.invalidCredentials'));
-      }
-    } finally {
-      setSubmitLoading(false);
-    }
-  }
-
-  // Handle modal close - prevent closing while loading
-  const handleOpenChange = (open: boolean) => {
-    // Don't allow closing modal while loading to prevent state inconsistency
-    if (!open && loading) {
-      return;
-    }
-    setOpenLogin(open);
-  };
+  const {
+    openLogin,
+    loading,
+    handleOpenChange,
+    signInWithOAuth,
+    handleSubmit,
+    mode,
+    setMode,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    fullName,
+    setFullName,
+    confirmPassword,
+    setConfirmPassword,
+    showPassword,
+    setShowPassword,
+    emailError,
+    setEmailError,
+    passwordError,
+    setPasswordError,
+    fullNameError,
+    setFullNameError,
+    confirmPasswordError,
+    setConfirmPasswordError,
+    isMobile,
+    t,
+    safeT,
+  } = useLoginModal();
 
   return (
     <Dialog open={openLogin} onOpenChange={handleOpenChange}>
@@ -412,7 +288,7 @@ export function LoginModal() {
                       confirmPasswordError
                         ? "border-red-300 dark:border-red-500 focus:border-red-500 dark:focus:border-red-500 focus:ring-red-500/20 dark:focus:ring-red-500/20"
                         : "border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500/20 dark:focus:ring-blue-500/20"
-                    }`}
+                  }`}
                     placeholder={safeT('login.confirmPasswordPlaceholder', 'Confirm your password')}
                   />
                   {confirmPasswordError && (
@@ -435,10 +311,10 @@ export function LoginModal() {
               >
                 <Button
                   type="submit"
-                  disabled={loading || submitLoading}
+                  disabled={loading}
                   className="w-full h-11 sm:h-12 rounded-lg gradient-primary text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
-                  {loading || submitLoading
+                  {loading
                     ? (mode === "login"
                         ? safeT('login.signingIn', 'Loging in...')
                         : safeT('login.registering', 'Registering...'))

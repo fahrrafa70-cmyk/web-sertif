@@ -41,7 +41,7 @@ function CertificatesContent(): ReactElement {
     // Export
     exportingPDF, exportingPNG, generatingLink, exportToPDF, exportToPNG, generateCertificateLink,
     // Send email
-    sendModalOpen, setSendModalOpen, isSendingEmail, sendFormErrors, setSendFormErrors, sendForm, setSendForm, sendPreviewSrcs, openSendEmailModal, confirmSendEmail,
+    sendModalOpen, isSendingEmail, sendFormErrors, sendForm, setSendForm, sendPreviewSrcs, openSendEmailModal, confirmSendEmail, closeSendModal,
     // Generate
     quickGenerateOpen, setQuickGenerateOpen, wizardGenerateOpen, setWizardGenerateOpen, templates, members, handleOpenWizardGenerate, handleQuickGenerate,
     // Edit
@@ -218,10 +218,9 @@ function CertificatesContent(): ReactElement {
 
       <SendEmailDialog
         sendModalOpen={sendModalOpen}
-        setSendModalOpen={setSendModalOpen}
+        closeSendModal={closeSendModal}
         isSendingEmail={isSendingEmail}
         sendFormErrors={sendFormErrors}
-        setSendFormErrors={setSendFormErrors}
         sendForm={sendForm}
         setSendForm={setSendForm}
         sendPreviewSrcs={sendPreviewSrcs}

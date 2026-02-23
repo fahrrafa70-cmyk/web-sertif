@@ -7,10 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 interface SendEmailDialogProps {
   sendModalOpen: boolean;
-  setSendModalOpen: (open: boolean) => void;
+  closeSendModal: () => void;
   isSendingEmail: boolean;
   sendFormErrors: { email?: string; subject?: string; message?: string };
-  setSendFormErrors: (fn: (prev: { email?: string; subject?: string; message?: string }) => { email?: string; subject?: string; message?: string }) => void;
   sendForm: { email: string; subject: string; message: string };
   setSendForm: (fn: (prev: { email: string; subject: string; message: string }) => { email: string; subject: string; message: string }) => void;
   sendPreviewSrcs: { cert: string | null; score: string | null };
@@ -19,21 +18,23 @@ interface SendEmailDialogProps {
 }
 
 export function SendEmailDialog({
-  sendModalOpen, setSendModalOpen, isSendingEmail,
-  sendFormErrors, setSendFormErrors, sendForm, setSendForm,
+  sendModalOpen, closeSendModal, isSendingEmail,
+  sendFormErrors, sendForm, setSendForm,
   sendPreviewSrcs, confirmSendEmail, t,
 }: SendEmailDialogProps) {
   return (
-    <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
+    <Dialog open={sendModalOpen} onOpenChange={closeSendModal}>
       <DialogContent
         className="max-w-xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-4 sm:p-6"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey && e.target instanceof HTMLInputElement) {
             e.preventDefault();
             void confirmSendEmail();
-          } else if (e.key === "Escape") {
+          }
+          // Close on Escape
+          if (e.key === "Escape") {
             e.preventDefault();
-            setSendModalOpen(false);
+            closeSendModal();
           }
         }}
       >
@@ -45,7 +46,7 @@ export function SendEmailDialog({
             <label className="text-sm font-medium text-gray-700 dark:text-white">{t("hero.recipientEmail")}</label>
             <Input
               value={sendForm.email}
-              onChange={(e) => { setSendForm((f) => ({ ...f, email: e.target.value })); if (sendFormErrors.email) setSendFormErrors((err) => ({ ...err, email: undefined })); }}
+              onChange={(e) => { setSendForm((f) => ({ ...f, email: e.target.value })); }}
               onFocus={(e) => e.target.select()}
               disabled={isSendingEmail}
               className={sendFormErrors.email ? "border-red-500" : ""}
@@ -57,7 +58,7 @@ export function SendEmailDialog({
             <label className="text-sm font-medium text-gray-700 dark:text-white">{t("hero.subject")}</label>
             <Input
               value={sendForm.subject}
-              onChange={(e) => { setSendForm((f) => ({ ...f, subject: e.target.value })); if (sendFormErrors.subject) setSendFormErrors((err) => ({ ...err, subject: undefined })); }}
+              onChange={(e) => { setSendForm((f) => ({ ...f, subject: e.target.value })); }}
               onFocus={(e) => e.target.select()}
               placeholder={t("hero.emailSubjectPlaceholder")}
               disabled={isSendingEmail}
@@ -70,7 +71,7 @@ export function SendEmailDialog({
             <label className="text-sm font-medium text-gray-700 dark:text-white">{t("hero.message")}</label>
             <textarea
               value={sendForm.message}
-              onChange={(e) => { setSendForm((f) => ({ ...f, message: e.target.value })); if (sendFormErrors.message) setSendFormErrors((err) => ({ ...err, message: undefined })); }}
+              onChange={(e) => { setSendForm((f) => ({ ...f, message: e.target.value })); }}
               onFocus={(e) => e.target.select()}
               rows={4}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${sendFormErrors.message ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
@@ -99,7 +100,7 @@ export function SendEmailDialog({
           )}
         </div>
         <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t flex-shrink-0">
-          <Button variant="outline" className="border-gray-300 w-full sm:w-auto" onClick={() => setSendModalOpen(false)} disabled={isSendingEmail}>
+          <Button variant="outline" className="border-gray-300 w-full sm:w-auto" onClick={closeSendModal} disabled={isSendingEmail}>
             {t("hero.cancel")}
           </Button>
           <LoadingButton
