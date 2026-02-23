@@ -118,7 +118,7 @@ export function TextLayerProperties({
                 fontFamily: selectedLayer.fontFamily,
               });
               // Remove fontSize from all spans so they inherit from layer
-              const newRichText = currentRichText.map(span => {
+              const newRichText = currentRichText.map((span: TextSpan) => {
                 const { fontSize, ...spanWithoutFontSize } = span;
                 return spanWithoutFontSize;
               });
@@ -151,7 +151,7 @@ export function TextLayerProperties({
                 });
                 const { start, end } = richTextSelection;
                 if (start === end) {
-                  const newRichText = currentRichText.map(span => ({ ...span, fontFamily: value }));
+                  const newRichText = currentRichText.map((span: TextSpan) => ({ ...span, fontFamily: value }));
                   updateLayer(selectedLayer.id, { fontFamily: value, richText: newRichText });
                 } else {
                   const newRichText = applyStyleToRange(currentRichText, start, end, { fontFamily: value });
@@ -184,7 +184,7 @@ export function TextLayerProperties({
                 });
                 const { start, end } = richTextSelection;
                 if (start === end) {
-                  const newRichText = currentRichText.map(span => ({ ...span, fontWeight: value }));
+                  const newRichText = currentRichText.map((span: TextSpan) => ({ ...span, fontWeight: value }));
                   updateLayer(selectedLayer.id, { fontWeight: value, richText: newRichText });
                 } else {
                   const newRichText = applyStyleToRange(currentRichText, start, end, { fontWeight: value });
@@ -222,7 +222,7 @@ export function TextLayerProperties({
                 });
                 const { start, end } = richTextSelection;
                 if (start === end) {
-                  const newRichText = currentRichText.map(span => ({ ...span, fontStyle: value as TextSpan['fontStyle'] }));
+                  const newRichText = currentRichText.map((span: TextSpan) => ({ ...span, fontStyle: value as TextSpan['fontStyle'] }));
                   updateLayer(selectedLayer.id, { fontStyle: value as TextLayer['fontStyle'], richText: newRichText });
                 } else {
                   const newRichText = applyStyleToRange(currentRichText, start, end, { fontStyle: value as TextSpan['fontStyle'] });
@@ -304,7 +304,7 @@ export function TextLayerProperties({
                 const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
                   fontWeight: selectedLayer.fontWeight, fontFamily: selectedLayer.fontFamily, color: selectedLayer.color
                 });
-                const newRichText = currentRichText.map(span => ({ ...span, color: newColor }));
+                const newRichText = currentRichText.map((span: TextSpan) => ({ ...span, color: newColor }));
                 updateLayer(selectedLayer.id, { color: newColor, richText: newRichText });
               }}
               className="h-7 sm:h-8 w-10 sm:w-12 border border-gray-200 dark:border-gray-700 rounded bg-transparent flex-shrink-0"
@@ -317,7 +317,7 @@ export function TextLayerProperties({
                 const currentRichText = selectedLayer.richText || plainTextToRichText(selectedLayer.defaultText || '', {
                   fontWeight: selectedLayer.fontWeight, fontFamily: selectedLayer.fontFamily, color: selectedLayer.color
                 });
-                const newRichText = currentRichText.map(span => ({ ...span, color: newColor }));
+                const newRichText = currentRichText.map((span: TextSpan) => ({ ...span, color: newColor }));
                 updateLayer(selectedLayer.id, { color: newColor, richText: newRichText });
               }}
               className="h-7 sm:h-8 text-xs dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 flex-1"
