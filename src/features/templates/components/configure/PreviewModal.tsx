@@ -96,14 +96,12 @@ export function PreviewModal({
 
               const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
               const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
-              const templateScale = templateWidth / STANDARD_CANVAS_WIDTH;
+              const templateScale = 1; // Native resolution font sizes
 
-              const leftPercent = layer.xPercent !== undefined && layer.xPercent !== null
-                ? layer.xPercent * 100
-                : (layer.x / templateWidth) * 100;
-              const topPercent = layer.yPercent !== undefined && layer.yPercent !== null
-                ? layer.yPercent * 100
-                : (layer.y / templateHeight) * 100;
+              const layerXPercent = layer.xPercent !== undefined && layer.xPercent !== null ? layer.xPercent : layer.x / STANDARD_CANVAS_WIDTH;
+              const layerYPercent = layer.yPercent !== undefined && layer.yPercent !== null ? layer.yPercent : layer.y / STANDARD_CANVAS_HEIGHT;
+              const leftPercent = layerXPercent * 100;
+              const topPercent = layerYPercent * 100;
 
               return (
                 <div

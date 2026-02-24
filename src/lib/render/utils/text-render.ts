@@ -13,6 +13,7 @@ export function drawWrappedText(
   textDecoration?: "underline" | "line-through" | "overline", // Optional text decoration
   isUbigTemplate: boolean = false,
   letterSpacing: number = 0,
+  scaleFactor: number = 1,
 ) {
   const isNameLayer = layerId === "name";
 
@@ -178,18 +179,19 @@ export function drawWrappedText(
       layerId.toLowerCase().includes("prestasi"));
 
   let microYAdjustment = 0;
-  // UBIG: semua font kecil 16–20px (default + custom) pakai offset yang sama
+  // Use un-scaled baseFontSize for conditional checks, then apply scaleFactor to the shift
+  const baseFontSize = fontSize / scaleFactor;
   if (isScoreLayerForAdjustment) {
-    microYAdjustment = fontSize * 0.087;
-  } else if (isUbigTemplate && fontSize >= 16 && fontSize <= 20) {
-    microYAdjustment = fontSize * 0.1;
+    microYAdjustment = baseFontSize * 0.087 * scaleFactor;
+  } else if (isUbigTemplate && baseFontSize >= 16 && baseFontSize <= 20) {
+    microYAdjustment = baseFontSize * 0.1 * scaleFactor;
   } else if (
     !isUbigTemplate &&
     (layerId === "certificate_no" || layerId === "issue_date")
   ) {
-    microYAdjustment = fontSize * 0.1;
-  } else if (!isUbigTemplate && fontSize >= 16 && fontSize <= 20) {
-    microYAdjustment = fontSize * 0.4;
+    microYAdjustment = baseFontSize * 0.1 * scaleFactor;
+  } else if (!isUbigTemplate && baseFontSize >= 16 && baseFontSize <= 20) {
+    microYAdjustment = baseFontSize * 0.4 * scaleFactor;
   }
 
   // X positioning, decorations, and drawing kept as in previous version
@@ -427,15 +429,15 @@ export function drawRichText(
 
   let microYAdjustment = 0;
   if (layerId === "certificate_no" || layerId === "issue_date") {
-    microYAdjustment = baseFontSize * 0.1;
+    microYAdjustment = baseFontSize * 0.1 * scaleFactor;
   } else if (isScoreLayerForAdjustment) {
-    microYAdjustment = baseFontSize * 0.087;
+    microYAdjustment = baseFontSize * 0.087 * scaleFactor;
   } else {
     // Generic micro-adjustment for small fonts (e.g. 18px) to better match CSS preview
     // EXPERIMENTAL: Strong offset so effect is clearly visible during testing
     // For baseFontSize ~18px, this gives ~7.2px downward shift (40% of font size)
     if (baseFontSize >= 16 && baseFontSize <= 20) {
-      microYAdjustment = baseFontSize * 0.4;
+      microYAdjustment = baseFontSize * 0.4 * scaleFactor;
     }
   }
 

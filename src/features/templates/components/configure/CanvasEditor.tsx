@@ -155,8 +155,10 @@ export function CanvasEditor({
                 const isSelected = selectedLayerId === layer.id;
                 const templateWidth = templateImageDimensions.width;
                 const templateHeight = templateImageDimensions.height;
-                const leftPercent = layer.xPercent !== undefined && layer.xPercent !== null ? layer.xPercent * 100 : (layer.x / templateWidth) * 100;
-                const topPercent = layer.yPercent !== undefined && layer.yPercent !== null ? layer.yPercent * 100 : (layer.y / templateHeight) * 100;
+                const layerXPercent = layer.xPercent !== undefined && layer.xPercent !== null ? layer.xPercent : layer.x / STANDARD_CANVAS_WIDTH;
+                const layerYPercent = layer.yPercent !== undefined && layer.yPercent !== null ? layer.yPercent : layer.y / STANDARD_CANVAS_HEIGHT;
+                const leftPercent = layerXPercent * 100;
+                const topPercent = layerYPercent * 100;
 
                 const renderText = () => {
                   if (layer.richText && layer.hasInlineFormatting) {
@@ -313,8 +315,10 @@ export function CanvasEditor({
 
               {/* Photo Layers */}
               {photoLayers.sort((a, b) => a.zIndex - b.zIndex).map(layer => {
-                const leftPercent = layer.xPercent * 100;
-                const topPercent = layer.yPercent * 100;
+                const layerXPercent = layer.xPercent !== undefined && layer.xPercent !== null ? layer.xPercent : layer.x! / STANDARD_CANVAS_WIDTH;
+                const layerYPercent = layer.yPercent !== undefined && layer.yPercent !== null ? layer.yPercent : layer.y! / STANDARD_CANVAS_HEIGHT;
+                const leftPercent = layerXPercent * 100;
+                const topPercent = layerYPercent * 100;
                 const widthPercent = layer.widthPercent * 100;
                 const heightPercent = layer.heightPercent * 100;
                 const isSelected = selectedPhotoLayerId === layer.id;
@@ -346,8 +350,10 @@ export function CanvasEditor({
 
               {/* QR Code Layers */}
               {qrLayers.sort((a, b) => a.zIndex - b.zIndex).map(layer => {
-                const leftPercent = layer.xPercent * 100;
-                const topPercent = layer.yPercent * 100;
+                const layerXPercent = layer.xPercent !== undefined && layer.xPercent !== null ? layer.xPercent : layer.x! / STANDARD_CANVAS_WIDTH;
+                const layerYPercent = layer.yPercent !== undefined && layer.yPercent !== null ? layer.yPercent : layer.y! / STANDARD_CANVAS_HEIGHT;
+                const leftPercent = layerXPercent * 100;
+                const topPercent = layerYPercent * 100;
                 const widthPercent = layer.widthPercent * 100;
                 const heightPercent = layer.heightPercent * 100;
                 const isSelected = selectedQRLayerId === layer.id;

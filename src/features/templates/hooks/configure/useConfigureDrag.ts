@@ -46,13 +46,25 @@ export function useConfigureDrag(ctx: DragContext) {
     const th = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
     const scale = canvasScale;
     const startX = e.clientX, startY = e.clientY;
-    const startLX = layer.x, startLY = layer.y;
+    
+    // Accurate percentage or fallback to STANDARD width
+    const startXPercent = layer.xPercent !== undefined && layer.xPercent !== null ? layer.xPercent : layer.x / STANDARD_CANVAS_WIDTH;
+    const startYPercent = layer.yPercent !== undefined && layer.yPercent !== null ? layer.yPercent : layer.y / STANDARD_CANVAS_HEIGHT;
+    const startLX = startXPercent * tw;
+    const startLY = startYPercent * th;
 
     const onMove = (me: PointerEvent) => {
       const nx = Math.max(0, Math.min(tw, startLX + (me.clientX - startX) / scale));
       const ny = Math.max(0, Math.min(th, startLY + (me.clientY - startY) / scale));
       const setter = configMode === "certificate" ? setCertificateTextLayers : setScoreTextLayers;
-      setter((prev) => prev.map((l) => l.id === layerId ? { ...l, x: Math.round(nx), y: Math.round(ny), xPercent: nx / tw, yPercent: ny / th, isDragging: true } : l));
+      setter((prev) => prev.map((l) => l.id === layerId ? { 
+        ...l, 
+        xPercent: nx / tw, 
+        yPercent: ny / th, 
+        x: Math.round((nx / tw) * STANDARD_CANVAS_WIDTH), 
+        y: Math.round((ny / th) * STANDARD_CANVAS_HEIGHT),
+        isDragging: true 
+      } : l));
     };
     const onUp = () => {
       const setter = configMode === "certificate" ? setCertificateTextLayers : setScoreTextLayers;
@@ -145,13 +157,23 @@ export function useConfigureDrag(ctx: DragContext) {
     const th = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
     const scale = canvasScale;
     const startX = e.clientX, startY = e.clientY;
-    const startLX = layer.x, startLY = layer.y;
+    
+    const startXPercent = layer.xPercent !== undefined && layer.xPercent !== null ? layer.xPercent : layer.x / STANDARD_CANVAS_WIDTH;
+    const startYPercent = layer.yPercent !== undefined && layer.yPercent !== null ? layer.yPercent : layer.y / STANDARD_CANVAS_HEIGHT;
+    const startLX = startXPercent * tw;
+    const startLY = startYPercent * th;
 
     const onMove = (me: MouseEvent) => {
       const nx = Math.max(0, Math.min(tw, startLX + (me.clientX - startX) / scale));
       const ny = Math.max(0, Math.min(th, startLY + (me.clientY - startY) / scale));
       const setter = configMode === "certificate" ? setCertificatePhotoLayers : setScorePhotoLayers;
-      setter((prev) => prev.map((l) => l.id === layerId ? { ...l, x: Math.round(nx), y: Math.round(ny), xPercent: nx / tw, yPercent: ny / th } : l));
+      setter((prev) => prev.map((l) => l.id === layerId ? { 
+        ...l, 
+        xPercent: nx / tw, 
+        yPercent: ny / th,
+        x: Math.round((nx / tw) * STANDARD_CANVAS_WIDTH),
+        y: Math.round((ny / th) * STANDARD_CANVAS_HEIGHT)
+      } : l));
     };
     const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
     document.addEventListener("mousemove", onMove);
@@ -168,13 +190,23 @@ export function useConfigureDrag(ctx: DragContext) {
     const th = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
     const scale = canvasScale;
     const startX = e.clientX, startY = e.clientY;
-    const startLX = layer.x, startLY = layer.y;
+    
+    const startXPercent = layer.xPercent !== undefined && layer.xPercent !== null ? layer.xPercent : layer.x / STANDARD_CANVAS_WIDTH;
+    const startYPercent = layer.yPercent !== undefined && layer.yPercent !== null ? layer.yPercent : layer.y / STANDARD_CANVAS_HEIGHT;
+    const startLX = startXPercent * tw;
+    const startLY = startYPercent * th;
 
     const onMove = (me: MouseEvent) => {
       const nx = Math.max(0, Math.min(tw, startLX + (me.clientX - startX) / scale));
       const ny = Math.max(0, Math.min(th, startLY + (me.clientY - startY) / scale));
       const setter = configMode === "certificate" ? setCertificateQRLayers : setScoreQRLayers;
-      setter((prev) => prev.map((l) => l.id === layerId ? { ...l, x: Math.round(nx), y: Math.round(ny), xPercent: nx / tw, yPercent: ny / th } : l));
+      setter((prev) => prev.map((l) => l.id === layerId ? { 
+        ...l, 
+        xPercent: nx / tw, 
+        yPercent: ny / th,
+        x: Math.round((nx / tw) * STANDARD_CANVAS_WIDTH),
+        y: Math.round((ny / th) * STANDARD_CANVAS_HEIGHT)
+      } : l));
     };
     const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
     document.addEventListener("mousemove", onMove);

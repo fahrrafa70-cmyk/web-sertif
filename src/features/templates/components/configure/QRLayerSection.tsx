@@ -95,7 +95,7 @@ export function QRLayerSection({
                 <Label className="text-xs">{t('configure.xPosition')} (px)</Label>
                 <Input
                   type="number" min="0" max={templateImageDimensions?.width || STANDARD_CANVAS_WIDTH} step="1"
-                  value={Math.round(selectedQR.x)}
+                  value={Math.round((selectedQR.xPercent !== undefined && selectedQR.xPercent !== null ? selectedQR.xPercent : selectedQR.x / STANDARD_CANVAS_WIDTH) * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH))}
                   onChange={(e) => {
                     const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
                     const xPx = Number(e.target.value);
@@ -108,7 +108,7 @@ export function QRLayerSection({
                 <Label className="text-xs">{t('configure.yPosition')} (px)</Label>
                 <Input
                   type="number" min="0" max={templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT} step="1"
-                  value={Math.round(selectedQR.y)}
+                  value={Math.round((selectedQR.yPercent !== undefined && selectedQR.yPercent !== null ? selectedQR.yPercent : selectedQR.y / STANDARD_CANVAS_HEIGHT) * (templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT))}
                   onChange={(e) => {
                     const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
                     const yPx = Number(e.target.value);
@@ -126,7 +126,7 @@ export function QRLayerSection({
                 type="number" min="50"
                 max={Math.min(templateImageDimensions?.width || STANDARD_CANVAS_WIDTH, templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT)}
                 step="1"
-                value={Math.round(selectedQR.width)}
+                value={Math.round((selectedQR.widthPercent !== undefined && selectedQR.widthPercent !== null ? selectedQR.widthPercent : selectedQR.width / STANDARD_CANVAS_WIDTH) * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH))}
                 onChange={(e) => {
                   const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
                   const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;

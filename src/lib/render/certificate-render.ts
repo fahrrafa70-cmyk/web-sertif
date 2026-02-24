@@ -416,6 +416,7 @@ export async function renderCertificateToDataURL(
           isDecoration ? style : undefined, // Pass decoration style
           isUbigTemplate,
           scaledLetterSpacing,
+          scaleFactor
         );
       }
     }
@@ -424,15 +425,6 @@ export async function renderCertificateToDataURL(
   return canvas.toDataURL("image/png", 1.0);
 }
 
-
-
-
-
-
-/**
- * Save PNG DataURL to public folder (optional, for persistent storage)
- * This is a client-side helper that generates filename
- */
 export function generatePNGFilename(prefix: string = "generated"): string {
   const timestamp = Date.now();
   return `${prefix}_${timestamp}.png`;

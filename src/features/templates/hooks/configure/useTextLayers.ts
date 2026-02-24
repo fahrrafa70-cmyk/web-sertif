@@ -68,9 +68,15 @@ export function useTextLayers(
   const addTextLayer = useCallback(() => {
     const newId = `custom_${Date.now()}`;
     if (textLayers.some((l) => l.id === newId)) { toast.error("Failed to create unique layer ID."); return; }
+    const tw = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
+    const th = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
+    
     const newLayer: TextLayerConfig = {
-      id: newId, x: 400, y: 200,
-      xPercent: 400 / STANDARD_CANVAS_WIDTH, yPercent: 200 / STANDARD_CANVAS_HEIGHT,
+      id: newId, 
+      x: Math.round(tw * 0.25), 
+      y: Math.round(th * 0.2), // Placing slightly down from the top 
+      xPercent: 0.25, 
+      yPercent: 0.2, // 20% down
       fontSize: 32, color: "#000000", fontWeight: "normal", fontFamily: "Arial",
       textAlign: configMode === "score" ? "center" : "left",
       maxWidth: 400, lineHeight: 1.2,

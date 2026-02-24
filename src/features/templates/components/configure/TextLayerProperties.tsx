@@ -79,7 +79,7 @@ export function TextLayerProperties({
             <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.xPosition')}</Label>
             <Input
               type="number"
-              value={selectedLayer.x}
+              value={Math.round((selectedLayer.xPercent !== undefined && selectedLayer.xPercent !== null ? selectedLayer.xPercent : (selectedLayer.x || 0) / STANDARD_CANVAS_WIDTH) * (templateImageDimensions?.width || STANDARD_CANVAS_WIDTH))}
               onChange={(e) => {
                 const newX = parseInt(e.target.value) || 0;
                 const templateWidth = templateImageDimensions?.width || STANDARD_CANVAS_WIDTH;
@@ -92,7 +92,7 @@ export function TextLayerProperties({
             <Label className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300">{t('configure.yPosition')}</Label>
             <Input
               type="number"
-              value={selectedLayer.y}
+              value={Math.round((selectedLayer.yPercent !== undefined && selectedLayer.yPercent !== null ? selectedLayer.yPercent : (selectedLayer.y || 0) / STANDARD_CANVAS_HEIGHT) * (templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT))}
               onChange={(e) => {
                 const newY = parseInt(e.target.value) || 0;
                 const templateHeight = templateImageDimensions?.height || STANDARD_CANVAS_HEIGHT;
