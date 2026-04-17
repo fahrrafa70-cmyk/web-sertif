@@ -1,5 +1,4 @@
 "use client";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -29,13 +28,8 @@ export function MembersTable({
   setAddModalOpen, setFormErrors, setSearchQuery, t,
 }: MembersTableProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }} transition={{ duration: 0.4 }}
-      className="hidden xl:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md overflow-hidden mt-4"
-    >
-      <div className="overflow-x-auto">
-        <Table>
+    <div className="overflow-x-auto mt-2">
+      <Table className="[&_td]:py-1.5 [&_th]:py-1.5">
           <TableHeader>
             <TableRow className="bg-gray-50/50 dark:bg-gray-800/50">
               <TableHead className="w-10 text-center px-2">#</TableHead>
@@ -51,19 +45,19 @@ export function MembersTable({
           </TableHeader>
           <TableBody>
             {currentMembers.map((m, index) => (
-              <TableRow key={m.id} onClick={() => openDetailModal(m)} className="cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-100 last:border-0">
-                <TableCell className="text-gray-500 text-center px-2 py-1.5">{indexOfFirstItem + index + 1}</TableCell>
-                <TableCell className="font-medium text-gray-900 dark:text-gray-100 px-2 py-1.5 break-words min-w-[120px]">{m.name}</TableCell>
-                <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[130px]">{m.organization || "—"}</TableCell>
-                <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 min-w-[150px]">
+            <TableRow key={m.id} onClick={() => openDetailModal(m)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0">
+                <TableCell className="text-gray-500 text-sm text-center px-2">{indexOfFirstItem + index + 1}</TableCell>
+                <TableCell className="font-medium text-sm text-gray-900 dark:text-gray-100 px-2 break-words min-w-[120px]">{m.name}</TableCell>
+                <TableCell className="text-sm text-gray-700 dark:text-gray-300 px-2 break-words min-w-[130px]">{m.organization || "—"}</TableCell>
+                <TableCell className="text-sm text-gray-700 dark:text-gray-300 px-2 min-w-[150px]">
                   <div className="flex flex-col">
-                    <span className="text-gray-900 dark:text-gray-100 break-words">{m.email || "—"}</span>
+                    <span className="text-sm text-gray-900 dark:text-gray-100 break-words">{m.email || "—"}</span>
                     {m.phone && <span className="text-xs text-gray-500 mt-0.5 break-words">{m.phone}</span>}
                   </div>
                 </TableCell>
-                <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[80px]">{m.job || "—"}</TableCell>
-                <TableCell className="text-gray-700 dark:text-gray-300 px-2 py-1.5 break-words min-w-[100px]">{m.city || "—"}</TableCell>
-                <TableCell className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                <TableCell className="text-sm text-gray-700 dark:text-gray-300 px-2 break-words min-w-[80px]">{m.job || "—"}</TableCell>
+                <TableCell className="text-sm text-gray-700 dark:text-gray-300 px-2 break-words min-w-[100px]">{m.city || "—"}</TableCell>
+                <TableCell className="px-2 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-center gap-1.5">
                     {(role === "owner" || role === "manager" || role === "staff") && (
                       <Button variant="outline" size="sm" className="border-gray-300" onClick={() => openEdit(m)}>{t("common.edit")}</Button>
@@ -106,8 +100,7 @@ export function MembersTable({
               </TableRow>
             )}
           </TableBody>
-        </Table>
-      </div>
-    </motion.div>
+      </Table>
+    </div>
   );
 }

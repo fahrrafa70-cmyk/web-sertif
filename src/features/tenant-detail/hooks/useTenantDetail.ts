@@ -5,7 +5,6 @@ import { confirmToast } from "@/lib/ui/confirm";
 import { supabaseClient } from "@/lib/supabase/client";
 import {
   getTenantById,
-  getTenantMembers,
   createTenantInvite,
   updateTenant,
   deleteTenant,
@@ -41,12 +40,20 @@ export function useTenantDetail(tenantId: string | undefined) {
       try {
         setLoading(true);
         setError(null);
-        const [tenantData, memberData] = await Promise.all([
+        // Fetch tenant and members in parallel
+        // Members use the API route to avoid schema cache join errors
+        const [tenantData, membersRes] = await Promise.all([
           getTenantById(tenantId),
-          getTenantMembers(tenantId),
+          fetch(`/api/tenants/${tenantId}/members`),
         ]);
         setTenant(tenantData);
-        setMembers(memberData);
+        if (membersRes.ok) {
+          const json = await membersRes.json() as { members: TenantMember[] };
+          setMembers(json.members ?? []);
+        } else {
+          const json = await membersRes.json() as { error?: string };
+          throw new Error(json.error ?? "Failed to load members");
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : "Failed to load tenant";
         setError(message);

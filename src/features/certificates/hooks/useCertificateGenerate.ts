@@ -29,6 +29,39 @@ import { replaceVariables, replaceVariablesInRichText } from "@/lib/utils/variab
 import { generatePairedXIDFilenames } from "@/lib/utils/generate-xid";
 import { QuickGenerateParams } from "@/components/certificate/QuickGenerateModal";
 
+/**
+ * Upload image data to Supabase Storage via the API route.
+ * Retries up to `maxAttempts` times on transient network failures
+ * so a single bad TCP packet doesn't cost the user their entire batch.
+ */
+async function uploadWithRetry(
+  imageData: string,
+  fileName: string,
+  maxAttempts = 3
+): Promise<string> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const resp = await fetch("/api/upload-to-storage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageData, fileName, bucketName: "certificates" }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
+      const r = await resp.json();
+      if (!r.success) throw new Error(r.error ?? "Upload returned success=false");
+      return r.url as string;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        // Exponential back-off: 500ms, 1000ms, 2000ms …
+        await new Promise(res => setTimeout(res, 500 * attempt));
+      }
+    }
+  }
+  throw new Error(`Failed to upload "${fileName}" after ${maxAttempts} attempts: ${String(lastError)}`);
+}
+
 export function useCertificateGenerate({
   selectedTenantId,
   refresh,
@@ -178,8 +211,15 @@ export function useCertificateGenerate({
       return r.url as string;
     }
 
-    const certImgUrl = await uploadToStorage(certImgDataUrl, certFileName);
-    const certThumbUrl = await uploadToStorage(certThumb, `preview/${xid}_cert.webp`);
+    // Phase 2: Upload certificate image to Storage
+    let certImgUrl: string;
+    let certThumbUrl: string;
+    try {
+      certImgUrl = await uploadWithRetry(certImgDataUrl, certFileName);
+      certThumbUrl = await uploadWithRetry(certThumb, `preview/${xid}_cert.webp`);
+    } catch (uploadErr) {
+      throw new Error(`[Upload Phase] ${String(uploadErr)}`);
+    }
 
     const certificateDataToSave: CreateCertificateData = {
       certificate_no: finalCertData.certificate_no, name: member.name.trim(),
@@ -196,16 +236,23 @@ export function useCertificateGenerate({
       merged_image: certImgUrl, certificate_image_url: certImgUrl, certificate_thumbnail_url: certThumbUrl,
     };
 
-    const savedCertificate = await createCertificate(certificateDataToSave);
+    // Phase 3: Save certificate record to database
+    let savedCertificate: Awaited<ReturnType<typeof createCertificate>>;
+    try {
+      savedCertificate = await createCertificate(certificateDataToSave);
+    } catch (dbErr) {
+      throw new Error(`[Database Phase] ${String(dbErr)}`);
+    }
 
+    // Phase 4: Re-render with final XID in QR code, then re-upload final files
     try {
       const xidFromDb = savedCertificate.xid;
       const finalCertImgDataUrl = await renderCertificateToDataURL({ templateImageUrl, textLayers, photoLayers: photoLayersForRender, qrLayers: qrLayersForRender, templateId: template.id, templateName: template.name });
       const finalThumb = await generateThumbnail(finalCertImgDataUrl, { format: "webp", quality: 0.85, maxWidth: 1200 });
-      const finalPngUrl = await uploadToStorage(finalCertImgDataUrl, `${xidFromDb}_cert.png`);
-      const finalWebpUrl = await uploadToStorage(finalThumb, `${xidFromDb}_cert.webp`);
+      const finalPngUrl = await uploadWithRetry(finalCertImgDataUrl, `${xidFromDb}_cert.png`);
+      const finalWebpUrl = await uploadWithRetry(finalThumb, `${xidFromDb}_cert.webp`);
       await supabaseClient.from("certificates").update({ certificate_image_url: finalPngUrl, certificate_thumbnail_url: finalWebpUrl }).eq("id", savedCertificate.id);
-    } catch (e) { console.error("⚠️ Post-save render/upload error:", e); }
+    } catch (e) { console.error("⚠️ [Post-save Phase] Re-render/upload error:", e); }
 
     if (template.score_image_url) {
       try {
@@ -213,10 +260,11 @@ export function useCertificateGenerate({
         if (scoreLayout && scoreLayout.textLayers && scoreLayout.textLayers.length > 0) {
           const migratedScoreLayers = scoreLayout.textLayers.filter((l) => l.visible !== false).map((l) => ({
             ...l,
-            x: l.x !== undefined ? l.x : (l.xPercent || 0) * STANDARD_CANVAS_WIDTH,
-            y: l.y !== undefined ? l.y : (l.yPercent || 0) * STANDARD_CANVAS_HEIGHT,
-            xPercent: l.xPercent !== undefined ? l.xPercent : (l.x || 0) / STANDARD_CANVAS_WIDTH,
-            yPercent: l.yPercent !== undefined ? l.yPercent : (l.y || 0) / STANDARD_CANVAS_HEIGHT,
+            // Use percentage-based coordinates as the source of truth (no STANDARD_CANVAS_WIDTH fallback)
+            x: l.xPercent !== undefined ? l.xPercent : (l.x || 0),
+            y: l.yPercent !== undefined ? l.yPercent : (l.y || 0),
+            xPercent: l.xPercent !== undefined ? l.xPercent : 0,
+            yPercent: l.yPercent !== undefined ? l.yPercent : 0,
             maxWidth: l.maxWidth || 300, lineHeight: l.lineHeight || 1.2,
             fontStyle: l.fontStyle || "normal", fontWeight: l.fontWeight || "normal",
           }));
@@ -256,14 +304,14 @@ export function useCertificateGenerate({
 
           const scoreImgDataUrl = await renderCertificateToDataURL({ templateImageUrl: template.score_image_url, textLayers: scoreTextLayers, photoLayers: scorePhotoLayers, qrLayers: scoreQRLayers, templateId: template.id, templateName: template.name });
           const scoreThumb = await generateThumbnail(scoreImgDataUrl, { format: "webp", quality: 0.85, maxWidth: 1200 });
-          const scorePngUrl = await uploadToStorage(scoreImgDataUrl, `${savedCertificate.xid}_score.png`);
-          const scoreWebpUrl = await uploadToStorage(scoreThumb, `preview/${xid}_score.webp`);
+          const scorePngUrl = await uploadWithRetry(scoreImgDataUrl, `${savedCertificate.xid}_score.png`);
+          const scoreWebpUrl = await uploadWithRetry(scoreThumb, `preview/${xid}_score.webp`);
           await supabaseClient.from("certificates").update({ score_image_url: scorePngUrl, score_thumbnail_url: scoreWebpUrl }).eq("id", savedCertificate.id);
         } else {
           const scoreImgDataUrl = await renderCertificateToDataURL({ templateImageUrl: template.score_image_url, textLayers: [], photoLayers: [], qrLayers: [], templateId: template.id, templateName: template.name });
           const scoreThumb = await generateThumbnail(scoreImgDataUrl, { format: "webp", quality: 0.85, maxWidth: 1200 });
-          const scorePngUrl = await uploadToStorage(scoreImgDataUrl, `${savedCertificate.xid}_score.png`);
-          const scoreWebpUrl = await uploadToStorage(scoreThumb, `preview/${xid}_score.webp`);
+          const scorePngUrl = await uploadWithRetry(scoreImgDataUrl, `${savedCertificate.xid}_score.png`);
+          const scoreWebpUrl = await uploadWithRetry(scoreThumb, `preview/${xid}_score.webp`);
           await supabaseClient.from("certificates").update({ score_image_url: scorePngUrl, score_thumbnail_url: scoreWebpUrl }).eq("id", savedCertificate.id);
         }
       } catch (err) { console.error("⚠️ Failed to generate score/back image:", err); }

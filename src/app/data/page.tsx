@@ -78,7 +78,7 @@ export default function MembersPage() {
 
   return (
     <ModernLayout>
-      <section className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 bg-gray-50 dark:bg-gray-900">
+      <section className="relative -mt-10 pb-2 sm:-mt-12 sm:pb-2 bg-gray-50 dark:bg-gray-900">
         <div className="w-full max-w-[1280px] mx-auto px-2 sm:px-3 lg:px-0 relative">
 
           <MembersHeader
@@ -90,7 +90,7 @@ export default function MembersPage() {
           />
 
           {/* Search + Filter */}
-          <div className="flex items-center gap-2 mt-6">
+          <div className="flex items-center gap-2 mt-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               <Input

@@ -3,7 +3,6 @@ import React, { memo } from 'react';
 // import { CompressedThumbnail } from '@/components/ui/compressed-thumbnail';
 // import { PERFORMANCE_CONFIG, isFeatureEnabled } from '@/lib/config/performance-config';
 import { Template, getTemplatePreviewUrl } from '@/lib/supabase/templates';
-import Image from 'next/image';
 // import { getOptimizedTemplateUrl, prefetchOnHover } from '@/lib/supabase/template-optimization';
 // import { debugTemplateImages } from '@/lib/debug/template-debug';
 import { RefreshCw, Layout, Settings, Edit, Trash2 } from 'lucide-react';
@@ -92,15 +91,14 @@ const TemplateCard = memo<TemplateCardProps>(({
           <>
             {/* Debug template image status and trigger thumbnail generation */}
             {/* Debug and auto-generation removed for simplicity */}
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={getTemplatePreviewUrl(template) || '/placeholder.png'}
               alt={template.name}
-              width={300}
-              height={200}
               className="w-full h-full object-contain"
               onLoad={() => onImageLoad(template.id)}
               onError={() => onImageError(template.id)}
-              priority={index < 3}
+              loading={index < 3 ? 'eager' : 'lazy'}
             />
             
             {/* Thumbnail generation loading overlay */}

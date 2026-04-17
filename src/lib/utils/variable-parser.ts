@@ -59,19 +59,30 @@ export function richTextHasVariables(richText: RichText): boolean {
 
 /**
  * Replace variables in plain text with actual data
- * Preserves original text if no data available
+ * - Case-insensitive key matching (e.g. {NAMA} matches "nama" excel header)
+ * - Replaces missing/empty variables with empty string (no raw {VAR} printed on certificate)
  */
 export function replaceVariables(
   text: string, 
-  data: Record<string, string | undefined>
+  data: Record<string, string | undefined>,
+  fallback: string = '' // what to put when a variable has no data
 ): string {
   try {
+    // Build a lowercase key map once for efficient case-insensitive lookup
+    const normalizedData: Record<string, string> = {};
+    for (const [k, v] of Object.entries(data)) {
+      normalizedData[k.trim().toLowerCase()] = v?.trim() ?? '';
+    }
+
     return text.replace(/\{(\w+)\}/g, (match, key) => {
-      const value = data[key];
+      const normalizedKey = key.toLowerCase();
+      // Exact match first, then case-insensitive
+      const value = data[key] ?? data[key.trim()] ?? normalizedData[normalizedKey];
       if (value !== undefined && value !== null && String(value).trim() !== '') {
-        return String(value);
+        return String(value).trim();
       }
-      return match;
+      // Missing data: return fallback (empty string) instead of raw {VARIABLE}
+      return fallback;
     });
   } catch {
     return text;
@@ -79,8 +90,9 @@ export function replaceVariables(
 }
 
 /**
- * Replace variables in rich text while preserving formatting
- * Each variable inherits the formatting of its placeholder
+ * Replace variables in rich text while preserving formatting.
+ * Spans that end up empty after variable replacement are filtered out
+ * so no blank bold/italic segments appear on the certificate.
  */
 export function replaceVariablesInRichText(
   richText: RichText,
@@ -89,18 +101,17 @@ export function replaceVariablesInRichText(
   try {
     const clonedRichText: RichText = JSON.parse(JSON.stringify(richText));
     
-    return clonedRichText.map(span => {
-      if (!hasVariables(span.text)) {
-        return span;
-      }
-      
-      const newText = replaceVariables(span.text, data);
-      
-      return {
-        ...span,
-        text: newText
-      };
-    });
+    return clonedRichText
+      .map(span => {
+        if (!hasVariables(span.text)) {
+          return span;
+        }
+        const newText = replaceVariables(span.text, data, '');
+        return { ...span, text: newText };
+      })
+      // Filter out spans that became completely empty after variable replacement
+      // This prevents invisible empty <span> elements with bold/italic styling
+      .filter(span => span.text.trim().length > 0);
   } catch {
     return richText;
   }
@@ -144,6 +155,38 @@ export function generateSampleData(variables: string[]): Record<string, string> 
  */
 export function isValidVariableName(name: string): boolean {
   return /^\w+$/.test(name);
+}
+
+/**
+ * Validate that all required variables in the template are present in data.
+ * Returns a list of variable names that are missing or empty in the data.
+ * Useful for warning the user BEFORE generating the certificate so they can
+ * fix their Excel file rather than discovering the issue on the final export.
+ *
+ * Case-insensitive matching mirrors the replaceVariables() behavior.
+ */
+export function validateVariables(
+  text: string,
+  data: Record<string, string | undefined>
+): string[] {
+  const variableNames = extractVariables(text);
+  const normalizedKeys = new Set(
+    Object.keys(data).map(k => k.trim().toLowerCase())
+  );
+
+  return variableNames.filter(varName => {
+    const value = data[varName] ?? data[varName.trim()] ?? undefined;
+    if (value !== undefined && String(value).trim() !== '') return false;
+    // Also check case-insensitive
+    if (normalizedKeys.has(varName.toLowerCase())) {
+      // It exists but might be empty
+      const lowerMatched = Object.entries(data).find(
+        ([k]) => k.trim().toLowerCase() === varName.toLowerCase()
+      );
+      return !lowerMatched || !String(lowerMatched[1] ?? '').trim();
+    }
+    return true; // Variable is truly missing
+  });
 }
 
 /**

@@ -6,7 +6,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FileText, Trash2, Edit, Download, ChevronDown, Link, Image as ImageIcon } from "lucide-react";
+import { FileText, Trash2, Edit, Download, ChevronDown, Link, Image as ImageIcon, Upload } from "lucide-react";
 import type { Certificate } from "@/lib/supabase/certificates";
 
 interface CertificatesTableProps {
@@ -53,77 +53,102 @@ export function CertificatesTable({
   }
 
   return (
-    <Table>
+    <Table className="[&_td]:py-2 [&_th]:py-2">
       <TableHeader>
         <TableRow>
-          <TableHead>{t("certificates.tableNo")}</TableHead>
-          <TableHead>{t("certificates.tableName")}</TableHead>
-          <TableHead>{t("certificates.tableDescription")}</TableHead>
-          <TableHead>{t("certificates.tableCategory")}</TableHead>
-          <TableHead>{t("certificates.tableIssueDate")}</TableHead>
-          <TableHead>{t("certificates.tableExpiredDate")}</TableHead>
-          <TableHead className="text-right">{t("certificates.tableActions")}</TableHead>
+          <TableHead className="w-[220px]">{t("certificates.certificateNumber")}</TableHead>
+          <TableHead>{t("certificates.recipient")}</TableHead>
+          <TableHead>{t("certificates.category")}</TableHead>
+          <TableHead>{t("certificates.issuedDate")}</TableHead>
+          <TableHead>{t("certificates.expiryDate")}</TableHead>
+          <TableHead className="text-right">{t("certificates.actions")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {currentCertificates.map((cert) => {
           const isExpired = isCertificateExpired(cert);
+          const isExportingThis = exportingPDF === cert.id || exportingPNG === cert.id;
           return (
             <TableRow
               key={cert.id}
-              className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 ${isExpired ? "opacity-60" : ""}`}
+              className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 ${isExpired ? "bg-red-900/40 dark:bg-red-900/50 hover:bg-red-900/50 dark:hover:bg-red-900/60" : ""}`}
               onClick={() => { setPreviewCertificate(cert); setPreviewMode("certificate"); }}
             >
-              <TableCell className="font-mono text-xs">{cert.certificate_no}</TableCell>
+              <TableCell className="font-mono text-sm font-semibold">{cert.certificate_no}</TableCell>
               <TableCell className="font-medium">{cert.name}</TableCell>
-              <TableCell className="text-gray-500 dark:text-gray-400 max-w-[200px] truncate">{cert.description || "—"}</TableCell>
               <TableCell>{cert.category || "—"}</TableCell>
               <TableCell>{formatDateShort(cert.issue_date)}</TableCell>
               <TableCell>
                 {isExpired ? (
-                  <span className="text-red-500 text-xs font-medium">{formatDateShort(cert.expired_date)} ({t("certificates.expired")})</span>
+                  <span className="text-red-500 text-xs font-medium">
+                    {formatDateShort(cert.expired_date)} ({t("certificates.expired")})
+                  </span>
                 ) : (
                   formatDateShort(cert.expired_date)
                 )}
               </TableCell>
               <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => void exportToPDF(cert)} disabled={!!exportingPDF || isExpired}>
-                      <FileText className="w-4 h-4 mr-2" />
-                      {exportingPDF === cert.id ? t("certificates.exportingPDF") : t("certificates.exportPDF")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void exportToPNG(cert)} disabled={!!exportingPNG || isExpired}>
-                      <Download className="w-4 h-4 mr-2" />
-                      {exportingPNG === cert.id ? t("certificates.exportingPNG") : t("certificates.exportPNG")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void generateCertificateLink(cert)} disabled={!!generatingLink}>
-                      <Link className="w-4 h-4 mr-2" />
-                      {generatingLink === cert.id ? t("certificates.generatingLink") : t("certificates.generateLink")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void openSendEmailModal(cert)} disabled={isExpired}>
-                      <ImageIcon className="w-4 h-4 mr-2" />
-                      {t("certificates.sendEmail")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openEdit(cert)} disabled={tenantRole === "staff" || !tenantRole}>
-                      <Edit className="w-4 h-4 mr-2" />
-                      {t("certificates.edit")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => void requestDelete(cert.id)}
-                      disabled={!canDelete || deletingCertificateId === cert.id}
-                      className="text-red-600 dark:text-red-400"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      {deletingCertificateId === cert.id ? t("certificates.deleting") : t("certificates.delete")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center justify-end gap-1">
+                  {/* Export dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3 gap-1 text-sm"
+                        disabled={isExportingThis || isExpired}
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        {isExportingThis
+                          ? (exportingPDF === cert.id ? t("certificates.exportingPDF") : t("certificates.exportingPNG"))
+                          : "Export"}
+                        <ChevronDown className="h-3 w-3 ml-0.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => void exportToPDF(cert)} disabled={!!exportingPDF || isExpired}>
+                        <FileText className="w-4 h-4 mr-2" />
+                        {t("certificates.exportPDF")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void exportToPNG(cert)} disabled={!!exportingPNG || isExpired}>
+                        <Download className="w-4 h-4 mr-2" />
+                        {t("certificates.exportPNG")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void generateCertificateLink(cert)} disabled={!!generatingLink}>
+                        <Link className="w-4 h-4 mr-2" />
+                        {generatingLink === cert.id ? t("certificates.generatingLink") : t("certificates.generateLink")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void openSendEmailModal(cert)} disabled={isExpired}>
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        {t("certificates.sendEmail")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Edit button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 gap-1 text-sm"
+                    onClick={() => openEdit(cert)}
+                    disabled={tenantRole === "staff" || !tenantRole}
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                    {t("certificates.edit")}
+                  </Button>
+
+                  {/* Delete button */}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-8 px-3 gap-1 text-sm"
+                    onClick={() => void requestDelete(cert.id)}
+                    disabled={!canDelete || deletingCertificateId === cert.id}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {deletingCertificateId === cert.id ? t("certificates.deleting") : t("certificates.delete")}
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           );

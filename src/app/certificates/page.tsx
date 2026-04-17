@@ -92,7 +92,7 @@ function CertificatesContent(): ReactElement {
   return (
     <ModernLayout>
       <section
-        className="relative -mt-4 pb-6 sm:-mt-5 sm:pb-8 overflow-x-hidden"
+        className="relative -mt-10 pb-2 sm:-mt-12 sm:pb-2 overflow-x-hidden"
         style={{ backgroundColor: "var(--background, #f9fafb)" } as React.CSSProperties}
       >
         <div className="w-full max-w-[1280px] mx-auto px-3 sm:px-4 md:px-6 lg:px-4 xl:px-0 relative overflow-x-hidden">
@@ -167,14 +167,18 @@ function CertificatesContent(): ReactElement {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t("certificates.showing")} {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filtered.length)} {t("certificates.of")} {filtered.length}
+                    Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filtered.length)} of {filtered.length} certificates
                   </p>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
                       <ChevronLeft className="h-4 w-4" />
+                      {t("certificates.previous")}
                     </Button>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{currentPage} / {totalPages}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {t("certificates.page").replace("{current}", String(currentPage)).replace("{total}", String(totalPages))}
+                    </span>
                     <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                      {t("certificates.next")}
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>

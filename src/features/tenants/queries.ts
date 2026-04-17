@@ -8,7 +8,6 @@ export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
   if (!session?.user) return [];
 
   const userId = session.user.id;
-  const userEmail = session.user.email;
 
   // Check if user is a global owner/manager via users table
   const { data: userData } = await supabaseClient
@@ -19,6 +18,8 @@ export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
 
   const globalRole = (userData?.role as string | null)?.toLowerCase();
 
+  let tenants: Tenant[] = [];
+
   if (globalRole === "owner" || globalRole === "manager") {
     // Global admins see all tenants they own
     const { data, error } = await supabaseClient
@@ -27,30 +28,48 @@ export async function getTenantsForCurrentUser(): Promise<Tenant[]> {
       .eq("owner_user_id", userId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(`Failed to fetch tenants: ${error.message}`);
-    return (data as Tenant[]) || [];
+    tenants = (data as Tenant[]) || [];
+  } else {
+    // For other roles: fetch through tenant_members
+    const { data: memberRows, error: memberError } = await supabaseClient
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", userId)
+      .eq("status", "active");
+    if (memberError) throw new Error(`Failed to fetch tenant memberships: ${memberError.message}`);
+
+    const tenantIds = (memberRows || [])
+      .map((r) => (r as { tenant_id: string | null }).tenant_id)
+      .filter(Boolean) as string[];
+
+    if (tenantIds.length === 0) return [];
+
+    const { data, error } = await supabaseClient
+      .from("tenants")
+      .select("*")
+      .in("id", tenantIds)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(`Failed to fetch tenants: ${error.message}`);
+    tenants = (data as Tenant[]) || [];
   }
 
-  // For other roles: fetch through tenant_members
-  const { data: memberRows, error: memberError } = await supabaseClient
+  if (tenants.length === 0) return [];
+
+  // Attach member_count for each tenant
+  const tenantIds = tenants.map((t) => t.id);
+  const { data: memberCounts } = await supabaseClient
     .from("tenant_members")
     .select("tenant_id")
-    .eq("user_id", userId)
+    .in("tenant_id", tenantIds)
     .eq("status", "active");
-  if (memberError) throw new Error(`Failed to fetch tenant memberships: ${memberError.message}`);
 
-  const tenantIds = (memberRows || [])
-    .map((r) => (r as { tenant_id: string | null }).tenant_id)
-    .filter(Boolean) as string[];
+  const countMap = new Map<string, number>();
+  (memberCounts || []).forEach((row) => {
+    const tid = (row as { tenant_id: string }).tenant_id;
+    countMap.set(tid, (countMap.get(tid) ?? 0) + 1);
+  });
 
-  if (tenantIds.length === 0) return [];
-
-  const { data, error } = await supabaseClient
-    .from("tenants")
-    .select("*")
-    .in("id", tenantIds)
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(`Failed to fetch tenants: ${error.message}`);
-  return (data as Tenant[]) || [];
+  return tenants.map((t) => ({ ...t, member_count: countMap.get(t.id) ?? 0 }));
 }
 
 export async function getTenantById(id: string): Promise<Tenant | null> {
@@ -67,16 +86,43 @@ export async function getTenantById(id: string): Promise<Tenant | null> {
 }
 
 export async function getTenantMembers(tenantId: string): Promise<TenantMember[]> {
+  // Step 1: fetch tenant_members rows (no join — avoids schema cache error)
   const { data, error } = await supabaseClient
     .from("tenant_members")
-    .select(`
-      *,
-      user:users(id, email, full_name, username, avatar_url)
-    `)
+    .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`Failed to fetch tenant members: ${error.message}`);
-  return (data as TenantMember[]) || [];
+  if (!data || data.length === 0) return [];
+
+  // Step 2: fetch user profiles from email_whitelist for each member
+  const userIds = [...new Set(data.map((m) => m.user_id as string).filter(Boolean))];
+
+  // Get session to look up profiles — use email_whitelist table
+  const { data: profilesData } = await supabaseClient
+    .from("email_whitelist")
+    .select("id, email, full_name, username, avatar_url")
+    .in("id", userIds);
+
+  const profilesMap = new Map(
+    (profilesData || []).map((p) => [p.id as string, p])
+  );
+
+  return data.map((m) => {
+    const profile = profilesMap.get(m.user_id as string) ?? null;
+    return {
+      ...m,
+      user: profile
+        ? {
+            id: profile.id as string,
+            email: profile.email as string,
+            full_name: profile.full_name as string | null,
+            username: profile.username as string | null,
+            avatar_url: profile.avatar_url as string | null,
+          }
+        : null,
+    } as TenantMember;
+  });
 }
 
 export async function getCurrentUserTenantRole(

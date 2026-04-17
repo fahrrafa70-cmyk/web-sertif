@@ -117,49 +117,10 @@ export function CertificatePreviewDialog({
                         unoptimized
                       />
                     )}
-                    {/* Text layer overlay */}
-                    {containerScale > 0 && previewCertificate.text_layers && previewCertificate.text_layers.length > 0 && (
-                      <div className="absolute inset-0 pointer-events-none">
-                        {(previewCertificate.text_layers as TextLayer[]).map((layer) => {
-                          const scoreLayerIds = scoreDefaults?.textLayers?.map((l) => l.id) || [];
-                          if (previewMode === "score" && !scoreLayerIds.includes(layer.id)) return null;
-                          if (previewMode === "certificate" && scoreLayerIds.includes(layer.id)) return null;
-
-                          const actualX = layer.xPercent !== undefined ? `${(layer.xPercent || 0) * 100}%` : `${(layer.x || 0) * containerScale}px`;
-                          const actualY = layer.yPercent !== undefined ? `${(layer.yPercent || 0) * 100}%` : `${(layer.y || 0) * containerScale}px`;
-                          const scaledFontSize = layer.fontSize * containerScale;
-                          const scaledMaxWidth = layer.maxWidth ? layer.maxWidth * containerScale : undefined;
-                          const textAlign = (layer.textAlign as string) || "left";
-                          const transform = textAlign === "center" ? "translate(-50%, -50%)" : textAlign === "right" ? "translate(-100%, -50%)" : "translate(0%, -50%)";
-
-                          return (
-                            <div
-                              key={layer.id}
-                              className="absolute select-none"
-                              style={{
-                                left: actualX,
-                                top: actualY,
-                                fontSize: `${scaledFontSize}px`,
-                                color: layer.color,
-                                fontWeight: layer.fontWeight,
-                                fontFamily: layer.fontFamily,
-                                textAlign: textAlign as React.CSSProperties["textAlign"],
-                                whiteSpace: scaledMaxWidth ? "normal" : "nowrap",
-                                width: scaledMaxWidth ? `${scaledMaxWidth}px` : "auto",
-                                lineHeight: layer.lineHeight || 1.2,
-                                wordWrap: "break-word",
-                                overflowWrap: "break-word",
-                                userSelect: "none",
-                                pointerEvents: "none",
-                                transform,
-                              }}
-                            >
-                              {layer.text}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {/* Text layer overlay intentionally removed:
+                        previewImageSrc is the fully-rendered certificate image
+                        that already has all text baked in. Drawing text_layers
+                        on top would produce double-text. */}
                   </>
                 ) : (
                   <div className="relative z-10 text-center p-6 xl:p-10">

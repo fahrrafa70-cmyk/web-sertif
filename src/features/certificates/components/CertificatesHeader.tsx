@@ -29,8 +29,8 @@ export function CertificatesHeader({
   openFilterModal, handleOpenWizardGenerate, t,
 }: CertificatesHeaderProps) {
   return (
-    <div className="mb-3">
-      <div className="flex flex-col gap-3 mb-4">
+    <div className="mb-1">
+      <div className="flex flex-col gap-2 mb-2">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md flex-shrink-0 gradient-primary">
