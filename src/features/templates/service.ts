@@ -38,12 +38,7 @@ export async function uploadOriginalImage(
 
 // ─── URL helpers ──────────────────────────────────────────────────────────────
 
-export function getTemplateImageUrl(template: Partial<Template>): string | null {
-  if (template.image_path) {
-    // Route through server proxy to handle private buckets
-    return `/api/template-image?path=${encodeURIComponent(template.image_path)}&bucket=templates`;
-  }
-  const rawUrl = template.certificate_image_url ?? null;
+function getProxyUrl(rawUrl: string | null): string | null {
   if (!rawUrl) return null;
 
   // If it's a full Supabase storage URL, extract the path and proxy it
@@ -58,10 +53,23 @@ export function getTemplateImageUrl(template: Partial<Template>): string | null 
         return `/api/template-image?path=${encodeURIComponent(filePath)}&bucket=${encodeURIComponent(bucket)}`;
       }
     } catch {
-      // fall through to returning raw URL
+      // fall through
     }
   }
+  
+  if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+    // Route through server proxy to handle private buckets
+    return `/api/template-image?path=${encodeURIComponent(rawUrl)}&bucket=templates`;
+  }
+
   return rawUrl;
+}
+
+export function getTemplateImageUrl(template: Partial<Template>): string | null {
+  if (template.image_path) {
+    return getProxyUrl(template.image_path);
+  }
+  return getProxyUrl(template.certificate_image_url ?? null);
 }
 
 export function getTemplateImageUrlStatic(template: Partial<Template>): string | null {
@@ -70,7 +78,7 @@ export function getTemplateImageUrlStatic(template: Partial<Template>): string |
 
 export function getTemplatePreviewUrl(template: Partial<Template>): string | null {
   if (template.preview_image_path) {
-    return `/api/template-image?path=${encodeURIComponent(template.preview_image_path)}&bucket=templates`;
+    return getProxyUrl(template.preview_image_path);
   }
   return getTemplateImageUrl(template);
 }

@@ -351,7 +351,13 @@ export function useCertificateGenerate({
           const total = params.members.length; let generated = 0;
           for (const member of params.members) {
             try {
-              await generateSingleCertificate(params.template, member, params.certificateData, defaults, params.dateFormat, params.scoreDataMap?.[member.id], layoutConfig);
+              await generateSingleCertificate(
+                params.template,
+                 member, 
+                 params.certificateData, 
+                 defaults, 
+                 params.dateFormat, 
+                 params.scoreDataMap?.[member.id], layoutConfig);
               generated++;
               toast.loading(`${t("quickGenerate.generatingCertificates")} ${generated}/${total}`, { id: loadingToast });
             } catch (e) { console.error(`❌ Failed for ${member.name}:`, e); }
@@ -377,7 +383,19 @@ export function useCertificateGenerate({
             if (!issueDate) issueDate = new Date().toISOString().split("T")[0];
             const certNo = String(row.certificate_no || row.cert_no || "");
             const expiredDate = String(row.expired_date || row.expiry || "");
-            const tempMember: Member = { id: `temp-${Date.now()}-${generated}`, name, email: String(row.email || ""), organization: String(row.organization || ""), phone: String(row.phone || ""), job: String(row.job || ""), date_of_birth: null, address: String(row.address || ""), city: String(row.city || ""), notes: "", created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+            const tempMember: Member = {
+               id: `temp-${Date.now()}-${generated}`, 
+               name, 
+               email: String(row.email || ""), 
+               organization: String(row.organization || ""), 
+               phone: String(row.phone || ""), 
+               job: String(row.job || ""), 
+               date_of_birth: null, 
+               address: String(row.address || ""), 
+               city: String(row.city || ""), 
+               notes: "", 
+               created_at: new Date().toISOString(), 
+               updated_at: new Date().toISOString() };
             const excelRowData: Record<string, string> = {};
             for (const [k, v] of Object.entries(row)) {
               if (!["name","certificate_no","issue_date","expired_date","description","email","organization","phone","job","address","city"].includes(k)) {
