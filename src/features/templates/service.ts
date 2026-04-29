@@ -41,28 +41,17 @@ export async function uploadOriginalImage(
 function getProxyUrl(rawUrl: string | null): string | null {
   if (!rawUrl) return null;
 
-  // If it's a full Supabase storage URL, extract the path and proxy it
-  if (rawUrl.includes("supabase.co/storage/v1/object/public/")) {
-    try {
-      const url = new URL(rawUrl);
-      // pathname: /storage/v1/object/public/<bucket>/<path>
-      const parts = url.pathname.split("/storage/v1/object/public/")[1]?.split("/");
-      if (parts && parts.length >= 2) {
-        const bucket = parts[0];
-        const filePath = parts.slice(1).join("/");
-        return `/api/template-image?path=${encodeURIComponent(filePath)}&bucket=${encodeURIComponent(bucket)}`;
-      }
-    } catch {
-      // fall through
-    }
-  }
-  
-  if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
-    // Route through server proxy to handle private buckets
-    return `/api/template-image?path=${encodeURIComponent(rawUrl)}&bucket=templates`;
+  // If it's already a full HTTP/HTTPS URL (including Supabase public URLs), 
+  // return it directly so Next.js Image Optimizer can fetch it externally.
+  if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
+    return rawUrl;
   }
 
-  return rawUrl;
+  // If it's just a file path, construct and return the Supabase public URL directly.
+  // This completely bypasses the internal `/api/template-image` proxy,
+  // preventing Vercel's INVALID_IMAGE_OPTIMIZE_REQUEST error on loopback requests.
+  const { data } = supabaseClient.storage.from("templates").getPublicUrl(rawUrl);
+  return data.publicUrl;
 }
 
 export function getTemplateImageUrl(template: Partial<Template>): string | null {
